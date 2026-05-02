@@ -19,7 +19,7 @@ from sklearn.metrics import (
 )
 from tqdm import tqdm
 
-from config_v2 import cfg, load_datasets, validate_dataset, mixup_data
+from config_v2 import cfg, load_datasets, validate_dataset, mixup_data, SEBlock
 
 os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
 
@@ -29,23 +29,6 @@ print("=" * 60)
 print(f"  Device : {cfg.DEVICE}")
 if torch.cuda.is_available():
     print(f"  GPU    : {torch.cuda.get_device_name(0)}")
-
-
-class SEBlock(nn.Module):
-    """Squeeze-and-Excitation block for channel attention."""
-    def __init__(self, channels, reduction=16):
-        super().__init__()
-        self.pool = nn.AdaptiveAvgPool1d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(channels, channels // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(channels // reduction, channels, bias=False),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        w = self.fc(x)
-        return x * w
 
 
 def build_model():
@@ -191,6 +174,7 @@ def train_model(train_loader, val_loader, loss_wts):
         if epoch == cfg.PHASE2_EPOCH and current_phase < 2:
             current_phase = 2
             set_phase(model, 2)
+            patience_counter = 0  # Reset patience for new phase
             optimizer = optim.AdamW(
                 filter(lambda p: p.requires_grad, model.parameters()),
                 lr=cfg.LR_UNFREEZE, weight_decay=cfg.WEIGHT_DECAY
@@ -198,10 +182,12 @@ def train_model(train_loader, val_loader, loss_wts):
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer, mode="max", factor=0.5, patience=5, min_lr=1e-7
             )
+            print("  [INFO] Patience counter reset for Phase 2")
 
         if epoch == cfg.PHASE3_EPOCH and current_phase < 3:
             current_phase = 3
             set_phase(model, 3)
+            patience_counter = 0  # Reset patience for new phase
             optimizer = optim.AdamW(
                 filter(lambda p: p.requires_grad, model.parameters()),
                 lr=cfg.LR_FINETUNE, weight_decay=cfg.WEIGHT_DECAY
