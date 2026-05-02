@@ -1,0 +1,43 @@
+# 🛡️ AEGIS-ONE PROJECT WORK DRAFT: REAL-TIME UPDATES
+
+**Last Updated**: April 27, 2024
+**Current Phase**: Phase 2 — Backend Core & API Integration
+
+---
+
+## ✅ COMPLETED (AI MODELS READY)
+1.  **Email Detection Engine (Model 1)**:
+    - Hybrid DistilBERT + Bi-LSTM + Attention.
+    - Achieved **99.43% Accuracy** & 33.4ms latency.
+    - Verified with "Battle-Test" script.
+2.  **URL Detection Engine (Model 2)**:
+    - 4-Class BERT + Sequential Hybrid.
+    - **CRITICAL UPDATE**: Resolved "Protocol Bias" via total dataset normalization.
+    - Enforced Protocol-Neutrality across cleanup, training, and inference.
+3.  **Core Architecture**:
+    - Decoupled training and inference scripts in `AIML/` folder.
+    - Dynamic device detection (CPU/GPU) implemented.
+    - Integrated `normalize_url` standardization for system-wide consistency.
+
+---
+
+## 🚧 IN PROGRESS
+- [ ] **FastAPI Router Design**: Designing the centralized entry point for all scan requests.
+- [ ] **XAI Logic**: Mapping BERT attention weights to human-readable risky tokens.
+- [ ] **Database Schema**: Defining Supabase/PostgreSQL tables for scan history.
+
+---
+
+## 📅 UPCOMING MILESTONES
+1.  **Attachment/Image Analysis**: Training specific models for file-based threats.
+2.  **SaaS Dashboard**: Building the React-based management interface.
+3.  **Browser Extension**: Real-time URL interception and credential protection.
+4.  **Dockerization**: Creating the "Aegis-One" portable container.
+
+---
+**TEAM UPDATES**:
+- **Ahmed**: Focused on API routing and Model serving.
+- **Muhid**: Starting Attachment model research and DB setup.
+- **Ali**: Designing the Dashboard wireframes and Extension logic.
+
+*End of Update — Next Sync Scheduled for Tomorrow.*
