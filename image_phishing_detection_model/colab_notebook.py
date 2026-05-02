@@ -74,29 +74,10 @@ exec(open('/content/drive/MyDrive/FYP_Phishing/save_report.py').read())
 # ===================== CELL 8: (AFTER TRAINING) Export to ONNX =====================
 # exec(open('/content/drive/MyDrive/FYP_Phishing/export_model.py').read())
 
-# ===================== CELL 8: (OPTIONAL) Test FastAPI Locally on Colab =====================
-# This runs the API server in background and tests it
-# import subprocess, time, requests
-#
-# # Start server in background
-# proc = subprocess.Popen(
-#     ["python", "-m", "uvicorn", "inference:app", "--host", "0.0.0.0", "--port", "8000"],
-#     cwd="/content/drive/MyDrive/FYP_Phishing"
-# )
-# time.sleep(5)
-#
-# # Test health endpoint
-# r = requests.get("http://localhost:8000/health")
-# print(r.json())
-#
-# # Test prediction with a sample image
-# sample_img = "/content/drive/MyDrive/FYP_Phishing/dataset/phishing/" + \
-#     os.listdir("/content/drive/MyDrive/FYP_Phishing/dataset/phishing/")[0]
-# with open(sample_img, "rb") as f:
-#     r = requests.post("http://localhost:8000/predict/image", files={"file": f})
-# print(r.json())
-#
-# proc.terminate()
+# ===================== CELL 8: (TESTING) Run Gradio UI on Colab =====================
+# This will create a public URL so you can test the model with a beautiful UI!
+!pip install -q gradio
+exec(open('/content/drive/MyDrive/FYP_Phishing/test_gradio_colab.py').read())
 
 # ===================== CELL 9: Keep Colab Alive =====================
 # Paste this in browser console (F12 → Console → type 'allow pasting' → Enter):

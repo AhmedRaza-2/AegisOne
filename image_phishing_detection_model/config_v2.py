@@ -3,6 +3,7 @@ AegisOne Phishing Detection - Robust Config & Data Pipeline
 Fixes: data leakage, corrupt images, weak augmentation, missing integrity checks
 """
 import os, torch, warnings
+import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
 from torchvision import datasets, transforms
@@ -12,14 +13,27 @@ warnings.filterwarnings("ignore")
 
 
 class Config:
-    # === Paths (Colab) ===
-    DRIVE_ROOT      = "/content/drive/MyDrive/FYP_Phishing"
-    DATA_DIR        = "/content/drive/MyDrive/FYP_Phishing/dataset"
-    CHECKPOINT_DIR  = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2"
-    CHECKPOINT_PATH = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/ckpt_latest.pth"
-    BEST_MODEL_PATH = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/best_model.pth"
-    RESULTS_PLOT    = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/results.png"
-    EXPORT_PATH     = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/model.onnx"
+    # Detect if we are running in Colab or locally
+    IN_COLAB = os.path.exists("/content")
+    
+    # === Paths ===
+    if IN_COLAB:
+        DRIVE_ROOT      = "/content/drive/MyDrive/FYP_Phishing"
+        DATA_DIR        = "/content/drive/MyDrive/FYP_Phishing/dataset"
+        CHECKPOINT_DIR  = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2"
+        CHECKPOINT_PATH = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/ckpt_latest.pth"
+        BEST_MODEL_PATH = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/best_model.pth"
+        RESULTS_PLOT    = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/results.png"
+        EXPORT_PATH     = "/content/drive/MyDrive/FYP_Phishing/checkpoints_v2/model.onnx"
+    else:
+        # Local paths
+        DRIVE_ROOT      = "."
+        DATA_DIR        = "dataset"
+        CHECKPOINT_DIR  = "checkpoints_v2"
+        CHECKPOINT_PATH = "checkpoints_v2/ckpt_latest.pth"
+        BEST_MODEL_PATH = "checkpoints_v2/best_model.pth"
+        RESULTS_PLOT    = "checkpoints_v2/results.png"
+        EXPORT_PATH     = "checkpoints_v2/model.onnx"
 
     # === Model ===
     NUM_CLASSES     = 2
@@ -57,6 +71,23 @@ class Config:
 
 
 cfg = Config()
+
+
+class SEBlock(nn.Module):
+    """Squeeze-and-Excitation block for channel attention."""
+    def __init__(self, channels, reduction=16):
+        super().__init__()
+        self.pool = nn.AdaptiveAvgPool1d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(channels, channels // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channels // reduction, channels, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        w = self.fc(x)
+        return x * w
 
 
 class SafeImageFolder(datasets.ImageFolder):
