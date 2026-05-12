@@ -1162,3 +1162,318 @@ weighted avg       0.98      0.98      0.98     73791
 💾 Best model saved at: /content/drive/MyDrive/phishing_checkpoints/best_url_model.pt
 📁 Checkpoints saved in: /content/checkpoints
 
+
+
+
+FYP Phishing Detection — Image Model
+Complete Project Handoff Document for Claude Opus
+Air University Islamabad | Student: Muhammad Muhid | muhidbalouch@gmail.com
+
+1. Project Overview
+This is a Final Year Project (FYP) building an in-house AI-based phishing detection system. The full system has multiple detection models working together, each handling a different attack surface.
+
+1.1 Full System Architecture
+Model	Input	Status
+Email Model	Email text content	EXISTS (built with sklearn/React)
+URL Model	URLs extracted from pages	EXISTS
+Attachment Model	File attachments	EXISTS
+Picture Model	Website screenshots	CURRENTLY BUILDING
+Chrome Extension	Captures browser screenshots	PLANNED
+
+1.2 Picture Model Purpose
+The Picture Model is the UNIQUE component — it detects phishing purely through visual analysis of webpage screenshots. Its specific job:
+•	Detect visual brand impersonation (fake PayPal, Google, bank login pages)
+•	Analyze overall visual layout for suspicious patterns
+•	Cannot be replaced by URL or text models — only vision can do this
+•	OCR pipeline: if image contains text/URLs, extract and send to other models
+•	QR pipeline: if image contains QR code, decode URL and send to URL model
+
+2. Technology Stack
+Tool/Library	Purpose	Version
+PyTorch	Deep learning framework	Latest
+torchvision	EfficientNet model + transforms	Latest
+EfficientNet-B3	CNN architecture (pretrained ImageNet)	B3 variant
+scikit-learn	Metrics: F1, AUC, confusion matrix	Latest
+Google Colab	Training environment (free T4 GPU)	T4 GPU
+Google Drive	Permanent storage for all files	Mounted at /content/drive
+WeightedRandomSampler	Fix class imbalance in batches	PyTorch built-in
+Matplotlib/Seaborn	Plotting results	Latest
+
+3. Dataset
+3.1 Current Dataset Status
+Dataset:  READY 
+
+Class	Count	Source	Location on Drive
+Phishing	1697 images	PhishTank URLs (auto-screenshotted)	/dataset/phishing/
+Legitimate	1871 images	Tranco list + curated domains	/dataset/legitimate/
+Total	3568 images	Mixed JPG + PNG (both work fine)	Balanced ratio: 0.91
+
+3.2 Dataset Location on Google Drive
+/content/drive/MyDrive/FYP_Phishing/
+  dataset/
+    phishing/     <- 1697 phishing screenshots
+    legitimate/   <- 1871 legitimate screenshots
+  checkpoints/
+    checkpoint_latest.pth  <- saves every epoch
+    best_model.pth         <- best F1 model
+    training_results.png   <- plots
+  model_final.py           <- current training code
+
+3.3 How Dataset Was Built
+•	Downloaded PhishTank CSV (57,000+ phishing URLs)
+•	Downloaded Tranco top-1M legitimate domains list
+•	Auto-screenshotted URLs using Selenium + headless Chrome on Colab
+•	Cleaned error/dead pages using OCR (pytesseract) — removed 'suspended', '404', 'blocked' pages
+•	Fast validation: thumbnail-based blank image removal (92% threshold)
+•	Final balance check: ratio = 0.91 (very good, nearly balanced)
+
+3.4 Important Dataset Notes
+•	Mixed JPG and PNG files — this is FINE, torchvision handles both automatically
+•	Error pages (Bitly suspended, 404s) were cleaned — these hurt training because model learned wrong patterns
+•	Stratified split used: each class split separately to maintain ratio in train/val/test
+
+4. Model Architecture
+4.1 Why EfficientNet-B3
+Option	Decision	Reason
+EfficientNet-B3	CHOSEN	Best accuracy/size tradeoff, proven on visual tasks
+VGG16/VGG19	Rejected	Too heavy, outdated
+ResNet50	Rejected	Good but EfficientNet outperforms
+Vision Transformer (ViT)	Rejected	Overkill for FYP, needs more data
+EfficientNet-B4	Considered	Could try if B3 plateaus
+
+4.2 Model Architecture Detail
+Base: EfficientNet-B3 pretrained on ImageNet (47.2MB weights)
+Custom Classifier Head (replaces original):
+model.classifier = nn.Sequential(
+    nn.Dropout(p=0.35, inplace=True),
+    nn.Linear(1536, 256),        # in_features=1536 for B3
+    nn.ReLU(inplace=True),
+    nn.Dropout(p=0.15),
+    nn.Linear(256, 2)            # 2 classes: legitimate/phishing
+)
+
+4.3 Three-Phase Training Strategy
+This is the most important part of the training approach:
+Phase	Epochs	What Trains	Learning Rate	Purpose
+Phase 1	0-9	Classifier head ONLY	LR_HEAD = 1e-3	Learn basic features without destroying pretrained weights
+Phase 2	10-24	Last 4 blocks + head	LR_UNFREEZE = 5e-5	Gradually adapt deeper features to phishing patterns
+Phase 3	25-60	Entire model (all layers)	LR_FINETUNE = 1e-5	Fine-tune everything very carefully
+
+4.4 Loss Function
+criterion = nn.CrossEntropyLoss(
+    weight = loss_weights,        # [0.954, 1.054] — handles imbalance
+    label_smoothing = 0.05        # prevents overconfidence
+)
+Loss weights calculated as: total / (2 * class_count) per class
+
+4.5 Optimizer and Scheduler
+optimizer = optim.AdamW(lr=cfg.LR_HEAD, weight_decay=1e-4)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, mode='max', factor=0.5, patience=5, min_lr=1e-7
+)
+Scheduler steps on Val F1 (not loss) — reduces LR by 50% if no F1 improvement for 5 epochs
+
+5. Current Training Configuration
+5.1 Config Class (Currently Running)
+Parameter	Value	Why
+IMAGE_SIZE	224	Standard EfficientNet input, stable
+BATCH_SIZE	32	More stable gradients than 16
+NUM_EPOCHS	60	Previous run stopped too early at 50
+LR_HEAD	1e-3	Strong head training
+LR_UNFREEZE	5e-5	Gentle block unfreezing
+LR_FINETUNE	1e-5	Very careful full fine-tune (fixes zigzag)
+WEIGHT_DECAY	1e-4	L2 regularization
+LABEL_SMOOTHING	0.05	Prevents overconfidence
+DROPOUT_1	0.35	Before first linear layer
+DROPOUT_2	0.15	Before output layer
+PHASE2_EPOCH	10	More head training before unfreezing
+PHASE3_EPOCH	25	More gradual approach
+PATIENCE	15	More patience before early stop
+TRAIN_RATIO	0.70	70% train
+VAL_RATIO	0.15	15% validation
+TEST_RATIO	0.15	15% test
+
+6. Full Training History — What Was Tried
+Run 1 — FAILED: Wrong dataset structure
+Metric	Value
+Classes found	['screenshots'] — only 1 class!
+Problem	Dataset folder was screenshots/phishing and screenshots/legitimate
+Fix	Moved folders up one level to dataset/phishing and dataset/legitimate
+Result	Fixed — classes became ['legitimate', 'phishing']
+
+Run 2 — FAILED: 3 classes
+Metric	Value
+Error	IndexError: Target 2 is out of bounds
+Problem	Old screenshots/ folder still present alongside new phishing/ and legitimate/
+Fix	Deleted screenshots/ folder from Drive
+Result	Fixed
+
+Run 3 — 73% Accuracy (CPU, imbalanced)
+Metric	Value
+Accuracy	73%
+Phishing Recall	35% — missed 65% of real phishing!
+F1 (phishing)	0.42
+AUC-ROC	0.76
+Root cause	Running on CPU (7 min/epoch), class imbalance (72% legit, 28% phishing)
+Dataset	1697 images total
+
+Run 4 — 59% Accuracy (Focal Loss overcorrection)
+Metric	Value
+Accuracy	59% — WORSE than before
+Problem	Applied 3 imbalance fixes simultaneously: FocalLoss + WeightedSampler + ClassWeights
+Effect	Model overcorrected — now biased toward phishing instead of legitimate
+Legitimate accuracy	51%, Phishing accuracy: 84%
+Fix needed	Remove Focal Loss, keep only WeightedSampler + ClassWeights
+
+Run 5 — 78% Accuracy (After dataset expansion + GPU)
+Metric	Value
+Accuracy	78-80%
+AUC-ROC	0.87
+Macro F1	0.80
+GPU	Tesla T4 (35-40 sec/epoch)
+Dataset	3568 images (expanded from 1697)
+Remaining issue	Accuracy curve zigzagging — CosineAnnealingWarmRestarts too aggressive
+Remaining issue	Model still not converged at epoch 50 — needs more epochs
+
+Run 6 — CURRENTLY RUNNING
+Current Run:  RUNNING 
+Setting	Change from Run 5	Expected Improvement
+Scheduler	CosineAnnealingWarmRestarts → ReduceLROnPlateau	Fixes zigzag/instability
+Scheduler metric	Loss → F1	More meaningful optimization
+LR fine-tune	2e-5 → 1e-5	More gentle, prevents overshooting
+Phase 2 blocks	3 → 4	Better gradual unfreezing
+Phase 2 start	Epoch 8 → 10	More head training first
+Phase 3 start	Epoch 20 → 25	Slower progression
+Patience	10 → 15	More time to find improvements
+Epochs	50 → 60	Full convergence
+Augmentation	Strong → Lighter	Less training noise
+
+7. Best Results Achieved So Far
+Metric	Run 3 (Start)	Run 5 (Latest)	Target
+Overall Accuracy	73%	80%	90%+
+Phishing Recall	35%	84%	85%+
+Phishing Precision	54%	76%	85%+
+F1 (Phishing)	0.42	0.80	0.85+
+Macro F1	0.63	0.80	0.88+
+AUC-ROC	0.76	0.87	0.90+
+Training speed	7 min/epoch (CPU)	35-40s/epoch (T4 GPU)	Same
+
+8. Google Colab Setup — Every Session
+8.1 Mandatory Steps Every Session
+Every time Colab runtime resets, run these cells in order:
+
+Cell 1 — Mount Drive
+from google.colab import drive
+drive.mount('/content/drive')
+
+Cell 2 — Install Packages (resets every session)
+!pip install -q torch torchvision scikit-learn matplotlib seaborn tqdm
+
+Cell 3 — Run Training (auto-resumes from checkpoint)
+exec(open('/content/drive/MyDrive/FYP_Phishing/model_final.py').read())
+
+Cell 4 — Keep Colab Alive (browser console, not Colab cell)
+// Press F12 → Console → type 'allow pasting' → Enter → then paste:
+function ClickConnect(){
+  document.querySelector('colab-toolbar-button#connect')?.click();
+}
+setInterval(ClickConnect, 60000);
+
+8.2 GPU Setting
+ALWAYS use T4 GPU: Runtime → Change runtime type → T4 GPU → Save
+Option	Speed	Cost
+CPU	7 min/epoch	Free but impractical
+T4 GPU	35-40 sec/epoch	Free — ALWAYS USE THIS
+A100/H100 GPU	10-15 sec/epoch	Paid (Colab Pro only)
+
+9. Problems Encountered and Solutions
+Problem	Cause	Solution
+ModuleNotFoundError: selenium	Colab runtime reset	Reinstall every session with pip
+SessionNotCreatedException Chrome	Wrong Chrome path	Use webdriver-manager instead of hardcoded path
+Tranco downloaded only 1 URL	URL format changed	Use curated domain list as fallback
+Validation took 3 hours	list(img.getdata()) loads all pixels	Use thumbnail(32x32) for fast validation
+FileNotFoundError model_final.py	File never uploaded to Drive	Write file directly from Colab cell
+AttributeError: no VAL_RATIO	Updated wrong file (old phishing_image_model.py)	Always run model_final.py not old file
+Dataset collecting stopped midway	Colab free tier disconnects at 90 min	Use Kaggle API to download ready datasets
+Error pages in phishing dataset	Dead phishing URLs show Bitly/404 pages	OCR cleaning with pytesseract to remove error pages
+3 classes instead of 2	Old screenshots/ folder not deleted	Delete screenshots/ folder from Drive
+Zigzag accuracy curve	CosineAnnealingWarmRestarts resets LR too aggressively	Switch to ReduceLROnPlateau
+Model stuck at 80%	Training stopped too early, LR too high in Phase 3	60 epochs, patience=15, LR_FINETUNE=1e-5
+
+10. Google Drive File Structure
+MyDrive/
+  FYP_Phishing/
+    model_final.py              <- MAIN training code (run this)
+    phishing_image_model.py     <- OLD file (ignore, do not run)
+    dataset/
+      phishing/                 <- 1697 phishing screenshots
+      legitimate/               <- 1871 legitimate screenshots
+    checkpoints/
+      checkpoint_latest.pth     <- latest checkpoint (all epochs)
+      best_model.pth            <- best F1 model weights
+      training_results.png      <- final results plot
+
+11. What To Do Next (Instructions for Claude Opus)
+11.1 Immediate Actions
+The model is currently training (Run 6). When it finishes:
+•	Check if accuracy reached 90%+ — if yes, the model is done
+•	If still at 80-85%, try the EfficientNet-B4 upgrade (see section 11.2)
+•	After training, build the FastAPI wrapper to serve the model as an endpoint
+•	Then integrate with the Chrome Extension
+
+11.2 If Accuracy Still Below 90% After Run 6
+Try these in order:
+
+Option A — Upgrade to EfficientNet-B4
+from torchvision.models import EfficientNet_B4_Weights
+model = models.efficientnet_b4(weights=EfficientNet_B4_Weights.IMAGENET1K_V1)
+# Change IMAGE_SIZE = 380, BATCH_SIZE = 8
+
+Option B — Add More Data
+# Get more phishing images from Kaggle:
+# Dataset: 'Phishing and legit Website Screenshots Dataset' by Rohith Reddy
+!kaggle datasets download rohithreddy/phishing-and-legit-website-screenshots
+
+Option C — Test Time Augmentation (TTA)
+# During inference, run each image 5 times with different augmentations
+# Average the predictions — boosts accuracy 2-3%
+
+11.3 Next Phase — FastAPI Integration
+After model reaches target accuracy, wrap it as an API:
+# Install: pip install fastapi uvicorn pillow torch torchvision
+
+from fastapi import FastAPI, File, UploadFile
+import torch
+from PIL import Image
+
+app = FastAPI()
+
+@app.post('/predict/image')
+async def predict(file: UploadFile = File(...)):
+    img = Image.open(file.file).convert('RGB')
+    # run through model
+    # return {'prediction': 'phishing', 'confidence': 0.92}
+
+11.4 Chrome Extension Integration
+The Chrome Extension will:
+•	Capture screenshot of active tab using chrome.tabs.captureVisibleTab()
+•	Send screenshot to FastAPI endpoint POST /predict/image
+•	Receive prediction and confidence score
+•	Show alert if phishing detected
+•	Also send extracted URLs to URL model endpoint
+•	Also send extracted text to email model endpoint
+
+12. Key Architecture Decisions Made
+Decision	Choice Made	Reason
+Framework	PyTorch (not TensorFlow)	Consistency with other models in project
+CNN Architecture	EfficientNet-B3	Best accuracy/size tradeoff for FYP
+Transfer Learning	Yes — ImageNet pretrained	Dataset too small to train from scratch
+Image Size	224px	Standard, proven stable
+Imbalance handling	WeightedSampler + ClassWeights (not FocalLoss)	FocalLoss caused overcorrection when combined
+Checkpoint metric	F1 Score (not accuracy)	Accuracy misleading with imbalanced classes
+Scheduler	ReduceLROnPlateau	More stable than CosineAnnealingWarmRestarts
+Storage	Google Drive	Persists across Colab sessions
+Validation split	Stratified 70/15/15	Ensures each class represented equally
+Label smoothing	0.05	Prevents overconfidence, helps generalization
+
+FYP Phishing Detection — Image Model | Muhammad Muhid | Air University Islamabad
