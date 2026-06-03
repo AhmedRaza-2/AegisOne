@@ -11,7 +11,33 @@ from urllib.parse import urlparse
 SUSPICIOUS_TLDS = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top'}
 SHORTENERS = {'bit.ly', 't.co', 'goo.gl', 'tinyurl.com'}
 
+def sanitize_url(url: str) -> str:
+    """
+    Cleans tracking parameters and irrelevant long query strings from URLs
+    to prevent Data Drift/Out-of-Distribution false positives in production.
+    """
+    try:
+        url_str = str(url).strip()
+        if not url_str.startswith(('http://', 'https://')):
+            parsed = urlparse("http://" + url_str)
+        else:
+            parsed = urlparse(url_str)
+            
+        # If it's a known search engine or social media, strip queries
+        domain = parsed.netloc.lower()
+        if any(d in domain for d in ['google.', 'linkedin.com', 'pinterest.com', 'facebook.com', 'youtube.com', 'twitter.com', 'x.com']):
+            # Strip query completely for these to prevent massive anomaly scores
+            # unless it's a specific useful query (like youtube ?v=)
+            if 'youtube.com' not in domain:
+                return parsed.scheme + "://" + parsed.netloc + parsed.path
+                
+        return url_str
+    except:
+        return str(url)
+
 def extract_url_numerical_features(url):
+    # Apply sanitization to the numerical feature extractor too
+    url = sanitize_url(url)
     url_str = str(url).lower().replace("https://", "").replace("http://", "").replace("www.", "")
 
     try:
@@ -88,10 +114,13 @@ class URLDetector(nn.Module):
 
     def forward(self, input_ids, attention_mask, numerical_feats):
 
-        bert_out = self.bert(
+        outputs = self.bert(
             input_ids=input_ids,
-            attention_mask=attention_mask
-        ).last_hidden_state
+            attention_mask=attention_mask,
+            output_attentions=True
+        )
+        bert_out = outputs.last_hidden_state
+        self.last_attentions = outputs.attentions
 
         # CLS token
         text_feat = bert_out[:, 0, :]

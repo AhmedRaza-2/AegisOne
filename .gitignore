@@ -3,6 +3,7 @@
 *.ckpt
 *.csv
 datasets/
+AIML/image_phishing_detection_model/dataset/
 models/
 *.zip
 # Models

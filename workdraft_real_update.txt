@@ -41,3 +41,505 @@
 - **Ali**: Designing the Dashboard wireframes and Extension logic.
 
 *End of Update — Next Sync Scheduled for Tomorrow.*
+
+
+
+                                                                                      
+
+AEGIS-ONE
+In-House AI-Based Phishing Prevention System
+Addressing the Modern Multi-Modal Phishing Threat
+ 
+
+Group Members:
+Ahmed Raza 
+Muhammad Muhid
+Ali Bin Mohsin Mazhar 
+
+Academic Supervisor 
+(Dr. Ashfaq Hussain Farooqi - H.O.D - FCAI - AU )
+
+Industry-Supervisors
+(Muhammad Nadeem Ashraf Head of Cyber Security U Bank Limited)
+&
+(Ms. Maryam Tauheed Manager SE - INARA Technologies)
+
+Department of Computer Science 
+Air University Islamabad (AU)
+
+
+Project Goal:
+To develop and deploy a secure, in-house AI platform for real-time, multi-channel phishing detection and prevention. The AI detection engine operates entirely within the organization's own infrastructure , while system management is delivered via a lightweight SaaS dashboard - ensuring zero sensitive data leaves the enterprise boundary.
+
+
+
+
+Table of Contents
+1. Introduction :Addressing the Evolving Phishing Threat	4
+2. Literature Review	5
+2.1 Machine Learning for Phishing URL and Website Detection	5
+2.2 Deep Learning for Email Phishing Classification	5
+2.3 Browser-Based Real-Time Phishing Detection	6
+2.4 Explainable AI (XAI) in Cybersecurity	6
+2.5 Adversarial Robustness in Phishing Detection	6
+2.6 Multi-Channel and AI-Generated Phishing Threats	7
+2.7 Gap Identified in Existing Literature	7
+3. Problem Statement	7
+     3.1. Problem Statistics	8
+4. Proposed System: Solution / Objectives.	9
+     4.1 Key Differentiators & Scope.	10
+     4.2 Real-Time Interception and Prevention:	10 
+     4.3 Deployment & Features:	10
+     4.4 Core Principles:	10
+     4.5 Strategic Outcome:	11
+5. Related System Analysis	11
+6 Objectives	13
+7. Scope	14
+     7.1 Browser-Based Protection Module	14
+     7.2 Email Security Integration	14
+     7.3 AI Risk Intelligence Engine	14
+     7.4 Enterprise API Module	15
+     7.5 Centralized Admin Dashboard	15
+     7.6 Deployment Architecture	15
+8. Modules	16
+     8.1 Identity & Role Management	16
+     8.2 AI Risk Intelligence Engine	16
+     8.3 Explainable AI (XAI)	16
+     8.4 Real-Time Monitoring	16
+     8.5 Analytics Dashboard	16
+     8.6 Active Prevention Module	16
+     8.7 Incident Reporting Mechanism	16
+     8.8 Enterprise Deployment Module	17
+     8.9 Network Security Layer	17
+     8.10 Client-Side Data Protection	17
+     8.11 Model Retraining & Continuous Learning	17
+     8.12 Web Risk Scoring	17
+     8.13 Adaptive Security Awareness & Simulation	17
+     8.14 False Positive & False Negative Management	17
+     8.15 Incident Recovery & Response Support	17
+9. System Architecture	18
+10. System Limitations/Constraints	18
+11. Data Gathering Approach	19
+13. Project Stakeholders and Roles	20
+14. Module-based Work Division	20
+15. Gantt Chart	22
+16. References	23
+Supervisor Meeting Log:
+
+
+Discussion 
+Task Assignment 
+Supervisor Signature
+
+
+Meeting 01 
+ Date: 24 - 12 – 2025
+
+New FYP Ideas, Feasibility, Constraints. We came up with some ideas and chose one of them.
+
+ 
+
+Write Initial Proposal
+For the selected idea
+
+
+ 
+
+
+
+
+Meeting 02 
+ Date: 11 - 02 – 2026
+
+
+To talk about the connection between the industry and to go over some basic ideas of the projects we are thinking about developing, or in other words, to explain the problem we plan to solve through our final year project.
+
+
+
+
+
+Industry Linkage and Project scope basics how about of the project some questions in our mind for generic development
+
+
+ 
+
+
+Meeting 03 
+ Date: 23 - 02 – 2026
+
+
+
+Project Scope Discussion and modules finalization.
+
+
+
+Finalize The Modules
+
+
+
+Table 1Supervisor Meeting Log for the 'AEGIS-ONE' Project
+1. Introduction: 
+Addressing the Evolving Phishing Threat
+The fast changes in how businesses use digital tools, like email, online websites, cloud services, and the internet, have led to a big increase in cybercrime. Phishing is still one of the biggest and most expensive types of online attacks around the world. The problem with today's defenses is that they mostly only look at emails, but phishing attacks have changed a lot and are no longer just about sending junk emails. The latest threats use advanced techniques like:
+Fraudulent login pages
+Fake Websites
+QR code scams
+Business Email Compromise (BEC)
+Malicious attachments
+Impersonation techniques
+It is also worth noting that the threat landscape in 2025 has expanded to include AI-generated phishing documents, fake invoices crafted by LLMs, and deepfake-assisted voice phishing (vishing). While AEGIS-ONE's current scope addresses digital channel threats (email, browser, QR codes, and web interactions), these emerging vectors are acknowledged and documented as planned future extensions of the platform.
+These techniques are made to deceive users into sharing private login details or sending money. Small and Medium Enterprises (SMEs) are especially at risk because they usually don't have strong enough cybersecurity systems in place.
+Most current systems that protect businesses from phishing attacks mainly work by checking emails. While effective at reducing spam and identifying known threats, these solutions often fail to:
+Block threats originating outside the email system.
+Monitor user behavior in real-time.
+Having proper analytics and reporting system
+Prevent attacks before credentials are submitted.
+Ensure consistent security across various digital platforms.
+So, most phishing attacks work because they succeed when users take action, like clicking a link, scanning a harmful QR code, entering login details, or visiting a fake website.
+
+Our Solution: The In-house AI-Based Phishing Prevention SaaS Platform
+To fix this important security problem, we suggest creating an in-house AI-based phishing prevention SaaS platform. This system offers real-time, multi-channel defense against phishing attacks through:
+Browser-based monitoring
+Integrated email scanning
+Enterprise API access
+A centralized AI risk intelligence engine
+Create a better, more detailed dashboard and tools for analysis so you can see more clearly how phishing campaigns are progressing and how secure things are.
+Our service fundamentally differs from email-only solutions. By checking digital actions as they happen, we stop possible problems before they happen. The platform will be affordable, easy to grow, and work with different systems, offering strong security that's suited for small and medium businesses.
+2. Literature Review
+The growing sophistication of phishing attacks has driven significant research into AI-based detection systems across multiple channels. This section reviews key academic work that directly informs the design and methodology of AEGIS-ONE.
+2.1 Machine Learning for Phishing URL and Website Detection
+Several studies have established machine learning as the most reliable approach for phishing URL classification. Alnemari and Alshammari (2023) compared ANN, SVM, Decision Tree, and Random Forest classifiers for phishing domain detection (Alnemari & Alshammari, 2023), finding that Random Forest and ANN delivered the most consistent results across varied URL datasets. Building on this, a 2024 IEEE comparative study on phishing URL detection confirmed that Random Forest achieves 94.5% accuracy, outperforming SVM, KNN, Logistic Regression, and Naive Bayes (IEEE, 2024). For website-level detection, a 2024 IEEE Access study demonstrated that ensemble deep learning models achieve up to 99% accuracy (IEEE Access, 2024) on a dataset of over 11,000 phishing websites - directly validating the ensemble approach adopted in AEGIS-ONE's AI Risk Intelligence Engine (Module 7.2).
+2.2 Deep Learning for Email Phishing Classification
+Email remains the primary delivery channel for phishing attacks, and deep learning models have shown strong performance in classifying phishing email content. A 2024 comparative study published in MDPI Electronics evaluated CNN, LSTM, Bi-LSTM, and GRU architectures for phishing email detection, finding that CNN-based models achieve high classification accuracy while maintaining low false positive rates (PMC/MDPI, 2024). This supports our decision to use fine-tuned BERT/RoBERTa for email content classification combined with TF-IDF and Random Forest for header and metadata analysis in AEGIS-ONE's email module.
+2.3 Browser-Based Real-Time Phishing Detection
+The feasibility of browser-level phishing detection has been validated by multiple recent studies. Murtaza et al. (2025) developed a Chrome extension using RoBERTa with integrated Explainable AI (XAI), achieving 98.12% accuracy in real-time phishing email detection directly within the browser environment (Murtaza et al., 2025) - a design approach closely aligned with AEGIS-ONE's browser extension module. Further, a 2026 Nature Scientific Reports study demonstrated a Chrome extension using ML with Grey Wolf Optimizer-based feature selection for real-time deployment, specifically addressing the latency and memory constraints inherent in browser-side processing (Nature, 2026). Both studies confirm that real-time, browser-based AI phishing detection is not only technically feasible but achieves near-production accuracy.
+2.4 Explainable AI (XAI) in Cybersecurity
+Enterprise adoption of AI-based security tools is significantly hindered when detection decisions are opaque. Capuano et al. (2022) conducted a comprehensive survey of over 300 papers covering XAI applications across phishing, malware, intrusion detection, and fraud - establishing SHAP and LIME as the most widely validated techniques for cybersecurity explainability (IEEE Access, 2022). More recently, a 2026 MDPI study introduced the HXRF model, combining SHAP, LIME, Permutation Importance, and PDP for phishing website feature selection before Random Forest classification, achieving state-of-the-art results on a 500,000-sample dataset. These findings directly justify AEGIS-ONE's XAI module (Module 7.3), which uses SHAP and LIME to provide human-readable explanations for every detection decision.
+2.5 Adversarial Robustness in Phishing Detection
+A critical challenge for any ML-based security system is resilience against adversarial inputs - where attackers deliberately craft content to evade classifiers. Baniecki and Biecek (2024) surveyed adversarial attack strategies and defenses specifically targeting XAI systems, identifying ensemble methods and input preprocessing as the most effective mitigations (Baniecki & Biecek, 2024). Additionally, a 2025 MDPI study on TCN-based URL phishing detection explicitly tested adversarial robustness, finding that combining temporal convolutional networks with attention mechanisms and SHAP-based feature selection significantly improves resistance to evasion attacks. AEGIS-ONE addresses adversarial robustness through a three-layer defense: ensemble modeling (BERT + XGBoost + heuristic rules), hard rule-based blocks for known-bad patterns, and continuous retraining via Module 7.11.
+2.6 Multi-Channel and AI-Generated Phishing Threats
+Modern phishing has expanded well beyond email. Harihar and Potdar (2024) analyzed the full spectrum of AI-assisted phishing including LLM-generated spear-phishing emails, deepfake audio/video impersonation, and QR code-based attacks, demonstrating that single-channel defenses are fundamentally inadequate against today's threat landscape (Harihar & Potdar, 2024) . This finding is central to AEGIS-ONE's multi-channel design philosophy - covering email, browser, QR code, and behavioral anomaly detection under a single unified AI engine.
+2.7 Gap Identified in Existing Literature
+While the reviewed studies demonstrate strong performance in individual channels - email-only classifiers, URL-only detectors, or browser-only extensions - no existing published system integrates all four channels (email + browser + QR + behavioral) under a single AI engine with built-in XAI, pre-credential-submission interception, and an on-premise privacy-preserving deployment model. AEGIS-ONE is designed to address this specific gap.
+3. Problem Statement 
+Phishing attacks are still the main cause of financial and data breaches around the world, and they keep finding ways to get past usual email safety measures. Attackers use smart methods like pretending to be someone else, creating fake websites that change each time, tricking people with QR codes, and manipulating people through conversation to carry out their plans.
+
+Most current security systems mainly check for harmful emails at the server level. There is a major problem in protection because attacks usually happen after a user deals with harmful stuff outside their email, like entering passwords on a fake website.
+
+This problem is compounded by several factors:
+Small and Medium Enterprises (SMEs) often cannot afford complex, enterprise-grade cybersecurity systems.
+Available protection tools are frequently limited to specific technological ecosystems.
+There is currently no unified, real-time protection layer that spans all digital interactions.
+Users receive insufficient or unclear warnings about identified threats.
+Existing tools offer no transparency into why a threat was flagged - leaving users confused and admins unable to audit decisions effectively
+This lack of protection is especially important when users take action, like making money decisions or typing in their login details.
+
+To tackle this, there is a strong need for a cost-effective, easy-to-scale, and multi-channel phishing prevention solution that is designed to:
+Provide detection across email, browser activity, and enterprise systems.
+Monitor user interactions in real time.
+Actively intercept malicious actions before a compromise occurs.
+Deliver explainable AI-based risk scoring.
+Be deployable as a flexible Software as a Service (SaaS) solution.
+Our solution addresses this gap by creating a central AI risk intelligence system. This engine checks digital interactions right away, helping stop phishing attacks before they cause any harm.
+3.1. Problem Statistics 
+
+Figure 1 Global Phishing Volume
+
+Figure 2 Financial Impact Of Phishing Attacks
+
+Attacks on UK businesses are attributed to phony attacks, with threat actors impersonating organizations through email or other means, which is one of the most severe forms of cybercrime.
+The most vulnerable demographic to phishing attacks is said to be those aged 25-44, according to data.
+
+QR codes in scam letters.
+The use of QR codes in phishing and extortion emails became widespread in 2025. The user is typically frightened by the accusation that hackers have gained access to confidential information in a typical blackmail scheme. To keep this information hidden from the public, the attackers demand a ransom to be paid in Bitcoin.
+4. Proposed System: Solution / Objectives.
+A proactive and multi-channel Phishing Defense Platform that is powered by AI.
+The proposal outlines the development of an in-house, AI-powered platform that will help organizations combat the increasing threat of phishing attacks by offering centralized, real-time protection across their entire digital landscape.
+4.1 Key Differentiators & Scope.
+Our solution eliminates the need for email filters, resulting in an all-in security layer that provides protection across multiple channels.
+Email systems.
+Web browsers.
+QR code interactions.
+Attachments.
+User behavior patterns.
+The entire detection engine/complete system is hosted in-house - for SMEs this means deployment on their own server, with employees interacting with it locally. No client data is ever accessible to external parties, including the AEGIS-ONE development team. Cloud hosting is planned as a future extension for individual users.
+Multi-channel coverage (email + browser + QR + behavioral + incident response) under one AI engine. Pre-credential-submission interception. XAI explains every detection decision via SHAP/LIME. Fully in-house - client data never leaves their own infrastructure. Ensemble models + hard rules for adversarial robustness. Affordable for SMEs
+4.2 Real-Time Interception and Prevention:
+The device operates as an instant messaging system that measures digital actions in real-time. After delivery, threats are not only flagged but also prevented by the system:
+Defeating malicious links and the attempt to submit credentials.
+Detecting sophisticated impersonation efforts.
+Assessing behavioral irregularities for early detection of hazards.
+4.3 Deployment & Features:
+With its versatile deployment options and powerful features, the system is designed to protect against various environments.
+The integration of Browser-Based Protection Modules, Enterprise API integrations and Email security connectors are all Integrated Modules.
+An integrated SaaS dashboard for managing and viewing information.
+4.4 Core Principles:
+An all-inclusive dashboard designed for displaying and managing analytics and reports.
+Explainable AI.
+Real-time decision-making to preempt damage.
+The deployment cost is low for small and medium size companies, while the On-premise / private cloud options are flexible for large enterprises.
+4.5 Strategic Outcome:
+This platform's role in phishing defense is to change from reactive filtering to active prevention. Its primary objectives are to significantly strengthen an organization's cybersecurity position, provide actionable threat intelligence, and deliver proactive digital threat prevention.
+
+5. Related System Analysis
+Modern security measures for businesses and organizations have multiple phishing detection features that are primarily intended to protect email environments and filter out harmful emails from reaching users.
+Summary of Existing Systems
+Microsoft Defender (Office 365)
+Features powerful email filtering, attachment scanning, and link protection within the Microsoft ecosystem. Despite its strong integration with Office services, it is not widely recognized outside of Microsoft.
+Phish Titan
+Employs time-of-click link rewriting and analysis to target email links, with a focus on phishing attacks.
+Barracuda Email Protection
+Advanced measures for detecting impersonation and protecting against business email compromise (BEC).. Works primarily at the mail server level to pre-filter threats
+Although they provide effective protection, these systems are mostly focused on email and tend to be reactive. Browsers, QR codes, fake authentication portals and multi-channel social engineering campaigns have all contributed to the development of modern phishing threats, not just emails.
+The proposed system, AEGIS-ONE, addresses the critical gaps identified in each of these existing tools, as summarized in Table 2, is superior to existing cybersecurity tools like Microsoft's Defender, PhishTitan, and Barracuda Email Protection.
+
+Existing Tool
+What is their main focus in their current job?
+The Real Problem/Gap: Where It Fails?
+Our Proposed Project Is Better (Our Solution)
+Microsoft Defender (Office 365)
+Email filtering, attachment scanning, and Safe Links protection within the Microsoft ecosystem (Outlook, Teams).
+Only works well within Microsoft products. No browser-level monitoring. Cannot see what happens after a user clicks a link and leaves the email credential submission on fake sites goes completely undetected.
+Works across all platforms, not just Microsoft. Monitors user behavior at the browser level before credentials are submitted - not just at the mail gateway. Covers QR codes and behavioral anomalies that Defender completely ignores.
+PhishTitan
+Time-of-click link rewriting and verification for email links.
+
+
+
+
+Mostly limited to email link checking. Minimal user behavior analysis. No QR code scanning. Cannot explain to the user or admin why something was flagged as dangerous zero transparency.
+
+
+AEGIS-ONE scans links AND monitors live user behavior. XAI (SHAP/LIME) explains every detection decision clearly. Also covers QR codes, fake login pages, and attachments - not just rewritten email links.
+Barracuda Email Protection
+AI-based Business Email Compromise (BEC) and CEO fraud detection at the mail server level.
+Filters emails only before delivery purely reactive. Entirely email-bound with no protection outside the inbox. If an attack arrives via browser, QR code, or a compromised link clicked after delivery, Barracuda offers zero coverage.
+AEGIS-ONE intercepts attacks in real-time at the browser layer. Scans email, URLs, QR codes, and web interactions simultaneously. Blocks credential submission before any compromise occurs - not after delivery.
+Proposed SaaS System as Our New Project
+A unified, in-house AI platform providing real-time multi-channel phishing detection and prevention across email, browser, QR codes, and user behavior.
+--
+Stops the attack immediately. Examines every possible attack, including email, links, and QR methods.. Monitors unusual user behavior. Using artificial intelligence to provide an accurate explanation of risk. Works on any platform. Prevents harm to compromise before it occurs.
+
+Table 2 Comparative Analysis of Existing Phishing Prevention Solutions vs. Proposed SaaS System that is AegisOne
+6 Objectives 
+Project Goals: Advanced Phishing Detection and Prevention Platform.
+Creating an all-in-one, AI-powered platform for phishing detection and prevention that is suitable to both big businesses and small enterprises.
+Construct a real-time interception mechanism that can detect and prevent harmful URLs, attachment codes, QR codes or fake login pages by engineers.
+Browser-Based Monitoring: Establish a real-time monitoring system that uses the browser to detect fake login pages, credential harvesting attempts, and malicious redirects.
+Establish an enterprise API that can seamlessly integrate with current security infrastructure, including email servers, SIEM systems, and internal tools. Provide this functionality.
+Emulate behavioral anomalies detection systems to detect user interaction patterns that are suspicious, rather than relying on static link analysis.
+XAI-based risk scoring: Present AI-driven risk scores that provide a clear explanation of why x is considered threatening during d digital interactions.
+Create a central SaaS dashboard for managing threat metrics, responding to incidents, assessing user risk levels, and monitoring system health through an administration dashboard.
+Embrace flexible deployment options, including Cloud-hosted (Say) and on-premise Enterprise deployments.
+An easy-to–use cybersecurity tool for SMEs that reduces infrastructure complexity and costs.
+Plan and document future extension roadmap including deepfake voice phishing (vishing) detection, AI-generated document authenticity scoring, and cloud-hosted deployment for individual users.
+Ensure complete data sovereignty for client organizations - the core AI detection engine is deployed within the client's own server infrastructure, with no external data transmission beyond anonymized risk scores.
+7. Scope 
+This project is focused on developing a full-fledged SaaS platform for phishing detection and prevention that functions as 'one layer security' across all enterprise digital interactions.
+7.1 Browser-Based Protection Module
+Real-time URL scanning
+Fake login page detection
+Credential submission interception
+QR code link validation
+JavaScript behavior inspection
+Brand impersonation detection
+7.2 Email Security Integration
+Email link extraction and scanning
+Attachment risk analysis
+Impersonation detection
+Business Email Compromise pattern recognition
+7.3 AI Risk Intelligence Engine
+Machine learning-based phishing classification
+Heuristic rule engine
+Domain reputation scoring
+Behavioral anomaly detection
+Explainable AI output generation
+Real-time risk score (0–100 scale)
+7.4 Enterprise API Module
+REST APIs for integration
+Webhook-based alert system
+Compatibility with SIEM tools
+Custom enterprise threat feeds
+7.5 Centralized Admin Dashboard
+User risk analytics
+Incident monitoring
+Threat trends visualization
+Policy management controls
+Role-based access control
+Audit logs and reporting
+7.6 Deployment Architecture
+Cloud-based SaaS model
+Private cloud deployment option
+On-premise enterprise installation (advanced tier) 
+7.7 Additional Planned Features
+Threat intelligence aggregation
+Incident reporting and export
+User awareness feedback prompts
+Real-time alert notifications
+Multi-tenant architecture for multiple organizations
+Subscription-based access management
+7.8 Privacy & Data Architecture
+AEGIS-ONE is designed around a local-first processing model. The browser extension monitors and analyzes web content entirely on the client device - no raw browsing data is stored or transmitted. Email scanning occurs within the organization's own network boundary. Only anonymized risk scores, domain metadata, and threat indicators are sent to the dashboard. All locally stored logs are encrypted at rest (Module 7.10). The platform follows GDPR's data minimization principle - collecting only what is strictly necessary for threat detection. Enterprise privacy policies are respected through configurable data collection controls
+
+8. Modules 
+8.1 Identity & Role Management
+Secure authentication (email/password + Google OAuth) with role-based access control (User, Employee Admin,Super - Administrator). Controlled system access, secure sessions, and enterprise-level authorization management
+8.2 AI Risk Intelligence Engine
+An algorithm that can detect emails, URLs and Attachments as well as QR codes, login pages and behavioral clues.A core detection engine.io. Produces a risk score that incorporates real-time threat classification and confidence metrics.
+8.3 Explainable AI (XAI)
+Provides transparent reasoning behind every detection decision to promote trust and enterprise auditability:
+- NLP Attention Mapping: Maps token attention weights directly from the MultiHeadAttentionPool layer in the DistilBERT (LoRA) + Bi-LSTM model to extract and highlight the top 3 risky keywords (e.g., "urgent", "suspended") responsible for flagging content.
+- URL Category Reasoners: Decodes model classification categories (benign, defacement, phishing, malware) to present context-specific explanations directly in interactive tooltips (e.g., "AI detected credential harvesting patterns in URL parameters").
+- Interactive Client Tooltips: Hovering over any risk badge (next to links or in Google Search results) renders dynamic, explainable reasoning to guide users safely.
+8.4 Real-Time Monitoring 
+Monitors browser activity and user behavior to identify phishing sites, malicious links, and credential harvesting attempts. Accepts threats before submitting or reconciling.All content analysis is performed locally on the client device. The extension does not store browsing history or transmit raw page content - only risk scores and flagged threat indicators are forwarded to the central dashboard.
+8.5 Analytics Dashboard
+Includes admin review mechanisms to validate detections and refine model performance reducing alert fatigue and improves system reliability.
+8.6 Active Prevention Module
+Blocks harmful links without manual intervention, quarantines objectionable content, prevents the submission of credentials, and triggers alerts. It is focused on stopping attacks before they become costly.
+8.7 Incident Reporting Mechanism
+Generates detailed incident reports covering attack timeline, source analysis, redirect chains, and AI reasoning - supporting compliance and investigation requirements. Includes a feedback mechanism where admins can flag false positives or negatives, which are logged and fed back into the model retraining pipeline
+8.8 Enterprise Deployment Module
+Enables the use of cloud SaaS, private cloud infrastructure and enterprise API integration. Targeted at enabling the implementation of scalable employee systems.
+8.9 Network Security Layer
+Secure server-client communication, secure API endpoints, and token-based authentication. All of the data between client and server side end to end.
+8.10 Client-Side Data Protection
+Implement encryption for local logs ensuring sensitive information is not openly stored on user devices.
+8.11 Model Retraining & Continuous Learning
+Incorporates user feedback and secure metadata sharing to improve model accuracy enabling adaptive learning without exposure of sensitive enterprise data.
+8.12 Web Risk Scoring
+Evaluates every visited link through the AI engine and assigns a real-time risk score displaying warnings dynamically within the user’s browser.
+8.13 Adaptive Security Awareness & Simulation
+Provides contextual security tips and optional attack simulations to improve awareness to avoid future risks.
+8.14 False Positive & False Negative Management
+Includes admin review mechanisms to validate detections and refine model performance therefore improving system reliability.
+8.15 Incident Recovery & Response Support
+Provides guided recovery actions in case of compromise, including containment steps and escalation alerts to administrators.
+ 9. System Architecture 
+
+Figure 3 System Architecture
+https://app.eraser.io/workspace/Xf8cfYdDCIVpVbUbOnQW?origin=share
+10. System Limitations/Constraints 
+The system cannot guarantee 100% phishing prevention, as attackers continuously evolve techniques and zero-day attacks may bypass detection models.
+Real-time monitoring depends on proper client-side installation (browser extension or agent); incomplete deployment across employee systems may reduce effectiveness.
+Advanced detection methods (e.g., full screen monitoring or deep behavior tracking) may be limited by operating system or browser security restrictions.
+False positives and false negatives may occur, especially in early deployment phases before sufficient feedback-based tuning.
+Network latency or temporary server downtime could delay risk scoring or interception in real-time scenarios.
+Enterprise privacy policies may restrict certain data collection, limiting behavioral analysis depth.
+Integration complexity may vary depending on existing enterprise infrastructure (custom email servers, legacy systems, etc.). 
+Deepfake voice phishing (vishing), AI-generated document fraud detection, and OTP-based social engineering are outside the current system scope and are identified as planned future extensions.
+11. Data Gathering Approach 
+Due to the complexity of phishing threats and enterprise security requirements, a structured data gathering strategy is essential for model training and system improvement.
+Our data collection approach includes:
+Named public datasets: PhishTank, OpenPhish , UCI ML Phishing Dataset ,CEAS 2008 + SpamAssassin Corpus. Class imbalance handled via SMOTE augmentation.
+URL and domain metadata (WHOIS data, registration age, hosting information).
+Email content pattern datasets (for spam and phishing classification training).
+User feedback signals (false positive/false negative reports from enterprise users).
+Behavioral metadata (non-sensitive interaction patterns for anomaly detection).
+Internal system analytics (threat trends, risk score distribution, blocked attempts).
+All named datasets are publicly available. Pre-processing pipelines will be developed to clean, normalize, and merge these sources into a unified training corpus with balanced class distribution.All collected data will follow strict privacy controls and encryption standards to ensure compliance and enterprise trust.Additionally, technical guidance and architectural validation will be conducted under academic supervision to ensure system feasibility, scalability, and security robustness.
+12. Tools and Technologies 
+
+ 
+
+
+
+Tools And Technologies
+Tools 
+Rationale
+VS CODE
+IDE
+       React JS/NEXT JS
+Frontend Development
+Python 
+Backend Development & Model Training
+JavaScript 
+Browser extension Development
+FAST/FLASK 
+API Endpoints  
+Docker
+Deployment On Server
+PostgreSQL /SupaBase
+Database
+
+Table 3 Tools and Technologies
+13. Project Stakeholders and Roles
+Project  
+Supervisors 
+Air University Islamabad, INARA Technologies Islamabad
+Stakeholder 
+Ahmed Raza
+M.Muhid 
+Ali Bin Mohsin Mazhar  
+Dr.Ashfaq Hussain Farooqi (Supervisor)
+Muhammad Nadeem Ashraf - Head of Cyber Security, U Bank    Limited
+Maryam Tauheed - Manager Software Engineering
+
+Table 4 Project Stakeholders and Roles
+14. Module-based Work Division 
+Student Name 
+Student Registration Number 
+Responsibility/ Module / Feature
+Ahmed Raza
+231564 
+Overall System Architecture Design
+API Integration (Frontend ↔ Backend)
+User Authentication & Role Management
+Admin Dashboard
+Model Training
+Real-Time Detection Display
+Deployment & Hosting Configuration
+Ensuring Integration Between All Modules
+M.Muhid 
+231600 
+Phishing Detection Model Development (ML)
+Model Training & Testing (Python) Feature Engineering (URL, Email, Content Analysis)
+Risk Scoring System
+Backend API Development (FastAPI/Flask)
+Database Design & Query Optimization
+Logging & Monitoring System
+Ali Bin Mohsin Mazhar 
+231630 
+Dashboard UI Development (React/Next.js)
+Browser Extension Development
+Real-Time Warning Popups
+User Report Interface
+History & Scan Results View
+UX Optimization & Responsive Design
+
+Table 5 Module-based Work Division
+15. Gantt Chart
+
+Figure 4 Gantt Chart
+
+
+
+
+16. References 
+Alnemari, S., & Alshammari, M. (2023). Detecting phishing domains using machine learning. Applied Sciences, 13(8), 4649. https://www.mdpi.com/2076-3417/13/8/4649
+Baniecki, H., & Biecek, P. (2024). Adversarial attacks and defenses in explainable artificial intelligence: A survey. Information Fusion, 107, 102303. https://arxiv.org/abs/2306.06123
+Capuano, N., Fenza, G., Loia, V., & Stanzione, C. (2022). Explainable artificial intelligence in cybersecurity: A survey. IEEE Access, 10, 93575–93600. https://www.researchgate.net/publication/363314499_Explainable_Artificial_Intelligence_in_Cybersecurity_A_Survey
+Harihar, S. S., & Potdar, M. (2024). A comprehensive analysis of phishing challenges and AI — including deepfake AI threats. ResearchGate. https://www.jneonatalsurg.com/index.php/jns/article/view/5427
+IEEE Xplore. (2024). Phishing URL detection using machine learning: A comparative study. IEEE Conference Proceedings. https://ieeexplore.ieee.org/document/10579005
+IEEE Access. (2024). Phishing website detection using deep learning models. IEEE Access. https://ieeexplore.ieee.org/document/10735206
+MDPI Electronics. (2025). Real-time phishing detection for brand protection using temporal convolutional network-driven URL sequence modeling. Electronics, 14(18), 3746. https://www.mdpi.com/2079-9292/14/18/3746
+MDPI Electronics. (2026). Hybridizing explainable AI (XAI) for intelligent feature extraction in phishing website detection. Electronics, 15(2), 350. https://www.mdpi.com/2079-9292/15/2/350
+Murtaza, A., Bhatti, M. T., Murtaza, O., & Yousaf, M. (2025). An AI-powered browser extension using RoBERTa and XAI for phishing email detection and security awareness. International Journal of Innovations in Science & Technology, 7(6), 97–106. https://journal.50sea.com/index.php/IJIST/article/view/1279
+Nature Scientific Reports. (2026). Real-time identification of phishing attacks through machine learning enhanced browser extensions. Scientific Reports. https://www.nature.com/articles/s41598-026-35655-7
+PMC/MDPI Electronics. (2024). Advancing phishing email detection: A comparative study of deep learning models. Electronics. https://pmc.ncbi.nlm.nih.gov/articles/PMC11013960/
+https://hoxhunt.com/guide/phishing-trends-report
+
+https://pushsecurity.com/blog/2025-top-phishing-trends
+
+https://www.brside.com/blog/ai-generated-phishing-vs-human-attacks-2025-risk-analysis
+
+https://aag-it.com/the-latest-cyber-crime-statistics/
+
+https://securelist.com/spam-and-phishing-report-2025/118785/
+
+https://www.knowbe4.com/resources/reports/phishing-by-industry-benchmarking-report
+
+https://www.huntress.com/phishing-guide/phishing-attack-statistics
+
+https://zensec.co.uk/blog/2025-phishing-statistics-the-alarming-rise-in-attacks/
+

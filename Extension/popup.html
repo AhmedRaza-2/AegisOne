@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AegisOne</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b27;
+      --border: #2d3548;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --cyan: #06b6d4;
+      --blue: #3b82f6;
+      --green: #10b981;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --purple: #8b5cf6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 360px;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #0d1117, #1a1f2e);
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header .brand { display: flex; align-items: center; gap: 8px; }
+    .header .logo { font-size: 18px; }
+    .header .name { font-weight: 700; font-size: 14px; }
+    .header .tagline { font-size: 10px; color: var(--muted); }
+    .server-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+    .server-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .server-dot.offline { background: var(--red); }
+
+    /* Shield Toggle */
+    .shield-toggle {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .toggle-label { font-size: 10px; color: var(--muted); font-weight: 500; }
+    .toggle-switch {
+      position: relative; width: 32px; height: 18px; cursor: pointer;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--border); border-radius: 18px;
+      transition: 0.3s;
+    }
+    .toggle-slider:before {
+      content: ''; position: absolute;
+      width: 12px; height: 12px;
+      left: 3px; top: 3px;
+      background: white; border-radius: 50%;
+      transition: 0.3s;
+    }
+    input:checked + .toggle-slider { background: var(--green); }
+    input:checked + .toggle-slider:before { transform: translateX(14px); }
+
+    /* Current Page Verdict */
+    .verdict-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .verdict-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+    .verdict-box {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--card); border-radius: 10px;
+      padding: 12px 14px; border: 1px solid var(--border);
+    }
+    .verdict-icon { font-size: 28px; }
+    .verdict-text .status { font-size: 15px; font-weight: 700; }
+    .verdict-text .detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .verdict-box.safe { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); }
+    .verdict-box.safe .status { color: var(--green); }
+    .verdict-box.danger { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+    .verdict-box.danger .status { color: var(--red); }
+    .verdict-box.scanning { border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.05); }
+    .verdict-box.scanning .status { color: #818cf8; }
+    .verdict-box.unknown { border-color: var(--border); }
+    .verdict-box.unknown .status { color: var(--muted); }
+
+    /* Risk Bar */
+    .risk-bar-container { margin-top: 10px; }
+    .risk-bar-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+    .risk-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .risk-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+    .risk-fill.low { background: var(--green); }
+    .risk-fill.med { background: var(--amber); }
+    .risk-fill.high { background: var(--red); }
+
+    /* Tabs */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .tab-btn { flex: 1; padding: 8px; text-align: center; font-size: 11px; font-weight: 500; color: var(--muted); cursor: pointer; border: none; background: transparent; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+    /* Panels */
+    .panel { display: none; padding: 12px 16px; max-height: 220px; overflow-y: auto; }
+    .panel.active { display: block; }
+    .panel::-webkit-scrollbar { width: 4px; }
+    .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* URL List */
+    .url-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 6px;
+      margin-bottom: 4px; background: var(--card);
+      border: 1px solid var(--border);
+    }
+    .url-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .url-item .dot.safe { background: var(--green); }
+    .url-item .dot.danger { background: var(--red); }
+    .url-item .dot.scan { background: var(--amber); }
+    .url-item .url-text { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .url-item .pct { font-size: 10px; font-weight: 600; flex-shrink: 0; }
+    .url-item.danger .pct { color: var(--red); }
+    .url-item.safe .pct { color: var(--green); }
+
+    /* Blocked Downloads */
+    .blocked-item {
+      padding: 8px; border-radius: 6px; margin-bottom: 4px;
+      background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+    }
+    .blocked-item .file { font-size: 11px; font-weight: 600; color: var(--red); }
+    .blocked-item .threat { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* Model Status */
+    .model-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .model-row:last-child { border-bottom: none; }
+    .model-name { font-size: 11px; font-weight: 500; }
+    .model-badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+    .model-badge.ok { background: rgba(16,185,129,0.15); color: var(--green); }
+    .model-badge.err { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 20px 0; color: var(--muted); font-size: 11px; }
+
+    /* Footer */
+    .footer { padding: 8px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .footer .url-display { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+    .footer .rescan-btn { font-size: 10px; color: var(--cyan); cursor: pointer; border: none; background: none; font-family: inherit; white-space: nowrap; }
+    .footer .rescan-btn:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="logo">🛡️</div>
+      <div>
+        <div class="name">AegisOne Guard</div>
+        <div class="tagline">AI Phishing Protection</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="shield-toggle">
+        <span class="toggle-label" id="shieldLabel">ON</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="shieldToggle" checked onchange="toggleShield()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="server-dot" id="serverDot" title="Server status"></div>
+    </div>
+  </div>
+
+  <!-- Current Page Verdict -->
+  <div class="verdict-section">
+    <div class="verdict-label">Current Page</div>
+    <div class="verdict-box unknown" id="verdictBox">
+      <div class="verdict-icon" id="verdictIcon">🔍</div>
+      <div class="verdict-text">
+        <div class="status" id="verdictStatus">Scanning...</div>
+        <div class="detail" id="verdictDetail">Analyzing with AI models</div>
+      </div>
+    </div>
+    <div class="risk-bar-container" id="riskBarContainer" style="display:none">
+      <div class="risk-bar-label">
+        <span>Phishing Risk</span>
+        <span id="riskPct">0%</span>
+      </div>
+      <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="links" onclick="switchTab('links')">🔗 Links</button>
+    <button class="tab-btn" data-tab="blocked" onclick="switchTab('blocked')">🚫 Blocked</button>
+    <button class="tab-btn" data-tab="models" onclick="switchTab('models')">🤖 Models</button>
+  </div>
+
+  <!-- Links Panel -->
+  <div class="panel active" id="panel-links">
+    <div class="empty" id="linksEmpty">No link scan results yet.</div>
+    <div id="linksList"></div>
+  </div>
+
+  <!-- Blocked Downloads Panel -->
+  <div class="panel" id="panel-blocked">
+    <div class="empty" id="blockedEmpty">No downloads blocked yet. Stay safe!</div>
+    <div id="blockedList"></div>
+  </div>
+
+  <!-- Models Panel -->
+  <div class="panel" id="panel-models">
+    <div class="model-row"><span class="model-name">📧 Email AI</span><span class="model-badge" id="m-email">—</span></div>
+    <div class="model-row"><span class="model-name">📝 Text AI</span><span class="model-badge" id="m-text">—</span></div>
+    <div class="model-row"><span class="model-name">🔗 URL AI</span><span class="model-badge" id="m-url">—</span></div>
+    <div class="model-row"><span class="model-name">🖼️ Image AI</span><span class="model-badge" id="m-image">—</span></div>
+    <div class="model-row"><span class="model-name">📎 Attachment</span><span class="model-badge" id="m-attachment">Built-in</span></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="url-display" id="currentUrl">—</div>
+    <button class="rescan-btn" onclick="rescan()">↻ Rescan</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

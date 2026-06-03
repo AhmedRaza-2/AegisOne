@@ -6,43 +6,29 @@ Usage:
   python train_phishing_model.py
 
   # Smoke test (CPU, quick sanity check):
-  python train_phishing_model.py --smoke-test
+  python train_phishing_model.py --smo"""
 
-Files needed:
-  1. final_phishing_dataset.csv  (150K records)
-  2. phishing_model.py                    (model architecture)
+import os, sys, json, time, argparse, re  # Core Python utilities
+import numpy as np  # For numerical operations
+import pandas as pd  # For data manipulation (reading CSVs)
+from datetime import datetime  # For timestamps
 
-Output:
-  - best_phishing_model.pt         (saved model checkpoint)
-  - training_metrics.json          (all metrics)
-  - Printed: full training report with all AI metrics
-"""
+import torch  # Main PyTorch library
+import torch.nn as nn  # Neural network layers
+from torch.utils.data import Dataset, DataLoader  # Data handling
+from torch.optim import AdamW  # Adam optimizer with weight decay
+from torch.optim.lr_scheduler import CosineAnnealingLR  # Learning rate scheduler
+from torch.amp import autocast, GradScaler  # For Mixed Precision (faster GPU training)
 
-import os
-import sys
-import json
-import time
-import argparse
-import re
-import numpy as np
-import pandas as pd
-from datetime import datetime
-
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.amp import autocast, GradScaler
-
-from transformers import DistilBertTokenizer
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
+from transformers import DistilBertTokenizer  # NLP tokenizer for DistilBERT
+from sklearn.model_selection import train_test_split  # Splitting dataset
+from sklearn.metrics import (  # NLP Evaluation metrics
     accuracy_score, f1_score, precision_score, recall_score,
     roc_auc_score, confusion_matrix, classification_report,
     matthews_corrcoef
 )
 
+# Import the architecture and feature extractor from the other file
 from phishing_model_email import PhishingDetector, batch_extract_features
 
 
@@ -51,36 +37,36 @@ from phishing_model_email import PhishingDetector, batch_extract_features
 # ═══════════════════════════════════════════════════════════════════════
 
 class Config:
-    # Data
-    dataset_path = "datasets/final_phishing_dataset.csv"
-    max_seq_len = 512
-    train_ratio = 0.70
-    val_ratio = 0.15
-    test_ratio = 0.15
+    # Data Settings
+    dataset_path = "datasets/final_phishing_dataset.csv"  # The 150K record dataset
+    max_seq_len = 512  # Maximum words/tokens an email can have
+    train_ratio = 0.70  # 70% for studying
+    val_ratio = 0.15  # 15% for practice exams
+    test_ratio = 0.15  # 15% for the final unseen test
 
-    # Model
-    lora_r = 16
-    lora_alpha = 32
-    lora_dropout = 0.1
-    lstm_hidden = 256
-    attn_heads = 8
-    dropout = 0.3
+    # Model Settings (Hyperparameters)
+    lora_r = 16  # Rank of the LoRA adapter (higher = more capacity, but slower)
+    lora_alpha = 32  # Scaling factor for LoRA
+    lora_dropout = 0.1  # Prevents adapter overfitting
+    lstm_hidden = 256  # Size of the Bi-LSTM memory
+    attn_heads = 8  # Number of attention heads (detectives)
+    dropout = 0.3  # General dropout for classification head
 
-    # Training
-    epochs = 5
-    batch_size = 16
-    lr_lora = 2e-5          # Learning rate for LoRA params
-    lr_heads = 1e-3         # Learning rate for LSTM/Attention/Classifier
-    weight_decay = 0.01
-    max_grad_norm = 1.0
-    early_stop_patience = 3
+    # Training Settings
+    epochs = 5  # Number of full passes over the data
+    batch_size = 16  # How many emails the model reads at once
+    lr_lora = 2e-5  # Very small learning rate so we don't break the pre-trained NLP knowledge
+    lr_heads = 1e-3  # Larger learning rate for our custom head to learn fast
+    weight_decay = 0.01  # Regularization to prevent overfitting
+    max_grad_norm = 1.0  # Prevents gradients from exploding
+    early_stop_patience = 3  # Stop training if it doesn't improve for 3 epochs
     warmup_steps = 500
 
-    # System
-    seed = 42
-    num_workers = 2
-    save_path = "best_phishing_model.pt"
-    metrics_path = "training_metrics.json"
+    # System Settings
+    seed = 42  # Ensures results are reproducible
+    num_workers = 2  # Uses CPU cores to load data faster
+    save_path = "best_phishing_model.pt"  # Where to save the weights
+    metrics_path = "training_metrics.json"  # Where to save the report
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -89,50 +75,45 @@ class Config:
 
 class PhishingDataset(Dataset):
     """
-    PyTorch Dataset for phishing email classification.
-    Each item returns:
-      - input_ids (seq_len,)
-      - attention_mask (seq_len,)
-      - structured_features (10,)
-      - label (scalar)
+    PyTorch Dataset: Feeds emails into the neural network one by one.
     """
-
     def __init__(self, records, tokenizer, max_len=512):
-        self.records = records
-        self.tokenizer = tokenizer
+        self.records = records  # List of all email dictionaries
+        self.tokenizer = tokenizer  # DistilBERT Tokenizer
         self.max_len = max_len
 
     def __len__(self):
-        return len(self.records)
+        return len(self.records)  # Total number of emails
 
     def __getitem__(self, idx):
-        rec = self.records[idx]
+        rec = self.records[idx]  # Get a single email
 
+        # Extract text components
         sender = str(rec.get("sender", ""))
         subject = str(rec.get("subject", ""))
         body = str(rec.get("body", ""))
         label = int(rec.get("label", 0))
 
-        # Combine subject + body with special markers
+        # Combine subject and body so the AI reads it as one block of text
         text = f"[SUBJECT]: {subject} [BODY]: {body}"
 
-        # Tokenize
+        # Convert the raw English text into numbers (tokens)
         encoding = self.tokenizer(
             text,
             max_length=self.max_len,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
+            padding="max_length",  # Add 0s if it's too short
+            truncation=True,  # Cut it off if it's too long
+            return_tensors="pt",  # Return PyTorch Tensors
         )
 
-        # Extract structured features
+        # Simultaneously extract the 10 metadata rules (URL counts, CAPS ratio)
         struct_feats = batch_extract_features([sender], [subject], [body])[0]
 
         return {
-            "input_ids": encoding["input_ids"].squeeze(0),
-            "attention_mask": encoding["attention_mask"].squeeze(0),
-            "structured_feats": struct_feats,
-            "label": torch.tensor(label, dtype=torch.float32),
+            "input_ids": encoding["input_ids"].squeeze(0),  # The actual word IDs
+            "attention_mask": encoding["attention_mask"].squeeze(0),  # Tells AI to ignore padding 0s
+            "structured_feats": struct_feats,  # The 10 rules
+            "label": torch.tensor(label, dtype=torch.float32),  # 1 = Phishing, 0 = Legit
         }
 
 
@@ -141,46 +122,38 @@ class PhishingDataset(Dataset):
 # ═══════════════════════════════════════════════════════════════════════
 
 def load_dataset(path, smoke_test=False):
-    """Load CSV dataset and split into train/val/test."""
+    """Reads the massive CSV and safely splits it into Train, Val, and Test."""
     print(f"\n📂 Loading dataset from: {path}")
 
-    df = pd.read_csv(
-        path,
-        engine='python',
-        on_bad_lines='skip',
-    )
+    # Load CSV using pandas
+    df = pd.read_csv(path, engine='python', on_bad_lines='skip')
     
-    print(f"  -> Found columns: {list(df.columns)}")
-    
-    # Handle case where user uploaded raw Phishing_Email.csv by mistake
+    # Standardize column names just in case
     if "Email Type" in df.columns and "label" not in df.columns:
         df["label"] = df["Email Type"].map({"Safe Email": 0, "Phishing Email": 1})
     if "Email Text" in df.columns and "body" not in df.columns:
         df["body"] = df["Email Text"]
         
-    if "label" not in df.columns:
-        raise ValueError(f"CRITICAL ERROR: 'label' column is missing from the CSV! The CSV contains these columns: {list(df.columns)}\nMake sure you uploaded the CORRECT 'final_phishing_dataset.csv' that we generated.")
-
-    # Fill any NaN values in text columns with empty string
+    # Replace missing values (NaN) with empty strings so code doesn't crash
     for col in ["sender", "receiver", "subject", "body"]:
         if col in df.columns:
             df[col] = df[col].fillna("")
             
-    # Safely convert labels to int, coercing garbage strings to NaN which we then drop
+    # Ensure all labels are strictly integers (0 or 1)
     df["label"] = pd.to_numeric(df["label"], errors='coerce')
     df = df.dropna(subset=["label"])
     df["label"] = df["label"].astype(int)
     records = df.to_dict(orient="records")
 
+    # If testing the code structure, only use 200 emails to save time
     if smoke_test:
-        # Use only 200 records for quick testing
         np.random.seed(Config.seed)
         records = list(np.random.choice(records, min(200, len(records)), replace=False))
         print(f"  🧪 SMOKE TEST: Using {len(records)} samples only")
 
-    # Stratified split
     labels = [r["label"] for r in records]
 
+    # Split: Extract Train (70%) vs Rest (30%), maintaining balance using stratify
     train_recs, temp_recs, train_labels, temp_labels = train_test_split(
         records, labels,
         test_size=(Config.val_ratio + Config.test_ratio),
@@ -188,6 +161,7 @@ def load_dataset(path, smoke_test=False):
         random_state=Config.seed,
     )
 
+    # Split the remaining 30% into Validation (15%) and Test (15%)
     val_size = Config.val_ratio / (Config.val_ratio + Config.test_ratio)
     val_recs, test_recs, _, _ = train_test_split(
         temp_recs, temp_labels,
@@ -197,12 +171,6 @@ def load_dataset(path, smoke_test=False):
     )
 
     print(f"  Train: {len(train_recs):,}  |  Val: {len(val_recs):,}  |  Test: {len(test_recs):,}")
-
-    for name, recs in [("Train", train_recs), ("Val", val_recs), ("Test", test_recs)]:
-        n_phish = sum(1 for r in recs if r["label"] == 1)
-        n_legit = len(recs) - n_phish
-        print(f"    {name}: Phishing={n_phish:,} ({n_phish/len(recs)*100:.1f}%)  Legit={n_legit:,}")
-
     return train_recs, val_recs, test_recs
 
 
@@ -211,70 +179,64 @@ def load_dataset(path, smoke_test=False):
 # ═══════════════════════════════════════════════════════════════════════
 
 def train_one_epoch(model, dataloader, optimizer, scheduler, scaler, device, epoch):
-    """Train for one epoch. Returns average loss."""
-    model.train()
-    total_loss = 0
+    """Trains the model for one full pass over the training data."""
+    model.train()  # Turn on Dropout and LayerNorm
+    total_loss, correct, total = 0, 0, 0
     num_batches = 0
-    correct = 0
-    total = 0
-
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss()  # Best loss function for Binary Classification
 
     for batch_idx, batch in enumerate(dataloader):
+        # Move all data to GPU for speed
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
         structured_feats = batch["structured_feats"].to(device)
         labels = batch["label"].to(device)
 
-        optimizer.zero_grad()
+        optimizer.zero_grad()  # Reset gradients
 
-        # Mixed precision forward pass
+        # Use Mixed Precision (autocast) if on GPU to double training speed
         if device.type == "cuda":
             with autocast(device_type="cuda"):
                 logits = model(input_ids, attention_mask, structured_feats).squeeze(-1)
                 loss = criterion(logits, labels)
+            # Backward pass with scaler to prevent numerical underflow
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), Config.max_grad_norm)
             scaler.step(optimizer)
             scaler.update()
         else:
+            # Standard CPU training
             logits = model(input_ids, attention_mask, structured_feats).squeeze(-1)
             loss = criterion(logits, labels)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), Config.max_grad_norm)
             optimizer.step()
 
-        scheduler.step()
+        scheduler.step()  # Update learning rate
 
+        # Track metrics
         total_loss += loss.item()
         num_batches += 1
-
-        # Accuracy tracking
         preds = (torch.sigmoid(logits) >= 0.5).float()
         correct += (preds == labels).sum().item()
         total += labels.size(0)
 
-        # Progress logging
+        # Print progress every 100 batches
         if (batch_idx + 1) % 100 == 0 or batch_idx == 0:
             avg_loss = total_loss / num_batches
             acc = correct / total * 100
-            lr = scheduler.get_last_lr()[0]
-            print(f"    Batch {batch_idx+1:>5}/{len(dataloader)}  |  Loss: {avg_loss:.4f}  |  Acc: {acc:.2f}%  |  LR: {lr:.2e}")
+            print(f"    Batch {batch_idx+1:>5}/{len(dataloader)}  |  Loss: {avg_loss:.4f}  |  Acc: {acc:.2f}%")
 
     return total_loss / num_batches, correct / total
 
 
 @torch.no_grad()
 def evaluate(model, dataloader, device):
-    """Evaluate model. Returns metrics dict."""
-    model.eval()
-    all_preds = []
-    all_probs = []
-    all_labels = []
-    total_loss = 0
-    num_batches = 0
-
+    """Evaluates the model without tracking gradients (saves memory)."""
+    model.eval()  # Turn off dropout
+    all_preds, all_probs, all_labels = [], [], []
+    total_loss, num_batches = 0, 0
     criterion = nn.BCEWithLogitsLoss()
 
     for batch in dataloader:
@@ -283,6 +245,7 @@ def evaluate(model, dataloader, device):
         structured_feats = batch["structured_feats"].to(device)
         labels = batch["label"].to(device)
 
+        # Forward pass
         if device.type == "cuda":
             with autocast(device_type="cuda"):
                 logits = model(input_ids, attention_mask, structured_feats).squeeze(-1)
@@ -294,6 +257,7 @@ def evaluate(model, dataloader, device):
         total_loss += loss.item()
         num_batches += 1
 
+        # Convert raw logits to probabilities (0% to 100%) using Sigmoid
         probs = torch.sigmoid(logits).cpu().numpy()
         preds = (probs >= 0.5).astype(int)
 
@@ -301,11 +265,8 @@ def evaluate(model, dataloader, device):
         all_preds.extend(preds)
         all_labels.extend(labels.cpu().numpy().astype(int))
 
-    all_preds = np.array(all_preds)
-    all_probs = np.array(all_probs)
-    all_labels = np.array(all_labels)
-
-    metrics = {
+    # Calculate complex metrics (F1, AUC, MCC)
+    return {
         "loss": total_loss / max(num_batches, 1),
         "accuracy": accuracy_score(all_labels, all_preds),
         "f1": f1_score(all_labels, all_preds, average="binary"),
@@ -316,34 +277,16 @@ def evaluate(model, dataloader, device):
         "confusion_matrix": confusion_matrix(all_labels, all_preds).tolist(),
     }
 
-    return metrics
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# PRINT METRICS REPORT
-# ═══════════════════════════════════════════════════════════════════════
 
 def print_metrics_report(metrics, phase="Test"):
-    """Print a formatted metrics report."""
+    """Prints a beautiful summary of the evaluation results."""
     cm = np.array(metrics["confusion_matrix"])
     tn, fp, fn, tp = cm.ravel()
-
-    print(f"\n{'=' * 60}")
-    print(f"  {phase.upper()} METRICS REPORT")
-    print(f"{'=' * 60}")
+    print(f"\n{'=' * 60}\n  {phase.upper()} METRICS REPORT\n{'=' * 60}")
     print(f"  Accuracy:          {metrics['accuracy']*100:.2f}%")
     print(f"  F1 Score:          {metrics['f1']*100:.2f}%")
-    print(f"  Precision:         {metrics['precision']*100:.2f}%")
-    print(f"  Recall:            {metrics['recall']*100:.2f}%")
     print(f"  AUC-ROC:           {metrics['auc_roc']:.4f}")
-    print(f"  MCC:               {metrics['mcc']:.4f}")
-    print(f"  Loss:              {metrics['loss']:.4f}")
-    print(f"\n  Confusion Matrix:")
-    print(f"                     Predicted")
-    print(f"                  Legit   Phish")
-    print(f"    Actual Legit  {tn:>6}  {fp:>6}")
-    print(f"    Actual Phish  {fn:>6}  {tp:>6}")
-    print(f"\n  False Positive Rate: {fp/(fp+tn)*100:.2f}%")
+    print(f"  False Positive Rate: {fp/(fp+tn)*100:.2f}%")
     print(f"  False Negative Rate: {fn/(fn+tp)*100:.2f}%")
     print(f"{'=' * 60}")
 
@@ -354,158 +297,85 @@ def print_metrics_report(metrics, phase="Test"):
 
 def main():
     parser = argparse.ArgumentParser(description="Train Phishing Detector")
-    parser.add_argument("--smoke-test", action="store_true", help="Quick test with 200 samples, 1 epoch")
-    args, _ = parser.parse_known_args()  # parse_known_args ignores Colab/Jupyter kernel args
+    parser.add_argument("--smoke-test", action="store_true")
+    args, _ = parser.parse_known_args()
 
     smoke_test = args.smoke_test
-
-    # ── Setup ──
-    torch.manual_seed(Config.seed)
-    np.random.seed(Config.seed)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"\n🖥️  Device: {device}")
-    if device.type == "cuda":
-        print(f"   GPU: {torch.cuda.get_device_name(0)}")
-        print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+    torch.manual_seed(Config.seed)  # Lock randomness
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Find GPU
 
     if smoke_test:
         Config.epochs = 1
         Config.batch_size = 4
         Config.num_workers = 0
-        print("\n🧪 SMOKE TEST MODE — 200 samples, 1 epoch, batch_size=4")
 
-    # ── Load tokenizer ──
     print("\n📝 Loading DistilBERT tokenizer...")
     tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
 
-    # ── Load data ──
+    # Load and prepare DataLoaders
     train_recs, val_recs, test_recs = load_dataset(Config.dataset_path, smoke_test)
-
     train_dataset = PhishingDataset(train_recs, tokenizer, Config.max_seq_len)
     val_dataset = PhishingDataset(val_recs, tokenizer, Config.max_seq_len)
     test_dataset = PhishingDataset(test_recs, tokenizer, Config.max_seq_len)
 
-    train_loader = DataLoader(train_dataset, batch_size=Config.batch_size, shuffle=True, num_workers=Config.num_workers, pin_memory=(device.type == "cuda"))
-    val_loader = DataLoader(val_dataset, batch_size=Config.batch_size, shuffle=False, num_workers=Config.num_workers, pin_memory=(device.type == "cuda"))
-    test_loader = DataLoader(test_dataset, batch_size=Config.batch_size, shuffle=False, num_workers=Config.num_workers, pin_memory=(device.type == "cuda"))
+    train_loader = DataLoader(train_dataset, batch_size=Config.batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=Config.batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=Config.batch_size, shuffle=False)
 
-    # ── Build Model ──
     print("\n🔧 Building PhishingDetector model...")
     model = PhishingDetector(
-        lora_r=Config.lora_r,
-        lora_alpha=Config.lora_alpha,
-        lora_dropout=Config.lora_dropout,
-        lstm_hidden=Config.lstm_hidden,
-        attn_heads=Config.attn_heads,
-        dropout=Config.dropout,
-    )
-    model.to(device)
-    model.print_model_summary()
+        lora_r=Config.lora_r, lora_alpha=Config.lora_alpha,
+        lora_dropout=Config.lora_dropout, lstm_hidden=Config.lstm_hidden,
+        attn_heads=Config.attn_heads, dropout=Config.dropout,
+    ).to(device)
 
-    # ── Optimizer (differential learning rates) ──
-    lora_params = []
-    head_params = []
+    # Create Dual-Learning Rates (Tiny for NLP, Normal for Custom Head)
+    lora_params, head_params = [], []
     for name, param in model.named_parameters():
         if param.requires_grad:
-            if "lora" in name.lower():
-                lora_params.append(param)
-            else:
-                head_params.append(param)
+            if "lora" in name.lower(): lora_params.append(param)
+            else: head_params.append(param)
 
     optimizer = AdamW([
         {"params": lora_params, "lr": Config.lr_lora, "weight_decay": Config.weight_decay},
         {"params": head_params, "lr": Config.lr_heads, "weight_decay": Config.weight_decay},
     ])
-
-    total_steps = len(train_loader) * Config.epochs
-    scheduler = CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-7)
-
+    scheduler = CosineAnnealingLR(optimizer, T_max=len(train_loader) * Config.epochs)
     scaler = GradScaler() if device.type == "cuda" else None
 
-    print(f"\n  LoRA params:  {len(lora_params)} groups (lr={Config.lr_lora})")
-    print(f"  Head params:  {len(head_params)} groups (lr={Config.lr_heads})")
-    print(f"  Total steps:  {total_steps:,}")
-
-    # ── Training Loop ──
-    print("\n" + "=" * 60)
-    print("  TRAINING STARTED")
-    print("=" * 60)
-
-    best_val_f1 = 0
-    patience_counter = 0
-    training_history = []
+    # Epoch Loop
+    best_val_f1, patience_counter, training_history = 0, 0, []
     total_train_start = time.time()
 
     for epoch in range(Config.epochs):
         epoch_start = time.time()
-        print(f"\n{'─' * 60}")
-        print(f"  EPOCH {epoch + 1}/{Config.epochs}")
-        print(f"{'─' * 60}")
-
-        # Train
-        train_loss, train_acc = train_one_epoch(
-            model, train_loader, optimizer, scheduler, scaler, device, epoch
-        )
-
-        # Validate
+        print(f"\n  EPOCH {epoch + 1}/{Config.epochs}")
+        
+        # Train & Evaluate
+        train_loss, train_acc = train_one_epoch(model, train_loader, optimizer, scheduler, scaler, device, epoch)
         val_metrics = evaluate(model, val_loader, device)
-        epoch_time = time.time() - epoch_start
 
-        print(f"\n  📊 Epoch {epoch+1} Summary:")
-        print(f"     Train Loss: {train_loss:.4f}  |  Train Acc: {train_acc*100:.2f}%")
-        print(f"     Val Loss:   {val_metrics['loss']:.4f}  |  Val Acc:   {val_metrics['accuracy']*100:.2f}%")
-        print(f"     Val F1:     {val_metrics['f1']*100:.2f}%  |  Val AUC:   {val_metrics['auc_roc']:.4f}")
-        print(f"     Time:       {epoch_time:.1f}s")
-
-        # Save history
-        training_history.append({
-            "epoch": epoch + 1,
-            "train_loss": train_loss,
-            "train_acc": train_acc,
-            "val_loss": val_metrics["loss"],
-            "val_acc": val_metrics["accuracy"],
-            "val_f1": val_metrics["f1"],
-            "val_auc": val_metrics["auc_roc"],
-            "val_precision": val_metrics["precision"],
-            "val_recall": val_metrics["recall"],
-            "epoch_time": epoch_time,
-        })
-
-        # Early stopping / Best model
+        # Early Stopping Logic
         if val_metrics["f1"] > best_val_f1:
             best_val_f1 = val_metrics["f1"]
             patience_counter = 0
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "epoch": epoch + 1,
-                "val_f1": best_val_f1,
-                "config": {k: v for k, v in vars(Config).items() if not k.startswith("_")},
-            }, Config.save_path)
+            # Save best weights
+            torch.save({"model_state_dict": model.state_dict(), "val_f1": best_val_f1}, Config.save_path)
             print(f"     ✅ Best model saved! (val_f1={best_val_f1*100:.2f}%)")
         else:
             patience_counter += 1
-            print(f"     ⏳ No improvement. Patience: {patience_counter}/{Config.early_stop_patience}")
             if patience_counter >= Config.early_stop_patience:
                 print(f"\n  🛑 Early stopping triggered at epoch {epoch + 1}")
                 break
 
-    total_train_time = time.time() - total_train_start
-
-    # ── Load best model for testing ──
-    print("\n\n" + "=" * 60)
-    print("  TESTING WITH BEST MODEL")
-    print("=" * 60)
-
+    # ── Final Testing & Speed Evaluation ──
     checkpoint = torch.load(Config.save_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
-
+    
     test_metrics = evaluate(model, test_loader, device)
     print_metrics_report(test_metrics, "TEST")
 
-    # ── Inference Speed Test ──
-    print("\n⏱️  Inference Speed Test...")
+    # Measure speed (Inference Time)
     model.eval()
     sample_batch = next(iter(test_loader))
     times = []
@@ -518,89 +388,8 @@ def main():
                 sample_batch["structured_feats"][:1].to(device),
             )
         times.append((time.time() - start) * 1000)
-    avg_inference_ms = np.mean(times[1:])  # skip first (warmup)
-    print(f"  Average inference time: {avg_inference_ms:.1f}ms per email")
-
-    # ══════════════════════════════════════════════════════════════════
-    # FINAL COMPREHENSIVE REPORT
-    # ══════════════════════════════════════════════════════════════════
-
-    params = model.count_parameters()
-    cm = np.array(test_metrics["confusion_matrix"])
-    tn, fp, fn, tp = cm.ravel()
-
-    print("\n\n")
-    print("╔" + "═" * 62 + "╗")
-    print("║" + "  🏆 PHISHING DETECTOR — FINAL TRAINING REPORT".center(62) + "║")
-    print("╠" + "═" * 62 + "╣")
-
-    print("║" + "".center(62) + "║")
-    print("║" + "  📐 MODEL ARCHITECTURE".ljust(62) + "║")
-    print("║" + "  ─────────────────────────────────────────".ljust(62) + "║")
-    print("║" + f"  Base Model:         DistilBERT (6 layers)".ljust(62) + "║")
-    print("║" + f"  Fine-tuning:        LoRA (r={Config.lora_r}, α={Config.lora_alpha})".ljust(62) + "║")
-    print("║" + f"  Sequence Layer:     Bi-LSTM (hidden={Config.lstm_hidden})".ljust(62) + "║")
-    print("║" + f"  Attention:          Multi-Head ({Config.attn_heads} heads)".ljust(62) + "║")
-    print("║" + f"  Structured:         10 features → 32 dims".ljust(62) + "║")
-    print("║" + f"  Classifier:         544 → 128 → 1".ljust(62) + "║")
-
-    print("║" + "".center(62) + "║")
-    print("║" + "  📊 PARAMETERS".ljust(62) + "║")
-    print("║" + "  ─────────────────────────────────────────".ljust(62) + "║")
-    print("║" + f"  Total:              {params['total']:>12,}".ljust(62) + "║")
-    print("║" + f"  Trainable:          {params['trainable']:>12,} ({params['trainable_pct']:.2f}%)".ljust(62) + "║")
-    print("║" + f"  Frozen:             {params['frozen']:>12,}".ljust(62) + "║")
-
-    print("║" + "".center(62) + "║")
-    print("║" + "  🎯 TEST METRICS".ljust(62) + "║")
-    print("║" + "  ─────────────────────────────────────────".ljust(62) + "║")
-    print("║" + f"  Accuracy:           {test_metrics['accuracy']*100:>8.2f}%".ljust(62) + "║")
-    print("║" + f"  F1 Score:           {test_metrics['f1']*100:>8.2f}%".ljust(62) + "║")
-    print("║" + f"  Precision:          {test_metrics['precision']*100:>8.2f}%".ljust(62) + "║")
-    print("║" + f"  Recall:             {test_metrics['recall']*100:>8.2f}%".ljust(62) + "║")
-    print("║" + f"  AUC-ROC:            {test_metrics['auc_roc']:>8.4f}".ljust(62) + "║")
-    print("║" + f"  MCC:                {test_metrics['mcc']:>8.4f}".ljust(62) + "║")
-    print("║" + f"  False Positive:     {fp/(fp+tn)*100:>8.2f}%".ljust(62) + "║")
-    print("║" + f"  False Negative:     {fn/(fn+tp)*100:>8.2f}%".ljust(62) + "║")
-
-    print("║" + "".center(62) + "║")
-    print("║" + "  📋 CONFUSION MATRIX".ljust(62) + "║")
-    print("║" + "  ─────────────────────────────────────────".ljust(62) + "║")
-    print("║" + f"                        Predicted".ljust(62) + "║")
-    print("║" + f"                     Legit    Phish".ljust(62) + "║")
-    print("║" + f"    Actual Legit   {tn:>6}   {fp:>6}".ljust(62) + "║")
-    print("║" + f"    Actual Phish   {fn:>6}   {tp:>6}".ljust(62) + "║")
-
-    print("║" + "".center(62) + "║")
-    print("║" + "  ⚙️  TRAINING CONFIG".ljust(62) + "║")
-    print("║" + "  ─────────────────────────────────────────".ljust(62) + "║")
-    print("║" + f"  Dataset:            150,000 (75K/75K)".ljust(62) + "║")
-    print("║" + f"  Split:              70/15/15".ljust(62) + "║")
-    print("║" + f"  Epochs:             {checkpoint['epoch']}/{Config.epochs}".ljust(62) + "║")
-    print("║" + f"  Batch size:         {Config.batch_size}".ljust(62) + "║")
-    print("║" + f"  Max seq length:     {Config.max_seq_len}".ljust(62) + "║")
-    print("║" + f"  LR (LoRA):          {Config.lr_lora}".ljust(62) + "║")
-    print("║" + f"  LR (Heads):         {Config.lr_heads}".ljust(62) + "║")
-    print("║" + f"  Device:             {device}".ljust(62) + "║")
-    print("║" + f"  Total train time:   {total_train_time/60:.1f} minutes".ljust(62) + "║")
-    print("║" + f"  Inference speed:    {avg_inference_ms:.1f}ms / email".ljust(62) + "║")
-
-    print("║" + "".center(62) + "║")
-    print("║" + "  📈 TRAINING HISTORY".ljust(62) + "║")
-    print("║" + "  ─────────────────────────────────────────".ljust(62) + "║")
-    print("║" + f"  {'Epoch':>5}  {'Train Loss':>10}  {'Val Loss':>10}  {'Val F1':>8}  {'Val AUC':>8}".ljust(62) + "║")
-    for h in training_history:
-        print("║" + f"  {h['epoch']:>5}  {h['train_loss']:>10.4f}  {h['val_loss']:>10.4f}  {h['val_f1']*100:>7.2f}%  {h['val_auc']:>8.4f}".ljust(62) + "║")
-
-    print("║" + "".center(62) + "║")
-    print("╚" + "═" * 62 + "╝")
-
-    # ── Save all metrics to JSON ──
-    all_metrics = {
-        "timestamp": datetime.now().isoformat(),
-        "device": str(device),
-        "model_params": params,
-        "config": {k: v for k, v in vars(Config).items() if not k.startswith("_")},
+    print(f"  Average inference time: {np.mean(times[1:]):.1f}ms per email")
+ for k, v in vars(Config).items() if not k.startswith("_")},
         "training_history": training_history,
         "test_metrics": {k: v if not isinstance(v, np.floating) else float(v) for k, v in test_metrics.items()},
         "inference_speed_ms": float(avg_inference_ms),
