@@ -1477,3 +1477,4 @@ Validation split	Stratified 70/15/15	Ensures each class represented equally
 Label smoothing	0.05	Prevents overconfidence, helps generalization
 
 FYP Phishing Detection — Image Model | Muhammad Muhid | Air University Islamabad
+

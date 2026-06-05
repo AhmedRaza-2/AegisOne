@@ -21,8 +21,16 @@
   // CONFIG
   // ────────────────────────────────────────────
   const PHISHING_THRESHOLD = 0.5;   // For widget verdict
-  const HIGHLIGHT_THRESHOLD = 0.80;  // Only highlight links this risky (avoid false positives)
+  const HIGHLIGHT_THRESHOLD = 0.85;  // Only highlight links this risky (avoid false positives)
   const GOOGLE_BADGE_THRESHOLD = 0.80; // Google search badge threshold
+
+  // Trusted TLD patterns — any hostname ending in these is trusted
+  const TRUSTED_TLDS = [
+    ".edu", ".edu.pk", ".edu.au", ".edu.cn",
+    ".gov", ".gov.pk", ".gov.uk", ".gov.au",
+    ".ac.pk", ".ac.uk", ".ac.in",
+    ".mil",
+  ];
 
   // Trusted domains — never flag, never scan links FROM these domains to themselves
   const TRUSTED_DOMAINS = new Set([
@@ -38,27 +46,46 @@
     "paypal.com", "stripe.com",
     "netflix.com", "spotify.com",
     "dawn.com", "geo.tv", "bbc.com", "cnn.com",
+    "shopify.com", "myshopify.com", "shopifycdn.com",
+    "yotpo.com", "fontawesome.com", "cdnjs.cloudflare.com",
     "localhost", "127.0.0.1",
   ]);
 
   function getRootDomain(url) {
     try {
       const h = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-      // Get last two parts: maps.google.com → google.com
       const parts = h.split(".");
+      // For country-code second-level domains like edu.pk, gov.pk, ac.uk
+      // return last 3 parts if the second-to-last is 2 chars (e.g. co, edu, gov, ac)
+      if (parts.length >= 3 && parts[parts.length - 2].length <= 3) {
+        return parts.slice(-3).join(".");
+      }
       return parts.slice(-2).join(".");
     } catch { return ""; }
   }
 
   function isTrusted(url) {
-    const root = getRootDomain(url);
-    return TRUSTED_DOMAINS.has(root);
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      // Check trusted TLD patterns
+      if (TRUSTED_TLDS.some(tld => hostname.endsWith(tld))) return true;
+      // Check exact trusted domains (root match)
+      const root = getRootDomain(url);
+      return TRUSTED_DOMAINS.has(root);
+    } catch { return false; }
   }
 
   function isExternalLink(url) {
-    const currentRoot = getRootDomain(location.href);
-    const linkRoot = getRootDomain(url);
-    return linkRoot !== currentRoot && linkRoot !== "";
+    try {
+      const currentHost = new URL(location.href).hostname.toLowerCase();
+      const linkHost = new URL(url).hostname.toLowerCase();
+      // Same host or a subdomain of the current host → NOT external
+      if (linkHost === currentHost) return false;
+      const currentRoot = getRootDomain(location.href);
+      const linkRoot = getRootDomain(url);
+      // Same root domain (e.g. webdata.au.edu.pk and au.edu.pk) → NOT external
+      return linkRoot !== currentRoot && linkRoot !== "";
+    } catch { return false; }
   }
 
   const WIDGET_ID = "aegis-widget";
@@ -607,7 +634,7 @@
     <div id="aegis-widget-header">
       <div class="brand">🛡️ AegisOne</div>
       <div id="aegis-widget-controls">
-        <button id="aegis-btn-scan" title="Manual scan">🔍</button>
+        <button id="aegis-btn-scan" title="Full Page Scan" style="background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;">🔍 Scan</button>
         <button id="aegis-btn-min" title="Minimize">—</button>
         <button id="aegis-btn-off" title="Turn off">✕</button>
       </div>
@@ -625,7 +652,6 @@
         <div id="aegis-risk-bar"><div id="aegis-risk-fill" style="width:0%"></div></div>
       </div>
       <div id="aegis-threat-count">Scanning links...</div>
-      <div id="aegis-widget-reason" style="display:none;font-size:10px;color:#94a3b8;margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.04);border-radius:6px;border-left:2px solid #ef4444;line-height:1.5;"></div>
     </div>
   `;
   document.body.appendChild(widget);
@@ -638,38 +664,44 @@
     widget.classList.remove("minimized");
   });
 
-  // Manual Scan Now button — always fresh, uses current window URL
-  document.getElementById("aegis-btn-scan").addEventListener("click", async () => {
-    const btn = document.getElementById("aegis-btn-scan");
-    const currentUrl = window.location.href; // capture NOW, not stale closure
-    const currentText = document.body?.innerText?.slice(0, 3000) || "";
-    btn.textContent = "⏳";
-    btn.disabled = true;
-    updateWidget(null); // show scanning state
-    if (!ctxOk()) { btn.textContent = "🔍"; btn.disabled = false; return; }
-
-    // Force full rescan: URL + text + links
-    lastTextLen = 0; // reset so scanPage forces a full re-scan
-    await scanPage(true);
-
-    // Also run dedicated manual scan for the modal report
-    const res = await chrome.runtime.sendMessage({
-      type: "MANUAL_SCAN",
-      url: currentUrl,
-      text: currentText,
-      forceCache: true, // skip background cache
-    }).catch(() => null);
-    btn.textContent = "🔍";
-    btn.disabled = false;
-    // Prefer _lastScanData (full page context) if available, else use fresh result
-    const modalData = _lastScanData || res?.result;
-    if (modalData) showManualScanModal(modalData, currentUrl);
-  });
-
-  // Turn off
+  // Turn off (sends message to background to disable)
   document.getElementById("aegis-btn-off").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "TOGGLE_SHIELD" });
     widget.remove();
+  });
+
+  // ── 🔍 Full Page Scan button ──────────────────────────────────
+  document.getElementById("aegis-btn-scan").addEventListener("click", async () => {
+    const btn = document.getElementById("aegis-btn-scan");
+    btn.textContent = "⏳";
+    btn.disabled = true;
+    if (!ctxOk()) { btn.textContent = "🔍 Scan"; btn.disabled = false; return; }
+
+    const pageUrl      = window.location.href;
+    const pageText     = document.body?.innerText?.slice(0, 3000) || "";
+    const allLinks     = [...new Set(
+      [...document.querySelectorAll("a[href]")]
+        .map(a => { try { return new URL(a.href, location.href).href; } catch { return ""; } })
+        .filter(u => u.startsWith("http") && !isTrusted(u))
+    )];
+    const allImageSrcs = [...new Set(
+      [...document.querySelectorAll("img[src]")]
+        .map(i => i.src || i.currentSrc)
+        .filter(s => s && !s.startsWith("data:"))
+    )].slice(0, 12);
+    const DOC_RE   = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|exe|msi|apk)([?#]|$)/i;
+    const attachLinks = allLinks.filter(u => DOC_RE.test(u));
+
+    const res = await chrome.runtime.sendMessage({
+      type: "FULL_PAGE_SCAN",
+      pageUrl, pageText, allLinks, allImageSrcs, attachLinks,
+    }).catch(() => null);
+
+    btn.textContent = "🔍 Scan";
+    btn.disabled = false;
+
+    if (res?.report) showFullPageReport(res.report, pageUrl);
+    else alert("AegisOne: Scan failed — make sure unified_server.py is running.");
   });
 
   // Draggable widget
@@ -699,31 +731,46 @@
     const fillEl = document.getElementById("aegis-risk-fill");
     const pctEl = document.getElementById("aegis-risk-pct");
     const countEl = document.getElementById("aegis-threat-count");
-    const reasonEl = document.getElementById("aegis-widget-reason");
 
     if (prob === null) {
       statusEl.className = "scanning";
       iconEl.textContent = "🔍";
       titleEl.textContent = "Scanning...";
       subEl.textContent = "Analyzing page";
-      if (reasonEl) reasonEl.style.display = "none";
       return;
     }
 
     const pct = Math.round(prob * 100);
-    let statusClass = "safe", statusIcon = "✅", statusText = "Page Safe", statusColor = "#10b981";
+
+    let statusClass = "safe";
+    let statusIcon = "✅";
+    let statusText = "Page Safe";
+    let statusColor = "#10b981";
 
     if (pct >= 50) {
-      statusClass = "danger"; statusIcon = "🚨"; statusText = "Phishing Detected"; statusColor = "#ef4444";
+      statusClass = "danger";
+      statusIcon = "🚨";
+      statusText = "Phishing Detected";
+      statusColor = "#ef4444";
     } else if (pct >= 20) {
-      statusClass = "warning"; statusIcon = "⚠️"; statusText = "Suspicious Page"; statusColor = "#f59e0b";
+      statusClass = "warning";
+      statusIcon = "⚠️";
+      statusText = "Suspicious Page";
+      statusColor = "#f59e0b";
     }
 
     statusEl.className = statusClass;
     iconEl.textContent = statusIcon;
     titleEl.textContent = statusText;
     titleEl.style.color = statusColor;
-    subEl.textContent = `${pct}% Risk`;
+
+    // Show reason snippet in subtitle if available
+    if (reasons && reasons.length > 0 && pct >= 20) {
+      subEl.textContent = reasons[0]; // show top reason
+    } else {
+      subEl.textContent = `${pct}% Risk`;
+    }
+
     fillEl.style.width = `${pct}%`;
     fillEl.style.background = pct < 20 ? "#10b981" : pct < 50 ? "#f59e0b" : "#ef4444";
     pctEl.textContent = `${pct}%`;
@@ -734,17 +781,121 @@
         : "✓ All links safe";
       countEl.style.color = threatCount > 0 ? "#ef4444" : "#10b981";
     }
+  }
 
-    // Show WHY in widget if phishing + reasons available
-    if (reasonEl) {
-      if (pct >= 20 && reasons && reasons.length > 0) {
-        reasonEl.innerHTML = `<b>Why?</b> ${reasons.slice(0, 2).map(r => `• ${r}`).join("<br>")}`;
-        reasonEl.style.display = "block";
-        reasonEl.style.borderLeftColor = statusColor;
-      } else {
-        reasonEl.style.display = "none";
-      }
-    }
+  // ────────────────────────────────────────────
+  // FULL PAGE REPORT MODAL
+  // ────────────────────────────────────────────
+  function showFullPageReport(report, pageUrl) {
+    document.getElementById("aegis-full-report")?.remove();
+
+    const risk = Math.round((report.composite_risk || 0) * 100);
+    const verdict = risk >= 50 ? "🚨 Phishing" : risk >= 20 ? "⚠️ Suspicious" : "✅ Safe";
+    const verdictColor = risk >= 50 ? "#ef4444" : risk >= 20 ? "#f59e0b" : "#10b981";
+
+    // Build sections
+    const urlRows = (report.url_results || []).sort((a,b) => (b.phishing_probability||0)-(a.phishing_probability||0)).slice(0,20).map(u => {
+      const p = Math.round((u.phishing_probability||0)*100);
+      const c = p>=50?"#ef4444":p>=20?"#f59e0b":"#10b981";
+      return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1e293b;font-size:11px;">
+        <span style="color:#94a3b8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;" title="${u.url}">${u.url.replace(/^https?:\/\//,"").slice(0,55)}</span>
+        <span style="color:${c};font-weight:700;margin-left:8px;">${p}%</span>
+      </div>`;
+    }).join("") || `<div style="color:#64748b;font-size:11px;">No external links found</div>`;
+
+    const imgRows = (report.image_results || []).sort((a,b)=>(b.phishing_probability||0)-(a.phishing_probability||0)).slice(0,10).map(i => {
+      const p = Math.round((i.phishing_probability||0)*100);
+      const c = p>=50?"#ef4444":p>=20?"#f59e0b":"#10b981";
+      const name = i.src?.split("/").pop()?.slice(0,40)||"image";
+      return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1e293b;font-size:11px;">
+        <span style="color:#94a3b8;">🖼️ ${name}</span>
+        <span style="color:${c};font-weight:700;">${p}%</span>
+      </div>`;
+    }).join("") || `<div style="color:#64748b;font-size:11px;">No images scanned</div>`;
+
+    const attachRows = (report.attachment_results || []).sort((a,b)=>(b.phishing_probability||0)-(a.phishing_probability||0)).map(a => {
+      const p = Math.round((a.phishing_probability||0)*100);
+      const c = p>=50?"#ef4444":p>=20?"#f59e0b":"#10b981";
+      return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1e293b;font-size:11px;">
+        <span style="color:#94a3b8;">📎 ${a.url?.split("/").pop()?.slice(0,50)||"file"}</span>
+        <span style="color:${c};font-weight:700;">${p}%</span>
+      </div>`;
+    }).join("") || `<div style="color:#64748b;font-size:11px;">No document links found</div>`;
+
+    const textP = Math.round((report.text_result?.phishing_probability||0)*100);
+    const textC = textP>=50?"#ef4444":textP>=20?"#f59e0b":"#10b981";
+    const topWords = (report.text_result?.top_words||report.text_result?.xai_words||[]).slice(0,8).join(", ");
+
+    const modal = document.createElement("div");
+    modal.id = "aegis-full-report";
+    modal.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;
+      background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;`;
+    modal.innerHTML = `
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:16px;width:600px;max-width:95vw;
+        max-height:90vh;overflow-y:auto;font-family:'Inter',sans-serif;box-shadow:0 25px 60px rgba(0,0,0,0.9);">
+
+        <!-- Header -->
+        <div style="padding:20px 24px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:11px;color:#64748b;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;">🛡️ AegisOne</div>
+            <div style="font-size:18px;font-weight:800;color:#f1f5f9;">Full Page Security Report</div>
+            <div style="font-size:10px;color:#475569;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px;" title="${pageUrl}">${pageUrl.slice(0,70)}</div>
+          </div>
+          <button id="aegis-report-close" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;">✕ Close</button>
+        </div>
+
+        <!-- Composite Verdict -->
+        <div style="padding:20px 24px;border-bottom:1px solid #1e293b;text-align:center;">
+          <div style="font-size:42px;font-weight:900;color:${verdictColor};">${verdict}</div>
+          <div style="font-size:13px;color:#94a3b8;margin-top:4px;">Composite Page Risk Score</div>
+          <!-- Gauge bar -->
+          <div style="background:#1e293b;border-radius:8px;height:10px;margin:12px 0 6px;overflow:hidden;">
+            <div style="width:${risk}%;height:100%;background:${verdictColor};border-radius:8px;transition:width 1s;"></div>
+          </div>
+          <div style="font-size:22px;font-weight:800;color:${verdictColor};">${risk}% Risk</div>
+        </div>
+
+        <!-- 4 sections -->
+        <div style="padding:16px 24px;display:grid;gap:16px;">
+
+          <!-- Text AI -->
+          <div style="background:#1e293b;border-radius:10px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📝 Page Text Analysis</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="color:#f1f5f9;font-size:13px;">Text Phishing Risk</span>
+              <span style="color:${textC};font-weight:700;font-size:16px;">${textP}%</span>
+            </div>
+            ${topWords ? `<div style="font-size:11px;color:#64748b;">🧠 Top signals: <span style="color:#06b6d4;">${topWords}</span></div>` : ""}
+          </div>
+
+          <!-- URLs -->
+          <div style="background:#1e293b;border-radius:10px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">🔗 Links Scanned (${(report.url_results||[]).length})</div>
+            ${urlRows}
+          </div>
+
+          <!-- Images -->
+          <div style="background:#1e293b;border-radius:10px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">🖼️ Images Scanned (${(report.image_results||[]).length})</div>
+            ${imgRows}
+          </div>
+
+          <!-- Attachments -->
+          <div style="background:#1e293b;border-radius:10px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📎 Document/Attachment Links (${(report.attachment_results||[]).length})</div>
+            ${attachRows}
+          </div>
+
+        </div>
+
+        <div style="padding:14px 24px;border-top:1px solid #1e293b;text-align:center;font-size:10px;color:#475569;">
+          AegisOne · DistilBERT + EfficientNet-B3 · Air University FYP
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+    modal.querySelector("#aegis-report-close").addEventListener("click", () => modal.remove());
+    modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
   }
 
   // ────────────────────────────────────────────
@@ -964,19 +1115,6 @@
     });
   }
 
-  // Auto-scan all visible images on page (beyond just click)
-  const _scannedImgSrcs = new Set();
-  function autoScanImages() {
-    document.querySelectorAll("img[src]").forEach((img) => {
-      const src = img.src || img.currentSrc;
-      if (!src || src.startsWith("data:") || _scannedImgSrcs.has(src)) return;
-      if (img.naturalWidth < 100 || img.naturalHeight < 30) return; // skip tiny icons/spacers
-      _scannedImgSrcs.add(src);
-      // Use URL fallback scan (no CORS issues) — covers all images automatically
-      chrome.runtime.sendMessage({ type: "IMAGE_URL_FALLBACK", src }).catch(() => {});
-    });
-  }
-
   // ────────────────────────────────────────────
   // LISTEN FOR IMAGE RESULTS
   // ────────────────────────────────────────────
@@ -1053,7 +1191,6 @@
   // MAIN PAGE SCAN
   // ────────────────────────────────────────────
   let lastTextLen = 0;
-  let _lastScanData = null; // stores last full scan result for manual scan modal
 
   async function scanPage(force = false) {
     if (!ctxOk()) return;
@@ -1083,58 +1220,47 @@
       }).catch(() => null);
 
       if (res?.results) {
-          const urlResults = res.results.urls || [];
-          let textProb = res.results.text?.phishing_probability ?? 0;
-          const textWords = res.results.text?.top_words || res.results.text?.phishing_signals || [];
-          if (isTrusted(location.href) || textProb < 0.85) textProb = 0;
+        const urlResults = res.results.urls || [];
+        // Use the raw text probability — no artificial suppression
+        // Only zero it out if we're on a fully trusted domain (like google.com)
+        let textProb = res.results.text?.phishing_probability ?? 0;
+        if (isTrusted(location.href)) textProb = 0;
 
-          const worstUrl = urlResults.length > 0
-            ? Math.max(...urlResults.map(u => u.phishing_probability ?? 0)) : 0;
-          const malicious = urlResults.filter(u => (u.phishing_probability ?? 0) >= HIGHLIGHT_THRESHOLD);
+        const textWords = res.results.text?.top_words || res.results.text?.xai_words || [];
+        const malicious = urlResults.filter(u => (u.phishing_probability ?? 0) >= HIGHLIGHT_THRESHOLD);
+        const worstUrl = malicious.length > 0 ? Math.max(...malicious.map(u => u.phishing_probability)) : 0;
+        const composite = Math.max(textProb, worstUrl);
 
-          const reasons = [
-            ...textWords.slice(0, 2).map(w => `Suspicious keyword: "${w}"`),
-            ...malicious.flatMap(u => u.phishing_signals || []).slice(0, 2),
-          ].filter(Boolean);
+        // Build reason list shown under the widget score
+        const reasons = [
+          ...textWords.slice(0, 2).map(w => `Keyword: "${w}"`),
+          ...malicious.flatMap(u => u.phishing_signals || []).slice(0, 2),
+        ].filter(Boolean);
 
-          // Store full scan data for manual scan modal (XAI)
-          _lastScanData = {
-            phishing_probability: Math.max(textProb, worstUrl),
-            prediction: Math.max(textProb, worstUrl) >= 0.5 ? "phishing" : "benign",
-            category: malicious[0]?.category || res.results.text?.prediction || "url",
-            explanation: malicious[0]?.explanation || res.results.text?.explanation || "",
-            xai_words: malicious[0]?.xai_words || [],
-            top_words: textWords,
-            phishing_signals: reasons,
-            url_results: urlResults,
-          };
-
-          updateWidget(Math.max(textProb, worstUrl), malicious.length, reasons);
-          highlightPhishingLinks(malicious);
-        }
+        updateWidget(composite, malicious.length, reasons);
+        highlightPhishingLinks(malicious);
+      }
     }
 
     if (IS_GOOGLE_SEARCH) injectGoogleBadges();
     attachImageListeners();
-    autoScanImages();
   }
+
+  // ────────────────────────────────────────────
+  // HANDLE SCAN_SINGLE_URL from content script itself
+  // ────────────────────────────────────────────
+  // (Google search result scanning goes through background.js)
 
   const debouncedScan = debounce(scanPage, 2000);
 
   if (document.readyState === "complete") scanPage(true);
   else window.addEventListener("load", () => scanPage(true));
 
-  // Make widget status area clickable — opens full XAI report
-  document.getElementById("aegis-widget-status").style.cursor = "pointer";
-  document.getElementById("aegis-widget-status").addEventListener("click", () => {
-    if (_lastScanData) showManualScanModal(_lastScanData, window.location.href);
-  });
-
   let lastUrl = location.href;
   const observer = new MutationObserver(debounce(() => {
     if (!ctxOk()) { observer.disconnect(); return; }
     if (location.href !== lastUrl) {
-      lastUrl = location.href; lastTextLen = 0; _lastScanData = null;
+      lastUrl = location.href; lastTextLen = 0;
       updateWidget(null);
       setTimeout(() => scanPage(true), 1500);
     } else {
@@ -1147,115 +1273,6 @@
 
   const hb = setInterval(() => { if (!ctxOk()) { clearInterval(hb); return; } debouncedScan(); }, 30000);
 
-
-  // ────────────────────────────────────────────
-  // MANUAL SCAN RESULT MODAL (XAI)
-  // ────────────────────────────────────────────
-  function showManualScanModal(result, url) {
-    document.getElementById("aegis-manual-scan-modal")?.remove();
-
-    const riskPct = Math.round((result.phishing_probability ?? 0) * 100);
-    const isPhish = riskPct >= 50;
-    const isSusp = riskPct >= 20;
-    const color = isPhish ? "#ef4444" : isSusp ? "#f97316" : "#10b981";
-    const icon = isPhish ? "🚨" : isSusp ? "⚠️" : "✅";
-    const verdict = isPhish ? "Phishing Detected" : isSusp ? "Suspicious" : "Safe";
-    const category = result.category || result.prediction || "unknown";
-
-    // XAI: keywords from model attention
-    const xaiWords = result.xai_words || result.top_words || [];
-    const signals = result.phishing_signals || result.phishing_signals || [];
-    const explanation = result.explanation || (isPhish
-      ? "The AI model detected multiple patterns consistent with phishing attacks."
-      : isSusp ? "Some suspicious patterns were found. Exercise caution."
-      : "No significant phishing indicators were detected on this page.");
-
-    const wordsHtml = xaiWords.length > 0
-      ? xaiWords.slice(0, 8).map((w, i) => `
-          <span style="display:inline-flex;align-items:center;gap:4px;
-            background:${color}18;border:1px solid ${color}44;color:${color};
-            border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;
-            opacity:${Math.max(0.4, 1 - i * 0.1)}">
-            ${w} <span style="font-size:9px;opacity:0.7">#${i+1}</span>
-          </span>`).join("")
-      : `<span style="color:#64748b;font-size:11px;">No specific keywords flagged</span>`;
-
-    const signalsHtml = signals.length > 0
-      ? signals.map(s => `<li style="margin-bottom:4px;color:#e2e8f0;">⚠ ${s}</li>`).join("")
-      : `<li style="color:#10b981;">✓ No threat signals detected</li>`;
-
-    const container = document.createElement("div");
-    container.id = "aegis-manual-scan-modal";
-    container.innerHTML = `
-      <div style="position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;">
-        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(10px);" id="aegis-msm-backdrop"></div>
-        <div style="position:relative;width:500px;max-width:94vw;max-height:88vh;overflow-y:auto;
-          background:#0d0d0d;border:1px solid ${color}44;border-radius:16px;
-          box-shadow:0 24px 64px rgba(0,0,0,0.9);">
-
-          <!-- Header -->
-          <div style="display:flex;align-items:center;justify-content:space-between;
-            padding:14px 18px;background:${color}12;border-bottom:1px solid ${color}25;">
-            <span style="font-weight:800;font-size:13px;color:${color};letter-spacing:0.5px;">🛡️ AegisOne — Manual Scan Report</span>
-            <button id="aegis-msm-close" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:0;">✕</button>
-          </div>
-
-          <!-- Risk Gauge + Verdict -->
-          <div style="display:flex;align-items:center;gap:20px;padding:20px 20px 12px;">
-            <div style="position:relative;width:84px;height:84px;flex-shrink:0;">
-              <svg viewBox="0 0 84 84" style="width:84px;height:84px;position:absolute;top:0;left:0;">
-                <circle cx="42" cy="42" r="36" fill="none" stroke="${color}18" stroke-width="8"/>
-                <circle cx="42" cy="42" r="36" fill="none" stroke="${color}" stroke-width="8"
-                  stroke-dasharray="${Math.round(2*Math.PI*36*riskPct/100)} 999"
-                  stroke-linecap="round" transform="rotate(-90 42 42)"/>
-              </svg>
-              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                <span style="font-size:18px;font-weight:900;color:${color};">${riskPct}%</span>
-                <span style="font-size:8px;color:#64748b;letter-spacing:1px;">RISK</span>
-              </div>
-            </div>
-            <div>
-              <div style="font-size:22px;font-weight:900;color:${color};">${icon} ${verdict}</div>
-              <div style="font-size:11px;color:#64748b;margin-top:2px;">Category: <b style="color:#e2e8f0;">${category}</b></div>
-              <div style="font-size:11px;color:#64748b;margin-top:2px;">Source: <span style="color:#94a3b8;">${url.slice(0,55)}${url.length>55?"...":""}</span></div>
-            </div>
-          </div>
-
-          <!-- AI Explanation -->
-          <div style="padding:0 20px 12px;">
-            <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:6px;">🔍 AI VERDICT</div>
-            <div style="font-size:12px;color:#cbd5e1;line-height:1.6;background:${color}08;border-left:3px solid ${color}55;border-radius:0 6px 6px 0;padding:10px 12px;">
-              ${explanation}
-            </div>
-          </div>
-
-          <!-- Neural Attention Keywords -->
-          <div style="padding:0 20px 12px;">
-            <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:8px;">🧠 NEURAL ATTENTION — TOP FEATURES (DistilBERT)</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;">${wordsHtml}</div>
-          </div>
-
-          <!-- Threat Signals -->
-          <div style="padding:0 20px 16px;">
-            <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:6px;">⚡ HEURISTIC SIGNALS</div>
-            <ul style="margin:0;padding:0 0 0 4px;list-style:none;font-size:11px;line-height:1.8;">${signalsHtml}</ul>
-          </div>
-
-          <!-- Footer -->
-          <div style="padding:10px 20px;border-top:1px solid rgba(255,255,255,0.06);
-            display:flex;justify-content:space-between;font-size:9px;color:#475569;">
-            <span>Model: DistilBERT (LoRA) + Feature MLP</span>
-            <span>AegisOne v3.0</span>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(container);
-    const close = () => container.remove();
-    container.querySelector("#aegis-msm-close").addEventListener("click", close);
-    container.querySelector("#aegis-msm-backdrop").addEventListener("click", close);
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); }, { once: true });
-  }
 
   // ────────────────────────────────────────────
   // INTERACTIVE XAI MODAL REPORT
@@ -1561,32 +1578,29 @@
       const color = msg.isPhishing ? "#ef4444" : "#10b981";
       const icon = msg.isPhishing ? "🚨" : "✅";
       const label = msg.isPhishing ? `Phishing Document — ${riskPct}% Risk` : `Document Safe — ${riskPct}% Risk`;
-      const signalText = msg.signals?.length > 0 ? msg.signals.slice(0, 3).join(" · ") : (msg.isPhishing ? "Malicious content detected" : "No threats found");
-
+      const signalText = (msg.signals && msg.signals.length > 0)
+        ? msg.signals.slice(0, 3).join(" · ")
+        : (msg.isPhishing ? "Malicious content detected" : "No threats found");
       const bannerId = "aegis-doc-scan-banner";
-      document.getElementById(bannerId)?.remove();
+      document.getElementById(bannerId) && document.getElementById(bannerId).remove();
       const banner = document.createElement("div");
       banner.id = bannerId;
-      banner.innerHTML = `
-        <div style="
-          position:fixed;top:16px;right:16px;z-index:2147483647;
+      banner.innerHTML = `<div style="position:fixed;top:16px;right:16px;z-index:2147483647;
           background:#0f0a0a;border:1px solid ${color};border-left:4px solid ${color};
           border-radius:10px;padding:14px 18px;min-width:280px;max-width:380px;
           font-family:'Inter',sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.9);
-          display:flex;gap:12px;align-items:flex-start;
-        ">
-          <span style="font-size:24px;flex-shrink:0;">${icon}</span>
-          <div style="flex:1;">
-            <div style="font-weight:800;font-size:13px;color:${color};margin-bottom:4px;">AegisOne Document Scan</div>
-            <div style="font-size:12px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${label}</div>
-            <div style="font-size:11px;color:#94a3b8;">${signalText}</div>
-          </div>
-          <button id="aegis-doc-banner-close" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:18px;padding:0;flex-shrink:0;">✕</button>
+          display:flex;gap:12px;align-items:flex-start;">
+        <span style="font-size:24px;flex-shrink:0;">${icon}</span>
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:13px;color:${color};margin-bottom:4px;">AegisOne Document Scan</div>
+          <div style="font-size:12px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${label}</div>
+          <div style="font-size:11px;color:#94a3b8;">${signalText}</div>
         </div>
-      `;
+        <button id="aegis-doc-banner-close" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:18px;padding:0;flex-shrink:0;">✕</button>
+      </div>`;
       document.body.appendChild(banner);
-      banner.querySelector("#aegis-doc-banner-close").addEventListener("click", () => banner.remove());
-      if (!msg.isPhishing) setTimeout(() => banner?.remove(), 6000);
+      document.getElementById("aegis-doc-banner-close").addEventListener("click", () => banner.remove());
+      if (!msg.isPhishing) setTimeout(() => { if (banner.parentNode) banner.remove(); }, 6000);
     }
   });
 

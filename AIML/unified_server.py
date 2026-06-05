@@ -193,11 +193,17 @@ def get_attention_based_xai(model, tokens, attention_mask):
         mean_attn = attn_weights[0].mean(dim=0).mean(dim=0)
         
         # Zip tokens with their mean attention score
-        special_tokens = {"[cls]", "[sep]", "[pad]"}
+        import string
+        special_tokens = {"[cls]", "[sep]", "[pad]", "http", "https", "www", "com"}
         scored_tokens = []
         for idx, token in enumerate(tokens):
             t_lower = token.lower()
-            if idx < len(mean_attn) and t_lower not in special_tokens and not t_lower.startswith("##"):
+            # Filter out BERT specials, subwords, pure punctuation, and very short tokens
+            if (idx < len(mean_attn) and 
+                t_lower not in special_tokens and 
+                not t_lower.startswith("##") and 
+                len(t_lower) > 2 and 
+                not all(c in string.punctuation for c in t_lower)):
                 scored_tokens.append((token, float(mean_attn[idx].item())))
         
         # Sort by score descending
@@ -227,13 +233,17 @@ def get_bert_attention_xai(model, tokens, attention_mask):
         # Extract the attention weights from the CLS token (row 0) to all key tokens
         cls_attn = mean_attn[0, :]
         
-        special_tokens = {"[cls]", "[sep]", "[pad]", "http", "https", "www", "com", "org", "net", "edu", "pk", "/", ":", ".", "-", "_"}
+        import string
+        special_tokens = {"[cls]", "[sep]", "[pad]", "http", "https", "www", "com", "org", "net", "edu", "pk"}
         scored_tokens = []
         for idx, token in enumerate(tokens):
             t_lower = token.lower()
             if idx < len(cls_attn) and attention_mask[idx] == 1:
-                # Filter out special BERT tokens and standard URL parts
-                if t_lower not in special_tokens and not t_lower.startswith("##") and len(t_lower) > 2:
+                # Filter out special BERT tokens, subwords, pure punctuation, and very short tokens
+                if (t_lower not in special_tokens and 
+                    not t_lower.startswith("##") and 
+                    len(t_lower) > 2 and 
+                    not all(c in string.punctuation for c in t_lower)):
                     scored_tokens.append((token, float(cls_attn[idx].item())))
                     
         # Sort by attention weight descending

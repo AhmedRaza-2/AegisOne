@@ -108,7 +108,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !tab.url) return;
   if (isInternalURL(tab.url)) return;
 
-  // Check cache — don't re-scan same URL
+  // Check cache
   const cached = tabCache.get(tabId);
   if (cached && cached.url === tab.url) return;
 
@@ -116,44 +116,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   chrome.action.setBadgeText({ tabId, text: "..." });
   chrome.action.setBadgeBackgroundColor({ tabId, color: "#6366f1" });
 
-  // ── Detect if tab is a directly-opened document ──
-  const DOC_EXTS = /\.(pdf|html|htm|txt|docx?|xlsx?|pptx?|zip|rar|csv|xml|json|js|php)(\?.*)?$/i;
-  const isFileTab = tab.url.startsWith("file://") || DOC_EXTS.test(tab.url.split("?")[0]);
-
-  if (isFileTab) {
-    // Scan as attachment via the content analysis endpoint
-    const form = new FormData();
-    form.append("url", tab.url);
-    const result = await callAPI("/analyze/download_url", form, true);
-
-    if (result) {
-      const risk = result.phishing_probability ?? 0;
-      const isPhishing = risk > CONFIG.PHISHING_THRESHOLD || result.prediction === "phishing" || result.macros_found;
-      tabCache.set(tabId, { url: tab.url, verdict: result, isPhishing, isDocument: true });
-      setBadge(tabId, isPhishing ? "phishing" : "benign", risk);
-
-      if (isPhishing) {
-        sendNotification(
-          "🚨 AegisOne: Malicious Document Detected!",
-          `File: ${tab.url.split("/").pop()}\nRisk: ${(risk * 100).toFixed(0)}%\nSignals: ${(result.phishing_signals || []).slice(0, 2).join(", ")}`
-        );
-      }
-      // Tell content script to show document scan result banner
-      chrome.tabs.sendMessage(tabId, {
-        type: "DOCUMENT_SCAN_RESULT",
-        risk,
-        isPhishing,
-        signals: result.phishing_signals || [],
-        fileType: result.file_type || "document",
-      }).catch(() => {});
-    } else {
-      chrome.action.setBadgeText({ tabId, text: "?" });
-      chrome.action.setBadgeBackgroundColor({ tabId, color: "#64748b" });
-    }
-    return; // Skip URL scan for document tabs
-  }
-
-  // ── Standard web page URL scan ──
+  // Send URL to URL model
   const form = new FormData();
   form.append("url", tab.url);
   const result = await callAPI("/analyze/url", form, true);
@@ -169,7 +132,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         `${tab.url.slice(0, 60)}...\nCategory: ${result.category || result.prediction}\nRisk: ${(result.phishing_probability * 100).toFixed(0)}%`
       );
     }
-    chrome.runtime.sendMessage({ type: "URL_RESULT", tabId, result }).catch(() => {});
+
+    // Notify popup if open
+    chrome.runtime.sendMessage({
+      type: "URL_RESULT",
+      tabId,
+      result,
+    }).catch(() => { });
   } else {
     chrome.action.setBadgeText({ tabId, text: "?" });
     chrome.action.setBadgeBackgroundColor({ tabId, color: "#64748b" });
@@ -390,7 +359,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               type: "HIGHLIGHT_THREATS",
               maliciousUrls: maliciousLinks.map(u => u.url),
               textPhishing: false,
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
 
@@ -403,7 +372,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               textPhishing: true,
               textRisk: results.text?.phishing_probability ?? 0,
               textSignals: results.text?.top_words || [],
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
 
@@ -415,6 +384,101 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
 
         sendResponse({ ok: true, results });
+        break;
+      }
+
+      // ── Full page scan (triggered by widget "🔍 Scan" button) ──
+      case "FULL_PAGE_SCAN": {
+        if (!SHIELD_ENABLED) { sendResponse({ ok: false }); break; }
+
+        const { pageUrl, pageText, allLinks = [], allImageSrcs = [], attachLinks = [] } = msg;
+
+        // Cap at 30 unique links to prevent scan overload on large sites
+        const linksToScan = allLinks.slice(0, 30);
+
+        // Run all four scans in parallel
+        const [textRes, urlsRes, imgsRes, attachRes] = await Promise.allSettled([
+
+          // 1. Page text
+          (async () => {
+            if (!pageText || pageText.trim().length < 20) return null;
+            const f = new FormData(); f.append("text", pageText.slice(0, 3000));
+            return callAPI("/analyze/text", f, true);
+          })(),
+
+          // 2. External links (batched 5 at a time, capped at 30)
+          (async () => {
+            if (linksToScan.length === 0) return [];
+            const results = [];
+            const BATCH = 5;
+            for (let i = 0; i < linksToScan.length; i += BATCH) {
+              const batch = linksToScan.slice(i, i + BATCH).filter(u => !isInternalURL(u));
+              const settled = await Promise.allSettled(batch.map(async (url) => {
+                const f = new FormData(); f.append("url", url);
+                const r = await callAPI("/analyze/url", f, true);
+                return r ? { url, ...r } : null;
+              }));
+              settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
+            }
+            return results;
+          })(),
+
+          // 3. Images (via URL model — no CORS issues)
+          (async () => {
+            if (allImageSrcs.length === 0) return [];
+            const results = [];
+            const settled = await Promise.allSettled(allImageSrcs.map(async (src) => {
+              const f = new FormData(); f.append("url", src);
+              const r = await callAPI("/analyze/url", f, true);
+              return r ? { src, ...r } : null;
+            }));
+            settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
+            return results;
+          })(),
+
+          // 4. Attachment/document links
+          (async () => {
+            if (attachLinks.length === 0) return [];
+            const results = [];
+            const settled = await Promise.allSettled(attachLinks.map(async (url) => {
+              const f = new FormData(); f.append("url", url);
+              const r = await callAPI("/analyze/download_url", f, true);
+              return r ? { url, ...r } : null;
+            }));
+            settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
+            return results;
+          })(),
+        ]);
+
+        const textResult    = textRes.status === "fulfilled"   ? textRes.value    : null;
+        const urlResults    = urlsRes.status === "fulfilled"   ? urlsRes.value    : [];
+        const imageResults  = imgsRes.status === "fulfilled"   ? imgsRes.value    : [];
+        const attachResults = attachRes.status === "fulfilled" ? attachRes.value  : [];
+
+        // Composite risk calculation:
+        // Only count URL/image scores ≥ 0.85 to suppress model false positives.
+        // Text risk is trusted directly. Attachment risk is always included.
+        const textProb = textResult?.phishing_probability ?? 0;
+        const highConfidenceUrls = urlResults.filter(u => (u.phishing_probability ?? 0) >= 0.85);
+        const worstUrl = highConfidenceUrls.length > 0
+          ? Math.max(...highConfidenceUrls.map(u => u.phishing_probability ?? 0)) : 0;
+        const highConfidenceImgs = imageResults.filter(i => (i.phishing_probability ?? 0) >= 0.85);
+        const worstImg = highConfidenceImgs.length > 0
+          ? Math.max(...highConfidenceImgs.map(i => i.phishing_probability ?? 0)) : 0;
+        const worstAttach = attachResults.length > 0
+          ? Math.max(...attachResults.map(a => a.phishing_probability ?? 0)) : 0;
+        const composite_risk = Math.max(textProb, worstUrl, worstImg, worstAttach);
+
+        const report = {
+          composite_risk,
+          text_result: textResult,
+          url_results: urlResults,       // all URL results for display
+          image_results: imageResults,
+          attachment_results: attachResults,
+          scanned_at: new Date().toISOString(),
+        };
+
+        sendResponse({ ok: true, report });
         break;
       }
 
@@ -441,7 +505,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 emailPhishing: true,
                 emailRisk: result.phishing_probability,
                 emailSignals: result.top_words || [],
-              }).catch(() => {});
+              }).catch(() => { });
             }
           }
           if (sender.tab?.id) {
@@ -461,38 +525,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         form.append("url", msg.url);
         const result = await callAPI("/analyze/url", form, true);
         sendResponse({ ok: !!result, result });
-        break;
-      }
-
-      // ── Manual scan triggered by user from widget ──
-      case "MANUAL_SCAN": {
-        const urlForm = new FormData();
-        urlForm.append("url", msg.url);
-        const urlResult = await callAPI("/analyze/url", urlForm, true);
-
-        let textResult = null;
-        if (msg.text && msg.text.trim().length > 20) {
-          const textForm = new FormData();
-          textForm.append("text", msg.text);
-          textResult = await callAPI("/analyze/text", textForm, true);
-        }
-
-        // Merge results — take the higher risk score, combine XAI signals
-        const urlRisk = urlResult?.phishing_probability ?? 0;
-        const textRisk = textResult?.phishing_probability ?? 0;
-        const merged = {
-          phishing_probability: Math.max(urlRisk, textRisk),
-          prediction: urlRisk >= textRisk ? (urlResult?.prediction || "benign") : (textResult?.prediction || "benign"),
-          category: urlResult?.category || "url",
-          explanation: urlResult?.explanation || textResult?.explanation || "",
-          xai_words: urlResult?.xai_words || [],
-          top_words: textResult?.top_words || [],
-          phishing_signals: [
-            ...(urlResult?.phishing_signals || []),
-            ...(textResult?.phishing_signals || []),
-          ].filter(Boolean),
-        };
-        sendResponse({ ok: true, result: merged });
         break;
       }
 
