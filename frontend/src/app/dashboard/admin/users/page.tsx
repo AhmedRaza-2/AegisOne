@@ -1,7 +1,7 @@
 "use client";
 import { users, getRoleBadge, Role } from "@/lib/mock-data";
 import { Users, Search, ShieldCheck, ShieldOff, Plus, Trash2, X, AlertCircle } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -9,6 +9,7 @@ export default function UsersPage() {
   const { user } = useAuth();
   const [userList, setUserList] = useState(() => users.getAll());
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [roleFilter, setRoleFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -34,14 +35,14 @@ export default function UsersPage() {
       // Only display administrative/supervisory accounts here
       if (u.role === "employee") return false;
       
-      const matchSearch = !search || 
-        u.fullName.toLowerCase().includes(search.toLowerCase()) || 
-        u.email.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = !deferredSearch || 
+        u.fullName.toLowerCase().includes(deferredSearch.toLowerCase()) || 
+        u.email.toLowerCase().includes(deferredSearch.toLowerCase());
       
       const matchRole = roleFilter === "all" || u.role === roleFilter;
       return matchSearch && matchRole;
     });
-  }, [tenantUsers, search, roleFilter]);
+  }, [tenantUsers, deferredSearch, roleFilter]);
 
   const handleAddAdmin = (e: React.FormEvent) => {
     e.preventDefault();

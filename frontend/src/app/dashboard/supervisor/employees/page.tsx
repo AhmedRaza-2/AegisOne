@@ -2,13 +2,14 @@
 import { users, scanHistory } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
 import { Users, ShieldCheck, ShieldOff, Search, Plus, Trash2, X } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function EmployeesPage() {
   const { user } = useAuth();
   const [userList, setUserList] = useState(() => users.getAll());
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Form States
@@ -39,10 +40,10 @@ export default function EmployeesPage() {
   }, [deptEmployees]);
 
   const filtered = useMemo(() => {
-    if (!search) return employeesWithStats;
-    const s = search.toLowerCase();
+    if (!deferredSearch) return employeesWithStats;
+    const s = deferredSearch.toLowerCase();
     return employeesWithStats.filter(u => u.fullName.toLowerCase().includes(s) || u.email.toLowerCase().includes(s));
-  }, [employeesWithStats, search]);
+  }, [employeesWithStats, deferredSearch]);
 
   const handleAddEmployee = (e: React.FormEvent) => {
     e.preventDefault();

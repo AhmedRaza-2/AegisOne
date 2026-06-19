@@ -1,7 +1,7 @@
 "use client";
 import { auditLogs, getUserById } from "@/lib/mock-data";
 import { ClipboardList, Search } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { useAuth } from "@/lib/auth-context";
 
 const actionColors: Record<string, string> = {
@@ -16,6 +16,7 @@ const actionColors: Record<string, string> = {
 export default function AuditPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
 
   if (!user) return null;
 
@@ -31,13 +32,13 @@ export default function AuditPage() {
   }, [user, isGlobalAdmin]);
 
   const filtered = useMemo(() => {
-    if (!search) return roleFilteredLogs;
-    const lowerSearch = search.toLowerCase();
+    if (!deferredSearch) return roleFilteredLogs;
+    const lowerSearch = deferredSearch.toLowerCase();
     return roleFilteredLogs.filter(l => 
       l.action.toLowerCase().includes(lowerSearch) || 
       l.details.toLowerCase().includes(lowerSearch)
     );
-  }, [roleFilteredLogs, search]);
+  }, [roleFilteredLogs, deferredSearch]);
 
   return (
     <div className="space-y-6">

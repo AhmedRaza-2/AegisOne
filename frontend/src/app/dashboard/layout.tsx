@@ -48,32 +48,29 @@ const navByRole: Record<string, NavItem[]> = {
   ],
 };
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, isLoading, theme, toggleTheme } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [user, isLoading, router]);
-
-  if (isLoading || !user) {
-    return (
-      <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center">
-        <Shield className="w-8 h-8 text-brand-500 animate-pulse" />
-      </div>
-    );
-  }
-
-  const navItems = navByRole[user.role] || navByRole.employee;
-  const roleBadge = getRoleBadge(user.role);
-  const initials = user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2);
-
-  const handleLogout = () => { logout(); router.replace("/login"); };
-
-  const SidebarContent = () => (
+// Extracted static component outside DashboardLayout to prevent mounting leaks
+function SidebarContent({
+  collapsed,
+  navItems,
+  pathname,
+  router,
+  initials,
+  user,
+  roleBadge,
+  handleLogout,
+  setMobileOpen,
+}: {
+  collapsed: boolean;
+  navItems: NavItem[];
+  pathname: string;
+  router: any;
+  initials: string;
+  user: any;
+  roleBadge: any;
+  handleLogout: () => void;
+  setMobileOpen: (open: boolean) => void;
+}) {
+  return (
     <>
       {/* Logo */}
       <div className="h-16 flex items-center gap-2.5 px-4 border-b border-surface-200 dark:border-white/[0.06] shrink-0">
@@ -107,7 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="border-t border-surface-200 dark:border-white/[0.06] p-3 shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-3 px-2 py-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400">{initials}</div>
+            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">{initials}</div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-surface-900 dark:text-white truncate">{user.fullName}</div>
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${roleBadge.color}`}>{roleBadge.label}</span>
@@ -121,12 +118,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     </>
   );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user, logout, isLoading, theme, toggleTheme } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !user) router.replace("/login");
+  }, [user, isLoading, router]);
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center">
+        <Shield className="w-8 h-8 text-brand-500 animate-pulse" />
+      </div>
+    );
+  }
+
+  const navItems = navByRole[user.role] || navByRole.employee;
+  const roleBadge = getRoleBadge(user.role);
+  const initials = user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2);
+
+  const handleLogout = () => { logout(); router.replace("/login"); };
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex transition-colors duration-300">
       {/* Desktop sidebar */}
       <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.06] bg-white dark:bg-surface-950 transition-all duration-300 ${collapsed ? "w-[68px]" : "w-[240px]"} shrink-0 h-screen sticky top-0`}>
-        <SidebarContent />
+        <SidebarContent
+          collapsed={collapsed}
+          navItems={navItems}
+          pathname={pathname}
+          router={router}
+          initials={initials}
+          user={user}
+          roleBadge={roleBadge}
+          handleLogout={handleLogout}
+          setMobileOpen={setMobileOpen}
+        />
         <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
@@ -138,7 +171,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
             <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="fixed left-0 top-0 h-full w-[260px] bg-white dark:bg-surface-950 border-r border-surface-200 dark:border-white/[0.06] z-50 flex flex-col md:hidden">
-              <SidebarContent />
+              <SidebarContent
+                collapsed={false}
+                navItems={navItems}
+                pathname={pathname}
+                router={router}
+                initials={initials}
+                user={user}
+                roleBadge={roleBadge}
+                handleLogout={handleLogout}
+                setMobileOpen={setMobileOpen}
+              />
             </motion.aside>
           </>
         )}

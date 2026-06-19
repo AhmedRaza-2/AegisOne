@@ -562,6 +562,9 @@ video {
   border-color: rgb(255 255 255 / 0.12);
   background-color: rgb(255 255 255 / 0.05);
 }
+.static {
+  position: static;
+}
 .fixed {
   position: fixed;
 }
@@ -848,6 +851,9 @@ video {
 }
 .min-w-0 {
   min-width: 0px;
+}
+.min-w-\[200px\] {
+  min-width: 200px;
 }
 .max-w-2xl {
   max-width: 42rem;
@@ -1463,6 +1469,9 @@ video {
   font-size: 0.75rem;
   line-height: 1rem;
 }
+.text-\[11px\] {
+  font-size: 11px;
+}
 .font-bold {
   font-weight: 700;
 }
@@ -1913,6 +1922,9 @@ body {
 }
 .dark\:border-white\/\[0\.1\]:is(.dark *) {
   border-color: rgb(255 255 255 / 0.1);
+}
+.dark\:border-white\/\[0\.05\]:is(.dark *) {
+  border-color: rgb(255 255 255 / 0.05);
 }
 .dark\:bg-emerald-400:is(.dark *) {
   --tw-bg-opacity: 1;
