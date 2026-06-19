@@ -1,3 +1,10 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:5a4e4aa2bed30ca400fb082887a59a8743eb95d437ab9de7becef6a5751ef791
-size 402
+{
+  "/page": "app/page.js",
+  "/login/page": "app/login/page.js",
+  "/dashboard/supervisor/employees/page": "app/dashboard/supervisor/employees/page.js",
+  "/dashboard/supervisor/reports/page": "app/dashboard/supervisor/reports/page.js",
+  "/dashboard/employee/history/page": "app/dashboard/employee/history/page.js",
+  "/dashboard/employee/page": "app/dashboard/employee/page.js",
+  "/dashboard/employee/report/page": "app/dashboard/employee/report/page.js",
+  "/dashboard/employee/scan/page": "app/dashboard/employee/scan/page.js"
+}
