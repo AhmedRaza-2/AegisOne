@@ -313,3 +313,94 @@ graph TB
     class UB_EMP,IN_EMP,AP_EMP emp;
     class UB_DB,IN_DB,AP_DB db;
 ```
+
+---
+
+## 💻 Diagram 6: Inara Technologies Threat Telemetry & Hierarchy Simulation
+
+This diagram visualizes a real-world phishing detection scenario within **Inara Technologies**. It tracks a threat payload (URL, text, or visual screenshot) from an employee's laptop, through the local office API gateway, and shows the upward propagation of analytics to the Department Lead and the CEO, while preserving data privacy.
+
+### Option A: 3D Isometric Workflow Prompt (For DALL-E 3 / Midjourney)
+> **Prompt**: 
+> "A 3D isometric layout diagram representing a cyber security telemetry workflow inside 'Inara Technologies'. Design the flowchart using minimalistic, clean blocks and clear icons on a dark background (#0f172a). 
+> The flow must follow these numbered steps visually:
+> 1. Start Node: An icon of an 'Employee Laptop' (labeled 'Employee Workstation'). A glowing red envelope/link symbol rises from the screen.
+> 2. Connection 1: A glowing red line labeled '1. Request (URL/Image/Text)' runs from the Laptop to a local server rack labeled 'Inara Office Server (FastAPI API)'.
+> 3. Response: A cyan line labeled '2. Verdict & Score' returns from the Server back to the Laptop, showing a green checkmark/red warning on the screen.
+> 4. Local Dashboard Update: The laptop updates a nearby floating UI window labeled 'Employee Personal Dashboard' showing 'My Scans' and 'Risk Level: 94%'.
+> 5. Connection 2 (To Team Lead): A dotted orange line labeled '3. Anonymized Metrics (Total Scans: +1)' travels from the employee database up to a manager console labeled 'Admin / Dept Lead Dashboard' (managing 10 employees).
+> 6. Connection 3 (To CEO): A dotted gold line labeled '4. Department Totals' travels from the Team Lead's console up to a central boardroom screen labeled 'CEO / Super Admin Dashboard'.
+> Highly professional, clean corporate style, simple wording, soft glowing lines, high contrast."
+
+### Option B: Minimalistic Structural Flow Prompt (For Eraser.io / Diagram GPT)
+```text
+Create a clean, minimalistic flow diagram representing "Inara Technologies End-to-End Threat Lifecycle".
+
+LAYOUT STRUCTURE:
+- Arrange the flow from Left to Right, split into 3 vertical lanes representing the corporate roles:
+  - Lane 1 (Left): "Employee Tier"
+  - Lane 2 (Center): "Inara Office Security Gateway"
+  - Lane 3 (Right): "Management Dashboard Tier"
+
+LANE 1: EMPLOYEE TIER
+- Component E1: "Employee Workstation (Laptops & Desktops)"
+- Component E2: "Employee Personal Dashboard" (Displays personal scans, safety logs, and local blocking statuses).
+
+LANE 2: INARA OFFICE SECURITY GATEWAY
+- Component S1: "Inara Local Server (FastAPI API)"
+- Component S2: "Local PostgreSQL DB (Saves detailed scan content)"
+
+LANE 3: MANAGEMENT DASHBOARD TIER
+- Component M1: "Admin / Department Lead Dashboard" (Displays team metrics, total threats flagged, and active workstations for the 10 department employees).
+- Component M2: "CEO / Super Admin Dashboard" (Displays aggregated organization-wide telemetry: total scans, global threat alerts, and server health).
+
+LOGICAL FLOW CONNECTIONS:
+- Connect E1 to S1 with a solid line arrow. Label it "1. Send Scan Payload (URL, raw email, or base64 screenshot)".
+- Connect S1 to S2 with a solid line. Label it "2. Parse Content & Save Log".
+- Connect S1 back to E1 with a solid line arrow. Label it "3. Return Verdict & Threat Score (0-100%)".
+- Connect E1 to E2 with a dashed line. Label it "4. Update Personal UI".
+- Connect S2 to M1 with a dotted line arrow. Label it "5. Push Team Metrics (Anonymized: raw email text and visual content are blocked/hidden)".
+- Connect M1 to M2 with a dotted line arrow. Label it "6. Aggregate Department Totals to CEO Dashboard".
+```
+
+### Option C: Complete Scenario Flowchart (For Mermaid.js Flowchart)
+```mermaid
+graph LR
+    %% Workstation and local API interaction
+    subgraph Employee_Tier [Employee Workstation]
+        Laptop[Employee Laptop]
+        EmpDB[Employee Dashboard UI]
+    end
+
+    subgraph Security_Gateway [Inara Office Server]
+        API[FastAPI Gateway]
+        LocalDB[(Local Secure DB)]
+    end
+
+    subgraph Management_Tier [Management Dashboards]
+        Lead[Admin / Dept Lead Dashboard]
+        CEO[CEO / Super Admin Dashboard]
+    end
+
+    %% Execution flow steps
+    Laptop -->|1. POST /scan/url or /scan/image| API
+    API -->|2. Query Models & Evaluate Threat| LocalDB
+    API -->|3. Return Verdict & Score| Laptop
+    Laptop -->|4. Update UI| EmpDB
+
+    %% Privacy-controlled Analytics propagation
+    LocalDB -.->|5. Push Anonymized Team Metrics<br/>Content Masked| Lead
+    Lead -.->|6. Push Aggregated Department Totals| CEO
+
+    %% Styling definitions
+    classDef emp fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef gate fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff;
+    classDef lead fill:#854d0e,stroke:#eab308,stroke-width:2px,color:#fff;
+    classDef ceo fill:#be123c,stroke:#f43f5e,stroke-width:2px,color:#fff;
+
+    class Laptop,EmpDB emp;
+    class API,LocalDB gate;
+    class Lead lead;
+    class CEO ceo;
+```
+
