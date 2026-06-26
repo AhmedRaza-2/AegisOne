@@ -313,3 +313,197 @@ graph TB
     class UB_EMP,IN_EMP,AP_EMP emp;
     class UB_DB,IN_DB,AP_DB db;
 ```
+
+---
+
+## 💻 Diagram 6: Inara Technologies Threat Telemetry & Hierarchy Simulation
+
+This diagram visualizes a real-world phishing detection scenario within **Inara Technologies**. It tracks a threat payload (URL, text, or visual screenshot) from an employee's laptop, through the local office API gateway, and shows the upward propagation of analytics to the Department Lead and the CEO, while preserving data privacy.
+
+### Option A: 3D Isometric Workflow Prompt (For DALL-E 3 / Midjourney)
+> **Prompt**: 
+> "A 3D isometric layout diagram representing a cyber security telemetry workflow inside 'Inara Technologies'. Design the flowchart using minimalistic, clean blocks and clear icons on a dark background (#0f172a). 
+> The flow must follow these numbered steps visually:
+> 1. Start Node: An icon of an 'Employee Laptop' (labeled 'Employee Workstation'). A glowing red envelope/link symbol rises from the screen.
+> 2. Connection 1: A glowing red line labeled '1. Request (URL/Image/Text)' runs from the Laptop to a local server rack labeled 'Inara Office Server (FastAPI API)'.
+> 3. Response: A cyan line labeled '2. Verdict & Score' returns from the Server back to the Laptop, showing a green checkmark/red warning on the screen.
+> 4. Local Dashboard Update: The laptop updates a nearby floating UI window labeled 'Employee Personal Dashboard' showing 'My Scans' and 'Risk Level: 94%'.
+> 5. Connection 2 (To Team Lead): A dotted orange line labeled '3. Anonymized Metrics (Total Scans: +1)' travels from the employee database up to a manager console labeled 'Admin / Dept Lead Dashboard' (managing 10 employees).
+> 6. Connection 3 (To CEO): A dotted gold line labeled '4. Department Totals' travels from the Team Lead's console up to a central boardroom screen labeled 'CEO / Super Admin Dashboard'.
+> Highly professional, clean corporate style, simple wording, soft glowing lines, high contrast."
+
+### Option B: Minimalistic Structural Flow Prompt (For Eraser.io / Diagram GPT)
+```text
+Create a clean, minimalistic flow diagram representing "Inara Technologies End-to-End Threat Lifecycle".
+
+LAYOUT STRUCTURE:
+- Arrange the flow from Left to Right, split into 3 vertical lanes representing the corporate roles:
+  - Lane 1 (Left): "Employee Tier"
+  - Lane 2 (Center): "Inara Office Security Gateway"
+  - Lane 3 (Right): "Management Dashboard Tier"
+
+LANE 1: EMPLOYEE TIER
+- Component E1: "Employee Workstation (Laptops & Desktops)"
+- Component E2: "Employee Personal Dashboard" (Displays personal scans, safety logs, and local blocking statuses).
+
+LANE 2: INARA OFFICE SECURITY GATEWAY
+- Component S1: "Inara Local Server (FastAPI API)"
+- Component S2: "Local PostgreSQL DB (Saves detailed scan content)"
+
+LANE 3: MANAGEMENT DASHBOARD TIER
+- Component M1: "Admin / Department Lead Dashboard" (Displays team metrics, total threats flagged, and active workstations for the 10 department employees).
+- Component M2: "CEO / Super Admin Dashboard" (Displays aggregated organization-wide telemetry: total scans, global threat alerts, and server health).
+
+LOGICAL FLOW CONNECTIONS:
+- Connect E1 to S1 with a solid line arrow. Label it "1. Send Scan Payload (URL, raw email, or base64 screenshot)".
+- Connect S1 to S2 with a solid line. Label it "2. Parse Content & Save Log".
+- Connect S1 back to E1 with a solid line arrow. Label it "3. Return Verdict & Threat Score (0-100%)".
+- Connect E1 to E2 with a dashed line. Label it "4. Update Personal UI".
+- Connect S2 to M1 with a dotted line arrow. Label it "5. Push Team Metrics (Anonymized: raw email text and visual content are blocked/hidden)".
+- Connect M1 to M2 with a dotted line arrow. Label it "6. Aggregate Department Totals to CEO Dashboard".
+```
+
+### Option C: Complete Scenario Flowchart (For Mermaid.js Flowchart)
+```mermaid
+graph LR
+    %% Workstation and local API interaction
+    subgraph Employee_Tier [Employee Workstation]
+        Laptop[Employee Laptop]
+        EmpDB[Employee Dashboard UI]
+    end
+
+    subgraph Security_Gateway [Inara Office Server]
+        API[FastAPI Gateway]
+        LocalDB[(Local Secure DB)]
+    end
+
+    subgraph Management_Tier [Management Dashboards]
+        Lead[Admin / Dept Lead Dashboard]
+        CEO[CEO / Super Admin Dashboard]
+    end
+
+    %% Execution flow steps
+    Laptop -->|1. POST /scan/url or /scan/image| API
+    API -->|2. Query Models & Evaluate Threat| LocalDB
+    API -->|3. Return Verdict & Score| Laptop
+    Laptop -->|4. Update UI| EmpDB
+
+    %% Privacy-controlled Analytics propagation
+    LocalDB -.->|5. Push Anonymized Team Metrics<br/>Content Masked| Lead
+    Lead -.->|6. Push Aggregated Department Totals| CEO
+
+    %% Styling definitions
+    classDef emp fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef gate fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff;
+    classDef lead fill:#854d0e,stroke:#eab308,stroke-width:2px,color:#fff;
+    classDef ceo fill:#be123c,stroke:#f43f5e,stroke-width:2px,color:#fff;
+
+    class Laptop,EmpDB emp;
+    class API,LocalDB gate;
+    class Lead lead;
+    class CEO ceo;
+```
+
+---
+
+## 🛠️ Diagram 7: Implementation Frameworks & Role-Based Feature Division
+
+This diagram details the tech stacks, libraries, and exact functional features mapped to each individual role within the AegisOne system architecture. It serves as a blueprint for implementing backend logic and frontend layouts.
+
+### Option A: 3D Feature Grid Illustration Prompt (For DALL-E 3 / Midjourney)
+> **Prompt**: 
+> "A 3D isometric mind-map illustration showing the tech stacks and user features of the 'AegisOne Phishing Prevention System'. A central core cylinder labeled 'FastAPI Core API & PyTorch Models' glows with blue light. 
+> Four diagonal branches emerge from the core to four separate tech-stack cards, each representing a user role:
+> 1. 'Employee (Tier 3)' Card: Colored green, displaying icons of Chrome extensions, Gmail plugins, and manual scanning forms. Text lists: 'Multi-Modal Scanner, personal scan logs'.
+> 2. 'Supervisor (Tier 2)' Card: Colored orange, displaying dashboard grid icons and line chart indicators. Text lists: 'Team threat logs, incident resolution keys'.
+> 3. 'Super Admin (Tier 1)' Card: Colored gold, displaying database, security policy key icons, and a trash can with a privacy shield. Text lists: 'PiI Sanitizer, domain whitelists, user CRUD'.
+> 4. 'Platform Operator (Tier 0)' Card: Colored red/slate, displaying server cloud nodes and support tickets. Text lists: 'B2B Tenant Deployment, Global Alerts, Support Portal'.
+> High-contrast, clean 3D isometric layout, professional tech infographic design."
+
+### Option B: Detailed Framework & Feature Grid (For Eraser.io / Diagram GPT)
+```text
+Create a horizontal structural grid diagram representing "AegisOne Features & Frameworks Taxonomy by User Role". 
+
+Structure the diagram into a 4-row grid representing the access tiers:
+
+ROW 1: EMPLOYEE ROLE (TIER 3)
+- Left Box (Tech Stack / Frameworks): "Next.js, Chrome Extension (Manifest V3), Google Apps Script, React Outlook JS Taskpanes, CSS DOM Injector"
+- Right Box (Features): "Manual Multi-Modal Scanner (URL, Email text, Screenshot Upload), Personal Scan History Feed, False Positive Flag Tool, Local Blocking Warning Overlay"
+
+ROW 2: SUPERVISOR ROLE (TIER 2)
+- Left Box (Tech Stack / Frameworks): "Next.js Dashboard, Server-Sent Events (SSE), Tailwind grid components, PostgreSQL read-replicas"
+- Right Box (Features): "Department Telemetry Panel, Team Active Roster Management, Real-time Threat Escalation Grid, Team Status Check Dashboard"
+
+ROW 3: SUPER ADMIN ROLE (TIER 1)
+- Left Box (Tech Stack / Frameworks): "Recharts JS, OAuth2 JWT Session Managers, Regex PII Masks, Local OCR Redactors, PostgreSQL schemas"
+- Right Box (Features): "Organization Dashboard (Totals, Threat Maps), User Directory CRUD, Security Whitelist Manager, Data Donation Anonymizer Portal"
+
+ROW 4: PLATFORM HEAD / DEVELOPER (TIER 0)
+- Left Box (Tech Stack / Frameworks): "FastAPI Admin Console, Docker Compose automation scripts, AWS EC2 / GCP Cloud Run, Sentry / S3 logging"
+- Right Box (Features): "Global Command Center (Platform CPU/requests load), B2B Tenant Provisioner, Global System Warning Dispatcher, Dev Support Ticketing Inbox"
+
+GRID CONNECTIONS:
+- Connect the Left Boxes (Frameworks) to the Right Boxes (Features) with solid blue lines labeled "Powers feature set".
+- Connect the Database layer (representing PostgreSQL) to all 4 Right Boxes showing data retrieval scopes.
+- Draw a thick black dotted boundary around all client roles (Tier 3, Tier 2, Tier 1) labeled "Tenant Private Server Network". Keep the Developer role (Tier 0) outside the boundary, demonstrating SaaS data isolation.
+```
+
+### Option C: Role-Feature Mapping Tree (For Mermaid.js Flowchart)
+```mermaid
+graph TD
+    %% Core Node
+    AegisOne[AegisOne System Features & Tech Stack] --> Tier3[Employee: Tier 3]
+    AegisOne --> Tier2[Supervisor: Tier 2]
+    AegisOne --> Tier1[Super Admin: Tier 1]
+    AegisOne --> Tier0[Platform Head: Tier 0]
+
+    %% Employee Leaf Nodes
+    subgraph Employee_Features [Employee Stack & Features]
+        Tier3 -->|Built using| T3_Tech[Next.js, Chrome Manifest V3, Apps Script, Office JS]
+        Tier3 -->|Features| T3_F1[Manual Scanner: URL / Email / Image / Text]
+        Tier3 -->|Features| T3_F2[Personal Scan Logs Feed]
+        Tier3 -->|Features| T3_F3[Report False Positives]
+        Tier3 -->|Features| T3_F4[Chrome Red Overlay Block Warning]
+    end
+
+    %% Supervisor Leaf Nodes
+    subgraph Supervisor_Features [Supervisor Stack & Features]
+        Tier2 -->|Built using| T2_Tech[Next.js Portal, Server-Sent Events, Tailwind CSS]
+        Tier2 -->|Features| T2_F1[Department Telemetry Dashboard]
+        Tier2 -->|Features| T2_F2[Team Active Roster CRUD]
+        Tier2 -->|Features| T2_F3[Real-time Incident Alert Panel]
+    end
+
+    %% Super Admin Leaf Nodes
+    subgraph Super_Admin_Features [Super Admin Stack & Features]
+        Tier1 -->|Built using| T1_Tech[Recharts, OAuth2 JWT, Regex PII Masks, Local OCR]
+        Tier1 -->|Features| T1_F1[Organization Analytics & Threat Maps]
+        Tier1 -->|Features| T1_F2[User Directory CRUD: Admins & Users]
+        Tier1 -->|Features| T1_F3[Security Whitelist Manager]
+        Tier1 -->|Features| T1_F4[Sanitized Data Donation Portal]
+    end
+
+    %% Platform Head Leaf Nodes
+    subgraph Platform_Head_Features [Platform Head Stack & Features]
+        Tier0 -->|Built using| T0_Tech[FastAPI Admin, Docker Hub, AWS / GCP, Sentry]
+        Tier0 -->|Features| T0_F1[Global Platform Operations Dashboard]
+        Tier0 -->|Features| T0_F2[B2B Tenant Provisioning scripts]
+        Tier0 -->|Features| T0_F3[Global Tenant Alert Broadcaster]
+        Tier0 -->|Features| T0_F4[Operator Support Tickets Console]
+    end
+
+    %% Styling definitions
+    classDef main fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff;
+    classDef t3 fill:#115e59,stroke:#14b8a6,stroke-width:1.5px,color:#fff;
+    classDef t2 fill:#854d0e,stroke:#eab308,stroke-width:1.5px,color:#fff;
+    classDef t1 fill:#9a3412,stroke:#f97316,stroke-width:1.5px,color:#fff;
+    classDef t0 fill:#991b1b,stroke:#ef4444,stroke-width:1.5px,color:#fff;
+
+    class AegisOne main;
+    class Tier3,T3_Tech,T3_F1,T3_F2,T3_F3,T3_F4 t3;
+    class Tier2,T2_Tech,T2_F1,T2_F2,T2_F3 t2;
+    class Tier1,T1_Tech,T1_F1,T1_F2,T1_F3,T1_F4 t1;
+    class Tier0,T0_Tech,T0_F1,T0_F2,T0_F3,T0_F4 t0;
+```
+
+

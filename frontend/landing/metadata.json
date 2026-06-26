@@ -1,0 +1,6 @@
+{
+  "name": "AegisOne",
+  "description": "Sovereign Phishing Protection landing page and interactive simulator with local secure perimeter, technical blueprint dashboard, and deployment stack.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
