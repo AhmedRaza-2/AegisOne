@@ -8,7 +8,6 @@ interface ExplainerVideoProps {
 export default function ExplainerVideo({ onShowNotification }: ExplainerVideoProps) {
   const [videoIndex, setVideoIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
-  
   const videos = [
     '/generate (1).mp4',
     '/bro_i_need_longer_video_sec.mp4'
@@ -37,7 +36,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
       <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full filter blur-[100px] pointer-events-none" />
 
       <div className="max-w-5xl mx-auto px-6 relative z-10 w-full">
-        
+
         {/* Header Block */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
           <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/15 border border-[#0A5ED6]/30 px-3.5 py-1.5 rounded-full">
@@ -69,7 +68,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
               <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400 font-bold">AegisOne_Explainer_Part_{videoIndex + 1}.mp4</span>
             </div>
             <div className="font-mono text-[10px] text-[#0A5ED6] font-semibold bg-[#0A5ED6]/10 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" /> 
+              <ShieldCheck className="w-3.5 h-3.5" />
               Sovereign Protection Active
             </div>
           </div>
@@ -87,7 +86,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
               className="w-full aspect-video object-contain"
             />
           </div>
-          
+
         </div>
 
       </div>
