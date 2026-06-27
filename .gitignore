@@ -253,3 +253,8 @@ __marimo__/
 node_modules
 
 AIML/image_phishing_detection_model/dataset/
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
