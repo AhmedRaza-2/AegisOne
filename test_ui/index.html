@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,7 +35,7 @@
             flex-direction: column;
             align-items: center;
             padding: 40px 20px;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
                 radial-gradient(circle at 85% 30%, rgba(239, 68, 68, 0.1), transparent 25%);
         }
@@ -97,7 +98,8 @@
             font-size: 0.9rem;
         }
 
-        textarea, input[type="file"] {
+        textarea,
+        input[type="file"] {
             width: 100%;
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--surface-border);
@@ -147,8 +149,9 @@
             color: var(--text-muted);
             position: relative;
         }
-        
-        .divider::before, .divider::after {
+
+        .divider::before,
+        .divider::after {
             content: "";
             position: absolute;
             top: 50%;
@@ -157,8 +160,13 @@
             background: var(--surface-border);
         }
 
-        .divider::before { left: 0; }
-        .divider::after { right: 0; }
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
 
         /* Output specific styles */
         .output-panel {
@@ -177,14 +185,32 @@
             margin: 40px auto;
         }
 
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
 
         .result-card {
             display: none;
             animation: fadeIn 0.4s ease;
         }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
         .score-circle {
             width: 120px;
@@ -197,7 +223,7 @@
             font-weight: 700;
             margin: 0 auto 20px;
             border: 8px solid;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0, 0, 0, 0.2);
         }
 
         .verdict-label {
@@ -220,12 +246,23 @@
         }
 
         /* Status Colors */
-        .status-safe { border-color: var(--safe); color: var(--safe); }
-        .status-medium { border-color: var(--medium); color: var(--medium); }
-        .status-high { border-color: var(--high); color: var(--high); }
-        
+        .status-safe {
+            border-color: var(--safe);
+            color: var(--safe);
+        }
+
+        .status-medium {
+            border-color: var(--medium);
+            color: var(--medium);
+        }
+
+        .status-high {
+            border-color: var(--high);
+            color: var(--high);
+        }
     </style>
 </head>
+
 <body>
 
     <div class="header">
@@ -237,10 +274,11 @@
         <!-- INPUT PANEL -->
         <div class="panel">
             <h2>🎯 Submit Content</h2>
-            
+
             <div class="form-group">
                 <label>Text or URL Analysis</label>
-                <textarea id="textInput" placeholder="Paste a URL, email body, or any suspicious text here..."></textarea>
+                <textarea id="textInput"
+                    placeholder="Paste a URL, email body, or any suspicious text here..."></textarea>
             </div>
             <button onclick="scanText()">Scan Text / URL</button>
 
@@ -256,15 +294,17 @@
         <!-- OUTPUT PANEL -->
         <div class="panel output-panel">
             <h2>⚡ Analysis Results</h2>
-            
+
             <div class="loader" id="loader"></div>
 
             <div class="result-card" id="resultCard">
                 <div class="score-circle" id="riskScore">0</div>
                 <div class="verdict-label" id="verdictLabel">Awaiting Input...</div>
-                
+
                 <label>Raw API JSON Response</label>
-                <div class="json-viewer"><pre id="jsonOutput">Submit content to see the unified API response here.</pre></div>
+                <div class="json-viewer">
+                    <pre id="jsonOutput">Submit content to see the unified API response here.</pre>
+                </div>
             </div>
         </div>
     </div>
@@ -279,7 +319,7 @@
 
         function renderResult(data) {
             document.getElementById('loader').style.display = 'none';
-            
+
             const scoreEl = document.getElementById('riskScore');
             const verdictEl = document.getElementById('verdictLabel');
             const jsonEl = document.getElementById('jsonOutput');
@@ -305,10 +345,10 @@
             }
 
             verdictEl.innerText = data.verdict_label || 'Unknown';
-            
+
             // Format JSON nicely
             jsonEl.innerText = JSON.stringify(data, null, 2);
-            
+
             document.getElementById('resultCard').style.display = 'block';
         }
 
@@ -368,10 +408,11 @@
                 handleError(err);
             }
         }
-        
+
         // Show empty state initially
         document.getElementById('resultCard').style.display = 'block';
     </script>
 
 </body>
+
 </html>

@@ -52,6 +52,32 @@ API_WORKERS = 4
 MAX_CONCURRENCY = 300
 
 # ═══════════════════════════════════════════════════════════════
+# PERFORMANCE TUNING
+# ═══════════════════════════════════════════════════════════════
+
+# Rate limiting (format: "count/period" — e.g., "60/second", "300/minute")
+RATE_LIMIT = os.environ.get("AEGIS_RATE_LIMIT", "60/second")
+RATE_LIMIT_SCAN = os.environ.get("AEGIS_RATE_LIMIT_SCAN", "30/second")
+
+# Max upload size for images/documents (in bytes)
+MAX_FILE_SIZE_BYTES = int(os.environ.get("AEGIS_MAX_FILE_SIZE_MB", "10")) * 1024 * 1024
+
+# Inference concurrency — max parallel model forward-passes
+INFERENCE_SEMAPHORE_LIMIT = int(os.environ.get("AEGIS_INFERENCE_SEMAPHORE", "16"))
+
+# Database connection pool
+DB_POOL_SIZE = int(os.environ.get("AEGIS_DB_POOL_SIZE", "20"))
+
+# GZip compression minimum response size (bytes)
+GZIP_MIN_SIZE = int(os.environ.get("AEGIS_GZIP_MIN_SIZE", "500"))
+
+# PyTorch CPU thread count (0 = auto)
+TORCH_NUM_THREADS = int(os.environ.get("AEGIS_TORCH_THREADS", "2"))
+
+# Logging
+LOG_LEVEL = os.environ.get("AEGIS_LOG_LEVEL", "INFO")
+
+# ═══════════════════════════════════════════════════════════════
 # CACHE
 # ═══════════════════════════════════════════════════════════════
 

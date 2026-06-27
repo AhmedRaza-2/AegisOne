@@ -110,7 +110,10 @@ class PhishingDetectorText(nn.Module):
         super().__init__()
         
         # 1. DistilBERT + LoRA
-        self.distilbert = DistilBertModel.from_pretrained("distilbert-base-uncased")
+        self.distilbert = DistilBertModel.from_pretrained(
+            "distilbert-base-uncased",
+            attn_implementation="eager"
+        )
         lora_config = LoraConfig(
             task_type=TaskType.FEATURE_EXTRACTION,
             r=lora_r, lora_alpha=lora_alpha, lora_dropout=0.1,

@@ -1,15 +1,28 @@
 """
-AegisOne API  Model Orchestrator
-Loads all 4 AI models at startup and provides inference methods.
+AegisOne API — Model Orchestrator
+Loads all 4 AI models at startup and provides async inference methods.
 Adapted from the working AIML/unified_server.py logic.
+
+Performance optimizations:
+- All inference runs in thread pool via asyncio.to_thread() (non-blocking)
+- Global semaphore caps concurrent inference to prevent OOM
+- CPU: no per-model locks (eval-mode models are thread-safe for reads)
+- CUDA: single exclusive lock (GPU ops not safe for concurrent access)
+- torch.inference_mode() replaces no_grad() (faster, less overhead)
+- Configurable torch thread count for CPU workloads
 """
 import os
 import sys
+import contextlib
 import io
 import string
+import asyncio
+import threading
+import logging
 import importlib.util
 import torch
 import torch.nn as nn
+import torch.quantization
 import numpy as np
 from PIL import Image
 from transformers import DistilBertTokenizer
@@ -23,11 +36,14 @@ from api.config import (
     URL_MODEL_PY, URL_MODEL_PT,
     IMAGE_CONFIG_PY, IMAGE_MODEL_PT,
     ATTACHMENT_DIR, TRUSTED_DOMAINS, URL_CLASSES,
+    INFERENCE_SEMAPHORE_LIMIT, TORCH_NUM_THREADS,
 )
 
-# 
+logger = logging.getLogger("aegisone.orchestrator")
+
+# ═══════════════════════════════════════════════════════════════
 # GLOBALS
-# 
+# ═══════════════════════════════════════════════════════════════
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODELS: dict = {}
@@ -36,10 +52,39 @@ IMAGE_TRANSFORM = None
 IMAGE_THRESHOLD = 0.5
 ATTACHMENT_ORCH = None
 
+# Concurrency control
+_inference_semaphore: asyncio.Semaphore | None = None
+_cuda_lock = threading.Lock()  # Only used when DEVICE is CUDA
 
-# 
+
+def _get_semaphore() -> asyncio.Semaphore:
+    """Lazy-init the semaphore (must be created inside a running event loop)."""
+    global _inference_semaphore
+    if _inference_semaphore is None:
+        _inference_semaphore = asyncio.Semaphore(INFERENCE_SEMAPHORE_LIMIT)
+    return _inference_semaphore
+
+
+@contextlib.contextmanager
+def _inference_guard():
+    """
+    Context manager for safe model inference.
+    - CPU: no lock needed — eval() models are thread-safe for concurrent reads.
+      The semaphore alone caps parallelism to prevent OOM.
+    - CUDA: exclusive lock required — GPU ops are NOT safe for concurrent access.
+    """
+    if DEVICE.type == "cuda":
+        with _cuda_lock:
+            with torch.inference_mode():
+                yield
+    else:
+        with torch.inference_mode():
+            yield
+
+
+# ═══════════════════════════════════════════════════════════════
 # MODULE LOADER
-# 
+# ═══════════════════════════════════════════════════════════════
 
 def _load_module(name: str, path: str):
     """Load a .py file as a module to avoid stdlib name collisions (e.g. 'email')."""
@@ -50,69 +95,86 @@ def _load_module(name: str, path: str):
     return mod
 
 
-# 
+# ═══════════════════════════════════════════════════════════════
 # STARTUP
-# 
+# ═══════════════════════════════════════════════════════════════
 
 def load_all_models():
     """Load all AI models into memory. Called once at API startup."""
     global MODELS, TOKENIZER, IMAGE_TRANSFORM, IMAGE_THRESHOLD, ATTACHMENT_ORCH
 
-    print("\n" + "=" * 60)
-    print("    AegisOne  Loading AI Models")
-    print("=" * 60)
-    print(f"  Device: {DEVICE}")
+    # Configure torch threading for CPU workloads
+    if TORCH_NUM_THREADS > 0:
+        torch.set_num_threads(TORCH_NUM_THREADS)
+        torch.set_num_interop_threads(max(1, TORCH_NUM_THREADS // 2))
+        try:
+            torch.set_flush_denormal(True)
+        except Exception:
+            pass
+        logger.info(f"Torch threads: intra={TORCH_NUM_THREADS}, inter={max(1, TORCH_NUM_THREADS // 2)}")
+
+    logger.info("=" * 60)
+    logger.info("    AegisOne — Loading AI Models")
+    logger.info("=" * 60)
+    logger.info(f"  Device: {DEVICE}")
+    logger.info(f"  Inference semaphore limit: {INFERENCE_SEMAPHORE_LIMIT}")
 
     # Shared tokenizer
-    print(" Loading DistilBERT tokenizer...")
+    logger.info("  Loading DistilBERT tokenizer...")
     TOKENIZER = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
 
-    #  1. EMAIL MODEL 
+    # ── 1. EMAIL MODEL ──
     if EMAIL_MODEL_PT.exists():
         try:
             mod = _load_module("aegis_email", str(EMAIL_MODEL_PY))
             model = mod.PhishingDetector()
             model.load_state_dict(torch.load(str(EMAIL_MODEL_PT), map_location=DEVICE), strict=False)
             model.to(DEVICE).eval()
+            if DEVICE == "cpu":
+                model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
             MODELS["email"] = {"model": model, "extract_features": mod.extract_structured_features}
-            print(" Email AI loaded")
+            logger.info("  ✓ Email AI loaded")
         except Exception as e:
-            print(f"  Email AI failed: {e}")
+            logger.error(f"  ✗ Email AI failed: {e}")
     else:
-        print(f"  Email weights not found: {EMAIL_MODEL_PT}")
+        logger.warning(f"  ✗ Email weights not found: {EMAIL_MODEL_PT}")
 
-    #  2. TEXT MODEL 
+    # ── 2. TEXT MODEL ──
     if TEXT_MODEL_PT.exists():
         try:
             mod = _load_module("aegis_text", str(TEXT_MODEL_PY))
             model = mod.PhishingDetectorText()
             model.load_state_dict(torch.load(str(TEXT_MODEL_PT), map_location=DEVICE), strict=False)
             model.to(DEVICE).eval()
+            if DEVICE == "cpu":
+                model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
             MODELS["text"] = {"model": model, "extract_features": mod.extract_general_text_features}
-            print(" Text AI loaded")
+            logger.info("  ✓ Text AI loaded")
         except Exception as e:
-            print(f"  Text AI failed: {e}")
+            logger.error(f"  ✗ Text AI failed: {e}")
     else:
-        print(f"  Text weights not found: {TEXT_MODEL_PT}")
+        logger.warning(f"  ✗ Text weights not found: {TEXT_MODEL_PT}")
 
-    #  3. URL MODEL 
+    # ── 3. URL MODEL ──
     if URL_MODEL_PT.exists():
         try:
             mod = _load_module("aegis_url", str(URL_MODEL_PY))
             model = mod.URLDetector()
             model.load_state_dict(torch.load(str(URL_MODEL_PT), map_location=DEVICE), strict=False)
             model.to(DEVICE).eval()
+            if DEVICE == "cpu":
+                model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
             MODELS["url"] = {"model": model, "extract_features": mod.extract_url_numerical_features}
             # Store sanitize_url if available
             if hasattr(mod, "sanitize_url"):
                 MODELS["url"]["sanitize"] = mod.sanitize_url
-            print(" URL AI loaded")
+            logger.info("  ✓ URL AI loaded")
         except Exception as e:
-            print(f"  URL AI failed: {e}")
+            logger.error(f"  ✗ URL AI failed: {e}")
     else:
-        print(f"  URL weights not found: {URL_MODEL_PT}")
+        logger.warning(f"  ✗ URL weights not found: {URL_MODEL_PT}")
 
-    #  4. IMAGE MODEL 
+    # ── 4. IMAGE MODEL ──
     if IMAGE_MODEL_PT.exists():
         try:
             cfg_mod = _load_module("aegis_img_cfg", str(IMAGE_CONFIG_PY))
@@ -137,6 +199,8 @@ def load_all_models():
             model.load_state_dict(ck["model_state"])
             IMAGE_THRESHOLD = ck.get("optimal_threshold", 0.5)
             model.to(DEVICE).eval()
+            if DEVICE == "cpu":
+                model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
 
             IMAGE_TRANSFORM = transforms.Compose([
                 transforms.Resize((cfg.IMAGE_SIZE, cfg.IMAGE_SIZE)),
@@ -144,25 +208,25 @@ def load_all_models():
                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
             ])
             MODELS["image"] = {"model": model}
-            print(f" Image AI loaded (threshold={IMAGE_THRESHOLD:.3f})")
+            logger.info(f"  ✓ Image AI loaded (threshold={IMAGE_THRESHOLD:.3f})")
         except Exception as e:
-            print(f"  Image AI failed: {e}")
+            logger.error(f"  ✗ Image AI failed: {e}")
     else:
-        print(f"  Image weights not found: {IMAGE_MODEL_PT}")
+        logger.warning(f"  ✗ Image weights not found: {IMAGE_MODEL_PT}")
 
-    #  5. ATTACHMENT ORCHESTRATOR 
+    # ── 5. ATTACHMENT ORCHESTRATOR ──
     try:
         sys.path.insert(0, str(ATTACHMENT_DIR))
         att_mod = _load_module("aegis_attachment", str(ATTACHMENT_DIR / "attachment_orchestrator.py"))
         ATTACHMENT_ORCH = att_mod.AttachmentOrchestrator()
-        print(" Attachment Orchestrator loaded")
+        logger.info("  ✓ Attachment Orchestrator loaded")
     except Exception as e:
-        print(f"  Attachment Orchestrator failed: {e}")
+        logger.error(f"  ✗ Attachment Orchestrator failed: {e}")
 
     loaded = [k for k in MODELS if k != "attachment_orch"]
-    print("=" * 60)
-    print(f"   {len(loaded)}/4 AI models loaded on {DEVICE}")
-    print("=" * 60 + "\n")
+    logger.info("=" * 60)
+    logger.info(f"   {len(loaded)}/4 AI models loaded on {DEVICE}")
+    logger.info("=" * 60)
 
 
 def get_model_status() -> dict:
@@ -174,9 +238,9 @@ def get_model_status() -> dict:
     }
 
 
-# 
+# ═══════════════════════════════════════════════════════════════
 # XAI HELPERS
-# 
+# ═══════════════════════════════════════════════════════════════
 
 _SPECIAL_TOKENS = {"[cls]", "[sep]", "[pad]", "http", "https", "www", "com"}
 
@@ -224,11 +288,11 @@ def _get_bert_attention_xai(model, tokens, attention_mask) -> list[str]:
         return []
 
 
-# 
-# INFERENCE METHODS
-# 
+# ═══════════════════════════════════════════════════════════════
+# SYNCHRONOUS INFERENCE (internal — run inside thread pool)
+# ═══════════════════════════════════════════════════════════════
 
-def predict_email(sender: str, subject: str, body: str) -> dict:
+def _predict_email_sync(sender: str, subject: str, body: str) -> dict:
     if "email" not in MODELS:
         return {"error": "Email model not loaded", "model": "email"}
     m = MODELS["email"]
@@ -236,7 +300,7 @@ def predict_email(sender: str, subject: str, body: str) -> dict:
     enc = TOKENIZER(text, add_special_tokens=True, max_length=512,
                     padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
     feats = m["extract_features"](sender, subject, body).unsqueeze(0).to(DEVICE)
-    with torch.no_grad():
+    with _inference_guard():
         logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
         prob = torch.sigmoid(logits).item()
     is_phish = prob >= 0.5
@@ -254,14 +318,14 @@ def predict_email(sender: str, subject: str, body: str) -> dict:
     }
 
 
-def predict_text(text: str) -> dict:
+def _predict_text_sync(text: str) -> dict:
     if "text" not in MODELS:
         return {"error": "Text model not loaded", "model": "text"}
     m = MODELS["text"]
     enc = TOKENIZER(text, add_special_tokens=True, max_length=128,
                     padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
     feats = m["extract_features"](text).unsqueeze(0).to(DEVICE)
-    with torch.no_grad():
+    with _inference_guard():
         logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
         prob = torch.sigmoid(logits).item()
     is_phish = prob >= 0.5
@@ -279,11 +343,11 @@ def predict_text(text: str) -> dict:
     }
 
 
-def predict_url(url: str) -> dict:
+def _predict_url_sync(url: str) -> dict:
     if "url" not in MODELS:
         return {"error": "URL model not loaded", "model": "url"}
 
-    # 1. Whitelist check
+    # 1. Whitelist check (fast path — no model needed)
     try:
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
@@ -309,7 +373,7 @@ def predict_url(url: str) -> dict:
                     padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
     feats = m["extract_features"](clean_url).unsqueeze(0).to(DEVICE)
 
-    with torch.no_grad():
+    with _inference_guard():
         logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
         probs = torch.softmax(logits, dim=1)[0]
         pred_class = probs.argmax().item()
@@ -372,12 +436,12 @@ def predict_url(url: str) -> dict:
     }
 
 
-def predict_image(img_bytes: bytes) -> dict:
+def _predict_image_sync(img_bytes: bytes) -> dict:
     if "image" not in MODELS:
         return {"error": "Image model not loaded", "model": "image"}
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     tensor = IMAGE_TRANSFORM(img).unsqueeze(0).to(DEVICE)
-    with torch.no_grad():
+    with _inference_guard():
         out = MODELS["image"]["model"](tensor)
         prob = torch.softmax(out, dim=1)[0, 1].item()
     is_phish = prob >= IMAGE_THRESHOLD
@@ -392,14 +456,7 @@ def predict_image(img_bytes: bytes) -> dict:
     }
 
 
-def predict_image_pil(img: Image.Image) -> dict:
-    """Predict from a PIL Image directly (used after OCR pipeline)."""
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return predict_image(buf.getvalue())
-
-
-def process_attachment(file_path: str) -> dict:
+def _process_attachment_sync(file_path: str) -> dict:
     """Run the attachment orchestrator on a file, delegating extracted content to AI models."""
     if ATTACHMENT_ORCH is None:
         return {"error": "Attachment orchestrator not loaded"}
@@ -417,12 +474,12 @@ def process_attachment(file_path: str) -> dict:
     # Delegate text
     extracted_text = extraction.get("text", "")
     if extracted_text.strip() and extracted_text != "[ZIP CONTENT]":
-        results["sub_results"]["text"] = predict_text(extracted_text[:2000])
+        results["sub_results"]["text"] = _predict_text_sync(extracted_text[:2000])
 
     # Delegate URLs
     url_results = []
     for url in extraction.get("urls", []):
-        r = predict_url(url)
+        r = _predict_url_sync(url)
         r["url"] = url
         url_results.append(r)
     results["sub_results"]["urls"] = url_results
@@ -448,8 +505,66 @@ def process_attachment(file_path: str) -> dict:
     return results
 
 
+# ═══════════════════════════════════════════════════════════════
+# ASYNC INFERENCE (public API — non-blocking)
+# ═══════════════════════════════════════════════════════════════
+
+async def predict_email(sender: str, subject: str, body: str) -> dict:
+    """Async email inference — runs in thread pool with semaphore guard."""
+    async with _get_semaphore():
+        return await asyncio.to_thread(_predict_email_sync, sender, subject, body)
+
+
+async def predict_text(text: str) -> dict:
+    """Async text inference — runs in thread pool with semaphore guard."""
+    async with _get_semaphore():
+        return await asyncio.to_thread(_predict_text_sync, text)
+
+
+async def predict_url(url: str) -> dict:
+    """Async URL inference — runs in thread pool with semaphore guard."""
+    # Fast path: check whitelist synchronously (no model needed)
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        if domain.startswith("www."):
+            domain = domain[4:]
+        for trusted in TRUSTED_DOMAINS:
+            if domain == trusted or domain.endswith("." + trusted):
+                dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
+                return {
+                    "prediction": "legitimate", "confidence": round(1.0 - dynamic_safe, 4),
+                    "phishing_probability": dynamic_safe, "category": "benign",
+                    "model": "url", "xai_words": [],
+                    "explanation": "AI verified URL matches trusted domain structure",
+                }
+    except Exception:
+        pass
+
+    async with _get_semaphore():
+        return await asyncio.to_thread(_predict_url_sync, url)
+
+
+async def predict_image(img_bytes: bytes) -> dict:
+    """Async image inference — runs in thread pool with semaphore guard."""
+    async with _get_semaphore():
+        return await asyncio.to_thread(_predict_image_sync, img_bytes)
+
+
+async def predict_image_pil(img: Image.Image) -> dict:
+    """Predict from a PIL Image directly (used after OCR pipeline)."""
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return await predict_image(buf.getvalue())
+
+
+async def process_attachment(file_path: str) -> dict:
+    """Async attachment processing — runs in thread pool with semaphore guard."""
+    async with _get_semaphore():
+        return await asyncio.to_thread(_process_attachment_sync, file_path)
+
+
 def extract_urls_from_text(text: str) -> list[str]:
     """Extract URLs from text content."""
     url_pattern = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[/\w\-._~:/?#\[\]@!$&\'()*+,;=%]*')
     return list(set(url_pattern.findall(text)))
-
