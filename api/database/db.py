@@ -46,13 +46,14 @@ async def get_background_db() -> AsyncSession:
 
 async def _enable_wal_mode():
     """Enable WAL journal mode for concurrent read/write access."""
-    async with engine.begin() as conn:
-        await conn.execute(text("PRAGMA journal_mode=WAL"))
-        await conn.execute(text("PRAGMA synchronous=NORMAL"))
-        await conn.execute(text("PRAGMA cache_size=-64000"))  # 64MB cache
-        await conn.execute(text("PRAGMA temp_store=MEMORY"))
-        await conn.execute(text("PRAGMA mmap_size=268435456"))  # 256MB mmap
-    logger.info("SQLite WAL mode enabled with optimized pragmas")
+    if DATABASE_URL.startswith("sqlite"):
+        async with engine.begin() as conn:
+            await conn.execute(text("PRAGMA journal_mode=WAL"))
+            await conn.execute(text("PRAGMA synchronous=NORMAL"))
+            await conn.execute(text("PRAGMA cache_size=-64000"))  # 64MB cache
+            await conn.execute(text("PRAGMA temp_store=MEMORY"))
+            await conn.execute(text("PRAGMA mmap_size=268435456"))  # 256MB mmap
+        logger.info("SQLite WAL mode enabled with optimized pragmas")
 
 
 async def init_db():

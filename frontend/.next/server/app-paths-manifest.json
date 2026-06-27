@@ -1,10 +1,13 @@
 {
-  "/page": "app/page.js",
   "/login/page": "app/login/page.js",
+  "/dashboard/admin/page": "app/dashboard/admin/page.js",
+  "/dashboard/admin/scan/page": "app/dashboard/admin/scan/page.js",
+  "/dashboard/admin/models/page": "app/dashboard/admin/models/page.js",
+  "/dashboard/admin/users/page": "app/dashboard/admin/users/page.js",
+  "/dashboard/admin/incidents/page": "app/dashboard/admin/incidents/page.js",
+  "/dashboard/admin/settings/page": "app/dashboard/admin/settings/page.js",
+  "/dashboard/admin/audit/page": "app/dashboard/admin/audit/page.js",
   "/dashboard/supervisor/employees/page": "app/dashboard/supervisor/employees/page.js",
-  "/dashboard/supervisor/reports/page": "app/dashboard/supervisor/reports/page.js",
-  "/dashboard/employee/history/page": "app/dashboard/employee/history/page.js",
-  "/dashboard/employee/page": "app/dashboard/employee/page.js",
-  "/dashboard/employee/report/page": "app/dashboard/employee/report/page.js",
-  "/dashboard/employee/scan/page": "app/dashboard/employee/scan/page.js"
+  "/dashboard/supervisor/page": "app/dashboard/supervisor/page.js",
+  "/dashboard/employee/page": "app/dashboard/employee/page.js"
 }

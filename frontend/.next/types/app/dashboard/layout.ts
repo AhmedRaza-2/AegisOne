@@ -1,4 +1,4 @@
-// File: D:\Coding Projects\AegisOne\frontend\src\app\dashboard\layout.tsx
+// File: F:\AegisOne\frontend\src\app\dashboard\layout.tsx
 import * as entry from '../../../../src/app/dashboard/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

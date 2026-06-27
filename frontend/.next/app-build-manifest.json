@@ -11,16 +11,6 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/dashboard/supervisor/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/supervisor/page.js"
-    ],
-    "/dashboard/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/layout.js"
-    ],
     "/login/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -31,20 +21,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/admin/page.js"
     ],
+    "/dashboard/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/layout.js"
+    ],
     "/dashboard/admin/organizations/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/admin/organizations/page.js"
-    ],
-    "/dashboard/admin/models/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/admin/models/page.js"
-    ],
-    "/dashboard/admin/audit/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/admin/audit/page.js"
     ],
     "/dashboard/admin/settings/page": [
       "static/chunks/webpack.js",
@@ -56,6 +41,16 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/admin/scan/page.js"
     ],
+    "/dashboard/admin/models/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/admin/models/page.js"
+    ],
+    "/dashboard/admin/audit/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/admin/audit/page.js"
+    ],
     "/dashboard/admin/users/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -66,35 +61,35 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/admin/incidents/page.js"
     ],
+    "/dashboard/supervisor/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/supervisor/page.js"
+    ],
+    "/dashboard/supervisor/scan/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/supervisor/scan/page.js"
+    ],
     "/dashboard/supervisor/employees/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/supervisor/employees/page.js"
     ],
-    "/dashboard/employee/page": [
+    "/dashboard/supervisor/incidents/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/employee/page.js"
-    ],
-    "/dashboard/employee/scan/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/employee/scan/page.js"
-    ],
-    "/dashboard/employee/history/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/employee/history/page.js"
-    ],
-    "/dashboard/employee/report/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/employee/report/page.js"
+      "static/chunks/app/dashboard/supervisor/incidents/page.js"
     ],
     "/dashboard/supervisor/reports/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/supervisor/reports/page.js"
+    ],
+    "/dashboard/employee/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/employee/page.js"
     ]
   }
 }
