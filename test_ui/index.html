@@ -219,7 +219,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: 700;
             margin: 0 auto 20px;
             border: 8px solid;
@@ -249,6 +249,11 @@
         .status-safe {
             border-color: var(--safe);
             color: var(--safe);
+        }
+
+        .status-low {
+            border-color: #eab308;
+            color: #eab308;
         }
 
         .status-medium {
@@ -324,18 +329,21 @@
             const verdictEl = document.getElementById('verdictLabel');
             const jsonEl = document.getElementById('jsonOutput');
 
-            // Set Score
+            // Set Score (0-100 percentage)
             const score = data.overall_risk_score || 0;
-            scoreEl.innerText = score;
+            scoreEl.innerText = score + '%';
 
             // Remove old classes
-            scoreEl.classList.remove('status-safe', 'status-medium', 'status-high');
-            verdictEl.classList.remove('status-safe', 'status-medium', 'status-high');
+            scoreEl.classList.remove('status-safe', 'status-low', 'status-medium', 'status-high');
+            verdictEl.classList.remove('status-safe', 'status-low', 'status-medium', 'status-high');
 
             // Apply new colors based on verdict
             if (data.verdict === 'SAFE') {
                 scoreEl.classList.add('status-safe');
                 verdictEl.classList.add('status-safe');
+            } else if (data.verdict === 'LOW_RISK') {
+                scoreEl.classList.add('status-low');
+                verdictEl.classList.add('status-low');
             } else if (data.verdict === 'MEDIUM_RISK') {
                 scoreEl.classList.add('status-medium');
                 verdictEl.classList.add('status-medium');

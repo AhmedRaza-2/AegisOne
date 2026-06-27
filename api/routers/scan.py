@@ -159,6 +159,10 @@ def format_response(
     other_res = []
 
     for r in model_results:
+        # Skip error results from unloaded models (they lack required Pydantic fields)
+        if "error" in r:
+            logger.warning(f"Skipping error result from model '{r.get('model', 'unknown')}': {r['error']}")
+            continue
         if r.get("model") == "url":
             url_res.append(URLResult(
                 url=r.get("url", "unknown"),

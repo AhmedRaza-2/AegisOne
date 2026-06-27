@@ -355,10 +355,9 @@ def _predict_url_sync(url: str) -> dict:
             domain = domain[4:]
         for trusted in TRUSTED_DOMAINS:
             if domain == trusted or domain.endswith("." + trusted):
-                dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
                 return {
-                    "prediction": "legitimate", "confidence": round(1.0 - dynamic_safe, 4),
-                    "phishing_probability": dynamic_safe, "category": "benign",
+                    "prediction": "legitimate", "confidence": 0.99,
+                    "phishing_probability": 0.01, "category": "benign",
                     "model": "url", "xai_words": [],
                     "explanation": "AI verified URL matches trusted domain structure",
                 }
@@ -397,7 +396,7 @@ def _predict_url_sync(url: str) -> dict:
                 if len(subparts) > 3:
                     has_high_risk = True
 
-        calib_threshold = 0.65 if has_high_risk else 0.85
+        calib_threshold = 0.50 if has_high_risk else 0.70
         if pred_class != 0 and malicious_prob < calib_threshold:
             ratio = malicious_prob / calib_threshold
             malicious_prob = round(0.01 + (ratio * 0.18), 4)
@@ -425,9 +424,16 @@ def _predict_url_sync(url: str) -> dict:
         if xai_words:
             explanation += f" | Focused on: {', '.join(xai_words)}"
 
+    # After calibration override, use recalibrated confidence so it
+    # aligns with the (possibly overridden) prediction label.
+    if is_phish:
+        final_confidence = round(malicious_prob, 4)
+    else:
+        final_confidence = round(max(probs[0].item(), 1.0 - malicious_prob), 4)
+
     return {
         "prediction": "malicious" if is_phish else "legitimate",
-        "confidence": round(probs[pred_class].item(), 4),
+        "confidence": final_confidence,
         "phishing_probability": round(malicious_prob, 4),
         "category": category_name,
         "model": "url",
@@ -531,10 +537,9 @@ async def predict_url(url: str) -> dict:
             domain = domain[4:]
         for trusted in TRUSTED_DOMAINS:
             if domain == trusted or domain.endswith("." + trusted):
-                dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
                 return {
-                    "prediction": "legitimate", "confidence": round(1.0 - dynamic_safe, 4),
-                    "phishing_probability": dynamic_safe, "category": "benign",
+                    "prediction": "legitimate", "confidence": 0.99,
+                    "phishing_probability": 0.01, "category": "benign",
                     "model": "url", "xai_words": [],
                     "explanation": "AI verified URL matches trusted domain structure",
                 }
