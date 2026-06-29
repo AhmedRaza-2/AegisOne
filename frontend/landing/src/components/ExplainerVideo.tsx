@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
+import {
   Play, Pause, RotateCw, Volume2, VolumeX, Maximize2, Shield, Tv
 } from 'lucide-react';
 import generateVideo from '../../generate.mp4';
@@ -80,7 +80,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
       <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full filter blur-[100px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
-        
+
         {/* Header Block */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
           <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/15 border border-[#0A5ED6]/30 px-3.5 py-1.5 rounded-full">
@@ -139,7 +139,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
               <div className="flex items-center justify-between gap-4">
                 {/* Control Actions */}
                 <div className="flex items-center gap-4">
-                  <button 
+                  <button
                     onClick={togglePlay}
                     className="w-10 h-10 rounded-full bg-[#0A5ED6] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
                     title={isPlaying ? "Pause" : "Play"}
