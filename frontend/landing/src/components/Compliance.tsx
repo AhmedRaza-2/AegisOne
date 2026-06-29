@@ -6,24 +6,26 @@ interface ComplianceProps {
 }
 
 export default function Compliance({ onDownloadWhitepaper }: ComplianceProps) {
-  const complianceCards = [
-    {
-      title: 'High Security (SOC2 Style)',
-      description: 'Since no data leaves your network, you pass third-party security audits instantly with ease.',
-      icon: FileCheck,
-    },
-    {
-      title: 'Local Data Boundaries (GDPR Safe)',
-      description: 'Your employees browsing history never crosses country borders, keeping you safe from data laws.',
-      icon: MapPin,
-    },
-    {
-      title: 'Customer Info Safeguard (HIPAA Ready)',
-      description: 'Prevent sensitive client emails or personal links from accidentally leaking to foreign clouds.',
-      icon: ShieldCheck,
-    },
-  ];
-
+const complianceCards = [
+  {
+    title: 'Privacy-First Architecture',
+    description:
+      'All browsing analysis happens within your own infrastructure, keeping sensitive information under your control.',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'GDPR-Friendly Design',
+    description:
+      'Supports data residency and local processing, helping organizations meet GDPR data protection requirements.',
+    icon: MapPin,
+  },
+  {
+    title: 'Audit-Friendly Deployment',
+    description:
+      'Local processing and customer-controlled infrastructure simplify security reviews and internal compliance efforts.',
+    icon: FileCheck,
+  },
+];
   return (
     <section id="compliance" className="min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#0F172A] text-white overflow-hidden relative border-b border-slate-800">
       {/* Abstract technical glowing background */}
