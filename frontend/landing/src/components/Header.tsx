@@ -1,14 +1,12 @@
 import React from 'react';
 import { Menu, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
-  onRequestSetup: () => void;
-  onOpenDashboard: () => void;
   onScrollTo: (elementId: string) => void;
-  isDashboardOpen: boolean;
 }
 
-export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, isDashboardOpen }: HeaderProps) {
+export default function Header({ onScrollTo }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const navItems = [
@@ -21,13 +19,7 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
 
   const handleNavClick = (id: string) => {
     setMobileMenuOpen(false);
-    if (isDashboardOpen) {
-      onOpenDashboard(); // Close dashboard to return to landing page
-    }
-    // Small delay to let dashboard close if open
-    setTimeout(() => {
-      onScrollTo(id);
-    }, 50);
+    onScrollTo(id);
   };
 
   return (
@@ -38,7 +30,6 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
           id="logo-container" 
           className="flex items-center gap-2.5 cursor-pointer group"
           onClick={() => {
-            if (isDashboardOpen) onOpenDashboard();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
@@ -69,35 +60,28 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
 
         {/* Desktop CTAs matching screenshot */}
         <div id="desktop-ctas" className="hidden md:flex items-center gap-6">
-          <button
-            id="nav-btn-dashboard"
-            onClick={onOpenDashboard}
-            className={`font-sans text-sm font-medium transition-colors duration-200 cursor-pointer ${
-              isDashboardOpen 
-                ? 'text-[#0A5ED6] hover:text-blue-700 font-semibold' 
-                : 'text-[#45464D] hover:text-[#0F172A]'
-            }`}
+          <Link
+            to="/login"
+            className="font-sans text-sm font-medium text-[#45464D] hover:text-[#0F172A] transition-colors duration-200 cursor-pointer"
           >
-            {isDashboardOpen ? 'Landing Page' : 'Login'}
-          </button>
-          <button
-            id="nav-btn-setup"
-            onClick={onRequestSetup}
+            Login
+          </Link>
+          <Link
+            to="/register"
             className="font-sans text-sm font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] px-5 py-2.5 rounded-lg shadow-xs transition-all duration-200 cursor-pointer"
           >
-            Request Setup
-          </button>
+            Register Org
+          </Link>
         </div>
 
         {/* Mobile menu trigger */}
         <div className="flex md:hidden items-center gap-3">
-          <button
-            id="mobile-nav-btn-dashboard"
-            onClick={onOpenDashboard}
+          <Link
+            to="/login"
             className="font-sans text-xs font-semibold px-2.5 py-1.5 rounded-md bg-slate-100 text-[#0F172A]"
           >
-            {isDashboardOpen ? 'Landing' : 'Login'}
-          </button>
+            Login
+          </Link>
           <button
             id="mobile-menu-trigger"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -122,18 +106,16 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
             </button>
           ))}
           <div className="h-[1px] bg-slate-200 my-1" />
-          <button
-            id="mobile-nav-btn-setup"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onRequestSetup();
-            }}
-            className="font-sans w-full text-center text-sm font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] py-2.5 rounded-lg"
+          <Link
+            to="/register"
+            onClick={() => setMobileMenuOpen(false)}
+            className="font-sans w-full text-center text-sm font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] py-2.5 rounded-lg block"
           >
-            Request Setup
-          </button>
+            Register Org
+          </Link>
         </div>
       )}
     </header>
   );
 }
+

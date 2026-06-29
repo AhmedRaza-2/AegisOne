@@ -9,10 +9,6 @@ import TechnicalBlueprint from './components/TechnicalBlueprint';
 import DeploymentStack from './components/DeploymentStack';
 import ReadySection from './components/ReadySection';
 import Footer from './components/Footer';
-import Dashboard from './components/Dashboard';
-import AuthScreen from './components/AuthScreen';
-import { getCurrentSession, signOutUser } from './lib/firebase';
-import { UserSession } from './types';
 
 import { 
   ShieldCheck, X, Check, Server, Database, Key, Send, Copy, Sparkles, 
@@ -20,9 +16,6 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
-  const [session, setSession] = useState<UserSession | null>(getCurrentSession());
-  
   // Setup Request Modal States
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [setupStep, setSetupStep] = useState(1);
@@ -72,13 +65,7 @@ export default function App() {
   };
 
   const handleOnboardingSelectPhase = (phaseNum: number) => {
-    if (phaseNum === 4) {
-      setIsDashboardOpen(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      showToast('Live Threat Monitor opened successfully! Simulated threats are streaming.');
-    } else {
-      showToast(`Phase ${phaseNum} Interactive configuration simulated successfully.`);
-    }
+    showToast(`Phase ${phaseNum} Interactive configuration simulated successfully.`);
   };
 
   const handleSetupSubmit = (e: React.FormEvent) => {
@@ -120,49 +107,22 @@ export default function App() {
       )}
 
       {/* Navigation Header */}
-      <Header 
-        onRequestSetup={() => {
-          setSetupStep(1);
-          setShowSetupModal(true);
-        }}
-        onOpenDashboard={() => {
-          setIsDashboardOpen(!isDashboardOpen);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onScrollTo={handleScrollTo}
-        isDashboardOpen={isDashboardOpen}
-      />
+      <Header onScrollTo={handleScrollTo} />
 
       {/* Main Container */}
       <main className="flex-1" id="main-content">
-        {isDashboardOpen ? (
-          /* Active Interactive Simulation Dashboard Hub */
-          <div className="animate-fadeIn">
-            {session ? (
-              <Dashboard 
-                session={session} 
-                onLogOut={() => {
-                  signOutUser();
-                  setSession(null);
-                }} 
-              />
-            ) : (
-              <AuthScreen onAuthSuccess={(s) => setSession(s)} />
-            )}
-          </div>
-        ) : (
-          /* High-Fidelity Landing Page Views */
-          <div className="animate-fadeIn">
-            {/* Hero Banner Section */}
-            <Hero 
-              onRequestSetup={() => {
-                setSetupStep(1);
-                setShowSetupModal(true);
-              }}
-              onViewArchitecture={() => handleScrollTo('architecture')}
-            />
+        {/* High-Fidelity Landing Page Views */}
+        <div className="animate-fadeIn">
+          {/* Hero Banner Section */}
+          <Hero 
+            onRequestSetup={() => {
+              setSetupStep(1);
+              setShowSetupModal(true);
+            }}
+            onViewArchitecture={() => handleScrollTo('architecture')}
+          />
 
-            {/* Interactive 3D Video Explainer Tour Section */}
+          {/* Interactive 3D Video Explainer Tour Section */}
             <ExplainerVideo onShowNotification={showToast} />
 
             {/* Cloud Risk Analysis Section */}
@@ -202,7 +162,6 @@ export default function App() {
               }}
             />
           </div>
-        )}
       </main>
 
       {/* Footer Brand bar */}
