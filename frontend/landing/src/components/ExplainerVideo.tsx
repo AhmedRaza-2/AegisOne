@@ -1,42 +1,14 @@
-<<<<<<< HEAD
-import React, { useState, useRef, useEffect } from 'react';
-import { Tv, ShieldCheck } from 'lucide-react';
-=======
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, RotateCw, Volume2, VolumeX, Maximize2, Shield, Tv
 } from 'lucide-react';
 import generateVideo from '../../generate.mp4';
->>>>>>> ahmed
 
 interface ExplainerVideoProps {
   onShowNotification: (msg: string) => void;
 }
 
 export default function ExplainerVideo({ onShowNotification }: ExplainerVideoProps) {
-<<<<<<< HEAD
-  const [videoIndex, setVideoIndex] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const videos = [
-    '/generate (1).mp4',
-    '/bro_i_need_longer_video_sec.mp4'
-  ];
-
-  const handleVideoEnded = () => {
-    if (videoIndex < videos.length - 1) {
-      setVideoIndex(videoIndex + 1);
-    } else {
-      // Loop back to the first video
-      setVideoIndex(0);
-    }
-  };
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(e => console.log("Autoplay prevented:", e));
-    }
-  }, [videoIndex]);
-=======
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -99,7 +71,6 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
->>>>>>> ahmed
 
   return (
     <section id="how-it-works" className="min-h-[90dvh] flex flex-col justify-center py-20 bg-slate-950 text-white relative overflow-hidden border-t border-b border-slate-900">
@@ -108,13 +79,8 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#0A5ED6]/10 rounded-full filter blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full filter blur-[100px] pointer-events-none" />
 
-<<<<<<< HEAD
-      <div className="max-w-5xl mx-auto px-6 relative z-10 w-full">
-
-=======
       <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
         
->>>>>>> ahmed
         {/* Header Block */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
           <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/15 border border-[#0A5ED6]/30 px-3.5 py-1.5 rounded-full">
@@ -131,42 +97,6 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
           </p>
         </div>
 
-<<<<<<< HEAD
-        {/* Single Video Player View */}
-        <div className="flex flex-col bg-slate-900/90 border border-slate-800 rounded-3xl p-4 md:p-6 relative overflow-hidden shadow-2xl">
-          {/* Camera Frame Corners */}
-          <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-slate-700 pointer-events-none" />
-          <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-slate-700 pointer-events-none" />
-          <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-slate-700 pointer-events-none" />
-          <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-slate-700 pointer-events-none" />
-
-          {/* Player Badge */}
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400 font-bold">AegisOne_Explainer_Part_{videoIndex + 1}.mp4</span>
-            </div>
-            <div className="font-mono text-[10px] text-[#0A5ED6] font-semibold bg-[#0A5ED6]/10 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Sovereign Protection Active
-            </div>
-          </div>
-
-          {/* Actual Video Element */}
-          <div className="w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner">
-            <video
-              ref={videoRef}
-              src={videos[videoIndex]}
-              onEnded={handleVideoEnded}
-              controls
-              autoPlay
-              muted
-              playsInline
-              className="w-full aspect-video object-contain"
-            />
-          </div>
-
-=======
         {/* Centered Large Video Container */}
         <div className="max-w-4xl mx-auto w-full">
           <div className="relative bg-slate-900/90 border border-slate-800 rounded-3xl p-6 overflow-hidden shadow-2xl min-h-[450px] flex flex-col justify-between">
@@ -246,11 +176,9 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
             </div>
 
           </div>
->>>>>>> ahmed
         </div>
 
       </div>
     </section>
   );
 }
-
