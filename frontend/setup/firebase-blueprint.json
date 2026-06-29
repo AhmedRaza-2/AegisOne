@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "Represents an authenticated user inside the organization",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "subadmin", "employee"] },
+        "orgId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "organization": {
+      "title": "Organization",
+      "description": "An organization registered under the platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "employee": {
+      "title": "Employee",
+      "description": "An employee or team lead added with their official company ID assignment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "role": { "type": "string", "enum": ["lead", "employee"] },
+        "orgId": { "type": "string" },
+        "assignedBy": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "employeeId", "role", "orgId"]
+    },
+    "threatLog": {
+      "title": "ThreatLog",
+      "description": "Scanned link activities and threat resolution telemetry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "url": { "type": "string" },
+        "status": { "type": "string", "enum": ["BLOCKED", "ALLOWED", "WARN"] },
+        "type": { "type": "string" },
+        "latencyMs": { "type": "integer" },
+        "threatScore": { "type": "integer" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "url", "status", "type", "latencyMs", "threatScore"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "user",
+      "description": "User profiles"
+    },
+    "organizations/{orgId}": {
+      "schema": "organization",
+      "description": "Registered corporations"
+    },
+    "organizations/{orgId}/employees/{employeeId}": {
+      "schema": "employee",
+      "description": "Assigned employee and lead list"
+    },
+    "threatLogs/{logId}": {
+      "schema": "threatLog",
+      "description": "Central audit trail for threat scanning logs"
+    }
+  }
+}
