@@ -357,7 +357,6 @@ export default function App() {
                         <button
                           onClick={() => {
                             setShowSetupModal(false);
-                            setIsDashboardOpen(true);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                             showToast('Live Threat Dashboard launched successfully!');
                           }}

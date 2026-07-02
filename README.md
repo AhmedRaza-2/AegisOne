@@ -1,88 +1,67 @@
-# AegisOne
-FYP In-house Phishing Detection & Prevention System
+# AegisOne Unified AI Server
 
-## Overview
-This repository contains models and code for detecting phishing content across email, URL and text/image modalities. Trained model artifacts and large datasets are stored with Git LFS.
+AegisOne is a comprehensive multi-modal phishing detection system built with FastAPI and PyTorch. It intelligently routes inputs (URLs, Emails, Text, Images, and Documents) through specialized AI models and aggregates their predictions into a unified risk score.
 
-## Prerequisites
-- Git (with Git LFS installed and configured)
-- Python 3.8+ (recommended 3.10 or 3.11)
-- pip
-- A virtual environment tool (venv, virtualenv, or conda)
+## Architecture
 
-Large model files and datasets are tracked with Git LFS. Ensure you have enough disk space and that `git lfs` is authenticated with your remote (e.g., GitHub) before pulling.
+*   **FastAPI Gateway**: Handles concurrent requests via async endpoints.
+*   **Intelligent Content Router**: Automatically detects input types and triggers the correct model pipelines.
+*   **Model Orchestrator**: Manages AI models in memory for fast inference.
+*   **Multi-Modal AI**:
+    *   **Email Model**: DistilBERT + BiLSTM
+    *   **URL Model**: DistilBERT + MLP (with heuristics)
+    *   **Text Model**: DistilBERT + BiLSTM
+    *   **Image Model**: EfficientNet-B3 + OCR (Tesseract)
+*   **Attachment Orchestrator**: Scans inside PDFs, DOCX, and ZIP archives.
+*   **Database**: SQLite with SQLAlchemy ORM (migratable to PostgreSQL).
+*   **Authentication**: Role-based Access Control (Employee, Department Admin, Super Admin) using JWTs.
 
-## Setup
-1. Clone the repo and enable LFS (if not already):
+## Installation
 
-```bash
-git clone https://github.com/AhmedRaza-2/AegisOne
-cd AegisOne
-git lfs install
-git lfs pull
-```
+### Prerequisites
+*   Python 3.10+
+*   Tesseract OCR (Must be installed on the system)
+    *   Windows: Download from UB Mannheim
+    *   Linux: `sudo apt install tesseract-ocr`
 
-2. Create and activate a Python virtual environment:
+### Setup
 
-```bash
-python -m venv .venv
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-# or PowerShell/CMD
-.\.venv\Scripts\activate
-```
+1.  Clone the repository and install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-3. Install Python dependencies:
+2.  Ensure model weight files are present in their respective directories under `models/`:
+    *   `models/email/best_phishing_model.pt`
+    *   `models/text/best_phishing_model_text.pt`
+    *   `models/url/best.pt`
+    *   `models/image/checkpoints_v2/best_model.pth`
 
-```bash
-pip install -r requirements.txt
-```
+## Running the Server
 
-## Important files & folders
-- `AIML/` — training and inference code for models across modalities.
-	- `AIML/email/` — email model and datasets.
-	- `AIML/url/` — URL model and datasets.
-	- `AIML/text_general/` — text models.
-	- `AIML/image_phishing_detection_model/` — image model and checkpoints.
-- `Extension/` — browser extension source (manifest, popup, content scripts).
-- `requirements.txt` — Python dependencies.
-
-## Common tasks
-- Run a quick inference for email model:
+Start the unified API server:
 
 ```bash
-python AIML/email/email_inference.py --input "example email text"
+uvicorn api.main:app --host 0.0.0.0 --port 9000
 ```
 
-- Run URL inference:
+The API docs will be available at `http://localhost:9000/docs`.
 
-```bash
-python AIML/url/url_inference.py --url "http://example.com"
-```
+## Key Endpoints
 
-- Train a model (example):
+### Scanning
+*   `POST /scan/url` — Scan a URL
+*   `POST /scan/text` — Scan raw text
+*   `POST /scan/email` — Scan an email (subject and body)
+*   `POST /scan/image` — Upload an image for OCR and AI analysis
+*   `POST /scan/document` — Upload a PDF or Office document
 
-```bash
-python AIML/email/train_phishing_model_email.py
-```
+### Auth & Admin
+*   `POST /auth/login` — Get a JWT token
+*   `POST /auth/register` — Register a new user (Super Admin only)
+*   `GET /admin/stats` — View system-wide or department-wide scan statistics
 
-Adjust training scripts' arguments as needed; inspect each script's header or `--help` for options.
+## Configuration
 
-## Notes about large files and Git LFS
-- Model artifacts (`*.pt`, `*.pth`) and dataset CSVs in `AIML/` are tracked via Git LFS. If you clone the repo and see missing large files, run `git lfs pull` to fetch them.
-- If you plan to add new large artifacts, use `git lfs track "*.pt"` (or folder-specific patterns) before committing.
-
-## Troubleshooting
-- If `git push` hangs while uploading LFS objects, check network connectivity and remote LFS quota (GitHub may limit storage/bandwidth).
-- To retry LFS uploads:
-
-```bash
-git lfs push --all origin main
-git push origin main
-```
-
-## Contact
-For questions about running models or dataset placement, open an issue or contact the repo owner.
-
----
-Updated on: 2026-06-06
+Settings (paths, cache size, secrets) can be modified in `api/config.py`. 
+For production, ensure you set the `AEGIS_JWT_SECRET` environment variable to a secure random string.

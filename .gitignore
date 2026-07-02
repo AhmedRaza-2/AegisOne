@@ -2,6 +2,7 @@
 *.pth
 *.ckpt
 *.csv
+.next
 datasets/
 AIML/image_phishing_detection_model/dataset/
 models/
@@ -253,3 +254,4 @@ __marimo__/
 node_modules
 
 AIML/image_phishing_detection_model/dataset/
+frontend/.next/
