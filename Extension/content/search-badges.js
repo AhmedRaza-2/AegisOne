@@ -90,12 +90,13 @@ function _getSearchEntries(engine) {
   let links = [];
 
   if (engine === "google") {
-    // Select <a> tags containing <h3> (main titles) to avoid duplicate/flipped site icon sub-links
-    document.querySelectorAll("div.g a:has(h3), div[data-hveid] a:has(h3)").forEach(a => {
-      if (!a.href.startsWith("http")) return;
+    // Select the main <h3> title element inside search results
+    document.querySelectorAll("div[data-hveid] a h3").forEach(h3 => {
+      const a = h3.closest("a");
+      if (!a || !a.href || !a.href.startsWith("http")) return;
       if (a.href.includes("google.com")) return;
       if (a.closest(".ads-ad")) return;
-      links.push({ linkEl: a, href: a.href });
+      links.push({ linkEl: h3, href: a.href });
     });
   } else if (engine === "bing") {
     document.querySelectorAll("#b_results .b_algo h2 a").forEach(a => {
@@ -118,11 +119,11 @@ function _getSearchEntries(engine) {
 
 function _injectBadge(linkEl, { verdict, score, top_factor, threat_type, href }) {
   // Remove existing badge
-  linkEl.parentElement?.querySelector(".aegis-search-badge")?.remove();
+  linkEl.querySelector(".aegis-search-badge")?.remove();
 
   const badge = document.createElement("span");
   badge.className = `aegis-search-badge aegis-badge-${verdict}`;
-  badge.setAttribute("data-href", href || linkEl.href || "");
+  badge.setAttribute("data-href", href || "");
 
   let text, title;
   switch (verdict) {
@@ -164,8 +165,8 @@ function _injectBadge(linkEl, { verdict, score, top_factor, threat_type, href })
     });
   }
 
-  // Insert after the link
-  linkEl.insertAdjacentElement("afterend", badge);
+  // Insert inside the element to inherit correct text orientation
+  linkEl.appendChild(badge);
   _ensureSearchStyles();
 }
 
@@ -180,7 +181,7 @@ function _ensureSearchStyles() {
       display: inline-flex !important; align-items: center !important;
       font-size: 10px !important; font-weight: 700 !important;
       padding: 2px 7px !important; border-radius: 10px !important;
-      margin-left: 6px !important; vertical-align: middle !important;
+      margin-left: 8px !important; vertical-align: middle !important;
       font-family: -apple-system, sans-serif !important;
       cursor: default !important; white-space: nowrap !important;
       font-style: normal !important; text-decoration: none !important;
