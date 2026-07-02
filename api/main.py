@@ -1,6 +1,7 @@
 """
 AegisOne Unified Phishing Detection API
 Entry point for the FastAPI application.
+# Forced reload trigger
 """
 import os
 import contextlib
@@ -12,7 +13,7 @@ from api.config import API_HOST, API_PORT, API_WORKERS
 from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
 
-from api.routers import auth, scan, admin, health
+from api.routers import auth, scan, admin, health, compatibility
 
 
 @contextlib.asynccontextmanager
@@ -47,6 +48,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(scan.router)
 app.include_router(admin.router)
+app.include_router(compatibility.router)
 
 
 @app.get("/")

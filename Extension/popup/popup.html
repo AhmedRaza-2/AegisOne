@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AegisOne Security Copilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --card: #111827;
+      --card2: #161f33;
+      --border: #1e2a45;
+      --border2: #243050;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --muted2: #475569;
+      --cyan: #06b6d4;
+      --blue: #3b82f6;
+      --indigo: #6366f1;
+      --green: #10b981;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --orange: #f97316;
+      --purple: #8b5cf6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 360px;
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    /* ── Header ───────────────────────────────────────── */
+    .header {
+      background: linear-gradient(160deg, #0d1425 0%, #111827 100%);
+      padding: 13px 15px 11px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-logo { font-size: 20px; }
+    .brand-name { font-weight: 800; font-size: 14px; letter-spacing: 0.3px; }
+    .brand-sub  { font-size: 9px; color: var(--muted); margin-top: 1px; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .shield-toggle { display: flex; align-items: center; gap: 5px; }
+    .toggle-label { font-size: 9px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+    .toggle-switch { position: relative; width: 30px; height: 17px; cursor: pointer; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: var(--border2);
+      border-radius: 17px; transition: 0.25s;
+    }
+    .toggle-slider:before {
+      content: ''; position: absolute;
+      width: 11px; height: 11px; left: 3px; top: 3px;
+      background: white; border-radius: 50%; transition: 0.25s;
+    }
+    input:checked + .toggle-slider { background: var(--green); }
+    input:checked + .toggle-slider:before { transform: translateX(13px); }
+
+    .server-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted); transition: background 0.3s;
+      cursor: help;
+    }
+    .server-dot.online  { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    .server-dot.offline { background: var(--red); }
+
+    /* ── Verdict Section ──────────────────────────────── */
+    .verdict-section {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px;
+    }
+    .verdict-box {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--card); border-radius: 10px;
+      padding: 10px 12px; border: 1px solid var(--border2);
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .verdict-icon { font-size: 26px; flex-shrink: 0; }
+    .verdict-text .status { font-size: 14px; font-weight: 700; }
+    .verdict-text .detail { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
+    .verdict-box.safe    { border-color: rgba(16,185,129,0.25); background: rgba(16,185,129,0.04); }
+    .verdict-box.safe    .status { color: var(--green); }
+    .verdict-box.caution { border-color: rgba(251,191,36,0.25); background: rgba(251,191,36,0.04); }
+    .verdict-box.caution .status { color: var(--amber); }
+    .verdict-box.warning { border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.05); }
+    .verdict-box.warning .status { color: var(--orange); }
+    .verdict-box.danger  { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+    .verdict-box.danger  .status { color: var(--red); }
+    .verdict-box.unknown { border-color: var(--border2); }
+    .verdict-box.unknown .status { color: var(--muted); }
+
+    .risk-bar-container { margin-top: 10px; }
+    .risk-bar-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 4px; }
+    .risk-bar { height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+    .risk-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+    .risk-fill.low  { background: var(--green); }
+    .risk-fill.med  { background: var(--amber); }
+    .risk-fill.high { background: var(--red); }
+
+    /* ── Tabs ─────────────────────────────────────────── */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--card); }
+    .tab-btn {
+      flex: 1; padding: 8px 4px; text-align: center; font-size: 10px; font-weight: 600;
+      color: var(--muted); cursor: pointer; border: none; background: transparent;
+      border-bottom: 2px solid transparent; transition: all 0.2s;
+      font-family: inherit;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+    /* ── Panels ───────────────────────────────────────── */
+    .panel { display: none; padding: 10px 14px; max-height: 200px; overflow-y: auto; }
+    .panel.active { display: block; }
+    .panel::-webkit-scrollbar { width: 3px; }
+    .panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .empty { text-align: center; padding: 18px 0; color: var(--muted); font-size: 10px; }
+
+    /* ── Breakdown Panel ──────────────────────────────── */
+    .breakdown-item { margin-bottom: 9px; }
+    .breakdown-label { font-size: 10px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .breakdown-bar-wrap { display: flex; align-items: center; gap: 7px; }
+    .breakdown-bar { flex: 1; height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+    .breakdown-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+    .breakdown-pct { font-size: 10px; font-weight: 700; min-width: 28px; text-align: right; }
+    .breakdown-desc { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Events Panel ─────────────────────────────────── */
+    .event-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 0; border-bottom: 1px solid var(--border);
+    }
+    .event-item:last-child { border-bottom: none; }
+    .event-icon { font-size: 14px; flex-shrink: 0; }
+    .event-info { flex: 1; min-width: 0; }
+    .event-domain { font-size: 11px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event-meta { font-size: 9px; color: var(--muted); margin-top: 1px; text-transform: capitalize; }
+    .event-score { font-size: 11px; font-weight: 700; flex-shrink: 0; }
+
+    /* ── Models Panel ─────────────────────────────────── */
+    .model-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .model-row:last-child { border-bottom: none; }
+    .model-name { font-size: 11px; font-weight: 500; }
+    .model-badge { font-size: 9px; padding: 2px 7px; border-radius: 8px; font-weight: 700; }
+    .model-badge.ok  { background: rgba(16,185,129,0.12); color: var(--green); }
+    .model-badge.err { background: rgba(239,68,68,0.12);  color: var(--red); }
+
+    /* ── Footer ───────────────────────────────────────── */
+    .footer {
+      padding: 8px 14px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--card);
+    }
+    .url-display { font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; }
+    .rescan-btn {
+      font-size: 9px; color: var(--cyan); cursor: pointer;
+      border: none; background: none; font-family: inherit; font-weight: 600;
+      white-space: nowrap;
+    }
+    .rescan-btn:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      <div class="brand-logo">🛡️</div>
+      <div>
+        <div class="brand-name">AegisOne</div>
+        <div class="brand-sub">AI Security Copilot</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="shield-toggle">
+        <span class="toggle-label" id="shieldLabel">ON</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="shieldToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="server-dot" id="serverDot" title="Server status"></div>
+    </div>
+  </div>
+
+  <!-- Current Page Verdict -->
+  <div class="verdict-section">
+    <div class="section-label">Current Page</div>
+    <div class="verdict-box unknown" id="verdictBox">
+      <div class="verdict-icon" id="verdictIcon">🔍</div>
+      <div class="verdict-text">
+        <div class="status" id="verdictStatus">Scanning...</div>
+        <div class="detail" id="verdictDetail">Analyzing with AI models</div>
+      </div>
+    </div>
+    <div class="risk-bar-container" id="riskBarContainer" style="display:none;">
+      <div class="risk-bar-label">
+        <span>Phishing Risk</span>
+        <span id="riskPct">0%</span>
+      </div>
+      <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="breakdown">📊 Breakdown</button>
+    <button class="tab-btn" data-tab="events">🕐 Events</button>
+    <button class="tab-btn" data-tab="models">🤖 Models</button>
+  </div>
+
+  <!-- Breakdown Panel -->
+  <div class="panel active" id="panel-breakdown">
+    <div class="empty" id="breakdownEmpty" style="display:none;">No scan data yet.</div>
+    <div id="breakdownList"></div>
+  </div>
+
+  <!-- Events Panel -->
+  <div class="panel" id="panel-events">
+    <div class="empty" id="eventsEmpty">No security events recorded.</div>
+    <div id="eventsList"></div>
+  </div>
+
+  <!-- Models Panel -->
+  <div class="panel" id="panel-models">
+    <div class="model-row"><span class="model-name">📧 Email AI</span><span class="model-badge" id="m-email">—</span></div>
+    <div class="model-row"><span class="model-name">📝 Text AI</span><span class="model-badge" id="m-text">—</span></div>
+    <div class="model-row"><span class="model-name">🔗 URL AI</span><span class="model-badge" id="m-url">—</span></div>
+    <div class="model-row"><span class="model-name">🖼️ Image AI</span><span class="model-badge" id="m-image">—</span></div>
+    <div class="model-row"><span class="model-name">📎 Attachment</span><span class="model-badge ok">Built-in</span></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="url-display" id="currentUrl">—</div>
+    <button class="rescan-btn">↻ Rescan</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

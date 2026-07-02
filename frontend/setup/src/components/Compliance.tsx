@@ -28,9 +28,9 @@ export default function Compliance({ onDownloadWhitepaper }: ComplianceProps) {
     <section id="compliance" className="min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#0F172A] text-white overflow-hidden relative border-b border-slate-800">
       {/* Abstract technical glowing background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08)_0%,transparent_50%)] pointer-events-none" />
-      
+
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
-        
+
         {/* Left column */}
         <div className="lg:col-span-5 space-y-6" id="compliance-left-col">
           <div className="inline-block bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full" id="compliance-badge">
@@ -38,15 +38,15 @@ export default function Compliance({ onDownloadWhitepaper }: ComplianceProps) {
               Compliance &amp; Safety
             </span>
           </div>
-          
+
           <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-white leading-tight">
             International Compliance. Simplified for Everyone.
           </h2>
-          
+
           <p className="font-sans text-base text-slate-300 leading-relaxed">
             When your business data stays 100% inside your local computers, answering security questions from foreign clients or banks becomes simple and quick.
           </p>
-          
+
           <button
             id="btn-download-whitepaper"
             onClick={onDownloadWhitepaper}
@@ -62,13 +62,12 @@ export default function Compliance({ onDownloadWhitepaper }: ComplianceProps) {
           {complianceCards.map((card, idx) => {
             const IconComponent = card.icon;
             return (
-              <div 
+              <div
                 key={idx}
                 id={`compliance-card-${idx}`}
                 // First card spans full width if odd, or let's layout as 3 beautiful boxes with different order
-                className={`p-6 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all duration-300 ${
-                  idx === 2 ? 'md:col-span-2' : ''
-                }`}
+                className={`p-6 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all duration-300 ${idx === 2 ? 'md:col-span-2' : ''
+                  }`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="bg-blue-950 border border-blue-800 p-2.5 rounded-lg text-blue-400">

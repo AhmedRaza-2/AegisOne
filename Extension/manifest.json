@@ -1,3 +1,68 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:c61098c690d6468ec458a057bd691464b33154273169005b77bb1698bf920cee
-size 1015
+{
+  "manifest_version": 3,
+  "name": "AegisOne — AI Security Copilot",
+  "version": "2.0.0",
+  "description": "Enterprise-grade AI browser security: real-time phishing detection, explainable AI, credential protection, download guard, and SOC dashboard sync.",
+
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "downloads",
+    "storage",
+    "webRequest",
+    "declarativeNetRequest",
+    "notifications",
+    "scripting",
+    "contextMenus",
+    "alarms"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background/sw.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>", "file:///*"],
+      "js": ["content/main.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/widget.js",
+        "content/search-badges.js",
+        "content/link-scanner.js",
+        "content/form-guard.js",
+        "content/modals.js",
+        "utils/constants.js",
+        "utils/trusted-domains.js",
+        "icons/*.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "AegisOne — AI Security Copilot"
+  },
+
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
