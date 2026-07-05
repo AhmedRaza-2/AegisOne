@@ -12,7 +12,7 @@
  */
 
 import { API_BASE, API_TIMEOUT_MS, THRESHOLD, VERDICT, EVENT_TYPES } from "../utils/constants.js";
-import { isInternalURL, isTrusted, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
+import { isInternalURL, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
 import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
 import { storeEvent } from "./event-store.js";
@@ -49,7 +49,6 @@ async function callAPI(endpoint, body, isFormData = false) {
  */
 export async function scanURL(url, pageFeatures = {}) {
   if (!url || isInternalURL(url)) return _skippedResult(url);
-  if (isTrusted(url)) return _trustedResult(url);
 
   const cached = await getCachedResult(url);
   const hasDOMFeatures = Object.keys(pageFeatures).length > 0;
@@ -82,6 +81,8 @@ export async function scanURL(url, pageFeatures = {}) {
     text_model: pageFeatures.text_probability ?? null,
     redirect_count: pageFeatures.redirect_count ?? null,
     brand_mismatch: pageFeatures.brand_mismatch ?? null,
+    brand_impersonation: pageFeatures.brand_impersonation ?? null,
+    brand_impersonation_score: pageFeatures.brand_impersonation_score ?? null,
     hidden_iframe: pageFeatures.hidden_iframe ?? null,
     js_obfuscated: pageFeatures.js_obfuscated ?? null,
   };
@@ -136,13 +137,27 @@ export async function scanPageText(text) {
 }
 
 /**
- * Scan multiple URLs in parallel (batched to avoid flooding).
- * @param {string[]} urls
- * @param {number} batchSize
- * @returns {Promise<Array>}
+ * Scan an image URL by downloading it and posting it to /analyze/image.
+ * @param {string} imageUrl
+ * @returns {Promise<object|null>}
  */
+export async function scanImage(imageUrl) {
+  if (!imageUrl) return null;
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const form = new FormData();
+    form.append("file", blob, "image.png");
+    return callAPI("/analyze/image", form, true);
+  } catch (err) {
+    console.warn("[AegisOne:Scanner] Image scan failed:", err.message);
+    return null;
+  }
+}
+
 export async function scanURLBatch(urls, batchSize = 5) {
-  const filtered = urls.filter(u => u && !isInternalURL(u) && !isTrusted(u));
+  const filtered = urls.filter(u => u && !isInternalURL(u));
   const results = [];
 
   for (let i = 0; i < filtered.length; i += batchSize) {
@@ -151,10 +166,33 @@ export async function scanURLBatch(urls, batchSize = 5) {
       batch.map(async (url) => {
         const cached = await getCachedResult(url);
         if (cached) return { url, ...cached, from_cache: true };
+        
         const form = new FormData();
         form.append("url", url);
         const r = await callAPI("/analyze/url", form, true);
-        return r ? { url, score: Math.round((r.phishing_probability || 0) * 100), ...r } : null;
+        if (!r) return null;
+
+        // Run the exact same Weighted Risk Engine as single scans
+        const risk = computeRisk({
+          url_model: r.phishing_probability ?? null,
+          threat_type: r.category || r.prediction || null,
+          top_words: r.top_words || []
+        });
+        
+        const result = {
+          url,
+          domain: getRootDomain(url),
+          score: risk.score,
+          verdict: risk.verdict,
+          threat_type: risk.threat_type,
+          raw_url_model: r,
+          from_cache: false,
+          scanned_at: new Date().toISOString()
+        };
+
+        // Save batch scan to cache so hover instantly resolves
+        await setCachedResult(url, result);
+        return result;
       })
     );
     settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
@@ -178,17 +216,18 @@ export async function scanDownload(url, filename) {
   const urlResult = await callAPI("/analyze/url", form, true);
   const urlRisk = urlResult?.phishing_probability ?? 0;
 
-  // 2. Deep content scan (server fetches file)
+  // 2. Deep attachment/content scan for every download
+  // The backend fetches the file, inspects structure, extracts text, and routes it
+  // through the attachment/text/url models when possible.
   let contentResult = null;
-  if (isDangerousFileURL(url)) {
-    const contentForm = new FormData();
-    contentForm.append("url", url);
-    contentResult = await callAPI("/analyze/download_url", contentForm, true);
-  }
+  const contentForm = new FormData();
+  contentForm.append("url", url);
+  contentResult = await callAPI("/analyze/download_url", contentForm, true);
 
   const finalRisk = Math.max(
     urlRisk,
-    contentResult?.phishing_probability ?? 0
+    contentResult?.phishing_probability ?? 0,
+    contentResult?.heuristic_risk ? Math.round(contentResult.heuristic_risk * 100) : 0
   );
   const score = Math.round(finalRisk * 100);
   const verdict = score >= 50 ? VERDICT.DANGER : score >= 20 ? VERDICT.WARNING : VERDICT.SAFE;
@@ -203,6 +242,8 @@ export async function scanDownload(url, filename) {
     signals: contentResult?.phishing_signals || [],
     macros_found: contentResult?.macros_found || false,
     file_type: contentResult?.file_type || null,
+    heuristic_risk: contentResult?.heuristic_risk ?? null,
+    vba_analysis: contentResult?.vba_analysis ?? null,
   };
 
   // Store event only for warnings/blocks
@@ -263,6 +304,3 @@ function _skippedResult(url) {
   return { url, score: 0, verdict: VERDICT.SAFE, skipped: true, reason: "internal_url" };
 }
 
-function _trustedResult(url) {
-  return { url, domain: getRootDomain(url), score: 0, verdict: VERDICT.SAFE, trusted: true, from_cache: false };
-}

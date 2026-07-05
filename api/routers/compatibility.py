@@ -24,12 +24,12 @@ router = APIRouter(tags=["Compatibility & XAI"])
 class SecurityEvent(BaseModel):
     id: str
     type: str
-    domain: str
-    url: str
-    risk_score: int
-    verdict: str
+    domain: str | None = ""
+    url: str | None = ""
+    risk_score: int | None = 0
+    verdict: str | None = "unknown"
     threat_type: str | None = None
-    timestamp: str
+    timestamp: str | None = None
     org_id: str | None = None
     device_id: str | None = None
     details: Dict[str, Any] | None = None

@@ -110,13 +110,16 @@ export function computeRisk(signals = {}) {
     weight_used += RISK_WEIGHTS.redirect_chain;
   }
 
-  // ── 7. Brand Mismatch ─────────────────────────────────
-  if (signals.brand_mismatch != null) {
-    const s = signals.brand_mismatch ? 88 : 0;
+  // ── 7. Brand Mismatch / Impersonation ──────────────────
+  if (signals.brand_mismatch != null || signals.brand_impersonation != null) {
+    const isImp = signals.brand_impersonation != null;
+    const s = isImp ? (signals.brand_impersonation_score || 96) : (signals.brand_mismatch ? 88 : 0);
     breakdown.brand_mismatch = {
       score: s,
       weight: RISK_WEIGHTS.brand_mismatch,
-      label: signals.brand_mismatch ? "Brand/logo does not match domain" : "Brand matches domain",
+      label: isImp
+        ? `Possible Credential Harvesting page impersonating ${signals.brand_impersonation}`
+        : (signals.brand_mismatch ? "Brand/logo does not match domain" : "Brand matches domain"),
       available: true,
     };
     weighted_sum += s * RISK_WEIGHTS.brand_mismatch;

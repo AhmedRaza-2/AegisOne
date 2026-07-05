@@ -67,12 +67,7 @@ export function getRootDomain(url) {
  * Returns true if this URL should never be scanned.
  */
 export function isTrusted(url) {
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    if ([...TRUSTED_TLDS].some(tld => hostname.endsWith(tld))) return true;
-    const root = getRootDomain(url);
-    return TRUSTED_DOMAINS.has(root);
-  } catch { return false; }
+  return false;
 }
 
 /**

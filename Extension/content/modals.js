@@ -12,8 +12,7 @@
 import { MSG } from "../../utils/constants.js";
 import { shortURL } from "../../utils/trusted-domains.js";
 
-// ── 1. Warning Modal ─────────────────────────────────────
-export function showWarningModal({ score, verdict, threat_type, top_factors, url }) {
+export function showWarningModal({ score, verdict, threat_type, top_factors, url, onContinue }) {
   if (window.__AEGIS_WARNING_DISMISSED__) return;
   _removeModal("aegis-warning-overlay");
 
@@ -62,9 +61,11 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     document.getElementById("aegis-warning-overlay")?.remove();
   });
 
-  document.getElementById("aegis-warn-continue")?.addEventListener("click", () => {
+  document.getElementById("aegis-warn-continue")?.addEventListener("click", async () => {
     window.__AEGIS_WARNING_DISMISSED__ = true;
     document.getElementById("aegis-warning-overlay")?.remove();
+    await chrome.runtime.sendMessage({ type: "ALLOW_URL_SESSION", url }).catch(() => {});
+    if (onContinue) onContinue();
   });
 
   document.getElementById("aegis-warn-explain")?.addEventListener("click", async () => {
@@ -75,7 +76,7 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
 
     const res = await chrome.runtime.sendMessage({
       type: MSG.XAI_REQUEST,
-      url: window.location.href,
+      url,
     }).catch(() => null);
 
     document.getElementById("aegis-warning-overlay")?.remove();
@@ -192,6 +193,8 @@ export function showDownloadModal({ downloadId, filename, risk_score, verdict, u
 
   const isHigh = risk_score >= 80;
   const scoreColor = isHigh ? "#ef4444" : "#f97316";
+  const displayName = _compactDownloadName(filename, url);
+  const sourceUrl = shortURL(url, 72);
   const signalsHtml = (signals || []).slice(0, 4).map(s =>
     `<li style="font-size:11px;color:#94a3b8;margin-bottom:4px;">⚠ ${s}</li>`
   ).join("");
@@ -209,7 +212,8 @@ export function showDownloadModal({ downloadId, filename, risk_score, verdict, u
       <div style="padding:22px 26px;">
         <div style="font-size:28px;margin-bottom:12px;">📎</div>
         <h2 style="font-size:17px;font-weight:800;color:${scoreColor};margin:0 0 6px;">${risk_score}% Risk File Detected</h2>
-        <p style="font-size:12px;color:#94a3b8;margin:0 0 16px;word-break:break-all;">${filename || "Unknown file"}</p>
+        <p style="font-size:12px;color:#e2e8f0;margin:0 0 6px;word-break:break-word;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${displayName || "Unknown file"}</p>
+        <div style="font-size:10px;color:#64748b;margin:0 0 14px;word-break:break-word;line-height:1.35;max-height:2.8em;overflow:hidden;">Source: ${sourceUrl || "Unknown source"}</div>
         ${signalsHtml ? `
         <div style="text-align:left;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.12);border-radius:8px;padding:10px 14px;margin-bottom:16px;">
           <ul style="list-style:none;padding:0;margin:0;">${signalsHtml}</ul>
@@ -234,47 +238,166 @@ export function showDownloadModal({ downloadId, filename, risk_score, verdict, u
   });
 }
 
-// ── 4. Right-Click Scan Result ────────────────────────────
+// ── 4. Right-Click / Image / Text Scan Result (compact inline popup) ────
+// Shows a small, compact popup near the bottom-right — NOT a fullscreen overlay.
 export function showRightClickResult({ url, result, isImage }) {
-  _removeModal("aegis-rightclick-overlay");
+  _showCompactResult({
+    title: `🛡️ AegisOne ${isImage ? "Image" : "Link"} Scan`,
+    subtitle: shortURL(url, 60),
+    score: result?.score ?? 0,
+    factors: (result?.top_factors || []).slice(0, 3),
+    id: "aegis-rightclick-popup",
+    contextUrl: url,
+  });
+}
 
-  const score = result?.score ?? 0;
+// ── 5. Text Scan Result (compact inline popup) ───────────────────────────
+export function showTextScanResult({ text, result }) {
+  const preview = text ? `"${text.slice(0, 55)}${text.length > 55 ? '…' : ''}"` : "Selected text";
+  _showCompactResult({
+    title: "🛡️ AegisOne Text Scan",
+    subtitle: preview,
+    score: result?.score ?? 0,
+    factors: (result?.top_factors || []).slice(0, 3),
+    id: "aegis-text-scan-popup",
+    contextUrl: window.location.href,
+  });
+}
+
+// ── Internal: compact popup (small, bottom-right, not fullscreen) ─────────
+function _showCompactResult({ title, subtitle, score, factors, id, contextUrl }) {
+  // Remove any existing instance
+  document.getElementById(id)?.remove();
+
   const scoreColor = score >= 80 ? "#ef4444" : score >= 50 ? "#f97316" : score >= 20 ? "#f59e0b" : "#10b981";
   const verdictText = score >= 80 ? "🚨 High Risk" : score >= 50 ? "⚠️ Suspicious" : score >= 20 ? "🔶 Low Risk" : "✅ Safe";
-  const factors = (result?.top_factors || []).slice(0, 3);
+  const factorsHtml = factors.map(f => `<div style="font-size:10px;color:#64748b;margin-top:3px;">→ ${f.label}</div>`).join("");
 
-  _createModal("aegis-rightclick-overlay", `
-    <div style="
-      width:380px;max-width:92%;
-      background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.1);
-      border-radius:14px;overflow:hidden;
-      animation:aegisEntrance 0.25s cubic-bezier(0.16,1,0.3,1);
-    ">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:rgba(30,41,59,0.5);border-bottom:1px solid rgba(255,255,255,0.06);">
-        <span style="font-weight:700;font-size:12px;color:#e2e8f0;">🛡️ AegisOne ${isImage ? "Image" : "Link"} Scan</span>
-        <button id="aegis-rc-close" style="background:none;border:none;color:#64748b;font-size:18px;cursor:pointer;">✕</button>
-      </div>
-      <div style="padding:18px;">
-        <div style="font-size:10px;color:#475569;word-break:break-all;margin-bottom:10px;">${shortURL(url, 60)}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <span style="font-size:14px;font-weight:800;color:${scoreColor};">${verdictText}</span>
-          <span style="font-size:18px;font-weight:800;color:${scoreColor};">${score}%</span>
-        </div>
-        <div style="height:3px;background:#1e293b;border-radius:2px;margin-bottom:12px;">
-          <div style="height:100%;width:${score}%;background:${scoreColor};border-radius:2px;transition:width 0.5s;"></div>
-        </div>
-        ${factors.map(f => `<div style="font-size:11px;color:#64748b;margin-bottom:4px;">→ ${f.label}</div>`).join("")}
-      </div>
+  // Show XAI button whenever risk is suspicious or higher
+  const showXaiBtn = score >= 20;
+
+  const popup = document.createElement("div");
+  popup.id = id;
+  popup.style.cssText = `
+    position: fixed !important;
+    bottom: 80px !important;
+    right: 20px !important;
+    z-index: 2147483647 !important;
+    width: 280px !important;
+    background: rgba(13, 17, 23, 0.97) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-left: 3px solid ${scoreColor} !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7) !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    animation: aegisSlideIn 0.22s cubic-bezier(0.16,1,0.3,1) !important;
+    overflow: hidden !important;
+  `;
+
+  popup.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(30,41,59,0.5);border-bottom:1px solid rgba(255,255,255,0.06);">
+      <span style="font-size:11px;font-weight:700;color:#e2e8f0;">${title}</span>
+      <button id="${id}-close" style="background:none;border:none;color:#64748b;font-size:15px;cursor:pointer;padding:0;line-height:1;">✕</button>
     </div>
-  `);
+    <div style="padding:12px 14px;">
+      <div style="font-size:9px;color:#475569;word-break:break-all;margin-bottom:8px;line-height:1.4;">${subtitle}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:800;color:${scoreColor};">${verdictText}</span>
+        <span style="font-size:16px;font-weight:900;color:${scoreColor};">${score}%</span>
+      </div>
+      <div style="height:2px;background:#1e293b;border-radius:2px;margin-bottom:8px;">
+        <div style="height:100%;width:${Math.min(score,100)}%;background:${scoreColor};border-radius:2px;"></div>
+      </div>
+      ${factorsHtml}
+      ${showXaiBtn ? `
+      <button id="${id}-xai" style="
+        display:flex;align-items:center;gap:5px;justify-content:center;
+        width:100%;margin-top:10px;padding:7px 0;
+        background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.15));
+        border:1px solid rgba(99,102,241,0.35);
+        border-radius:7px;color:#a5b4fc;
+        font-size:11px;font-weight:700;cursor:pointer;
+        font-family:inherit;transition:all 0.2s;
+      ">✨ Why is this phishing?</button>` : ""}
+    </div>
+  `;
 
-  document.getElementById("aegis-rc-close")?.addEventListener("click", () => {
-    document.getElementById("aegis-rightclick-overlay")?.remove();
-  });
+  _ensureCompactStyles();
+  document.body.appendChild(popup);
 
-  // Auto-close after 8 seconds
-  setTimeout(() => document.getElementById("aegis-rightclick-overlay")?.remove(), 8000);
+  popup.querySelector(`#${id}-close`)?.addEventListener("click", () => popup.remove());
+
+  // ── XAI button handler ──────────────────────────────────────────────────
+  const xaiBtn = popup.querySelector(`#${id}-xai`);
+  if (xaiBtn) {
+    xaiBtn.addEventListener("click", async () => {
+      xaiBtn.textContent = "⏳ Asking AI...";
+      xaiBtn.disabled = true;
+      xaiBtn.style.opacity = "0.6";
+
+      try {
+        // Fire the existing XAI_REQUEST — sw.js handles it via explainWithAI / generateLocalExplanation
+        const res = await chrome.runtime.sendMessage({
+          type: "XAI_REQUEST",
+          url: contextUrl || window.location.href,
+        }).catch(() => null);
+
+        popup.remove();
+
+        if (res?.xai) {
+          // Open the existing full XAI modal (already built in the codebase)
+          showXAIModal(res.xai, {
+            score,
+            url: contextUrl || window.location.href,
+            threat_type: "phishing",
+          });
+        } else {
+          // Fallback: construct a local summary from the detected factors
+          showXAIModal({
+            summary: `AegisOne's AI flagged this content as phishing with ${score}% confidence. Suspicious patterns were detected that match known phishing techniques.`,
+            main_reasons: factors.length > 0
+              ? factors.map(f => f.label)
+              : [`${score}% phishing risk detected by NLP model`],
+            recommendations: [
+              "Do not enter personal or financial information on this page.",
+              "Verify the sender/source through a trusted channel.",
+              "Report to your IT team if on a corporate network.",
+            ],
+            generated_locally: true,
+          }, {
+            score,
+            url: contextUrl || window.location.href,
+            threat_type: "phishing",
+          });
+        }
+      } catch (_) {
+        xaiBtn.textContent = "✨ Why is this phishing?";
+        xaiBtn.disabled = false;
+        xaiBtn.style.opacity = "1";
+      }
+    });
+
+    // Hover glow effect
+    xaiBtn.addEventListener("mouseenter", () => {
+      if (!xaiBtn.disabled) {
+        xaiBtn.style.background = "linear-gradient(135deg,rgba(59,130,246,0.28),rgba(139,92,246,0.28))";
+        xaiBtn.style.borderColor = "rgba(99,102,241,0.65)";
+        xaiBtn.style.color = "#c7d2fe";
+      }
+    });
+    xaiBtn.addEventListener("mouseleave", () => {
+      if (!xaiBtn.disabled) {
+        xaiBtn.style.background = "linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.15))";
+        xaiBtn.style.borderColor = "rgba(99,102,241,0.35)";
+        xaiBtn.style.color = "#a5b4fc";
+      }
+    });
+  }
+
+  // Auto-dismiss: safe results in 8s, suspicious/risky in 15s (user should see the XAI button)
+  setTimeout(() => popup?.parentNode && popup.remove(), showXaiBtn ? 15000 : 8000);
 }
+
 
 // ── Internal helpers ──────────────────────────────────────
 function _createModal(id, contentHtml) {
@@ -300,6 +423,22 @@ function _removeModal(id) {
   document.getElementById(id)?.remove();
 }
 
+function _compactDownloadName(filename, url) {
+  const value = (filename || "").trim();
+  if (value && !/^https?:\/\//i.test(value) && !/^file:|^blob:|^data:/i.test(value)) {
+    return value.replace(/[\r\n]+/g, " ");
+  }
+
+  try {
+    const parsed = new URL(url);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const leaf = parts[parts.length - 1] || parsed.hostname;
+    return decodeURIComponent(leaf).replace(/[\r\n]+/g, " ");
+  } catch {
+    return shortURL(url, 72);
+  }
+}
+
 let _modalStylesReady = false;
 function _ensureModalStyles() {
   if (_modalStylesReady) return;
@@ -314,6 +453,20 @@ function _ensureModalStyles() {
       0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.45); }
       70%  { box-shadow: 0 0 0 12px rgba(239,68,68,0); }
       100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+let _compactStylesReady = false;
+function _ensureCompactStyles() {
+  if (_compactStylesReady) return;
+  _compactStylesReady = true;
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes aegisSlideIn {
+      from { opacity: 0; transform: translateX(20px) translateY(8px); }
+      to   { opacity: 1; transform: translateX(0) translateY(0); }
     }
   `;
   document.head.appendChild(style);

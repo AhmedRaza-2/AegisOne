@@ -42,11 +42,14 @@ async function loadCurrentPage() {
 
   if (!data || data.score == null) {
     _setVerdict({ score: null });
+    _renderSummary(null);
+    _requestFreshScan();
     return;
   }
 
   _setVerdict(data);
   _renderBreakdown(data.breakdown, data.top_factors);
+  _renderSummary(data);
 }
 
 function _setVerdict({ score, verdict, threat_type }) {
@@ -114,6 +117,31 @@ function _renderBreakdown(breakdown, top_factors) {
   }).join("");
 }
 
+function _renderSummary(data) {
+  const box = document.getElementById("summaryBox");
+  if (!box) return;
+
+  if (!data || data.score == null) {
+    box.textContent = "No scan yet. Open a page to see a quick security summary.";
+    return;
+  }
+
+  const score = data.score || 0;
+  const verdict = score >= THRESHOLD_DANGER ? "Phishing Detected" : score >= THRESHOLD_WARN ? "Suspicious" : score >= 20 ? "Low Risk" : "Safe";
+  const reason = data.top_factors?.[0]?.label || "No dominant threat signal found.";
+  const rec = score >= THRESHOLD_DANGER
+    ? "Leave the page and avoid entering credentials."
+    : score >= THRESHOLD_WARN
+      ? "Review the link carefully before continuing."
+      : "Continue normally, but keep an eye on login forms and downloads.";
+
+  box.innerHTML = `
+    <div class="summary-title">${verdict} · ${score}%</div>
+    <div class="summary-reason">${reason}</div>
+    <div class="summary-rec">${rec}</div>
+  `;
+}
+
 // ── Recent Events ──────────────────────────────────────────
 async function loadRecentEvents() {
   const res = await sendMsg({ type: "GET_EVENTS", limit: 15 });
@@ -176,12 +204,24 @@ function switchTab(name) {
 async function rescan() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) {
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["content/main.js"],
-    });
+    chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_DEEP_PAGE_SCAN" }).catch(() => {});
     window.close();
   }
+}
+
+async function _requestFreshScan() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+
+  chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_DEEP_PAGE_SCAN" }).catch(() => {});
+  setTimeout(async () => {
+    const fresh = await sendMsg({ type: "GET_TAB_DATA" }) || {};
+    if (fresh?.data?.score != null) {
+      _setVerdict(fresh.data);
+      _renderBreakdown(fresh.data.breakdown, fresh.data.top_factors);
+      _renderSummary(fresh.data);
+    }
+  }, 3000);
 }
 
 // ── Helpers ────────────────────────────────────────────────

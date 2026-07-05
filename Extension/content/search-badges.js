@@ -1,172 +1,211 @@
 /**
- * AegisOne — Content Script: Search Result Badges
- * =================================================
- * Injects risk score badges next to Google/Bing/DuckDuckGo results.
- *
- * Design:
- * - Only scans up to 10 results per cycle (rate limiting)
- * - Uses MutationObserver to handle infinite scroll / lazy load
- * - Cache-first (results from background cache)
- * - "Verified Safe" for trusted domains — no API call needed
+ * AegisOne — Content Script: Search Result Badges (Lazy Viewport Scanner)
+ * ========================================================================
  */
 
-import { isTrusted } from "../../utils/trusted-domains.js";
 import { MSG } from "../../utils/constants.js";
 
-const SCAN_BATCH_SIZE = 10;
-const _scanned = new Set(); // Track already-scanned hrefs
+const SCAN_BATCH_SIZE = 12; // Increased batch size for speed
+const _observedElements = new Set();
+const _scannedHrefs = new Set();
+const _scanQueue = [];
 
-/**
- * Initialize search badge injection for current search engine.
- */
+let _observer = null;
+let _queueTimeout = null;
+
 export function initSearchBadges() {
   const engine = _detectSearchEngine();
   if (!engine) return;
 
-  // Initial pass on already-rendered results
-  _scanVisible(engine);
+  _ensureSearchStyles();
 
-  // Watch for new results (lazy load / infinite scroll)
-  const observer = new MutationObserver(() => _scanVisible(engine));
-  observer.observe(document.body, { childList: true, subtree: true });
+  _observer = new IntersectionObserver((entries) => {
+    const toProcess = [];
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const linkEl = entry.target;
+        _observer.unobserve(linkEl);
+        _observedElements.delete(linkEl);
+
+        const href = linkEl.getAttribute("data-aegis-href");
+        if (href && !_scannedHrefs.has(href)) {
+          toProcess.push({ linkEl, href });
+        }
+      }
+    });
+
+    if (toProcess.length > 0) {
+      _queueForScanning(toProcess);
+    }
+  }, {
+    rootMargin: "300px", // Scan even earlier before they come into view
+    threshold: 0.01
+  });
+
+  _findAndObserveLinks();
+
+  const mutationObserver = new MutationObserver(() => _findAndObserveLinks());
+  mutationObserver.observe(document.body, { childList: true, subtree: true });
 }
 
-// ── Internal ──────────────────────────────────────────────
 function _detectSearchEngine() {
   const host = location.hostname;
   if (host.includes("google.")) return "google";
-  if (host.includes("bing.com"))  return "bing";
-  if (host.includes("duckduckgo.com")) return "ddg";
+  if (host.includes("bing.")) return "bing";
+  if (host.includes("duckduckgo.")) return "ddg";
   return null;
 }
 
-function _scanVisible(engine) {
-  const entries = _getSearchEntries(engine);
-  const unscanned = entries.filter(e => !_scanned.has(e.href));
+function _findAndObserveLinks() {
+  const links = document.querySelectorAll("a[href]");
+  links.forEach(a => {
+    try {
+      const href = new URL(a.href, location.href).href;
+      if (!_isExternalSearchLink(a, href)) return;
 
-  if (unscanned.length === 0) return;
+      if (_observedElements.has(a) || a.querySelector(".aegis-search-badge")) return;
+      if (a.innerText.trim().length === 0 && !a.querySelector("h3, h2, img")) return;
 
-  const batch = unscanned.slice(0, SCAN_BATCH_SIZE);
-  batch.forEach(e => _scanned.add(e.href));
+      a.setAttribute("data-aegis-href", href);
+      _observedElements.add(a);
+      _observer.observe(a);
+    } catch (_) {}
+  });
+}
 
-  // Mark all as "scanning" immediately
-  batch.forEach(({ linkEl, href }) => {
-    if (isTrusted(href)) {
-      _injectBadge(linkEl, { verdict: "verified", score: 0, href });
-    } else {
-      _injectBadge(linkEl, { verdict: "scanning", score: null, href });
-    }
+function _isExternalSearchLink(a, href) {
+  if (!href || !href.startsWith("http")) return false;
+  try {
+    const u = new URL(href);
+    const host = location.hostname;
+    // Exclude same-host navigation
+    if (u.host === host) return false;
+    // Exclude Google internal tools, translate, caches etc
+    if (u.host.includes("google.") && !href.includes("/url?")) return false;
+  } catch (_) { return false; }
+  return true;
+}
+
+function _queueForScanning(items) {
+  items.forEach(({ linkEl, href }) => {
+    _injectBadge(linkEl, { verdict: "scanning", score: null, href });
+    _scanQueue.push({ linkEl, href });
   });
 
-  // Batch scan non-trusted URLs
-  const toScan = batch.filter(e => !isTrusted(e.href)).map(e => e.href);
-  if (toScan.length === 0) return;
+  if (_scanQueue.length > 0) {
+    clearTimeout(_queueTimeout);
+    _queueTimeout = setTimeout(_processScanQueue, 100); // Faster debounce
+  }
+}
+
+function _processScanQueue() {
+  if (_scanQueue.length === 0) return;
+
+  const batch = _scanQueue.splice(0, SCAN_BATCH_SIZE);
+  const urls = [...new Set(batch.map(item => item.href))]; // Unique URLs for API
 
   chrome.runtime.sendMessage({
     type: MSG.SEARCH_SCAN,
-    urls: toScan,
+    urls: urls
   }).then(res => {
-    if (!res?.results) return;
-    const resultMap = new Map(res.results.map(r => [r.url, r]));
+    if (res?.ok && res.results) {
+      // Map API results
+      const resultMap = new Map();
+      res.results.forEach(r => resultMap.set(r.url, r));
 
-    batch.forEach(({ linkEl, href }) => {
-      const r = resultMap.get(href);
-      if (r) {
-        const score = r.score ?? Math.round((r.phishing_probability || 0) * 100);
-        const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : "safe";
-        _injectBadge(linkEl, {
-          verdict,
-          score,
-          top_factor: r.top_factors?.[0]?.label,
-          threat_type: r.threat_type || r.category || r.prediction,
-          href
-        });
-      }
-    });
-  }).catch(() => {});
-}
+      // Resolve every link in this batch
+      batch.forEach(item => {
+        _scannedHrefs.add(item.href);
+        const r = resultMap.get(item.href);
 
-function _getSearchEntries(engine) {
-  let links = [];
+        if (r) {
+          const score = r.score ?? Math.round((r.phishing_probability || 0) * 100);
+          const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : "safe";
+          _injectBadge(item.linkEl, {
+            verdict,
+            score,
+            threat_type: r.threat_type || r.category || r.prediction,
+            href: item.href
+          });
+        } else {
+          // If backend didn't return a result for this URL (failed/timeout), mark safe to clear spinner
+          _injectBadge(item.linkEl, { verdict: "safe", score: 0, href: item.href });
+        }
+      });
+    } else {
+      console.warn("[AegisOne] Batch scan invalid, resetting:", res);
+      _resetBatch(batch);
+    }
 
-  if (engine === "google") {
-    // Select the main <h3> title element inside search results
-    document.querySelectorAll("div[data-hveid] a h3").forEach(h3 => {
-      const a = h3.closest("a");
-      if (!a || !a.href || !a.href.startsWith("http")) return;
-      if (a.href.includes("google.com")) return;
-      if (a.closest(".ads-ad")) return;
-      links.push({ linkEl: h3, href: a.href });
-    });
-  } else if (engine === "bing") {
-    document.querySelectorAll("#b_results .b_algo h2 a").forEach(a => {
-      if (a.href) links.push({ linkEl: a, href: a.href });
-    });
-  } else if (engine === "ddg") {
-    document.querySelectorAll("[data-result-url] a.eVNpHGjtxRBq_gLOfGDr").forEach(a => {
-      if (a.href) links.push({ linkEl: a, href: a.href });
-    });
-  }
-
-  // Deduplicate by href
-  const seen = new Set();
-  return links.filter(e => {
-    if (seen.has(e.href)) return false;
-    seen.add(e.href);
-    return true;
+    if (_scanQueue.length > 0) {
+      _queueTimeout = setTimeout(_processScanQueue, 150);
+    }
+  }).catch(err => {
+    console.error("[AegisOne] Batch scan error:", err);
+    _resetBatch(batch);
   });
 }
 
-function _injectBadge(linkEl, { verdict, score, top_factor, threat_type, href }) {
-  // Remove existing badge
-  linkEl.querySelector(".aegis-search-badge")?.remove();
+function _resetBatch(batch) {
+  batch.forEach(({ linkEl, href }) => {
+    _scannedHrefs.add(href);
+    _injectBadge(linkEl, { verdict: "safe", score: 0, href });
+  });
+}
+
+function _getBadgeContainer(a) {
+  const heading = a.querySelector("h3, h2");
+  if (heading) return heading;
+  return a;
+}
+
+const ICONS = {
+  safe: `<svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+  warning: `<svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
+  danger: `<svg viewBox="0 0 24 24" fill="none"><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`,
+  scanning: `<svg viewBox="0 0 24 24" fill="none"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>`
+};
+
+function _injectBadge(linkEl, { verdict, score, threat_type, href }) {
+  const container = _getBadgeContainer(linkEl);
+  container.querySelector(".aegis-search-badge")?.remove();
 
   const badge = document.createElement("span");
   badge.className = `aegis-search-badge aegis-badge-${verdict}`;
   badge.setAttribute("data-href", href || "");
 
-  let text, title;
+  let title;
   switch (verdict) {
-    case "verified": text = "🛡️ Verified Safe"; title = "Trusted domain"; break;
-    case "scanning": text = "🔍 Scanning..."; title = "Checking with AegisOne AI"; break;
-    case "safe":    text = `✅ ${score}%`; title = top_factor || "Appears safe"; break;
-    case "warning": text = `⚠️ ${score}% (Explain)`; title = top_factor || "Potentially suspicious. Click for AI explanation."; break;
-    case "danger":  text = `🚨 ${score}% (Explain)`; title = top_factor || "High phishing risk. Click for AI explanation."; break;
-    default:        text = "—"; title = "";
+    case "scanning": title = "AegisOne: Scanning..."; break;
+    case "safe":     title = `AegisOne: Safe (${score}% risk)`; break;
+    case "warning":  title = `AegisOne: Suspicious (${score}% risk) - Click for XAI`; break;
+    case "danger":   title = `AegisOne: Danger (${score}% risk) - Click for XAI`; break;
+    default: return;
   }
 
-  badge.textContent = text;
+  badge.innerHTML = ICONS[verdict];
   badge.title = title;
 
   if (verdict === "warning" || verdict === "danger") {
-    badge.style.cursor = "pointer";
     badge.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
-
-      const originalText = badge.textContent;
-      badge.textContent = "⏳ Loading...";
-
+      badge.innerHTML = ICONS.scanning; // spinner
       try {
-        const res = await chrome.runtime.sendMessage({
-          type: MSG.XAI_REQUEST,
-          url: href,
-        });
-
+        const res = await chrome.runtime.sendMessage({ type: MSG.XAI_REQUEST, url: href });
         if (res?.xai) {
           const { showXAIModal } = await import(chrome.runtime.getURL("content/modals.js"));
           showXAIModal(res.xai, { score, url: href, threat_type });
         }
       } catch (err) {
-        console.error("[AegisOne] XAI error:", err);
+        console.error(err);
       } finally {
-        badge.textContent = originalText;
+        badge.innerHTML = ICONS[verdict];
       }
     });
   }
 
-  // Insert inside the element to inherit correct text orientation
-  linkEl.appendChild(badge);
+  container.appendChild(badge);
   _ensureSearchStyles();
 }
 
@@ -178,26 +217,53 @@ function _ensureSearchStyles() {
   const style = document.createElement("style");
   style.textContent = `
     .aegis-search-badge {
-      display: inline-flex !important; align-items: center !important;
-      font-size: 10px !important; font-weight: 700 !important;
-      padding: 2px 7px !important; border-radius: 10px !important;
-      margin-left: 8px !important; vertical-align: middle !important;
-      font-family: -apple-system, sans-serif !important;
-      cursor: default !important; white-space: nowrap !important;
-      font-style: normal !important; text-decoration: none !important;
-      transform: none !important;
-      direction: ltr !important;
-      unicode-bidi: normal !important;
-      writing-mode: horizontal-tb !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 16px !important;
+      height: 16px !important;
+      margin-left: 8px !important;
+      vertical-align: middle !important;
+      border-radius: 50% !important;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.4) !important;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
+      cursor: default !important;
     }
-    .aegis-badge-verified { background: rgba(59,130,246,0.1) !important; color: #3b82f6 !important; border: 1px solid rgba(59,130,246,0.25) !important; }
-    .aegis-badge-scanning { background: rgba(99,102,241,0.07) !important; color: #818cf8 !important; border: 1px solid rgba(99,102,241,0.2) !important; }
-    .aegis-badge-safe     { background: rgba(16,185,129,0.1)  !important; color: #10b981 !important; border: 1px solid rgba(16,185,129,0.25) !important; }
-    .aegis-badge-warning  { background: rgba(245,158,11,0.1)  !important; color: #f59e0b !important; border: 1px solid rgba(245,158,11,0.25) !important; }
-    .aegis-badge-danger   { background: rgba(239,68,68,0.1)   !important; color: #ef4444 !important; border: 1px solid rgba(239,68,68,0.25) !important; animation: aegis-badge-pulse 2s infinite; }
-    @keyframes aegis-badge-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-      50% { box-shadow: 0 0 0 3px rgba(239,68,68,0.2); }
+    .aegis-search-badge:hover {
+      transform: scale(1.15) !important;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.5) !important;
+    }
+    .aegis-badge-safe     { background: linear-gradient(135deg, #34d399, #059669) !important; }
+    .aegis-badge-warning  { background: linear-gradient(135deg, #fbbf24, #d97706) !important; cursor: pointer !important; }
+    .aegis-badge-danger   { 
+      background: linear-gradient(135deg, #f87171, #dc2626) !important; 
+      box-shadow: 0 0 10px rgba(220, 38, 38, 0.5), inset 0 1px 1px rgba(255,255,255,0.4) !important;
+      animation: aegis-pulse-danger 2s infinite alternate !important;
+      cursor: pointer !important;
+    }
+    .aegis-badge-scanning { 
+      background: linear-gradient(135deg, #94a3b8, #475569) !important; 
+    }
+    
+    .aegis-search-badge svg {
+      width: 9px !important;
+      height: 9px !important;
+      stroke: #ffffff !important;
+      stroke-width: 3.5 !important;
+      stroke-linecap: round !important;
+      stroke-linejoin: round !important;
+    }
+    .aegis-badge-scanning svg {
+      animation: aegis-spin 1s linear infinite !important;
+      stroke-width: 2.5 !important;
+    }
+
+    @keyframes aegis-pulse-danger {
+      0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6), inset 0 1px 1px rgba(255,255,255,0.4); }
+      100% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0), inset 0 1px 1px rgba(255,255,255,0.4); }
+    }
+    @keyframes aegis-spin {
+      100% { transform: rotate(360deg); }
     }
   `;
   document.head.appendChild(style);

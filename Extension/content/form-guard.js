@@ -1,21 +1,137 @@
-/**
- * AegisOne — Content Script: Form Guard
- * =======================================
- * Monitors password/credential form submissions on risky pages.
- *
- * Flow:
- * 1. Detect password inputs on page
- * 2. On form submit: ask background if page is risky
- * 3. If risky → show warning modal before allowing submit
- * 4. User can proceed or cancel
- *
- * Also detects suspicious login forms for the risk engine.
- */
-
 import { MSG } from "../../utils/constants.js";
 
 let _currentPageRisk = 0;
 let _formGuardActive = false;
+
+const BRANDS = [
+  {
+    name: "Facebook",
+    official: ["facebook.com", "fb.com", "messenger.com"],
+    keywords: ["facebook", "messenger"],
+    selectors: ["[src*='facebook']", "[alt*='facebook']", "[class*='fb-']", "[id*='fb-']"],
+    colors: ["#1877f2", "#3b5998", "rgb(24, 119, 242)", "rgb(59, 89, 152)"],
+    confidence: 96
+  },
+  {
+    name: "Google",
+    official: ["google.com", "youtube.com", "gmail.com"],
+    keywords: ["google", "gmail", "sign in with google"],
+    selectors: ["[src*='google']", "[alt*='google']", "[id*='google']"],
+    colors: ["#4285f4", "#ea4335", "#fbbc05", "#34a853", "rgb(66, 133, 244)"],
+    confidence: 95
+  },
+  {
+    name: "Microsoft",
+    official: ["microsoft.com", "live.com", "office.com", "outlook.com", "microsoftonline.com"],
+    keywords: ["microsoft", "outlook", "office 365", "sharepoint"],
+    selectors: ["[src*='microsoft']", "[alt*='microsoft']", "[src*='outlook']"],
+    colors: ["#0078d4", "#f25022", "#7fba00", "#ffb900", "#00a4ef", "rgb(0, 120, 212)"],
+    confidence: 95
+  },
+  {
+    name: "Netflix",
+    official: ["netflix.com"],
+    keywords: ["netflix"],
+    selectors: ["[src*='netflix']", "[alt*='netflix']"],
+    colors: ["#e50914", "rgb(229, 9, 20)"],
+    confidence: 97
+  },
+  {
+    name: "PayPal",
+    official: ["paypal.com"],
+    keywords: ["paypal"],
+    selectors: ["[src*='paypal']", "[alt*='paypal']"],
+    colors: ["#003087", "#0079c1", "rgb(0, 48, 135)"],
+    confidence: 96
+  }
+];
+
+function _hexMatches(rgbStr, hexList) {
+  if (!rgbStr || rgbStr === "transparent" || rgbStr === "rgba(0, 0, 0, 0)") return false;
+  const m = rgbStr.match(/\d+/g);
+  if (!m || m.length < 3) return false;
+  const r = parseInt(m[0]), g = parseInt(m[1]), b = parseInt(m[2]);
+  const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  return hexList.includes(hex);
+}
+
+export function checkBrandImpersonation() {
+  const hostname = window.location.hostname.toLowerCase();
+  
+  // Skip search engines
+  if (hostname.includes("google.") || hostname.includes("bing.") || hostname.includes("duckduckgo.")) {
+    return null;
+  }
+
+  // Require a real login-like form before we even try brand impersonation.
+  const passwordInputs = [...document.querySelectorAll('input[type="password"]')];
+  if (passwordInputs.length === 0) return null;
+
+  const loginForms = passwordInputs
+    .map(input => input.closest("form"))
+    .filter(Boolean);
+  if (loginForms.length === 0) return null;
+
+  for (const brand of BRANDS) {
+    const isOfficial = brand.official.some(domain => 
+      hostname === domain || hostname.endsWith("." + domain)
+    );
+    if (isOfficial) continue;
+
+    let hasText = false;
+    let hasLogo = false;
+    let hasColors = false;
+    let formSignals = false;
+
+    // Search text in page title and headings/forms only to avoid footer/social links
+    const relevantText = [
+      document.title,
+      ...loginForms.map(el => el.innerText || ""),
+      ...[...document.querySelectorAll("h1, h2, h3, h4")].map(el => el.innerText || "")
+    ].join(" ").toLowerCase();
+    
+    hasText = brand.keywords.some(kw => relevantText.includes(kw));
+
+    // Search logo element but exclude footer icons
+    hasLogo = brand.selectors.some(sel => {
+      try {
+        const logo = document.querySelector(sel);
+        if (!logo) return false;
+        const footer = logo.closest("footer, .footer, #footer, [class*='footer'], [id*='footer']");
+        return !footer;
+      } catch (_) { return false; }
+    });
+
+    // Check color matching only on form-specific action elements
+    const elements = loginForms.flatMap(form => [
+      ...form.querySelectorAll("button, input[type='submit'], div[role='button']")
+    ]);
+    for (const el of elements) {
+      const bg = window.getComputedStyle(el).backgroundColor;
+      if (brand.colors.includes(bg) || _hexMatches(bg, brand.colors)) {
+        hasColors = true;
+        break;
+      }
+    }
+
+    formSignals = loginForms.some(form => {
+      const txt = (form.innerText || "").toLowerCase();
+      return /sign in|log in|login|verify|continue|submit|password|security code|otp/.test(txt);
+    });
+
+    const matchesCount = (hasText ? 1 : 0) + (hasLogo ? 1 : 0) + (hasColors ? 1 : 0);
+    
+    if (formSignals && matchesCount >= 2) {
+      return {
+        brand: brand.name,
+        confidence: brand.confidence,
+        threat_type: "credential_harvesting",
+        score: brand.confidence
+      };
+    }
+  }
+  return null;
+}
 
 /**
  * Initialize form guard.
@@ -23,6 +139,27 @@ let _formGuardActive = false;
  */
 export function initFormGuard(onFormDetected) {
   const features = _analyzePageForms();
+  
+  // Instant Brand Impersonation Warning
+  const impersonation = checkBrandImpersonation();
+  if (impersonation) {
+    features.brand_impersonation = impersonation.brand;
+    features.brand_impersonation_score = impersonation.score;
+
+    import(chrome.runtime.getURL("content/modals.js")).then(({ showWarningModal }) => {
+      showWarningModal({
+        score: impersonation.score,
+        verdict: "danger",
+        threat_type: "credential_harvesting",
+        top_factors: [
+          { label: `Detected Fake login portal impersonating ${impersonation.brand}` },
+          { label: `Suspicious domain and brand asset match (Confidence: ${impersonation.confidence}%)` }
+        ],
+        url: window.location.href
+      });
+    });
+  }
+
   if (onFormDetected) onFormDetected(features);
 
   if (features.login_form_found) {
@@ -33,6 +170,11 @@ export function initFormGuard(onFormDetected) {
   // Watch for dynamically added forms (SPAs)
   const observer = new MutationObserver(() => {
     const updated = _analyzePageForms();
+    const imp = checkBrandImpersonation();
+    if (imp) {
+      updated.brand_impersonation = imp.brand;
+      updated.brand_impersonation_score = imp.score;
+    }
     if (updated.login_form_found && !_formGuardActive) {
       if (onFormDetected) onFormDetected(updated);
       _setupSubmitInterceptors();
@@ -52,26 +194,56 @@ export function setCurrentRisk(score) {
  */
 function _analyzePageForms() {
   const passwordInputs = document.querySelectorAll('input[type="password"]');
+  const emailInputs = document.querySelectorAll('input[type="email"], input[name*="email"], input[name*="user"], input[type="text"]');
   const forms = document.querySelectorAll("form");
-  let login_form_found = false;
-  let form_count = 0;
+  const buttons = document.querySelectorAll("button, input[type='submit'], input[type='button']");
 
-  forms.forEach(form => {
-    const hasPassword = form.querySelector('input[type="password"]');
-    const hasText = form.querySelector('input[type="text"], input[type="email"]');
-    if (hasPassword) {
-      login_form_found = true;
-      form_count++;
+  let login_form_found = false;
+  let form_count = forms.length;
+  let has_password = passwordInputs.length > 0;
+  let has_email = false;
+  let has_submit = false;
+  let has_otp = false;
+
+  emailInputs.forEach(input => {
+    const name = (input.name || "").toLowerCase();
+    const id = (input.id || "").toLowerCase();
+    const type = (input.type || "").toLowerCase();
+    if (type === "email" || name.includes("email") || name.includes("user") || id.includes("email") || id.includes("user")) {
+      has_email = true;
     }
   });
 
-  // Also check standalone password inputs outside forms
-  if (passwordInputs.length > 0 && form_count === 0) {
+  const bodyText = (document.body?.innerText || "").toLowerCase();
+  has_otp = bodyText.includes("otp") || bodyText.includes("one-time password") || bodyText.includes("verification code") || bodyText.includes("verify");
+
+  buttons.forEach(btn => {
+    const txt = (btn.textContent || btn.value || "").toLowerCase();
+    if (txt.includes("sign in") || txt.includes("login") || txt.includes("log in") || txt.includes("continue") || txt.includes("submit") || txt.includes("verify")) {
+      has_submit = true;
+    }
+  });
+
+  forms.forEach(form => {
+    const hasPassword = form.querySelector('input[type="password"]');
+    if (hasPassword) {
+      login_form_found = true;
+    }
+  });
+
+  if (passwordInputs.length > 0) {
     login_form_found = true;
-    form_count = passwordInputs.length;
   }
 
-  return { login_form_found, form_count };
+  return {
+    login_form_found,
+    form_count,
+    has_form: forms.length > 0,
+    has_password,
+    has_email,
+    has_submit,
+    has_otp
+  };
 }
 
 /**

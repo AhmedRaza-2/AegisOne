@@ -319,6 +319,11 @@ def predict_url(url: str) -> dict:
     try:
         suspicious_tlds = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.cc', '.ru', '.link', '.click', '.zip'}
         has_high_risk = False
+        
+        # SSL/TLS check: unencrypted http scheme increases risk
+        if parsed.scheme == "http":
+            has_high_risk = True
+            
         if any(domain.endswith(tld) for tld in suspicious_tlds):
             has_high_risk = True
         elif re.match(r'\d+\.\d+\.\d+\.\d+', domain):

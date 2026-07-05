@@ -14,6 +14,9 @@ from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
 
 from api.routers import auth, scan, admin, health, compatibility
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
 
 @contextlib.asynccontextmanager
@@ -42,6 +45,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print("--- VALIDATION ERROR ---")
+    print(exc.errors())
+    print("--- REQUEST BODY ---")
+    try:
+        body = await request.body()
+        print(body.decode())
+    except Exception as e:
+        print("Could not read body:", e)
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": str(exc.body)},
+    )
+
 
 # Include routers
 app.include_router(health.router)

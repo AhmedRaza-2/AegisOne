@@ -62,20 +62,34 @@ URL_CACHE_TTL_SECONDS = 300  # 5 minutes
 # OCR
 # ═══════════════════════════════════════════════════════════════
 
-# Auto-detect tesseract on Windows
+# Auto-detect tesseract — searches common install paths including user-specified D:\software
 TESSERACT_PATHS = [
+    # User's custom install location
+    r"D:\software\Tesseract-OCR\tesseract.exe",
+    r"D:\software\tesseract\tesseract.exe",
+    r"D:\software\tesseract.exe",
+    # Standard Windows installs
     r"C:\Program Files\Tesseract-OCR\tesseract.exe",
     r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-    "tesseract",  # Assume on PATH (Linux/Mac)
+    r"C:\Tesseract-OCR\tesseract.exe",
+    # PATH fallback (Linux/Mac/Windows with PATH set)
+    "tesseract",
 ]
 
 def get_tesseract_cmd():
+    import glob
+    # First check explicit paths
     for p in TESSERACT_PATHS:
-        if os.path.exists(p):
+        if p == "tesseract" or os.path.exists(p):
             return p
-    return "tesseract"  # fallback
+    # Auto-search inside D:\software for any tesseract.exe
+    matches = glob.glob(r"D:\software\**\tesseract.exe", recursive=True)
+    if matches:
+        return matches[0]
+    return "tesseract"  # final fallback
 
 TESSERACT_CMD = get_tesseract_cmd()
+print(f"[OCR] Tesseract path resolved: {TESSERACT_CMD}")
 
 # ═══════════════════════════════════════════════════════════════
 # RISK SCORING
