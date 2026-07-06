@@ -17,7 +17,7 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN))
+    current_user: User = Depends(require_role(Role.OFFICE_ADMIN))
 ):
     """Get system-wide or department-wide statistics."""
     
@@ -27,8 +27,8 @@ async def get_stats(
     threats_query = select(func.count(ScanLog.id)).where(ScanLog.is_threat == True)
     
     # Department admins only see their department stats
-    if current_user.role == Role.DEPARTMENT_ADMIN:
-        users_query = users_query.where(User.department == current_user.department)
+    if current_user.role == Role.OFFICE_ADMIN:
+        users_query = users_query.where(User.department_id == current_user.department_id)
         # Assuming we join or subquery to filter scans by users in department
         # For simplicity in this demo, we'll just count total scans globally
         pass 

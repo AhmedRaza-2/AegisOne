@@ -60,6 +60,16 @@ async def db_log_worker():
                     
             db = await get_background_db()
             try:
+                # Resolve user_id in the background if user_email is present and user_id is not set
+                from sqlalchemy import select
+                for item in batch:
+                    if item.user_email and item.user_email != "anonymous" and not item.user_id:
+                        stmt = select(User.id).where(User.email == item.user_email)
+                        res = await db.execute(stmt)
+                        uid = res.scalar_one_or_none()
+                        if uid:
+                            item.user_id = uid
+                            
                 db.add_all(batch)
                 await db.commit()
             except Exception as e:

@@ -10,6 +10,8 @@ class Organization(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), unique=True, nullable=False, index=True)
+    domain = Column(String(255), unique=True, nullable=False, index=True)
+    plan = Column(String(50), nullable=False, default="enterprise")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -59,7 +61,8 @@ class ScanLog(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     scan_id = Column(String(100), unique=True, nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_email = Column(String(255), nullable=True, default="anonymous")
     
     scan_type = Column(String(50), nullable=False)  # url, text, email, image, attachment
     input_summary = Column(Text)

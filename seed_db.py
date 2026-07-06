@@ -11,14 +11,22 @@ from sqlalchemy import text
 import uuid
 
 async def seed_data():
-    async with await get_background_db() as session:
-        print("Truncating existing data...")
-        await session.execute(text("TRUNCATE TABLE audit_logs, incidents, scans, users, departments, organizations RESTART IDENTITY CASCADE"))
-        await session.commit()
+    print("Recreating database tables...")
+    async with engine.begin() as conn:
+        # Import models to ensure they are registered
+        from api.database.models import Organization, Department, User, ScanLog, Incident, AuditLog  # noqa: F401
+        
+        if "sqlite" not in engine.url.drivername:
+            # Drop known and legacy tables with CASCADE to handle dependent constraints
+            await conn.execute(text("DROP TABLE IF EXISTS audit_logs, incidents, scans, users, departments, organizations, broadcasts CASCADE;"))
+            
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
 
+    async with await get_background_db() as session:
         print("Seeding Organizations...")
-        org1 = Organization(name="AegisOne Corp", is_active=True)
-        org2 = Organization(name="U Bank Limited", is_active=True)
+        org1 = Organization(name="AegisOne Corp", domain="aegisone.com", plan="enterprise", is_active=True)
+        org2 = Organization(name="U Bank Limited", domain="ubank.com.pk", plan="enterprise", is_active=True)
         session.add_all([org1, org2])
         await session.commit()
         await session.refresh(org1)
