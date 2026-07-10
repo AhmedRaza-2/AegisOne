@@ -84,107 +84,185 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
   });
 }
 
-// ── 2. XAI Modal ─────────────────────────────────────────
+// ── 2. XAI Modal — floating panel, no fullscreen overlay ─
 export function showXAIModal(xai, context = {}) {
-  _removeModal("aegis-xai-overlay");
+  // Remove any existing instance
+  document.getElementById("aegis-xai-overlay")?.remove();
 
-  const { score, url, threat_type } = context;
-  const scoreColor = (score || 0) >= 80 ? "#ef4444" : (score || 0) >= 50 ? "#f97316" : "#f59e0b";
+  const { score, url } = context;
+  const s = score || 0;
+  const scoreColor = s >= 80 ? "#ef4444" : s >= 50 ? "#f97316" : s >= 20 ? "#f59e0b" : "#10b981";
+  const scoreLabel = s >= 80 ? "High Risk" : s >= 50 ? "Suspicious" : s >= 20 ? "Low Risk" : "Safe";
+
   const reasonsHtml = (xai.main_reasons || xai.top_factors || []).map(r =>
-    `<li style="margin-bottom:6px;color:#cbd5e1;font-size:12px;display:flex;align-items:flex-start;gap:8px;"><span style="color:#10b981;margin-top:1px;">✓</span><span>${r}</span></li>`
-  ).join("");
-
-  const mitreHtml = (xai.mitre_mapping || []).map(m =>
-    `<span style="display:inline-block;font-size:10px;color:#f87171;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);padding:4px 8px;border-radius:4px;">${m}</span>`
+    `<li style="margin-bottom:10px;color:#cbd5e1;font-size:12px;display:flex;align-items:flex-start;gap:8px;line-height:1.5;">
+      <span style="flex-shrink:0;">${r.match(/^[\u{1F300}-\u{1FFFF}]/u) ? "" : "⚠️"}</span>
+      <span>${r}</span>
+    </li>`
   ).join("");
 
   const recsHtml = (xai.recommendations || []).map(r =>
-    `<li style="margin-bottom:5px;color:#94a3b8;font-size:11px;">→ ${r}</li>`
+    `<li style="margin-bottom:9px;color:#cbd5e1;font-size:12px;line-height:1.5;">${r}</li>`
   ).join("");
 
-  const generated = xai.generated_locally
-    ? '<span style="font-size:9px;color:#475569;background:rgba(255,255,255,0.04);padding:2px 6px;border-radius:4px;">Local Analysis</span>'
-    : '<span style="font-size:9px;color:#3b82f6;background:rgba(59,130,246,0.08);padding:2px 6px;border-radius:4px;border:1px solid rgba(59,130,246,0.15);">AI Powered</span>';
+  const aiLabel = xai.generated_locally
+    ? `<span style="font-size:9px;color:#64748b;background:rgba(255,255,255,0.05);padding:2px 7px;border-radius:4px;">Local</span>`
+    : `<span style="font-size:9px;color:#3b82f6;background:rgba(59,130,246,0.12);padding:2px 7px;border-radius:4px;border:1px solid rgba(59,130,246,0.2);">✨ AI</span>`;
 
-  _createModal("aegis-xai-overlay", `
-    <div style="
-      width:520px;max-width:94%;
-      background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.1);
-      border-radius:16px;overflow:hidden;
-      box-shadow:0 24px 64px rgba(0,0,0,0.8);
-      animation:aegisEntrance 0.3s cubic-bezier(0.16,1,0.3,1);
+  _ensureModalStyles();
+  _ensureCompactStyles();
+
+  const panel = document.createElement("div");
+  panel.id = "aegis-xai-overlay";
+  panel.style.cssText = `
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    z-index: 2147483647 !important;
+    width: 340px !important;
+    max-height: 82vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: rgba(10, 14, 23, 0.98) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 16px 56px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04) inset !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    overflow: hidden !important;
+    animation: aegisSlideIn 0.25s cubic-bezier(0.16,1,0.3,1) !important;
+    backdrop-filter: blur(20px) !important;
+  `;
+
+  panel.innerHTML = `
+    <!-- Header (drag handle) -->
+    <div id="aegis-xai-header" style="
+      display:flex;align-items:center;justify-content:space-between;
+      padding:13px 16px;
+      background:rgba(30,41,59,0.6);
+      border-bottom:1px solid rgba(255,255,255,0.07);
+      cursor:move;flex-shrink:0;
     ">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:rgba(30,41,59,0.4);border-bottom:1px solid rgba(255,255,255,0.07);">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-weight:800;font-size:14px;color:#3b82f6;letter-spacing:0.4px;">🛡️ AegisOne XAI</span>
-          ${generated}
-        </div>
-        <button id="aegis-xai-close" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;">✕</button>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span style="font-size:15px;">🛡️</span>
+        <span style="font-weight:800;font-size:13px;color:#f1f5f9;">Security Report</span>
+        ${aiLabel}
       </div>
-      <div style="padding:20px;max-height:72vh;overflow-y:auto;">
-        ${score != null ? `
-        <div style="display:flex;align-items:center;gap:16px;padding:14px;background:rgba(30,41,59,0.25);border-radius:12px;border:1px solid rgba(255,255,255,0.05);margin-bottom:20px;">
-          <div style="width:72px;height:72px;border-radius:50%;border:4px solid ${scoreColor};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
-            <span style="font-size:18px;font-weight:800;color:${scoreColor};">${score}%</span>
-            <span style="font-size:8px;color:#64748b;font-weight:700;margin-top:1px;">RISK</span>
-          </div>
-          <div>
-            <div style="font-size:9px;color:#64748b;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Threat Type</div>
-            <div style="font-size:13px;color:#f1f5f9;font-weight:600;">${_threatLabel(threat_type)}</div>
-            ${url ? `<div style="font-size:10px;color:#475569;margin-top:4px;word-break:break-all;">${shortURL(url, 50)}</div>` : ""}
-          </div>
-        </div>` : ""}
-
-        ${xai.summary ? `
-        <div style="margin-bottom:18px;">
-          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:800;letter-spacing:0.5px;margin-bottom:8px;">Why is this risky?</div>
-          <div style="font-size:12px;color:#cbd5e1;line-height:1.65;background:rgba(15,23,42,0.5);padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);">${xai.summary}</div>
-        </div>` : ""}
-
-        ${reasonsHtml ? `
-        <div style="margin-bottom:18px;">
-          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:800;letter-spacing:0.5px;margin-bottom:8px;">Main Risk Factors</div>
-          <ul style="list-style:none;padding:0;margin:0;">${reasonsHtml}</ul>
-        </div>` : ""}
-
-        ${xai.threat_likelihood ? `
-        <div style="margin-bottom:18px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:12px 16px;">
-          <div style="font-size:9px;color:#64748b;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Likely Attack Type</div>
-          <div style="font-size:13px;color:#f87171;font-weight:700;">${xai.threat_likelihood}</div>
-        </div>` : ""}
-
-        ${mitreHtml ? `
-        <div style="margin-bottom:18px;">
-          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:800;letter-spacing:0.5px;margin-bottom:8px;">MITRE ATT&CK Mapping</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;">${mitreHtml}</div>
-        </div>` : ""}
-
-        ${recsHtml ? `
-        <div style="margin-bottom:4px;">
-          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:800;letter-spacing:0.5px;margin-bottom:8px;">Recommendations</div>
-          <ul style="list-style:none;padding:0;margin:0;">${recsHtml}</ul>
-        </div>` : ""}
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid rgba(255,255,255,0.05);background:rgba(10,15,30,0.2);">
-        <span style="font-size:9px;color:#334155;">AegisOne Security Copilot</span>
-        <button id="aegis-xai-report" style="background:rgba(239,68,68,0.08);color:#f87171;border:1px solid rgba(239,68,68,0.2);padding:5px 12px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;">Report Threat</button>
-      </div>
+      <button id="aegis-xai-close" style="
+        background:none;border:none;color:#475569;font-size:18px;
+        cursor:pointer;line-height:1;padding:2px 4px;border-radius:4px;
+        transition:color 0.15s;
+      ">✕</button>
     </div>
-  `);
 
-  document.getElementById("aegis-xai-close")?.addEventListener("click", () => {
-    document.getElementById("aegis-xai-overlay")?.remove();
-  });
+    <!-- Score row -->
+    ${score != null ? `
+    <div style="padding:14px 16px 0;flex-shrink:0;">
+      <div style="
+        display:flex;align-items:center;gap:12px;
+        padding:12px 14px;
+        background:rgba(30,41,59,0.4);
+        border-radius:10px;
+        border:1px solid rgba(255,255,255,0.06);
+      ">
+        <div style="
+          width:52px;height:52px;border-radius:50%;
+          border:3px solid ${scoreColor};
+          display:flex;flex-direction:column;align-items:center;justify-content:center;
+          flex-shrink:0;background:rgba(0,0,0,0.3);
+        ">
+          <span style="font-size:14px;font-weight:900;color:${scoreColor};">${s}%</span>
+          <span style="font-size:7px;color:#64748b;font-weight:700;">RISK</span>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:${scoreColor};margin-bottom:2px;">${scoreLabel}</div>
+          ${url ? `<div style="font-size:10px;color:#475569;word-break:break-all;line-height:1.35;">${shortURL(url, 42)}</div>` : ""}
+        </div>
+      </div>
+    </div>` : ""}
 
-  document.getElementById("aegis-xai-report")?.addEventListener("click", async () => {
+    <!-- Scrollable content -->
+    <div style="padding:14px 16px;overflow-y:auto;flex:1;min-height:0;">
+
+      ${xai.summary ? `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:0.6px;margin-bottom:8px;">💬 What happened?</div>
+        <div style="font-size:12px;color:#cbd5e1;line-height:1.65;background:rgba(30,41,59,0.35);padding:12px 14px;border-radius:9px;border:1px solid rgba(255,255,255,0.05);">${xai.summary}</div>
+      </div>` : ""}
+
+      ${reasonsHtml ? `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:0.6px;margin-bottom:8px;">🔎 Why flagged?</div>
+        <ul style="list-style:none;padding:12px 14px;margin:0;background:rgba(30,41,59,0.35);border-radius:9px;border:1px solid rgba(255,255,255,0.05);">${reasonsHtml}</ul>
+      </div>` : ""}
+
+      ${recsHtml ? `
+      <div style="margin-bottom:4px;">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:0.6px;margin-bottom:8px;">✅ What to do?</div>
+        <ul style="list-style:none;padding:12px 14px;margin:0;background:rgba(30,41,59,0.35);border-radius:9px;border:1px solid rgba(255,255,255,0.05);">${recsHtml}</ul>
+      </div>` : ""}
+    </div>
+
+    <!-- Footer -->
+    <div style="
+      display:flex;justify-content:space-between;align-items:center;
+      padding:10px 16px;
+      border-top:1px solid rgba(255,255,255,0.06);
+      background:rgba(10,15,30,0.4);
+      flex-shrink:0;
+    ">
+      <span style="font-size:9px;color:#334155;">AegisOne Copilot</span>
+      <button id="aegis-xai-report" style="
+        background:rgba(239,68,68,0.1);color:#f87171;
+        border:1px solid rgba(239,68,68,0.25);
+        padding:5px 12px;border-radius:7px;
+        font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;
+        transition:all 0.15s;
+      ">📢 Report</button>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  // Close button
+  panel.querySelector("#aegis-xai-close")?.addEventListener("click", () => panel.remove());
+
+  // Close on Escape key
+  const _escClose = (e) => { if (e.key === "Escape") { panel.remove(); document.removeEventListener("keydown", _escClose); } };
+  document.addEventListener("keydown", _escClose);
+
+  // Report button
+  panel.querySelector("#aegis-xai-report")?.addEventListener("click", async () => {
     await chrome.runtime.sendMessage({
       type: MSG.REPORT_THREAT,
       url: window.location.href,
-      score: score || 0,
+      score: s,
     }).catch(() => null);
-    const btn = document.getElementById("aegis-xai-report");
-    if (btn) { btn.textContent = "✓ Reported"; btn.disabled = true; }
+    const btn = panel.querySelector("#aegis-xai-report");
+    if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; }
   });
+
+  // Drag support
+  _setupPanelDrag(panel, panel.querySelector("#aegis-xai-header"));
+}
+
+function _setupPanelDrag(panel, handle) {
+  if (!handle) return;
+  let dragging = false, ox = 0, oy = 0;
+  handle.addEventListener("mousedown", (e) => {
+    if (e.target.tagName === "BUTTON") return;
+    dragging = true;
+    const r = panel.getBoundingClientRect();
+    ox = e.clientX - r.left;
+    oy = e.clientY - r.top;
+    panel.style.setProperty("right", "auto", "important");
+    panel.style.setProperty("bottom", "auto", "important");
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    panel.style.setProperty("left", `${e.clientX - ox}px`, "important");
+    panel.style.setProperty("top",  `${e.clientY - oy}px`, "important");
+  });
+  document.addEventListener("mouseup", () => dragging = false);
 }
 
 // ── 3. Download Decision Modal ────────────────────────────

@@ -12,6 +12,7 @@ const _scanQueue = [];
 
 let _observer = null;
 let _queueTimeout = null;
+let _findLinksTimeout = null;
 
 export function initSearchBadges() {
   const engine = _detectSearchEngine();
@@ -57,20 +58,23 @@ function _detectSearchEngine() {
 }
 
 function _findAndObserveLinks() {
-  const links = document.querySelectorAll("a[href]");
-  links.forEach(a => {
-    try {
-      const href = new URL(a.href, location.href).href;
-      if (!_isExternalSearchLink(a, href)) return;
+  clearTimeout(_findLinksTimeout);
+  _findLinksTimeout = setTimeout(() => {
+    const links = document.querySelectorAll("a[href]");
+    links.forEach(a => {
+      try {
+        const href = new URL(a.href, location.href).href;
+        if (!_isExternalSearchLink(a, href)) return;
 
-      if (_observedElements.has(a) || a.querySelector(".aegis-search-badge")) return;
-      if (a.innerText.trim().length === 0 && !a.querySelector("h3, h2, img")) return;
+        if (_observedElements.has(a) || a.querySelector(".aegis-search-badge")) return;
+        if (a.innerText.trim().length === 0 && !a.querySelector("h3, h2, img")) return;
 
-      a.setAttribute("data-aegis-href", href);
-      _observedElements.add(a);
-      _observer.observe(a);
-    } catch (_) {}
-  });
+        a.setAttribute("data-aegis-href", href);
+        _observedElements.add(a);
+        _observer.observe(a);
+      } catch (_) {}
+    });
+  }, 250);
 }
 
 function _isExternalSearchLink(a, href) {

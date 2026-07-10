@@ -26,9 +26,15 @@ IMAGE_MODEL_PT   = MODELS_DIR / "image_phishing_detection_model" / "checkpoints_
 ATTACHMENT_DIR   = MODELS_DIR / "attachements"
 
 # Database
+# Set AEGIS_DATABASE_URL in .env or environment to use PostgreSQL:
+#   postgresql+asyncpg://aegis:<password>@localhost:5432/aegisone
+# Defaults to local SQLite for development.
 DB_DIR = PROJECT_ROOT / "api" / "database"
 DB_PATH = DB_DIR / "aegisone.db"
-DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
+DATABASE_URL = os.environ.get(
+    "AEGIS_DATABASE_URL",
+    f"sqlite+aiosqlite:///{DB_PATH}"
+)
 
 # ═══════════════════════════════════════════════════════════════
 # AUTH

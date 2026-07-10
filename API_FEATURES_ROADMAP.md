@@ -4,6 +4,48 @@ This document serves as the absolute functional reference and API specification 
 
 ---
 
+## 0. Browser Security Agent Target
+
+The extension should be treated as a core browser security module rather than a passive helper. The intended runtime model is:
+
+```text
+Browser event
+  -> lightweight local rule check
+  -> cached reputation lookup
+  -> feature extraction only when needed
+  -> backend AI scoring
+  -> risk engine + policy decision
+  -> UI warning, block, or allow
+```
+
+### 0.1. Modules Requested in the Spec
+
+| Module | Target Behavior | Current Repo Status |
+| --- | --- | --- |
+| Search result protection | Badge each result with risk score before click | Already partially implemented in the extension |
+| Navigation-time scan | Scan once on navigation, then warn/allow | Already implemented in the service worker + content script |
+| Page inspection | Extract URL, title, text, forms, scripts, iframes, redirects | Already implemented in content scripts |
+| Fake login detection | Detect brand impersonation and credential harvesting forms | Already implemented in form guard logic |
+| Image protection | Logo, QR, and OCR-based image analysis | Partially implemented in backend; QR/logo workflow still needs build-out |
+| Hover protection | Show reputation, risk, redirect info on hover | Already implemented in link scanner |
+| Download protection | Scan before file lands on disk | Already implemented in download guard |
+| Clipboard protection | Scan copied or pasted URLs | Already implemented in content script + service worker |
+| Form submission protection | Block risky credential submissions | Already implemented in form guard |
+| Cookie inspection | Metadata-only cookie policy analysis | Still needs to be built |
+| JavaScript inspection | Flag obfuscation, eval, redirects, hidden iframes | Partially implemented; needs structured extraction and scoring |
+| Local risk cache | Reuse recent verdicts for speed | Already implemented in cache layer |
+| Enterprise policies | Allowed, blocked, and warning domains | Needs policy UI and enforcement expansion |
+| User reporting | One-click report to SOC dashboard | Needs end-to-end workflow polish |
+
+### 0.2. Build Priorities
+
+1. Keep the client lightweight: no full-page uploads, no continuous screenshot streaming, and no raw cookies or credentials in transit.
+2. Push all non-trivial analysis to the server: URL, text, image, OCR, attachment, and risk aggregation remain backend responsibilities.
+3. Normalize every client signal through the same tab cache and risk engine so popup, modal, and dashboard views stay consistent.
+4. Add the advanced protections in this order: login detection, download blocking, hover protection, image/OCR, QR decoding, then cookie/JS inspection.
+
+---
+
 ## 1. System Deployment Architecture: In-House & SaaS
 
 AegisOne is engineered as a privacy-first B2B security platform. Organizations can choose between a fully on-premise self-hosted deployment or a managed SaaS tier.

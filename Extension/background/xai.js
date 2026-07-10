@@ -110,30 +110,70 @@ export async function explainWithAI(tabData, url) {
  * @returns {object}
  */
 export function generateLocalExplanation(tabData) {
-  if (!tabData || !tabData.breakdown) return null;
+  if (!tabData) return null;
 
-  const factors = (tabData.top_factors || []).filter(f => f.score >= 50);
+  const score   = tabData.score || 0;
+  const factors = (tabData.top_factors || []).filter(f => f.score >= 30);
 
-  const summary = factors.length > 0
-    ? `This website was flagged because: ${factors.map(f => f.label.toLowerCase()).join("; ")}.`
-    : "Risk score is based on URL analysis patterns.";
+  // Plain-English summary based on score band
+  let summary;
+  if (score >= 80) {
+    summary = `⚠️ This page looks like a phishing site. Our AI is ${score}% confident it's trying to steal your information. Don't enter any passwords or personal details here.`;
+  } else if (score >= 50) {
+    summary = `🔶 Something looks off about this page (${score}% risk). It's not confirmed dangerous, but be careful — especially if you're asked to log in.`;
+  } else if (score >= 20) {
+    summary = `🔍 This page has a few minor suspicious signals (${score}% risk). It's probably fine, but stay alert.`;
+  } else {
+    summary = `✅ This page looks safe. Our AI didn't find any phishing signs. Risk: ${score}%.`;
+  }
 
+  // Translate technical factor labels into plain English
+  const friendlyLabel = (label = "") => {
+    const l = label.toLowerCase();
+    if (l.includes("login") || l.includes("credential"))
+      return "🔑 This page has a login form — a common phishing trick";
+    if (l.includes("iframe"))
+      return "🪄 Hidden content detected — often used to fake trusted sites";
+    if (l.includes("redirect"))
+      return "↪️ This page tried to redirect you to another site";
+    if (l.includes("brand") || l.includes("impersonat"))
+      return "🎭 This page appears to be pretending to be a real, trusted brand";
+    if (l.includes("phish"))
+      return "🎣 Our AI detected phishing language on this page";
+    if (l.includes("url") || l.includes("domain"))
+      return "🌐 The web address has suspicious patterns";
+    if (l.includes("script") || l.includes("js"))
+      return "⚙️ Suspicious code was detected — this can be used to steal data";
+    if (l.includes("malicious"))
+      return "🚨 One or more links on this page lead to dangerous sites";
+    return `⚠️ ${label}`;
+  };
+
+  const main_reasons = factors.length > 0
+    ? factors.map(f => friendlyLabel(f.label))
+    : score === 0
+      ? ["✅ No phishing signals were found"]
+      : ["🔍 Mild pattern match in URL or page structure"];
+
+  // Simple, actionable advice
   const recommendations = [];
-  if (tabData.breakdown?.login_form?.score >= 80) {
-    recommendations.push("Do not enter any credentials on this page.");
-  }
-  if (tabData.breakdown?.brand_mismatch?.score >= 70) {
-    recommendations.push("The page appears to imitate a known brand. Verify the URL carefully.");
-  }
-  if (tabData.score >= 80) {
-    recommendations.push("Leave this page immediately.");
-    recommendations.push("Report this website using the Report button.");
+  if (score >= 80) {
+    recommendations.push("🚫 Do NOT type your password or personal info here");
+    recommendations.push("← Go back or close this tab to stay safe");
+    recommendations.push("📢 Hit Report Threat below to help protect others");
+  } else if (score >= 50) {
+    recommendations.push("👀 Check the URL in your address bar is exactly right");
+    recommendations.push("🔑 Don't enter passwords unless you're 100% sure it's legit");
+  } else if (score >= 20) {
+    recommendations.push("✔️ You can continue, but stay alert");
+    recommendations.push("🔗 Avoid clicking links that seem out of place");
+  } else {
+    recommendations.push("✅ This page appears safe — carry on!");
   }
 
   return {
     summary,
-    main_reasons: factors.map(f => f.label),
-    threat_likelihood: _threatLabel(tabData.threat_type),
+    main_reasons,
     recommendations,
     generated_locally: true,
   };
@@ -141,12 +181,13 @@ export function generateLocalExplanation(tabData) {
 
 function _threatLabel(type) {
   const map = {
-    credential_harvesting: "Credential Harvesting",
-    brand_impersonation:   "Brand Impersonation",
-    malware_delivery:      "Malware Delivery",
-    social_engineering:    "Social Engineering",
-    clickjacking:          "Clickjacking",
-    phishing:              "General Phishing",
+    credential_harvesting: "Tries to steal your password",
+    brand_impersonation:   "Pretending to be a real website",
+    malware_delivery:      "May install harmful software",
+    social_engineering:    "Tricks you into giving up information",
+    clickjacking:          "Hidden buttons that hijack your clicks",
+    phishing:              "Designed to steal your data",
   };
   return map[type] || "Suspicious Activity";
 }
+

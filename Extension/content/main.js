@@ -24,6 +24,8 @@
 
   let _widget = null;
   let _currentScanData = null;
+  let _deepScanTimer = null;
+  let _deepScanInFlight = false;
 
   // Debounce utility
   function debounce(fn, ms) {
@@ -35,18 +37,26 @@
   async function init() {
     try {
       const [
+        { STORE_KEYS },
         { createWidget, updateWidget, updateThreatCount },
         { initSearchBadges },
         { initLinkScanner, applyDangerBadges },
         { initFormGuard, setCurrentRisk },
         { showWarningModal, showXAIModal, showDownloadModal, showRightClickResult, showTextScanResult },
+        { getRootDomain },
       ] = await Promise.all([
+        import(chrome.runtime.getURL("utils/constants.js")),
         import(chrome.runtime.getURL("content/widget.js")),
         import(chrome.runtime.getURL("content/search-badges.js")),
         import(chrome.runtime.getURL("content/link-scanner.js")),
         import(chrome.runtime.getURL("content/form-guard.js")),
         import(chrome.runtime.getURL("content/modals.js")),
+        import(chrome.runtime.getURL("utils/trusted-domains.js")),
       ]);
+
+      const policy = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
+      const allowlist = Array.isArray(policy[STORE_KEYS.ALLOWLIST]) ? policy[STORE_KEYS.ALLOWLIST] : [];
+      const isAllowlistedPage = _matchesDomainList(getRootDomain(location.href), allowlist);
 
       // ── Widget ──────────────────────────────────────
       _widget = createWidget();
@@ -81,9 +91,10 @@
 
       // ── Auto Deep Page Scan (text + links, images skipped) ──
       // Runs 2.5s after page load to let DOM settle. Images are only scanned on right-click.
-      setTimeout(() => {
-        _triggerDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal);
-      }, 2500);
+      _scheduleDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal, 2500);
+      if (isAllowlistedPage) {
+        clearTimeout(_deepScanTimer);
+      }
 
 
       chrome.runtime.onMessage.addListener((msg) => {
@@ -155,7 +166,7 @@
           case "TRIGGER_DEEP_PAGE_SCAN":
           case "TRIGGER_FULL_SCAN":
           case "TRIGGER_FULL_PAGE_SCAN":
-            _triggerDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal);
+            _scheduleDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal, 250);
             break;
 
           // Background returns deep page scan results — highlight & dialog
@@ -216,6 +227,7 @@
       // ── SPA Navigation Watcher ───────────────────────
       let _lastUrl = location.href;
       setInterval(() => {
+        if (document.visibilityState !== "visible") return;
         if (location.href !== _lastUrl) {
           _lastUrl = location.href;
           window.__AEGIS_WARNING_DISMISSED__ = false;
@@ -233,9 +245,9 @@
           }).catch(() => {});
 
           // Re-trigger deep page scan on SPA navigation
-          setTimeout(() => {
-            _triggerDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal);
-          }, 3000);
+          if (!_matchesDomainList(getRootDomain(location.href), allowlist)) {
+            _scheduleDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal, 3000);
+          }
         }
       }, 1500);
 
@@ -367,6 +379,115 @@
 
     if (btn) { btn.textContent = "🔍"; btn.disabled = false; }
     // Results come back via DEEP_PAGE_RESULT message handled in the listener above
+
+    // Fire passive telemetry after scan (non-blocking, best-effort)
+    const features = _extractPageFeatures();
+    _sendScriptTelemetry(features).catch(() => {});
+    _sendCookieTelemetry().catch(() => {});
+  }
+
+  function _scheduleDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal, delayMs = 1200) {
+    clearTimeout(_deepScanTimer);
+    _deepScanTimer = setTimeout(() => {
+      if (_deepScanInFlight) return;
+      _deepScanInFlight = true;
+      _triggerDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal)
+        .finally(() => {
+          _deepScanInFlight = false;
+        });
+    }, delayMs);
+  }
+
+  function _matchesDomainList(domain, list = []) {
+    if (!domain || !Array.isArray(list)) return false;
+    const normalized = domain.toLowerCase();
+    return list.some(item => {
+      const value = String(item || "").trim().toLowerCase();
+      return value && (normalized === value || normalized.endsWith(`.${value}`));
+    });
+  }
+
+  // ── Module 7: Script Telemetry ───────────────────────────────────────────
+  // Sends extracted JS metadata to the backend. No script source code is uploaded.
+  async function _sendScriptTelemetry(features) {
+    try {
+      const inlineScripts = [...document.querySelectorAll("script")].filter(s => !s.src);
+      const evalFound     = inlineScripts.some(s => /eval\s*\(/.test(s.textContent));
+      const redirectScript = inlineScripts.some(s => /window\.location|location\.replace|location\.href\s*=/.test(s.textContent));
+      const clipboardAccess = inlineScripts.some(s => /clipboard|clipboardData|navigator\.clipboard/.test(s.textContent));
+      // Score: obfuscated +30, eval +25, redirect +25, clipboard +20
+      let score = 0;
+      if (features.js_obfuscated) score += 30;
+      if (evalFound)              score += 25;
+      if (redirectScript)         score += 25;
+      if (clipboardAccess)        score += 20;
+      score = Math.min(100, score);
+
+      const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
+      await fetch(`http://localhost:9000/telemetry/scripts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          script_count:    features.script_count || 0,
+          obfuscated:      features.js_obfuscated || false,
+          eval_found:      evalFound,
+          redirect_script: redirectScript,
+          clipboard_access: clipboardAccess,
+          risk_score:      score,
+          device_id:       stored.device_id || null,
+          org_id:          stored.org_policy?.org_id || null,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch (_) { /* silent — telemetry is best-effort */ }
+  }
+
+  // ── Module 8: Cookie Metadata Telemetry ─────────────────────────────────
+  // Only transmits metadata (count, flags). Cookie values are NEVER sent.
+  async function _sendCookieTelemetry() {
+    try {
+      const cookieStr   = document.cookie || "";
+      const cookieCount = cookieStr ? cookieStr.split(";").length : 0;
+
+      // Use cookieStore API (Chrome 87+) to inspect Secure/HttpOnly flags
+      let secureFlag = true;
+      let httponly   = true;
+      let thirdParty = 0;
+      const currentHost = location.hostname;
+
+      if (typeof cookieStore !== "undefined") {
+        const cookies = await cookieStore.getAll();
+        if (cookies.length > 0) {
+          secureFlag = cookies.every(c => c.secure);
+          httponly   = cookies.every(c => c.httpOnly !== false);
+          thirdParty = cookies.filter(c => c.domain && !currentHost.includes(c.domain.replace(/^\./, ""))).length;
+        }
+      }
+
+      // Heuristic risk score
+      let score = 0;
+      if (!secureFlag) score += 30;
+      if (!httponly)   score += 30;
+      if (thirdParty > 5) score += 20;
+      if (cookieCount > 20) score += 20;
+      score = Math.min(100, score);
+
+      const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
+      await fetch(`http://localhost:9000/telemetry/cookies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cookie_count: cookieCount,
+          third_party:  thirdParty,
+          secure_flag:  secureFlag,
+          httponly:     httponly,
+          risk_score:   score,
+          device_id:    stored.device_id || null,
+          org_id:       stored.org_policy?.org_id || null,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch (_) { /* silent — telemetry is best-effort */ }
   }
 
 
@@ -396,8 +517,44 @@
 
     const _emailCache = new Set();
 
+    // Suspicious attachment patterns — score filenames locally
+    const PHISHING_FILENAME_KEYWORDS = ["phishing", "malicious", "invoice", "urgent", "password", "verify", "account", "suspended", "paypal", "banking", "login", "secure"];
+    const DANGEROUS_EXTENSIONS       = [".exe", ".bat", ".cmd", ".vbs", ".ps1", ".js", ".jar", ".scr", ".html", ".htm", ".zip", ".rar"];
+    const HIGH_RISK_EXTENSIONS        = [".exe", ".bat", ".cmd", ".vbs", ".ps1", ".scr"];
+
+    function _scoreFilename(name) {
+      const lower = name.toLowerCase();
+      let score = 0;
+      const signals = [];
+
+      // High-risk executable extensions
+      if (HIGH_RISK_EXTENSIONS.some(ext => lower.endsWith(ext))) {
+        score += 70;
+        signals.push(`Dangerous file type: ${lower.split(".").pop().toUpperCase()}`);
+      } else if (DANGEROUS_EXTENSIONS.some(ext => lower.endsWith(ext))) {
+        score += 40;
+        signals.push(`Suspicious file type: ${lower.split(".").pop().toUpperCase()}`);
+      }
+
+      // Phishing keywords in filename
+      const matchedKeywords = PHISHING_FILENAME_KEYWORDS.filter(k => lower.includes(k));
+      if (matchedKeywords.length > 0) {
+        score += matchedKeywords.length * 20;
+        signals.push(`Suspicious filename keyword: "${matchedKeywords[0]}"`);
+      }
+
+      // Double extension (e.g. invoice.pdf.exe)
+      if (/\.[a-z]{2,4}\.[a-z]{2,4}$/i.test(name)) {
+        score += 30;
+        signals.push("Double file extension — common malware trick");
+      }
+
+      return { score: Math.min(100, score), signals };
+    }
+
     const emailObserver = new MutationObserver(debounce(() => {
       let sender = "", subject = "", body = "";
+      let attachmentNames = [];
 
       if (isGmail) {
         const senderEl  = document.querySelector('[email], [data-hovercard-id]');
@@ -406,6 +563,20 @@
         sender  = senderEl?.getAttribute("email") || senderEl?.getAttribute("data-hovercard-id") || "";
         subject = subjectEl?.textContent?.trim() || "";
         body    = bodyEl?.innerText?.slice(0, 2000) || "";
+
+        // Scrape attachment filenames from Gmail DOM
+        // Gmail shows attachment names in .aQA, .aV3 spans or data-tooltip attributes
+        const attachEls = [
+          ...document.querySelectorAll(".aQA span"),          // attachment name span
+          ...document.querySelectorAll(".aV3"),               // alt format
+          ...document.querySelectorAll("[data-tooltip]"),     // tooltip has filename
+          ...document.querySelectorAll(".bAK span"),          // another Gmail selector
+        ];
+        attachmentNames = [...new Set(
+          attachEls
+            .map(el => (el.textContent || el.getAttribute("data-tooltip") || "").trim())
+            .filter(n => n && n.includes(".") && n.length < 120)
+        )];
       } else if (isOutlook) {
         const senderEl  = document.querySelector('[data-convid] .oG');
         const subjectEl = document.querySelector('.cN');
@@ -413,13 +584,50 @@
         sender  = senderEl?.textContent?.trim() || "";
         subject = subjectEl?.textContent?.trim() || "";
         body    = bodyEl?.innerText?.slice(0, 2000) || "";
+
+        // Outlook attachment names
+        attachmentNames = [...document.querySelectorAll(".attachmentTitle, [data-app-section='Attachment'] span")]
+          .map(el => el.textContent?.trim())
+          .filter(Boolean);
       }
 
       if (!subject || _emailCache.has(subject + sender)) return;
       _emailCache.add(subject + sender);
 
+      // ── Scan email body ──────────────────────────────
       if (body.length > 50) {
         chrome.runtime.sendMessage({ type: "EMAIL_DATA", sender, subject, body }).catch(() => {});
+      }
+
+      // ── Scan attachment filenames ────────────────────
+      if (attachmentNames.length > 0) {
+        let maxScore = 0;
+        const allSignals = [];
+
+        for (const name of attachmentNames) {
+          const { score, signals } = _scoreFilename(name);
+          if (score > maxScore) maxScore = score;
+          allSignals.push(...signals.map(s => ({ label: `📎 "${name}": ${s}` })));
+        }
+
+        if (maxScore >= 20) {
+          // Update widget immediately with attachment risk
+          chrome.runtime.sendMessage({
+            type: "ATTACHMENT_RISK",
+            score: maxScore,
+            signals: allSignals,
+            filenames: attachmentNames,
+          }).catch(() => {});
+
+          // Also fire text scan on all filenames concatenated
+          const filenameText = attachmentNames.join(" ");
+          chrome.runtime.sendMessage({
+            type: "EMAIL_DATA",
+            sender,
+            subject: `${subject} [attachments: ${filenameText}]`,
+            body: filenameText,
+          }).catch(() => {});
+        }
       }
     }, 1500));
 

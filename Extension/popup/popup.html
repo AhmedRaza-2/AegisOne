@@ -166,6 +166,7 @@
       background: var(--card);
     }
     .url-display { font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; }
+    .scan-meta { font-size: 8px; color: var(--muted2); margin-top: 2px; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rescan-btn {
       font-size: 9px; color: var(--cyan); cursor: pointer;
       border: none; background: none; font-family: inherit; font-weight: 600;
@@ -249,7 +250,10 @@
 
   <!-- Footer -->
   <div class="footer">
-    <div class="url-display" id="currentUrl">—</div>
+    <div>
+      <div class="url-display" id="currentUrl">—</div>
+      <div class="scan-meta" id="scanMeta">No recent scan</div>
+    </div>
     <button class="rescan-btn">↻ Rescan</button>
   </div>
 
