@@ -12,7 +12,7 @@
  */
 
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES } from "../utils/constants.js";
-import { isInternalURL, isTrusted, getRootDomain } from "../utils/trusted-domains.js";
+import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
 import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth } from "./scanner.js";
 import { getCachedResult, getTabCache, setTabCache, clearTabCache } from "./cache.js";
 import { initDownloadGuard, handleDownloadDecision } from "./download-guard.js";
@@ -93,12 +93,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       }
     }
 
-    // Trigger deep page content scan for any site (text + links)
-    // The content script will handle highlighting and dialog on high scores
-    chrome.tabs.sendMessage(tabId, {
-      type: "TRIGGER_DEEP_PAGE_SCAN",
-      urlScore: result.score,
-    }).catch(() => {});
+    // Skip deep scan for policy-approved sites to reduce churn.
+    if (result.policy_override !== "allow") {
+      chrome.tabs.sendMessage(tabId, {
+        type: "TRIGGER_DEEP_PAGE_SCAN",
+        urlScore: result.score,
+      }).catch(() => {});
+    }
   } else {
     _setBadge(tabId, "unknown");
   }
@@ -236,7 +237,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // ── Hover URL Scan ────────────────────────────────
         case MSG.SCAN_HOVER_URL: {
-          const result = await scanURL(msg.url);
+          // Prefer a fresh scan, but fall back to cache so hover always shows something useful.
+          let result = await scanURL(msg.url, {}, { bypassCache: true });
+          if (!result) {
+            const cached = await getCachedResult(msg.url);
+            if (cached) {
+              result = { ...cached, from_cache: true };
+            }
+          }
+          sendResponse({ ok: true, result });
+          break;
+        }
+
+        // ── Hover Image Scan ──────────────────────────────
+        case MSG.SCAN_HOVER_IMAGE: {
+          const result = await scanImage(msg.src);
           sendResponse({ ok: true, result });
           break;
         }
@@ -265,9 +280,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const worstUrl = badUrls.length > 0 ? Math.max(...badUrls.map(u => u.score || 0)) : 0;
           const textProb = Math.round((textResult?.phishing_probability ?? 0) * 100);
           const composite = Math.max(worstUrl, textProb);
+          const deepReport = {
+            composite_risk: composite,
+            text_prob: textProb,
+            text_result: textResult,
+            url_results: urlResults,
+            bad_urls: badUrls.map(u => ({ url: u.url, score: u.score, threat_type: u.threat_type })),
+            scanned_at: new Date().toISOString(),
+          };
 
           // Tell content script to highlight suspicious links and show dialog if needed
           if (tabId) {
+            const current = getTabCache(tabId) || {};
+            setTabCache(tabId, _mergeDeepScanData({ ...current, deepReport }));
+
             if (badUrls.length > 0) {
               chrome.tabs.sendMessage(tabId, {
                 type: MSG.HIGHLIGHT_THREATS,
@@ -318,7 +344,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           // Update tab cache with full scan data
           if (tabId) {
             const current = getTabCache(tabId) || {};
-            setTabCache(tabId, { ...current, fullReport: report });
+            setTabCache(tabId, _mergeDeepScanData({ ...current, fullReport: report }));
           }
 
           sendResponse({ ok: true, report });
@@ -345,7 +371,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // ── XAI Request ───────────────────────────────────
         case MSG.XAI_REQUEST: {
           const tabId = sender.tab?.id;
-          const tabData = getTabCache(tabId);
+          const tabData = _mergeDeepScanData(getTabCache(tabId));
           const url = msg.url || tabData?.url;
 
           // Try LLM-based XAI first
@@ -404,6 +430,50 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
+        // ── Attachment Risk (filename scan from Gmail/Outlook) ───
+        case "ATTACHMENT_RISK": {
+          const tabId = sender.tab?.id;
+          if (!tabId) { sendResponse({ ok: true }); break; }
+
+          // Merge attachment score into the current tab cache
+          const current = getTabCache(tabId) || {};
+          const existingScore = current.score || 0;
+          const attachScore = msg.score || 0;
+          const mergedScore = Math.max(existingScore, attachScore);
+
+          const attachFactors = (msg.signals || []).map(s => ({
+            key: "attachment",
+            score: attachScore,
+            label: s.label,
+          }));
+
+          const mergedFactors = [
+            ...attachFactors,
+            ...(current.top_factors || []),
+          ].slice(0, 5);
+
+          setTabCache(tabId, {
+            ...current,
+            score: mergedScore,
+            threat_type: mergedScore >= 70 ? "malware_delivery" : (current.threat_type || "suspicious_activity"),
+            top_factors: mergedFactors,
+          });
+
+          _updateBadge(tabId, mergedScore);
+
+          // Push updated score to content script so widget updates immediately
+          chrome.tabs.sendMessage(tabId, {
+            type: MSG.SCAN_RESULT,
+            score: mergedScore,
+            verdict: mergedScore >= 80 ? "danger" : mergedScore >= 50 ? "warning" : "caution",
+            top_factors: mergedFactors,
+            threat_type: mergedScore >= 70 ? "malware_delivery" : "suspicious_activity",
+          }).catch(() => {});
+
+          sendResponse({ ok: true });
+          break;
+        }
+
         // ── Threat Report ─────────────────────────────────
         case MSG.REPORT_THREAT: {
           await storeEvent({
@@ -424,7 +494,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // ── Get Tab Data (popup) ──────────────────────────
         case MSG.GET_TAB_DATA: {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          const data = getTabCache(tab?.id);
+          const data = _mergeDeepScanData(getTabCache(tab?.id));
           sendResponse({ data, tabId: tab?.id, url: tab?.url });
           break;
         }
@@ -488,4 +558,54 @@ function _setBadge(tabId, state, score = null) {
     chrome.action.setBadgeText({ tabId, text: cfg.text });
     chrome.action.setBadgeBackgroundColor({ tabId, color: cfg.color });
   } catch (_) {}
+}
+
+function _mergeDeepScanData(tabData) {
+  if (!tabData) return tabData;
+
+  const deep = tabData.deepReport || tabData.fullReport;
+  if (!deep) return tabData;
+
+  const deepScore = Math.round((deep.composite_risk ?? 0) || 0);
+  const baseScore = tabData.score ?? 0;
+  const mergedScore = Math.max(baseScore, deepScore);
+
+  const deepFactors = [
+    ...(deep.bad_urls || []).slice(0, 2).map(u => ({
+      key: "deep_link",
+      score: u.score || deepScore,
+      label: `Malicious link: ${u.url.slice(0, 40)}…`,
+    })),
+    ...(deep.text_result?.top_words || []).slice(0, 2).map(word => ({
+      key: "deep_text",
+      score: deep.text_prob || deepScore,
+      label: `Phishing keyword: "${word}"`,
+    })),
+  ];
+
+  const mergedTopFactors = deepFactors.length > 0
+    ? [...deepFactors, ...(tabData.top_factors || [])].slice(0, 5)
+    : tabData.top_factors;
+
+  const mergedBreakdown = deepScore > baseScore
+    ? {
+        ...(tabData.breakdown || {}),
+        deep_page: {
+          score: deepScore,
+          weight: 0,
+          label: deepScore >= 80 ? "Deep page scan indicates high risk" : "Deep page scan indicates suspicious activity",
+          available: true,
+        },
+      }
+    : tabData.breakdown;
+
+  return {
+    ...tabData,
+    score: mergedScore,
+    verdict: mergedScore >= THRESHOLD.DANGER * 100 ? VERDICT.DANGER : mergedScore >= THRESHOLD.WARNING * 100 ? VERDICT.WARNING : tabData.verdict,
+    threat_type: deepScore >= 80 ? "phishing" : (tabData.threat_type || "suspicious_activity"),
+    top_factors: mergedTopFactors,
+    breakdown: mergedBreakdown,
+    deepReport: deep,
+  };
 }

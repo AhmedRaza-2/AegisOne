@@ -18,6 +18,8 @@ const _badged = new WeakSet();
 // Hover preview state
 let _hoverTimeout = null;
 let _tooltipEl    = null;
+let _scanVisibleTimeout = null;
+let _hoverToken = 0;
 
 // ── Exported entry point ───────────────────────────────
 export function initLinkScanner() {
@@ -28,8 +30,10 @@ export function initLinkScanner() {
   _scanVisibleLinks();
 
   // Attach hover and click listeners
-  document.addEventListener("mouseover", _onLinkHover);
-  document.addEventListener("mouseout",  _onLinkOut);
+  document.addEventListener("mouseover", _onHover);
+  document.addEventListener("mouseout",  _onOut);
+  document.addEventListener("focusin", _onHover);
+  document.addEventListener("focusout", _onOut);
   document.addEventListener("click",     _onLinkClick, { capture: true });
 
   // Watch for new links (SPAs)
@@ -131,27 +135,85 @@ function _scanVisibleLinks() {
 }
 
 // ── Hover handlers ────────────────────────────────────
-function _onLinkHover(e) {
+function _onHover(e) {
+  const img = e.target.closest("img[src]");
   const a = e.target.closest("a[href]");
-  if (!a) return;
 
-  try {
-    const url = new URL(a.href, location.href).href;
-    if (!url.startsWith("http")) return;
-    if (isInternalURL(url)) return;
+  if (img) {
+    try {
+      const src = new URL(img.src, location.href).href;
+      if (src.startsWith("http") && !isInternalURL(src)) {
+        clearTimeout(_hoverTimeout);
+        const token = ++_hoverToken;
+        _hoverTimeout = setTimeout(() => _showImageHoverPreview(img, src, token), 250);
+        return;
+      }
+    } catch (_) {}
+  }
 
-    clearTimeout(_hoverTimeout);
-    _hoverTimeout = setTimeout(() => _showHoverPreview(a, url), 250);
-  } catch (_) {}
+  if (a) {
+    try {
+      const url = new URL(a.href, location.href).href;
+      if (url.startsWith("http") && !isInternalURL(url)) {
+        clearTimeout(_hoverTimeout);
+        const token = ++_hoverToken;
+        _hoverTimeout = setTimeout(() => _showHoverPreview(a, url, token), 250);
+      }
+    } catch (_) {}
+  }
 }
 
-function _onLinkOut() {
+function _onOut() {
   clearTimeout(_hoverTimeout);
+  _hoverToken += 1;
   _hideTooltip();
 }
 
+async function _showImageHoverPreview(img, src, token) {
+  _showTooltip(img, { loading: true, url: src });
+
+  let res = null;
+  try {
+    res = await chrome.runtime.sendMessage({ type: MSG.SCAN_HOVER_IMAGE, src });
+  } catch (_) {}
+
+  if (token !== _hoverToken) return;
+
+  if (!res?.result) {
+    _hideTooltip();
+    return;
+  }
+
+  const score = res.result.overall_risk_score ?? 0;
+  const verdict = res.result.verdict;
+  const top_factors = [{ label: res.result.verdict_label || "Image Analysis" }];
+  
+  _showTooltip(img, { url: src, score, verdict, top_factors });
+
+  if (score >= THRESHOLD.HIGHLIGHT * 100) {
+    img.style.outline = "3px solid #ef4444";
+    img.title = "AegisOne: This image appears suspicious";
+  }
+
+  if (score >= 20) {
+    chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
+      fetch("http://localhost:9000/telemetry/hover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destination: src,
+          risk_score:  score,
+          cached:      false,
+          type:        "image"
+        }),
+        signal: AbortSignal.timeout(4000),
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+}
+
 // ── Core hover preview logic ───────────────────────────
-async function _showHoverPreview(anchor, url) {
+async function _showHoverPreview(anchor, url, token) {
   // Immediately show "scanning" state
   _showTooltip(anchor, { loading: true, url });
 
@@ -159,6 +221,8 @@ async function _showHoverPreview(anchor, url) {
   try {
     res = await chrome.runtime.sendMessage({ type: MSG.SCAN_HOVER_URL, url });
   } catch (_) {}
+
+  if (token !== _hoverToken) return;
 
   if (!res?.result) {
     _hideTooltip();
@@ -171,6 +235,22 @@ async function _showHoverPreview(anchor, url) {
   // Apply badge if risky
   if (score >= THRESHOLD.HIGHLIGHT * 100) {
     _attachBadge(anchor, "danger");
+  }
+
+  // Module 11 — persist hover scan (best-effort, only if notable)
+  if (score >= 20) {
+    chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
+      fetch("http://localhost:9000/telemetry/hover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destination: url,
+          risk_score:  score,
+          cached:      res.result.from_cache || false,
+        }),
+        signal: AbortSignal.timeout(4000),
+      }).catch(() => {});
+    }).catch(() => {});
   }
 }
 
@@ -198,27 +278,25 @@ function _showTooltip(anchor, { loading, url, score, verdict, top_factors }) {
     `;
   }
 
-  // Make visible first so offsetHeight is correct
-  _tooltipEl.style.display = "block";
+  // Position tooltip near the link using fixed positioning (viewport-relative)
+  const rect = anchor.getBoundingClientRect();
+  const TIP_W = 290;
+  const TIP_H = _tooltipEl.offsetHeight || 72;
 
-  // Position relative to viewport + scroll
-  const rect      = anchor.getBoundingClientRect();
-  const scrollTop = window.scrollY || document.documentElement.scrollTop;
-  const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-  const tipH      = _tooltipEl.offsetHeight || 60;
-  const tipLeft   = Math.max(8, Math.min(rect.left + scrollLeft, window.innerWidth - 290));
-  const tipTop    = rect.top + scrollTop - tipH - 10;
+  let left = Math.max(8, Math.min(rect.left, window.innerWidth - TIP_W - 8));
+  let top  = rect.top - TIP_H - 10;
+  if (top < 8) top = rect.bottom + 8; // flip below if no space above
 
-  _tooltipEl.style.left = `${tipLeft}px`;
-  _tooltipEl.style.top  = `${Math.max(scrollTop + 8, tipTop)}px`;
-  _tooltipEl.style.display = "block";
-  _tooltipEl.style.opacity = "1";
+  _tooltipEl.style.setProperty("left",    `${left}px`, "important");
+  _tooltipEl.style.setProperty("top",     `${top}px`,  "important");
+  _tooltipEl.style.setProperty("display", "block",     "important");
+  _tooltipEl.style.setProperty("opacity", "1",          "important");
 }
 
 function _hideTooltip() {
   if (_tooltipEl) {
-    _tooltipEl.style.display = "none";
-    _tooltipEl.style.opacity = "0";
+    _tooltipEl.style.setProperty("display", "none",  "important");
+    _tooltipEl.style.setProperty("opacity", "0",     "important");
   }
 }
 
@@ -246,11 +324,14 @@ function _shortURL(url, maxLen = 50) {
 
 // ── DOM setup ────────────────────────────────────────
 function _ensureTooltipEl() {
-  if (_tooltipEl) return;
+  if (_tooltipEl && document.body?.contains(_tooltipEl)) return;
   _tooltipEl = document.createElement("div");
   _tooltipEl.id = "aegis-hover-tooltip";
-  _tooltipEl.style.cssText = "display:none; position:absolute; z-index:2147483646;";
-  document.documentElement.appendChild(_tooltipEl);
+  // Inline critical styles with !important via setProperty
+  _tooltipEl.style.setProperty("display", "none", "important");
+  _tooltipEl.style.setProperty("position", "fixed", "important");
+  _tooltipEl.style.setProperty("z-index", "2147483647", "important");
+  document.body?.appendChild(_tooltipEl);
 }
 
 let _stylesReady = false;
@@ -260,19 +341,20 @@ function _ensureLinkStyles() {
   const style = document.createElement("style");
   style.textContent = `
     #aegis-hover-tooltip {
-      position: absolute !important;
-      z-index: 2147483646 !important;
+      position: fixed !important;
+      z-index: 2147483647 !important;
       background: rgba(10, 18, 35, 0.97) !important;
-      border: 1px solid rgba(99,102,241,0.3) !important;
+      border: 1px solid rgba(99,102,241,0.4) !important;
       border-radius: 12px !important;
       padding: 11px 15px !important;
       min-width: 210px !important;
       max-width: 300px !important;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.1) !important;
-      font-family: -apple-system, 'Inter', BlinkMacSystemFont, sans-serif !important;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.75), 0 0 0 1px rgba(99,102,241,0.15) !important;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
       pointer-events: none !important;
-      transition: opacity 0.15s ease !important;
-      backdrop-filter: blur(8px) !important;
+      transition: opacity 0.12s ease !important;
+      backdrop-filter: blur(12px) !important;
+      color: #e2e8f0 !important;
     }
     .aegis-tip-url {
       font-size: 10px !important;

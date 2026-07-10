@@ -50,10 +50,12 @@ class RegisterRequest(BaseModel):
     full_name: str
     role: UserRole = UserRole.EMPLOYEE
     department: str = "General"
+    organization_id: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     role: str
     full_name: str
@@ -61,11 +63,79 @@ class TokenResponse(BaseModel):
 
 class UserInfo(BaseModel):
     id: int
+    organization_id: Optional[str] = None
     email: str
     full_name: str
     role: UserRole
     department: str
     created_at: datetime
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class DeviceRegisterRequest(BaseModel):
+    device_id: str
+    browser: str = "unknown"
+    browser_version: str = "unknown"
+    os: str = "unknown"
+    user_id: Optional[int] = None
+    organization_id: Optional[str] = None
+
+
+class DeviceHeartbeatRequest(BaseModel):
+    device_id: str
+    browser: str = "unknown"
+    browser_version: str = "unknown"
+    os: str = "unknown"
+
+
+class PolicyRule(BaseModel):
+    value: str
+    action: str = "allow"
+    priority: int = 100
+
+
+class PolicyResponse(BaseModel):
+    org_id: str
+    org_name: str
+    allowlist: List[str] = []
+    blocklist: List[str] = []
+    warninglist: List[str] = []
+    risk_thresholds: Dict[str, float] = {"safe": 0.20, "warning": 0.50, "danger": 0.80}
+
+
+class SecurityEventPayload(BaseModel):
+    id: str
+    type: str
+    domain: str | None = ""
+    url: str | None = ""
+    risk_score: int | None = 0
+    verdict: str | None = "unknown"
+    threat_type: str | None = None
+    timestamp: str | None = None
+    org_id: str | None = None
+    device_id: str | None = None
+    user_id: str | None = None
+    details: Dict[str, Any] | None = None
+
+
+class SecurityEventIngestRequest(BaseModel):
+    events: List[SecurityEventPayload]
+
+
+class ThreatReportRequest(BaseModel):
+    organization_id: Optional[str] = None
+    user_id: Optional[str] = None
+    website: str
+    reason: str = ""
+
+
+class ThreatReportResponse(BaseModel):
+    report_id: str
+    status: str
+    message: str
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -164,3 +234,10 @@ class AdminStatsResponse(BaseModel):
     threats_today: int
     model_status: Dict[str, bool]
     top_threat_types: Dict[str, int] = {}
+    # Extended real-data fields
+    active_devices: int = 0
+    threat_reports_pending: int = 0
+    events_by_severity: Dict[str, int] = {}
+    credential_events_total: int = 0
+    download_events_total: int = 0
+    hover_scans_total: int = 0

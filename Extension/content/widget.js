@@ -67,7 +67,8 @@ export function createWidget() {
 }
 
 export function updateWidget(data) {
-  const { score, verdict, top_factors, threat_type } = data || {};
+  const normalized = _normalizeWidgetData(data);
+  const { score, verdict, top_factors, threat_type } = normalized;
   const widget = document.getElementById(WIDGET_ID);
 
   const statusCard = document.getElementById("aegis-status-card");
@@ -81,6 +82,7 @@ export function updateWidget(data) {
 
   if (!statusCard || !widget) return;
 
+  // Hide during scan state (score==null), always show after scan completes
   if (score == null) {
     widget.style.setProperty("display", "none", "important");
     statusCard.className = "aegis-status scanning";
@@ -90,46 +92,44 @@ export function updateWidget(data) {
     return;
   }
 
-  // Only display the widget popup if risk is >= 50%
-  if (score >= 50) {
-    widget.style.setProperty("display", "block", "important");
-  } else {
-    widget.style.setProperty("display", "none", "important");
-  }
+  // ✅ Always show widget once we have a result
+  widget.style.setProperty("display", "block", "important");
+
+  // Store data on widget for details panel
+  widget._aegisData = { score, verdict, top_factors, threat_type };
 
   let cls, iconText, titleText;
   if (score >= 80) {
-    cls = "danger"; iconText = "🚨"; titleText = "Phishing Detected";
+    cls = "danger";  iconText = "🚨"; titleText = "Phishing Detected";
   } else if (score >= 50) {
     cls = "warning"; iconText = "⚠️"; titleText = "Suspicious Page";
   } else if (score >= 20) {
     cls = "caution"; iconText = "🔶"; titleText = "Low Risk";
   } else {
-    cls = "safe"; iconText = "✅"; titleText = "Page Safe";
+    cls = "safe";    iconText = "✅"; titleText = "Page Safe";
   }
 
   statusCard.className = `aegis-status ${cls}`;
   icon.textContent = iconText;
   title.textContent = titleText;
 
-  // Show top reason in subtitle
   const topReason = top_factors?.[0]?.label;
-  sub.textContent = topReason || `${score}% risk`;
+  sub.textContent = topReason || (score === 0 ? "No threats detected" : `${score}% risk detected`);
 
   // Risk bar
+  const barColor = score < 20 ? "#10b981" : score < 50 ? "#f59e0b" : score < 80 ? "#f97316" : "#ef4444";
   fill.style.width = `${score}%`;
-  fill.style.background = score < 20 ? "#10b981" : score < 50 ? "#f59e0b" : score < 80 ? "#f97316" : "#ef4444";
+  fill.style.background = barColor;
   pct.textContent = `${score}%`;
-  pct.style.color = score < 20 ? "#10b981" : score < 50 ? "#f59e0b" : "#ef4444";
+  pct.style.color = barColor;
 
-  // Show action buttons on suspicious/danger
-  if (score >= 50) {
-    actions.classList.remove("hidden");
-  } else {
-    actions.classList.add("hidden");
-  }
+  // Always show action buttons
+  actions.classList.remove("hidden");
 
   note.textContent = "";
+
+  // Update details panel if it's open
+  _refreshDetailsPanel(score, top_factors, threat_type);
 }
 
 export function updateThreatCount(count) {
@@ -150,12 +150,14 @@ export function updateThreatCount(count) {
 function _setupControls(widget) {
   document.getElementById("aegis-btn-min")?.addEventListener("click", () => {
     widget.classList.toggle("minimized");
+    document.getElementById("aegis-details-panel")?.remove();
   });
   document.getElementById("aegis-mini-bubble")?.addEventListener("click", () => {
     widget.classList.remove("minimized");
   });
   document.getElementById("aegis-btn-off")?.addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD });
+    document.getElementById("aegis-details-panel")?.remove();
     widget.remove();
   });
 
@@ -163,11 +165,15 @@ function _setupControls(widget) {
     chrome.runtime.sendMessage({ type: "TRIGGER_FULL_SCAN" });
   });
 
+  // 📊 Details → toggle inline details panel inside widget
   document.getElementById("aegis-action-details")?.addEventListener("click", () => {
-    const evt = new CustomEvent("aegis:show-details");
-    document.dispatchEvent(evt);
+    const existing = document.getElementById("aegis-details-panel");
+    if (existing) { existing.remove(); return; }
+    const d = widget._aegisData || {};
+    _showDetailsPanel(widget, d.score ?? 0, d.top_factors, d.threat_type);
   });
 
+  // ✨ XAI button
   document.getElementById("aegis-action-xai")?.addEventListener("click", async () => {
     const btn = document.getElementById("aegis-action-xai");
     btn.textContent = "⏳ Loading...";
@@ -184,8 +190,112 @@ function _setupControls(widget) {
     if (res?.xai) {
       const evt = new CustomEvent("aegis:show-xai", { detail: res.xai });
       document.dispatchEvent(evt);
+    } else {
+      // Fallback local XAI from stored data
+      const d = widget._aegisData || {};
+      const evt = new CustomEvent("aegis:show-xai", { detail: {
+        summary: `AegisOne detected a ${d.score ?? 0}% phishing risk on this page.`,
+        main_reasons: (d.top_factors || []).map(f => f.label),
+        recommendations: ["Do not submit personal data.", "Verify the URL carefully."],
+        generated_locally: true,
+      }});
+      document.dispatchEvent(evt);
     }
   });
+}
+
+// ── Details Panel (injected below widget body) ─────────────
+function _showDetailsPanel(widget, score, top_factors, threat_type) {
+  const existing = document.getElementById("aegis-details-panel");
+  if (existing) existing.remove();
+
+  const factors = top_factors || [];
+  const threatLabel = threat_type ? threat_type.replace(/_/g, " ") : "Suspicious Activity";
+
+  const factorsHtml = factors.length > 0
+    ? factors.map(f => {
+        const isPhishing = (f.label || "").toLowerCase().includes("phish")
+          || (f.label || "").toLowerCase().includes("malicious")
+          || (f.label || "").toLowerCase().includes("credential");
+        const dotColor = isPhishing ? "#ef4444" : score >= 50 ? "#f97316" : "#f59e0b";
+        const tag = isPhishing
+          ? `<span style="font-size:8px;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);padding:1px 5px;border-radius:3px;margin-left:4px;">PHISHING</span>`
+          : "";
+        return `<div style="display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+          <span style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:3px;"></span>
+          <span style="font-size:10px;color:#cbd5e1;flex:1;line-height:1.4;">${f.label}${tag}</span>
+        </div>`;
+      }).join("")
+    : `<div style="font-size:10px;color:#64748b;padding:6px 0;">No specific signals detected.</div>`;
+
+  const panel = document.createElement("div");
+  panel.id = "aegis-details-panel";
+  panel.style.cssText = `
+    width:240px;
+    background:rgba(10,14,20,0.98);
+    border:1px solid rgba(255,255,255,0.08);
+    border-top: none;
+    border-radius:0 0 14px 14px;
+    padding:10px 12px;
+    animation:aegisDetailsDrop 0.2s ease;
+    font-family:'Inter',-apple-system,sans-serif;
+  `;
+
+  panel.innerHTML = `
+    <style>
+      @keyframes aegisDetailsDrop {
+        from { opacity:0; transform:translateY(-6px); }
+        to   { opacity:1; transform:translateY(0); }
+      }
+    </style>
+    <div style="font-size:9px;text-transform:uppercase;color:#475569;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;">Threat Breakdown</div>
+    <div style="font-size:10px;color:#64748b;margin-bottom:8px;">
+      Threat Type: <strong style="color:#e2e8f0;">${threatLabel}</strong>
+    </div>
+    ${factorsHtml}
+    <div style="margin-top:8px;font-size:9px;color:#334155;text-align:center;border-top:1px solid rgba(255,255,255,0.04);padding-top:6px;">
+      Click <strong style="color:#a5b4fc;">✨ Explain AI</strong> for full XAI report
+    </div>
+  `;
+
+  widget.appendChild(panel);
+}
+
+function _refreshDetailsPanel(score, top_factors, threat_type) {
+  const panel = document.getElementById("aegis-details-panel");
+  if (!panel) return;
+  // Re-render if open
+  const widget = document.getElementById(WIDGET_ID);
+  if (widget) _showDetailsPanel(widget, score, top_factors, threat_type);
+}
+
+function _normalizeWidgetData(data) {
+  if (data == null) {
+    return { score: null, verdict: null, top_factors: [], threat_type: null };
+  }
+
+  if (typeof data === "number") {
+    const score = data > 1 ? Math.round(data) : Math.round(data * 100);
+    return {
+      score,
+      verdict: score >= 80 ? "danger" : score >= 50 ? "warning" : score >= 20 ? "caution" : "safe",
+      top_factors: [],
+      threat_type: null,
+    };
+  }
+
+  const score = data.score == null
+    ? (data.phishing_probability != null
+      ? Math.round((data.phishing_probability <= 1 ? data.phishing_probability * 100 : data.phishing_probability))
+      : null)
+    : (data.score <= 1 ? Math.round(data.score * 100) : Math.round(data.score));
+
+  return {
+    score,
+    verdict: data.verdict || (score == null ? null : score >= 80 ? "danger" : score >= 50 ? "warning" : score >= 20 ? "caution" : "safe"),
+    top_factors: data.top_factors || [],
+    threat_type: data.threat_type || null,
+  };
 }
 
 function _setupDrag(widget) {

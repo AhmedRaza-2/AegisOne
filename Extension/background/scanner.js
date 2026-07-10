@@ -17,6 +17,10 @@ import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
 import { storeEvent } from "./event-store.js";
 
+let _policyCache = null;
+let _policyCacheAt = 0;
+const POLICY_TTL_MS = 60_000;
+
 // ── API Helper ────────────────────────────────────────────
 async function callAPI(endpoint, body, isFormData = false) {
   try {
@@ -47,16 +51,31 @@ async function callAPI(endpoint, body, isFormData = false) {
  * @param {object} [pageFeatures] - optional DOM features from content script
  * @returns {Promise<ScanResult>}
  */
-export async function scanURL(url, pageFeatures = {}) {
+export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = {}) {
   if (!url || isInternalURL(url)) return _skippedResult(url);
+  const policy = await _getPolicySnapshot();
+  const domain = getRootDomain(url);
+  if (_matchesAny(domain, policy.allowlist)) return _policySafeResult(url, "policy_allowlist");
+  if (_matchesAny(domain, policy.blocklist)) return _policyBlockedResult(url, "policy_blocklist");
+  const warningMatch = _matchesAny(domain, policy.warninglist);
 
-  const cached = await getCachedResult(url);
   const hasDOMFeatures = Object.keys(pageFeatures).length > 0;
+  let cached = null;
 
-  if (cached) {
-    // If we don't have new DOM features, or the cache already has DOM-level results, return cache directly
-    if (!hasDOMFeatures || cached.has_dom_features) {
-      return { ...cached, from_cache: true };
+  // Check cache unless bypassed — hover scans bypass to avoid stale batch results
+  if (!bypassCache) {
+    cached = await getCachedResult(url);
+    if (cached) {
+      if (!hasDOMFeatures || cached.has_dom_features) {
+        const cachedResult = { ...cached, from_cache: true };
+        if (warningMatch && (cachedResult.score ?? 0) < THRESHOLD.WARNING * 100) {
+          cachedResult.score = Math.round(THRESHOLD.WARNING * 100);
+          cachedResult.verdict = VERDICT.WARNING;
+          cachedResult.policy_override = "warn";
+          cachedResult.policy_reason = "Matched organization warninglist";
+        }
+        return cachedResult;
+      }
     }
   }
 
@@ -103,6 +122,13 @@ export async function scanURL(url, pageFeatures = {}) {
     from_cache: false,
     scanned_at: new Date().toISOString(),
   };
+
+  if (warningMatch && result.score < THRESHOLD.WARNING * 100) {
+    result.score = Math.round(THRESHOLD.WARNING * 100);
+    result.verdict = VERDICT.WARNING;
+    result.policy_override = "warn";
+    result.policy_reason = "Matched organization warninglist";
+  }
 
   // ── Step 4: Cache result ───────────────────────────────
   await setCachedResult(url, result);
@@ -157,15 +183,40 @@ export async function scanImage(imageUrl) {
 }
 
 export async function scanURLBatch(urls, batchSize = 5) {
-  const filtered = urls.filter(u => u && !isInternalURL(u));
+  const policy = await _getPolicySnapshot();
+  const filtered = [];
+  const preResolved = [];
+  for (const url of urls) {
+    if (!url || isInternalURL(url)) continue;
+    const domain = getRootDomain(url);
+    if (_matchesAny(domain, policy.allowlist)) {
+      preResolved.push(_policySafeResult(url, "policy_allowlist"));
+      continue;
+    }
+    if (_matchesAny(domain, policy.blocklist)) {
+      preResolved.push(_policyBlockedResult(url, "policy_blocklist"));
+      continue;
+    }
+    filtered.push(url);
+  }
   const results = [];
 
   for (let i = 0; i < filtered.length; i += batchSize) {
     const batch = filtered.slice(i, i + batchSize);
     const settled = await Promise.allSettled(
       batch.map(async (url) => {
+        const domain = getRootDomain(url);
         const cached = await getCachedResult(url);
-        if (cached) return { url, ...cached, from_cache: true };
+        if (cached) {
+          const cachedResult = { url, ...cached, from_cache: true };
+          if (_matchesAny(domain, policy.warninglist) && (cachedResult.score ?? 0) < THRESHOLD.WARNING * 100) {
+            cachedResult.score = Math.round(THRESHOLD.WARNING * 100);
+            cachedResult.verdict = VERDICT.WARNING;
+            cachedResult.policy_override = "warn";
+            cachedResult.policy_reason = "Matched organization warninglist";
+          }
+          return cachedResult;
+        }
         
         const form = new FormData();
         form.append("url", url);
@@ -181,7 +232,7 @@ export async function scanURLBatch(urls, batchSize = 5) {
         
         const result = {
           url,
-          domain: getRootDomain(url),
+          domain,
           score: risk.score,
           verdict: risk.verdict,
           threat_type: risk.threat_type,
@@ -189,6 +240,13 @@ export async function scanURLBatch(urls, batchSize = 5) {
           from_cache: false,
           scanned_at: new Date().toISOString()
         };
+
+        if (_matchesAny(domain, policy.warninglist) && result.score < THRESHOLD.WARNING * 100) {
+          result.score = Math.round(THRESHOLD.WARNING * 100);
+          result.verdict = VERDICT.WARNING;
+          result.policy_override = "warn";
+          result.policy_reason = "Matched organization warninglist";
+        }
 
         // Save batch scan to cache so hover instantly resolves
         await setCachedResult(url, result);
@@ -198,7 +256,7 @@ export async function scanURLBatch(urls, batchSize = 5) {
     settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
   }
 
-  return results;
+  return [...preResolved, ...results];
 }
 
 /**
@@ -209,6 +267,28 @@ export async function scanURLBatch(urls, batchSize = 5) {
  */
 export async function scanDownload(url, filename) {
   if (!url) return { risk_score: 0, verdict: VERDICT.UNKNOWN };
+  const policy = await _getPolicySnapshot();
+  const domain = getRootDomain(url);
+  if (_matchesAny(domain, policy.allowlist)) {
+    return {
+      url,
+      filename,
+      risk_score: 0,
+      verdict: VERDICT.SAFE,
+      policy_override: "allow",
+      signals: [],
+    };
+  }
+  if (_matchesAny(domain, policy.blocklist)) {
+    return {
+      url,
+      filename,
+      risk_score: 100,
+      verdict: VERDICT.DANGER,
+      policy_override: "block",
+      signals: ["Matched organization blocklist"],
+    };
+  }
 
   // 1. Quick URL scan
   const form = new FormData();
@@ -302,5 +382,40 @@ export async function checkHealth() {
 // ── Internal helpers ──────────────────────────────────────
 function _skippedResult(url) {
   return { url, score: 0, verdict: VERDICT.SAFE, skipped: true, reason: "internal_url" };
+}
+
+function _policySafeResult(url, reason = "policy_allowlist") {
+  return { url, domain: getRootDomain(url), score: 0, verdict: VERDICT.SAFE, skipped: true, reason, policy_override: "allow" };
+}
+
+function _policyBlockedResult(url, reason = "policy_blocklist") {
+  return { url, domain: getRootDomain(url), score: 100, verdict: VERDICT.DANGER, skipped: true, reason, policy_override: "block" };
+}
+
+function _matchesAny(domain, list = []) {
+  if (!domain || !Array.isArray(list)) return false;
+  return list.some(item => {
+    const value = String(item || "").trim().toLowerCase();
+    if (!value) return false;
+    return domain === value || domain.endsWith(`.${value}`);
+  });
+}
+
+async function _getPolicySnapshot() {
+  const now = Date.now();
+  if (_policyCache && now - _policyCacheAt < POLICY_TTL_MS) return _policyCache;
+  try {
+    const stored = await chrome.storage.local.get(["custom_allowlist", "custom_blocklist", "custom_warninglist"]);
+    _policyCache = {
+      allowlist: Array.isArray(stored.custom_allowlist) ? stored.custom_allowlist : [],
+      blocklist: Array.isArray(stored.custom_blocklist) ? stored.custom_blocklist : [],
+      warninglist: Array.isArray(stored.custom_warninglist) ? stored.custom_warninglist : [],
+    };
+    _policyCacheAt = now;
+  } catch {
+    _policyCache = { allowlist: [], blocklist: [], warninglist: [] };
+    _policyCacheAt = now;
+  }
+  return _policyCache;
 }
 

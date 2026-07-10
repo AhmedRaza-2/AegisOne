@@ -60,6 +60,7 @@ export const MSG = {
 
   // Link hover
   SCAN_HOVER_URL:   "SCAN_HOVER_URL",
+  SCAN_HOVER_IMAGE: "SCAN_HOVER_IMAGE",
   HOVER_RESULT:     "HOVER_RESULT",
 
   // Search
@@ -122,5 +123,6 @@ export const STORE_KEYS = {
   DEVICE_ID:      "device_id",
   ALLOWLIST:      "custom_allowlist",
   BLOCKLIST:      "custom_blocklist",
+  WARNINGLIST:    "custom_warninglist",
   LAST_SYNC:      "last_sync_timestamp",
 };

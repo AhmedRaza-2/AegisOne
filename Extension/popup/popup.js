@@ -36,20 +36,22 @@ function _applyShieldState(enabled) {
 // ── Current Page ───────────────────────────────────────────
 async function loadCurrentPage() {
   const { data, url } = await sendMsg({ type: "GET_TAB_DATA" }) || {};
+  const displayData = _mergeDisplayData(data);
+  _updateScanMeta(displayData?.scanned_at);
 
   document.getElementById("currentUrl").textContent =
     url ? url.replace(/^https?:\/\//, "").slice(0, 52) : "—";
 
-  if (!data || data.score == null) {
+  if (!displayData || displayData.score == null) {
     _setVerdict({ score: null });
     _renderSummary(null);
-    _requestFreshScan();
+    _requestFreshScan(true);
     return;
   }
 
-  _setVerdict(data);
-  _renderBreakdown(data.breakdown, data.top_factors);
-  _renderSummary(data);
+  _setVerdict(displayData);
+  _renderBreakdown(displayData.breakdown, displayData.top_factors);
+  _renderSummary(displayData);
 }
 
 function _setVerdict({ score, verdict, threat_type }) {
@@ -80,7 +82,9 @@ function _setVerdict({ score, verdict, threat_type }) {
   status.textContent = statusText;
   detail.textContent = threat_type
     ? threat_type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-    : `${score}% Risk`;
+    : verdict
+      ? verdict.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+      : `${score}% Risk`;
 
   bar.style.display = "block";
   fill.style.width = `${score}%`;
@@ -209,17 +213,26 @@ async function rescan() {
   }
 }
 
-async function _requestFreshScan() {
+async function _requestFreshScan(force = false) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
+
+  if (!force) {
+    const current = await sendMsg({ type: "GET_TAB_DATA" }) || {};
+    if (_isRecentScan(current?.data?.scanned_at)) {
+      return;
+    }
+  }
 
   chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_DEEP_PAGE_SCAN" }).catch(() => {});
   setTimeout(async () => {
     const fresh = await sendMsg({ type: "GET_TAB_DATA" }) || {};
-    if (fresh?.data?.score != null) {
-      _setVerdict(fresh.data);
-      _renderBreakdown(fresh.data.breakdown, fresh.data.top_factors);
-      _renderSummary(fresh.data);
+    const displayData = _mergeDisplayData(fresh?.data);
+    if (displayData?.score != null) {
+      _setVerdict(displayData);
+      _renderBreakdown(displayData.breakdown, displayData.top_factors);
+      _renderSummary(displayData);
+      _updateScanMeta(displayData.scanned_at);
     }
   }, 3000);
 }
@@ -242,6 +255,74 @@ function _featureLabel(key) {
     js_behavior: "JS Behavior",
   };
   return map[key] || key.replace(/_/g, " ");
+}
+
+function _mergeDisplayData(data) {
+  if (!data) return data;
+
+  const deep = data.deepReport || data.fullReport;
+  if (!deep) return data;
+
+  const deepScore = Math.round((deep.composite_risk ?? 0) || 0);
+  const baseScore = data.score ?? 0;
+  const mergedScore = Math.max(baseScore, deepScore);
+  const mergedTopFactors = [
+    ...(deep.bad_urls || []).slice(0, 2).map(u => ({ label: `Malicious link: ${u.url.slice(0, 40)}…` })),
+    ...(deep.text_result?.top_words || []).slice(0, 2).map(word => ({ label: `Phishing keyword: "${word}"` })),
+    ...(data.top_factors || []),
+  ].slice(0, 5);
+
+  const mergedBreakdown = deepScore > baseScore
+    ? {
+        ...(data.breakdown || {}),
+        deep_page: {
+          score: deepScore,
+          label: deepScore >= 80 ? "Deep page scan indicates high risk" : "Deep page scan indicates suspicious activity",
+          available: true,
+        },
+      }
+    : data.breakdown;
+
+  return {
+    ...data,
+    score: mergedScore,
+    verdict: mergedScore >= THRESHOLD_DANGER ? "danger" : mergedScore >= THRESHOLD_WARN ? "warning" : data.verdict,
+    top_factors: mergedTopFactors,
+    breakdown: mergedBreakdown,
+  };
+}
+
+
+function _updateScanMeta(scannedAt) {
+  const meta = document.getElementById("scanMeta");
+  if (!meta) return;
+  if (!scannedAt) {
+    meta.textContent = "No recent scan";
+    return;
+  }
+
+  const age = Date.now() - new Date(scannedAt).getTime();
+  if (Number.isNaN(age)) {
+    meta.textContent = "Scan time unavailable";
+    return;
+  }
+
+  meta.textContent = _isRecentScan(scannedAt)
+    ? `Fresh scan · ${_formatAge(age)} ago`
+    : `Stale scan · ${_formatAge(age)} ago`;
+}
+
+function _isRecentScan(scannedAt, thresholdMs = 60000) {
+  if (!scannedAt) return false;
+  const age = Date.now() - new Date(scannedAt).getTime();
+  return Number.isFinite(age) && age >= 0 && age <= thresholdMs;
+}
+
+function _formatAge(ageMs) {
+  const seconds = Math.max(1, Math.round(ageMs / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  return `${minutes}m`;
 }
 
 // ── Init ───────────────────────────────────────────────────

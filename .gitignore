@@ -36,7 +36,7 @@ AIML/email/*.csv
 !AIML/email/Dataset_10191.csv
 !AIML/email/final_phishing_dataset_email.csv
 !AIML/url/final_url_dataset.csv
-
+api/database/aegisone.db
 *.pt
 *.pth
 *.ckpt
