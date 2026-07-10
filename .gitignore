@@ -255,3 +255,7 @@ node_modules
 
 AIML/image_phishing_detection_model/dataset/
 frontend/.next/
+*.db
+api/database/aegisone.db
+api/database/aegisone.db
+api/database/aegisone.db
