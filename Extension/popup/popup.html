@@ -222,13 +222,52 @@
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab-btn active" data-tab="breakdown">📊 Breakdown</button>
+    <button class="tab-btn active" data-tab="controls">🎛️ Controls</button>
+    <button class="tab-btn" data-tab="breakdown">📊 Breakdown</button>
     <button class="tab-btn" data-tab="events">🕐 Events</button>
     <button class="tab-btn" data-tab="models">🤖 Models</button>
   </div>
 
+  <!-- Controls Panel -->
+  <div class="panel active" id="panel-controls">
+    <div style="display:flex; justify-content:space-between; margin-bottom: 12px; background: rgba(16,185,129,0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.15);">
+      <div style="text-align:center; flex: 1;">
+        <div style="font-size: 16px; font-weight: 800; color: var(--green);" id="statsScans">0</div>
+        <div style="font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Total Scans</div>
+      </div>
+      <div style="width:1px; background: var(--border2); margin: 0 10px;"></div>
+      <div style="text-align:center; flex: 1;">
+        <div style="font-size: 16px; font-weight: 800; color: var(--red);" id="statsBlocked">0</div>
+        <div style="font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Threats Blocked</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:10px;">Active Protection Modules</div>
+    <div class="model-row">
+      <span class="model-name">🌐 Auto-URL Scanning</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleUrlScan" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="model-row">
+      <span class="model-name">🖱️ Hover Link Scanning</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleHoverScan" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="model-row" style="border-bottom:none;">
+      <span class="model-name">🔐 Form Guard (Passwords)</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleFormGuard" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
   <!-- Breakdown Panel -->
-  <div class="panel active" id="panel-breakdown">
+  <div class="panel" id="panel-breakdown">
     <div class="empty" id="breakdownEmpty" style="display:none;">No scan data yet.</div>
     <div id="breakdownList"></div>
   </div>

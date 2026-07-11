@@ -4,7 +4,7 @@ import { Shield, Users, AlertTriangle, Activity, BarChart3, TrendingUp, Cpu, Clo
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "@/lib/auth-context";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -28,8 +28,30 @@ export default function AdminDashboard() {
     return orgUsers.map(u => u.id);
   }, [orgUsers]);
 
+  const [realStats, setRealStats] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:9000/admin/stats")
+      .then(res => res.json())
+      .then(data => {
+        setRealStats(data);
+      })
+      .catch(console.error);
+  }, []);
+
   // Dynamic Statistics
   const dashboardStats = useMemo(() => {
+    if (realStats) {
+      return {
+        totalScans: realStats.total_scans,
+        threatsBlocked: realStats.threats_detected,
+        activeUsers: realStats.active_devices, // mapping devices to users for now
+        openIncidents: realStats.threat_reports_pending,
+        modelsOnline: Object.values(realStats.model_status || {}).filter(Boolean).length,
+        totalModels: Object.keys(realStats.model_status || {}).length,
+      };
+    }
+    
     if (isGlobalAdmin) {
       return getGlobalStats();
     } else {
@@ -48,14 +70,12 @@ export default function AdminDashboard() {
         totalModels: modelHealth.length,
       };
     }
-  }, [isGlobalAdmin, user.organization]);
+  }, [isGlobalAdmin, user.organization, realStats]);
 
   const activeThreats = useMemo(() => {
     if (isGlobalAdmin) {
-      // For Platform Head: see all open incidents from all organizations
       return incidents.filter(i => i.status === "open" || i.status === "investigating");
     } else {
-      // For Org Admin: see only their organization's incidents
       return incidents.filter(i => orgUserIds.includes(i.reportedBy) && (i.status === "open" || i.status === "investigating"));
     }
   }, [isGlobalAdmin, orgUserIds]);

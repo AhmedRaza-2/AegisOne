@@ -10,23 +10,45 @@ function RiskBadge({ level }: { level: string }) {
   return <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-650 dark:text-red-400"><XCircle className="w-3 h-3" />Danger</span>;
 }
 
+// Parse UTC string correctly to local date
+function parseLocalDate(dateStr: string) {
+  if (!dateStr) return new Date();
+  if (!dateStr.endsWith("Z") && !dateStr.includes("+")) {
+    dateStr += "Z";
+  }
+  return new Date(dateStr);
+}
+
 export default function HistoryPage() {
   const { user } = useAuth();
   const [filter, setFilter] = useState<string>("all");
+  const [dbScans, setDbScans] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  if (!user) return null;
+  useEffect(() => {
+    if (user?.email) {
+      fetch(`http://localhost:9000/user/stats?email=${encodeURIComponent(user.email)}`)
+        .then(res => res.json())
+        .then(data => {
+          setDbScans(data.scans || []);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setIsLoading(false);
+        });
+    }
+  }, [user]);
 
-  const myScans = useMemo(() => {
-    return scanHistory.filter(s => s.userId === user.id);
-  }, [user.id]);
+  if (!user) return null;
 
   const filtered = useMemo(() => {
     return filter === "all" 
-      ? myScans 
+      ? dbScans 
       : filter === "threats" 
-      ? myScans.filter(s => s.prediction !== "legitimate") 
-      : myScans.filter(s => s.scanType === filter);
-  }, [myScans, filter]);
+      ? dbScans.filter(s => s.riskLevel !== "safe") 
+      : dbScans.filter(s => s.scanType === filter);
+  }, [dbScans, filter]);
 
   return (
     <div className="space-y-6">
@@ -35,7 +57,7 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
             <History className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Scan History
           </h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{myScans.length} total scans recorded</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{dbScans.length} total scans recorded</p>
         </div>
         <div className="flex flex-wrap gap-1.5 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
           {["all", "threats", "url", "email", "text"].map(f => (
@@ -63,7 +85,7 @@ export default function HistoryPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Content Preview</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Verdict</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Risk Level</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Vector</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Action Taken</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Timestamp</th>
               </tr>
             </thead>
@@ -76,19 +98,31 @@ export default function HistoryPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5 max-w-[300px] min-w-[200px]">
-                    <p className="text-surface-850 dark:text-surface-200 truncate font-medium">{s.inputPreview}</p>
-                    {s.xaiExplanation && <p className="text-[11px] text-surface-500 truncate mt-0.5">{s.xaiExplanation}</p>}
+                    <p className="text-surface-850 dark:text-surface-200 truncate font-medium" title={s.inputPreview}>{s.inputPreview}</p>
+                    {s.threatType && <p className="text-[11px] text-surface-500 truncate mt-0.5">{s.threatType.replace(/_/g, " ")}</p>}
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={`text-xs font-semibold capitalize ${
-                      s.prediction === "legitimate" ? "text-emerald-650 dark:text-emerald-450" : "text-red-650 dark:text-red-400"
+                      s.riskLevel === "safe" ? "text-emerald-650 dark:text-emerald-450" : "text-red-650 dark:text-red-400"
                     }`}>
-                      {s.prediction}
+                      {s.riskLevel}
                     </span>
                   </td>
                   <td className="px-4 py-3.5"><RiskBadge level={s.riskLevel} /></td>
-                  <td className="px-4 py-3.5"><span className="text-xs text-surface-500 dark:text-surface-450">{s.source}</span></td>
-                  <td className="px-4 py-3.5 text-xs text-surface-500 whitespace-nowrap">{new Date(s.scannedAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3.5">
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-md ${
+                      s.decision === 'block' ? 'bg-red-500/10 text-red-500' : 
+                      s.decision === 'warn' ? 'bg-amber-500/10 text-amber-500' : 
+                      'bg-emerald-500/10 text-emerald-500'
+                    }`}>
+                      {s.decision ? s.decision.toUpperCase() : 'UNKNOWN'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5 text-xs text-surface-500 whitespace-nowrap">
+                    {parseLocalDate(s.timestamp).toLocaleString(undefined, {
+                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (

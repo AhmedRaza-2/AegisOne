@@ -284,11 +284,16 @@ function _normalizeWidgetData(data) {
     };
   }
 
-  const score = data.score == null
-    ? (data.phishing_probability != null
-      ? Math.round((data.phishing_probability <= 1 ? data.phishing_probability * 100 : data.phishing_probability))
-      : null)
-    : (data.score <= 1 ? Math.round(data.score * 100) : Math.round(data.score));
+  let score = null;
+  if (data.score != null) {
+    score = (data.score <= 1 && data.score > 0 && data.score.toString().includes(".")) 
+            ? Math.round(data.score * 100) 
+            : Math.round(data.score);
+  } else if (data.phishing_probability != null) {
+    score = data.phishing_probability <= 1 
+            ? Math.round(data.phishing_probability * 100) 
+            : Math.round(data.phishing_probability);
+  }
 
   return {
     score,

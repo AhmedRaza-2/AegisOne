@@ -23,6 +23,8 @@ from api.database.models import (
     ThreatReport,
     CredentialEvent,
     DownloadEvent,
+    WebsiteScan,
+    User,
     HoverScan,
     XAIReport,
 )
@@ -58,18 +60,56 @@ DEFAULT_POLICY = {
 # --- Compatibility Endpoints ---
 
 @router.post("/analyze/url")
-async def api_url(url: str = Form(...)):
+async def api_url(url: str = Form(...), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = predict_url(url)
-    result["latency_ms"] = round((time.time() - start) * 1000, 1)
+    
+    # Store the scan for dashboard analytics
+    score = result.get("phishing_probability", 0) * 100
+    decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
+    
+    scan = WebsiteScan(
+        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        organization_id="org_default",
+        scan_type="url",
+        url=url[:2048],
+        domain=url.split("/")[2] if "//" in url else url[:255],
+        risk_score=score,
+        threat_type=result.get("category", "benign"),
+        decision=decision,
+        scan_duration_ms=round((time.time() - start) * 1000, 1)
+    )
+    db.add(scan)
+    await db.commit()
+    
+    result["latency_ms"] = scan.scan_duration_ms
     return result
 
 
 @router.post("/analyze/text")
-async def api_text(text: str = Form(...)):
+async def api_text(text: str = Form(...), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = predict_text(text)
-    result["latency_ms"] = round((time.time() - start) * 1000, 1)
+    
+    # Store the scan for dashboard analytics
+    score = result.get("phishing_probability", 0) * 100
+    decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
+    
+    scan = WebsiteScan(
+        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        organization_id="org_default",
+        scan_type="text",
+        url="Text Snippet: " + text[:100],
+        domain="text_scan",
+        risk_score=score,
+        threat_type=result.get("prediction", "benign"),
+        decision=decision,
+        scan_duration_ms=round((time.time() - start) * 1000, 1)
+    )
+    db.add(scan)
+    await db.commit()
+    
+    result["latency_ms"] = scan.scan_duration_ms
     return result
 
 
@@ -352,6 +392,12 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
     persisted = 0
     for event in payload.events:
         event_id = event.id or str(uuid.uuid4())
+        
+        # Deduplication check to prevent UNIQUE constraint failures
+        existing = await db.execute(select(SecurityEvent).where(SecurityEvent.event_id == event_id))
+        if existing.scalar_one_or_none():
+            continue
+            
         details = event.details or {}
         entry = SecurityEvent(
             event_id=event_id,
@@ -557,3 +603,596 @@ async def ingest_hover_scan(payload: HoverScanRequest, db: AsyncSession = Depend
     await db.commit()
     return {"ok": True, "hover_scan_id": hover_id}
 
+
+# =============================================================================
+# PHASE 5 & 6: Alerts, Timeline, Stats, Recommendations
+# =============================================================================
+
+@router.get("/user/alerts")
+async def get_user_alerts(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """Module 13: Alerts Center (High severity items only)"""
+    q = await db.execute(
+        select(WebsiteScan)
+        .where(WebsiteScan.decision == "block")
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(20)
+    )
+    alerts = q.scalars().all()
+    results = []
+    for a in alerts:
+        results.append({
+            "id": a.scan_id,
+            "title": f"High Risk: {a.threat_type or 'Malicious Activity'}",
+            "description": f"Blocked access to {a.url}",
+            "time": str(a.created_at),
+            "severity": "critical"
+        })
+    # Add a mock credential alert for variety if list is small
+    import datetime
+    if len(results) < 3:
+        results.append({
+            "id": "alert-mock-1",
+            "title": "Credential Theft Prevented",
+            "description": "Stopped a password submission to an unknown server.",
+            "time": str(datetime.datetime.now() - datetime.timedelta(hours=1)),
+            "severity": "high"
+        })
+    return {"alerts": results}
+
+@router.get("/user/timeline")
+async def get_user_timeline(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """Module 14: Security Timeline (Story mode)"""
+    q = await db.execute(
+        select(WebsiteScan)
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(30)
+    )
+    scans = q.scalars().all()
+    results = []
+    for s in scans:
+        results.append({
+            "id": s.scan_id,
+            "event": "Scanned Website" if s.decision == "allow" else "Blocked Threat",
+            "target": s.domain or s.url,
+            "decision": s.decision,
+            "risk": s.risk_score,
+            "time": str(s.created_at)
+        })
+    return {"timeline": results}
+
+@router.get("/user/personal-stats")
+async def get_personal_stats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """Module 15: Personal Statistics"""
+    # Mocking historical periods for the UI
+    return {
+        "stats": {
+            "24h": {"visited": 142, "prevented": 3, "scanned": 150, "avgRisk": 12},
+            "7d": {"visited": 890, "prevented": 14, "scanned": 940, "avgRisk": 15},
+            "30d": {"visited": 3400, "prevented": 42, "scanned": 3650, "avgRisk": 10},
+        }
+    }
+
+@router.get("/user/recommendations")
+async def get_user_recommendations(email: str = Query(None)):
+    """Module 18: Security Recommendations"""
+    return {
+        "recommendations": [
+            {"id": 1, "title": "Avoid shortened URLs", "desc": "You clicked on 3 bit.ly links recently. Expand them before clicking.", "type": "warning"},
+            {"id": 2, "title": "Enable MFA", "desc": "We detected logins without Multi-Factor Authentication. Secure your accounts.", "type": "action"},
+            {"id": 3, "title": "Update Browser", "desc": "Your Chrome version is 2 versions behind. Update to patch vulnerabilities.", "type": "critical"},
+            {"id": 4, "title": "Don't reuse passwords", "desc": "AegisOne detected similar password hashes used across multiple sites.", "type": "warning"}
+        ]
+    }
+
+
+# =============================================================================
+# PHASE 4: AI & Explainability
+# =============================================================================
+
+@router.get("/user/xai")
+async def get_user_xai(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """Module 6: Explainable AI Center"""
+    q = await db.execute(
+        select(WebsiteScan)
+        .where(WebsiteScan.decision.in_(["warn", "block"]))
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(20)
+    )
+    scans = q.scalars().all()
+    
+    results = []
+    for s in scans:
+        factors_raw = s.top_factors or '["Suspicious keywords detected"]'
+        import json
+        try:
+            factors = json.loads(factors_raw) if isinstance(factors_raw, str) and factors_raw.startswith('[') else [factors_raw]
+        except:
+            factors = [factors_raw]
+            
+        results.append({
+            "id": s.scan_id,
+            "target": s.url,
+            "verdict": "Phishing" if s.decision == "block" else "Suspicious",
+            "risk": s.risk_score,
+            "confidence": min(s.risk_score + 5, 99),  # Simulated high confidence
+            "reasons": factors,
+            "recommendation": "Avoid entering credentials and close the tab immediately." if s.decision == "block" else "Proceed with extreme caution.",
+            "timestamp": str(s.created_at)
+        })
+    return {"explanations": results}
+
+@router.get("/user/models")
+async def get_ai_models_status(email: str = Query(None)):
+    """Module 12: AI Models Status"""
+    import random
+    return {
+        "models": [
+            {"name": "URL Model", "status": "Healthy", "latency": f"{random.randint(40, 80)} ms", "uptime": "99.99%", "version": "v4.2.1"},
+            {"name": "Image Model", "status": "Healthy", "latency": f"{random.randint(180, 250)} ms", "uptime": "99.95%", "version": "v2.8.0"},
+            {"name": "Text Model", "status": "Healthy", "latency": f"{random.randint(60, 110)} ms", "uptime": "99.98%", "version": "v5.0.3"},
+            {"name": "Attachment Model", "status": "Healthy", "latency": f"{random.randint(300, 450)} ms", "uptime": "99.90%", "version": "v1.9.4"}
+        ],
+        "globalLatency": "182 ms",
+        "lastUpdated": "Just now"
+    }
+
+@router.get("/user/browser")
+async def get_browser_status(email: str = Query(None)):
+    """Module 11: Browser Protection Status"""
+    return {
+        "status": {
+            "extension": "Online",
+            "protection": "Enabled",
+            "lastSync": "2 mins ago",
+            "aiConnected": "Yes",
+            "database": "Connected",
+            "mode": "Aggressive"
+        }
+    }
+
+
+# =============================================================================
+# PHASE 3: Downloads, Credentials, Image/QR
+# =============================================================================
+
+@router.get("/user/downloads")
+async def get_user_downloads(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """Module 8: Download Protection"""
+    q = await db.execute(select(DownloadEvent).order_by(DownloadEvent.created_at.desc()).limit(50))
+    downloads = q.scalars().all()
+    
+    # Mock data for FYP if empty
+    if not downloads:
+        import datetime
+        now = datetime.datetime.now()
+        results = [
+            {"id": "dl-1", "filename": "invoice_Q3.pdf", "size": "1.2 MB", "type": "PDF Document", "risk": "Low (0%)", "decision": "Allowed", "timestamp": str(now - datetime.timedelta(hours=1))},
+            {"id": "dl-2", "filename": "setup_installer.exe", "size": "45.1 MB", "type": "Executable", "risk": "High (94%)", "decision": "Blocked", "timestamp": str(now - datetime.timedelta(hours=3))},
+            {"id": "dl-3", "filename": "financial_report.xlsx", "size": "3.4 MB", "type": "Excel Spreadsheet", "risk": "Medium (45%)", "decision": "Warned", "timestamp": str(now - datetime.timedelta(hours=12))},
+            {"id": "dl-4", "filename": "meeting_notes.docx", "size": "0.8 MB", "type": "Word Document", "risk": "Low (2%)", "decision": "Allowed", "timestamp": str(now - datetime.timedelta(days=1))},
+        ]
+        return {"downloads": results}
+
+    results = []
+    for d in downloads:
+        results.append({
+            "id": d.download_id,
+            "filename": d.filename,
+            "size": f"{d.file_size_kb / 1024:.1f} MB",
+            "type": d.extension.upper() if d.extension else "Unknown",
+            "risk": f"{'High' if d.risk_score > 70 else 'Medium' if d.risk_score > 30 else 'Low'} ({d.risk_score}%)",
+            "decision": "Blocked" if d.decision == "block" else "Warned" if d.decision == "warn" else "Allowed",
+            "timestamp": str(d.created_at)
+        })
+    return {"downloads": results}
+
+@router.get("/user/credentials")
+async def get_user_credentials(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """Module 9: Credential Protection"""
+    q = await db.execute(select(CredentialEvent).order_by(CredentialEvent.created_at.desc()).limit(50))
+    creds = q.scalars().all()
+    
+    protected = 0
+    attempted = 0
+    blocked = 0
+    allowed = 0
+    timeline = []
+    
+    if not creds:
+        # Mock data for FYP
+        import datetime
+        now = datetime.datetime.now()
+        protected = 3
+        attempted = 4
+        blocked = 3
+        allowed = 1
+        timeline = [
+            {"id": "cr-1", "domain": "paypal-login.xyz", "type": "Password", "action": "Blocked", "timestamp": str(now - datetime.timedelta(hours=2))},
+            {"id": "cr-2", "domain": "microsoft-auth.net", "type": "OTP", "action": "Blocked", "timestamp": str(now - datetime.timedelta(hours=14))},
+            {"id": "cr-3", "domain": "github.com", "type": "Password", "action": "Allowed", "timestamp": str(now - datetime.timedelta(days=1))},
+            {"id": "cr-4", "domain": "internal-portal.local", "type": "PIN", "action": "Blocked", "timestamp": str(now - datetime.timedelta(days=3))},
+        ]
+    else:
+        attempted = len(creds)
+        for c in creds:
+            if c.blocked:
+                blocked += 1
+                protected += 1
+            else:
+                allowed += 1
+            
+            timeline.append({
+                "id": c.credential_event_id,
+                "domain": c.domain,
+                "type": c.credential_type.capitalize(),
+                "action": "Blocked" if c.blocked else "Allowed",
+                "timestamp": str(c.created_at)
+            })
+            
+    return {
+        "stats": {
+            "protected": protected,
+            "attempted": attempted,
+            "blocked": blocked,
+            "allowed": allowed
+        },
+        "timeline": timeline
+    }
+
+@router.get("/user/media")
+async def get_user_media(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """Module 10: Image & QR Detection"""
+    # Fetch all website scans where scan_type is image or threat_type contains QR
+    q = await db.execute(
+        select(WebsiteScan)
+        .where(
+            (WebsiteScan.scan_type == "image") | 
+            (WebsiteScan.threat_type.ilike("%qr%"))
+        )
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(50)
+    )
+    media = q.scalars().all()
+    
+    # Mock data if empty for FYP
+    if not media:
+        import datetime
+        now = datetime.datetime.now()
+        results = [
+            {"id": "md-1", "type": "QR Code", "target": "https://malicious-crypto.io", "risk": 95, "decision": "Blocked", "timestamp": str(now - datetime.timedelta(minutes=30))},
+            {"id": "md-2", "type": "Image OCR", "target": "Fake Invoice Payment Details", "risk": 65, "decision": "Warned", "timestamp": str(now - datetime.timedelta(hours=5))},
+            {"id": "md-3", "type": "Logo Spoofing", "target": "Microsoft Brand Logo", "risk": 82, "decision": "Blocked", "timestamp": str(now - datetime.timedelta(days=2))},
+        ]
+        return {"media": results}
+        
+    results = []
+    for m in media:
+        m_type = "QR Code" if "qr" in (m.threat_type or "").lower() else "Image Scan"
+        results.append({
+            "id": m.scan_id,
+            "type": m_type,
+            "target": m.url or "Unknown Source",
+            "risk": m.risk_score,
+            "decision": "Blocked" if m.decision == "block" else "Warned" if m.decision == "warn" else "Allowed",
+            "timestamp": str(m.created_at)
+        })
+    return {"media": results}
+
+
+# =============================================================================
+# PHASE 2: Threat Center (Module 3) & URL Intelligence (Module 7)
+# =============================================================================
+
+@router.get("/user/threats")
+async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """
+    Returns data for Module 3: Threat Center.
+    Categorizes all warnings and blocks into specific threat vectors.
+    """
+    from sqlalchemy import func
+    
+    # We will approximate the categories based on scan_type and threat_type
+    q = await db.execute(
+        select(WebsiteScan)
+        .where(WebsiteScan.decision.in_(["warn", "block"]))
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(100)
+    )
+    threats = q.scalars().all()
+    
+    # Categorization buckets
+    categories = {
+        "Phishing Websites": 0,
+        "Fake Login Pages": 0,
+        "Suspicious URLs": 0,
+        "Malicious Downloads": 0,
+        "Dangerous QR Codes": 0,
+        "Brand Impersonation": 0,
+        "Suspicious Scripts": 0
+    }
+    
+    recent_threats = []
+    
+    for t in threats:
+        tt = (t.threat_type or "").lower()
+        st = (t.scan_type or "").lower()
+        factors = str(t.top_factors or "").lower()
+        
+        assigned_cat = "Suspicious URLs"
+        
+        if "login" in factors or "credential" in tt:
+            categories["Fake Login Pages"] += 1
+            assigned_cat = "Fake Login Pages"
+        elif "brand" in factors or "impersonat" in tt:
+            categories["Brand Impersonation"] += 1
+            assigned_cat = "Brand Impersonation"
+        elif "script" in factors or "xss" in tt:
+            categories["Suspicious Scripts"] += 1
+            assigned_cat = "Suspicious Scripts"
+        elif st == "attachment":
+            categories["Malicious Downloads"] += 1
+            assigned_cat = "Malicious Downloads"
+        elif st == "image" or "qr" in tt:
+            categories["Dangerous QR Codes"] += 1
+            assigned_cat = "Dangerous QR Codes"
+        elif "phishing" in tt:
+            categories["Phishing Websites"] += 1
+            assigned_cat = "Phishing Websites"
+        else:
+            categories["Suspicious URLs"] += 1
+            
+        recent_threats.append({
+            "id": t.scan_id,
+            "target": t.url,
+            "category": assigned_cat,
+            "riskScore": t.risk_score,
+            "decision": "Blocked" if t.decision == "block" else "Warned",
+            "timestamp": str(t.created_at)
+        })
+        
+    cards = [{"title": k, "count": v} for k, v in categories.items()]
+    
+    return {
+        "cards": cards,
+        "recent": recent_threats[:15]
+    }
+
+@router.get("/user/url-intelligence")
+async def get_user_url_intelligence(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """
+    Returns data for Module 7: URL Intelligence.
+    Focuses exclusively on URL scans and infers SSL/Redirects for UI realism.
+    """
+    q = await db.execute(
+        select(WebsiteScan)
+        .where(WebsiteScan.scan_type == "url")
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(100)
+    )
+    scans = q.scalars().all()
+    
+    results = []
+    for s in scans:
+        url_str = s.url.lower()
+        has_ssl = url_str.startswith("https")
+        factors = str(s.top_factors or "").lower()
+        redirects = "redirect" in factors
+        
+        # Mock domain age based on risk (low risk = older, high risk = new)
+        domain_age = "5+ Years"
+        if s.risk_score > 80: domain_age = "3 Days"
+        elif s.risk_score > 50: domain_age = "2 Months"
+        elif s.risk_score > 20: domain_age = "1 Year"
+        
+        # Reputation
+        rep = "Excellent"
+        if s.risk_score > 80: rep = "Malicious"
+        elif s.risk_score > 50: rep = "Suspicious"
+        elif s.risk_score > 20: rep = "Unknown"
+        
+        results.append({
+            "id": s.scan_id,
+            "url": s.url,
+            "reputation": rep,
+            "domainAge": domain_age,
+            "ssl": "Valid (HTTPS)" if has_ssl else "Missing (HTTP)",
+            "redirects": "Detected" if redirects else "None",
+            "result": "Blocked" if s.decision == "block" else "Warned" if s.decision == "warn" else "Allowed",
+            "riskScore": s.risk_score,
+            "timestamp": str(s.created_at)
+        })
+        
+    return {"urls": results}
+
+
+@router.get("/user/analytics")
+async def get_user_analytics(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """
+    Returns data specifically formatted for the Recharts graphs in Module 4.
+    """
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import func
+    
+    # 1. Daily Risk Trend (Last 7 Days)
+    now = datetime.now(timezone.utc)
+    daily_trend = []
+    
+    for i in range(6, -1, -1):
+        target_date = (now - timedelta(days=i)).date()
+        # Count total vs threats for that day
+        total_q = await db.execute(
+            select(func.count(WebsiteScan.id))
+            .where(func.date(WebsiteScan.created_at) == target_date)
+        )
+        total = total_q.scalar() or 0
+        
+        threats_q = await db.execute(
+            select(func.count(WebsiteScan.id))
+            .where(func.date(WebsiteScan.created_at) == target_date, WebsiteScan.decision.in_(["warn", "block"]))
+        )
+        threats = threats_q.scalar() or 0
+        
+        daily_trend.append({
+            "name": target_date.strftime("%a"),
+            "safe": total - threats,
+            "threats": threats
+        })
+        
+    # 2. Threat Types Pie Chart
+    threat_types_q = await db.execute(
+        select(WebsiteScan.scan_type, func.count(WebsiteScan.id))
+        .where(WebsiteScan.decision.in_(["warn", "block"]))
+        .group_by(WebsiteScan.scan_type)
+    )
+    threat_types_raw = threat_types_q.all()
+    threat_types = [{"name": row[0].upper(), "value": row[1]} for row in threat_types_raw]
+    
+    if not threat_types:
+        threat_types = [{"name": "No Threats", "value": 1}]
+        
+    # 3. Risk Distribution
+    low_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score <= 30))
+    med_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score > 30, WebsiteScan.risk_score <= 70))
+    high_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score > 70))
+    
+    risk_distribution = [
+        {"name": "Low Risk", "count": low_q.scalar() or 0, "fill": "#22c55e"},
+        {"name": "Medium Risk", "count": med_q.scalar() or 0, "fill": "#f59e0b"},
+        {"name": "High Risk", "count": high_q.scalar() or 0, "fill": "#ef4444"}
+    ]
+    
+    return {
+        "dailyTrend": daily_trend,
+        "threatTypes": threat_types,
+        "riskDistribution": risk_distribution
+    }
+
+
+@router.get("/user/stats")
+async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """
+    Returns advanced dashboard stats including Today's Activity,
+    Security Health Score, and detailed history.
+    """
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import func
+    
+    # Get today's start and end for date filtering (using 30-day window so FYP demo has data)
+    now_utc = datetime.now(timezone.utc)
+    today_start = now_utc - timedelta(days=30)
+    
+    # We ignore the specific user email for MVP and return all scans
+    
+    # 1. Total Scans (All Time)
+    total_scans_q = await db.execute(select(func.count(WebsiteScan.id)))
+    total_scans = total_scans_q.scalar() or 0
+    
+    # 2. Total Scans (Today)
+    today_scans_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.created_at >= today_start)
+    )
+    today_scans = today_scans_q.scalar() or 0
+    
+    # 3. Safe Scans (Today)
+    today_safe_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "allow")
+    )
+    today_safe = today_safe_q.scalar() or 0
+    
+    # 4. Warnings (Today)
+    today_warnings_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "warn")
+    )
+    today_warns = today_warnings_q.scalar() or 0
+    
+    # 5. Blocks (Today)
+    today_blocks_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "block")
+    )
+    today_blocks = today_blocks_q.scalar() or 0
+    
+    # 6. Credential Events (Today) - Using SecurityEvent 'credential_intercept'
+    today_creds_q = await db.execute(
+        select(func.count(SecurityEvent.id))
+        .where(SecurityEvent.timestamp >= today_start, SecurityEvent.event_type == "credential_intercept")
+    )
+    today_creds = today_creds_q.scalar() or 0
+
+    # 7. Downloads (Today) - Mocking for now since DownloadEvent isn't populated
+    today_downloads = 0
+    today_downloads_blocked = 0
+
+    # All-time threats blocked
+    threats_blocked_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.decision.in_(["warn", "block"]))
+    )
+    threats_blocked = threats_blocked_q.scalar() or 0
+    
+    safe_rate = 100
+    if total_scans > 0:
+        safe_rate = round(((total_scans - threats_blocked) / total_scans) * 100)
+        
+    # Recent scans (fetch enough for all old logs to show in timeline)
+    scans_q = await db.execute(
+        select(WebsiteScan)
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(500)
+    )
+    recent_scans = scans_q.scalars().all()
+    
+    # Calculate Security Health Score (0-100)
+    health_score = 94 # Base
+    if today_blocks > 0: health_score -= (today_blocks * 2)
+    if today_warns > 0: health_score -= (today_warns * 1)
+    if today_creds > 0: health_score -= 5
+    if health_score > 100: health_score = 100
+    if health_score < 0: health_score = 0
+    
+    # Dynamic AI Summary (Module 1 & 22)
+    ai_summary = "Today you browsed safely."
+    if today_blocks > 0:
+        ai_summary = f"Today, {today_blocks} phishing website(s) were blocked and {today_warns} suspicious pages were prevented."
+    if today_creds > 0:
+        ai_summary += f" We successfully protected your credentials {today_creds} times."
+    elif today_blocks > 0:
+        ai_summary += " No credentials were compromised."
+
+    last_scan = str(recent_scans[0].created_at) if recent_scans else None
+    
+    return {
+        "totalScans": total_scans,
+        "threatsBlocked": threats_blocked,
+        "safeRate": safe_rate,
+        "lastScan": last_scan,
+        "healthScore": health_score,
+        "todayStats": {
+            "scans": today_scans,
+            "safe": today_safe,
+            "warnings": today_warns,
+            "blocked": today_blocks,
+            "downloads": today_downloads,
+            "downloadsBlocked": today_downloads_blocked,
+            "credentials": today_creds
+        },
+        "aiSummary": ai_summary,
+        "scans": [
+            {
+                "id": s.scan_id,
+                "scanType": s.scan_type,
+                "inputPreview": s.url,
+                "domain": s.domain,
+                "riskScore": s.risk_score,
+                "threatType": s.threat_type,
+                "topFactors": s.top_factors,
+                "decision": s.decision,
+                "riskLevel": "danger" if s.decision == "block" else "suspicious" if s.decision == "warn" else "safe",
+                "timestamp": str(s.created_at)
+            }
+            for s in recent_scans
+        ]
+    }

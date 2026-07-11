@@ -72,8 +72,14 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     summary = (
         f"AegisOne security analysis flagged this website as potentially hazardous with a composite risk score of {risk_score}%. "
         f"The primary indicators include: {reasons_str}. "
-        f"The site structure mimics credential entry gateways but is hosted on a newly registered or low-reputation domain."
     )
+    
+    if login_form_detected:
+        summary += "A suspicious credential entry form was detected on this domain."
+    elif hidden_iframes:
+        summary += "Invisible elements were detected which are commonly used in clickjacking attacks."
+    else:
+        summary += "Our AI models identified patterns consistent with known phishing or scam sites."
 
     # 4. Generate Actionable Recommendations
     recommendations = []

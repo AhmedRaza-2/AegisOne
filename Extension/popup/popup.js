@@ -10,6 +10,8 @@ const THRESHOLD_DANGER = 80;
 
 async function init() {
   await loadShieldState();
+  await loadControlToggles();
+  await loadPopupStats();
   await loadCurrentPage();
   await loadRecentEvents();
   await checkServer();
@@ -31,6 +33,44 @@ function _applyShieldState(enabled) {
   const toggle = document.getElementById("shieldToggle");
   if (label) label.textContent = enabled ? "ON" : "OFF";
   if (toggle) toggle.checked = enabled;
+}
+
+// ── Control Center Toggles ─────────────────────────────────
+async function loadControlToggles() {
+  const stored = await chrome.storage.local.get(["enableUrlScan", "enableHoverScan", "enableFormGuard"]);
+  
+  const tUrl = document.getElementById("toggleUrlScan");
+  const tHover = document.getElementById("toggleHoverScan");
+  const tForm = document.getElementById("toggleFormGuard");
+  
+  if (tUrl) {
+    tUrl.checked = stored.enableUrlScan !== false;
+    tUrl.addEventListener("change", (e) => chrome.storage.local.set({ enableUrlScan: e.target.checked }));
+  }
+  if (tHover) {
+    tHover.checked = stored.enableHoverScan !== false;
+    tHover.addEventListener("change", (e) => chrome.storage.local.set({ enableHoverScan: e.target.checked }));
+  }
+  if (tForm) {
+    tForm.checked = stored.enableFormGuard !== false;
+    tForm.addEventListener("change", (e) => chrome.storage.local.set({ enableFormGuard: e.target.checked }));
+  }
+}
+
+// ── Popup Stats ────────────────────────────────────────────
+async function loadPopupStats() {
+  try {
+    const res = await fetch("http://localhost:9000/user/stats?email=employee");
+    if (res.ok) {
+      const data = await res.json();
+      const elScans = document.getElementById("statsScans");
+      const elBlocked = document.getElementById("statsBlocked");
+      if (elScans) elScans.textContent = data.totalScans || 0;
+      if (elBlocked) elBlocked.textContent = data.threatsBlocked || 0;
+    }
+  } catch (err) {
+    console.warn("Could not load stats for popup:", err);
+  }
 }
 
 // ── Current Page ───────────────────────────────────────────

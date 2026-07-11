@@ -1,11 +1,13 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
-  UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe
+  UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
+  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
@@ -18,10 +20,13 @@ interface NavItem {
 
 const navByRole: Record<string, NavItem[]> = {
   employee: [
-    { label: "Dashboard", href: "/dashboard/employee", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/employee/scan", icon: Scan },
-    { label: "History", href: "/dashboard/employee/history", icon: History },
-    { label: "Report Threat", href: "/dashboard/employee/report", icon: Flag },
+    { label: "Dashboard Overview", href: "/dashboard/employee", icon: LayoutDashboard },
+    { label: "Threat Center", href: "/dashboard/employee/threats", icon: Shield },
+    { label: "Protection Logs", href: "/dashboard/employee/history", icon: History },
+    { label: "Explainable AI", href: "/dashboard/employee/xai", icon: BrainCircuit },
+    { label: "Risk Analytics", href: "/dashboard/employee/analytics", icon: BarChart3 },
+    { label: "Alerts & Timeline", href: "/dashboard/employee/timeline", icon: Clock },
+    { label: "System & Settings", href: "/dashboard/employee/settings", icon: Settings },
   ],
   office_admin: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
@@ -79,23 +84,24 @@ function SidebarContent({
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto custom-scrollbar">
         {navItems.map(item => {
           const active = pathname === item.href;
           return (
-            <button
+            <Link
               key={item.href}
-              onClick={() => { router.push(item.href); setMobileOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
                 active
-                  ? "bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-500/20"
-                  : "text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent"
+                  ? "bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 shadow-sm"
+                  : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent"
               }`}
               title={collapsed ? item.label : undefined}
             >
-              <item.icon className="w-[18px] h-[18px] shrink-0" />
+              <item.icon className={`shrink-0 ${active ? 'w-4 h-4' : 'w-[15px] h-[15px]'}`} />
               {!collapsed && <span>{item.label}</span>}
-            </button>
+            </Link>
           );
         })}
       </nav>

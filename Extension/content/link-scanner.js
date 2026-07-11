@@ -179,14 +179,27 @@ async function _showImageHoverPreview(img, src, token) {
 
   if (token !== _hoverToken) return;
 
-  if (!res?.result) {
-    _hideTooltip();
-    return;
-  }
+  let score = 0;
+  let verdict = "safe";
+  let top_factors = [{ label: "Image Analysis Failed" }];
 
-  const score = res.result.overall_risk_score ?? 0;
-  const verdict = res.result.verdict;
-  const top_factors = [{ label: res.result.verdict_label || "Image Analysis" }];
+  if (res?.result) {
+    const prob = res.result.phishing_probability ?? 0;
+    score = Math.round(prob * 100);
+    verdict = res.result.prediction === "phishing" ? "danger" : "safe";
+    
+    // Extract factors if available
+    if (res.result.sub_results && res.result.sub_results.length > 0) {
+      top_factors = res.result.sub_results.map(sub => ({
+        label: `[${sub.model}] ${sub.prediction} (${Math.round((sub.phishing_probability || 0) * 100)}%)`
+      }));
+    } else {
+      top_factors = [{ label: "Image Analysis" }];
+    }
+  } else {
+    // If background fetch failed (e.g. CORS or network error), fallback gracefully instead of hiding
+    top_factors = [{ label: "Could not fetch image for analysis" }];
+  }
   
   _showTooltip(img, { url: src, score, verdict, top_factors });
 
@@ -309,6 +322,16 @@ function _attachBadge(a, verdict) {
   badge.textContent = verdict === "danger" ? "⚠ Risk" : "🔶";
   badge.title = "AegisOne: This link appears suspicious";
   a.insertAdjacentElement("afterend", badge);
+  
+  // Directly highlight the text link as requested
+  if (verdict === "danger") {
+    a.style.setProperty("background-color", "rgba(239, 68, 68, 0.15)", "important");
+    a.style.setProperty("border-bottom", "2px solid #ef4444", "important");
+    a.style.setProperty("color", "#ef4444", "important");
+  } else if (verdict === "warning") {
+    a.style.setProperty("background-color", "rgba(249, 115, 22, 0.15)", "important");
+    a.style.setProperty("border-bottom", "2px solid #f97316", "important");
+  }
 }
 
 // ── URL shortener ────────────────────────────────────

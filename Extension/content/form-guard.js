@@ -251,15 +251,36 @@ function _analyzePageForms() {
  */
 function _setupSubmitInterceptors() {
   const intercepted = new WeakSet();
+  let userAllowedTyping = false;
 
-  function attachToForm(form) {
+  async function attachToForm(form) {
     if (intercepted.has(form)) return;
-    if (!form.querySelector('input[type="password"]')) return;
+    const passwordInput = form.querySelector('input[type="password"]');
+    if (!passwordInput) return;
     intercepted.add(form);
 
+    // Freeze typing on password focus
+    passwordInput.addEventListener("focus", async (e) => {
+      if (userAllowedTyping || _currentPageRisk < 50) return;
+      
+      const stored = await chrome.storage.local.get("enableFormGuard");
+      if (stored.enableFormGuard === false) return; // User disabled it
+
+      // Prevent typing
+      e.target.blur();
+      
+      _showCredentialWarning(form, _currentPageRisk, () => {
+        userAllowedTyping = true;
+        e.target.focus();
+      });
+    }, { capture: true });
+
     form.addEventListener("submit", async (e) => {
-      // Only intercept on risky pages
-      if (_currentPageRisk < 50) return;
+      // Only intercept on risky pages if not already allowed
+      if (userAllowedTyping || _currentPageRisk < 50) return;
+      
+      const stored = await chrome.storage.local.get("enableFormGuard");
+      if (stored.enableFormGuard === false) return;
 
       e.preventDefault();
 
@@ -270,7 +291,10 @@ function _setupSubmitInterceptors() {
       }).catch(() => null);
 
       if (res?.block) {
-        _showCredentialWarning(form, res.score);
+        _showCredentialWarning(form, res.score, () => {
+          userAllowedTyping = true;
+          form.submit();
+        });
       } else {
         form.submit();
       }
@@ -289,7 +313,7 @@ function _setupSubmitInterceptors() {
 /**
  * Show a credential submission warning modal.
  */
-function _showCredentialWarning(form, score) {
+function _showCredentialWarning(form, score, onAllow) {
   const existing = document.getElementById("aegis-cred-warn");
   if (existing) return;
 
@@ -311,7 +335,7 @@ function _showCredentialWarning(form, score) {
       animation: aegisSlideUp 0.3s cubic-bezier(0.16,1,0.3,1);
     ">
       <div style="padding: 14px 20px; background: rgba(239,68,68,0.12); border-bottom: 1px solid rgba(239,68,68,0.2);">
-        <span style="font-weight: 800; font-size: 12px; color: #f87171; text-transform: uppercase; letter-spacing: 1px;">⚠️ AegisOne Security Warning</span>
+        <span style="font-weight: 800; font-size: 12px; color: #f87171; text-transform: uppercase; letter-spacing: 1px;">⚠️ AegisOne Data Loss Prevention</span>
       </div>
       <div style="padding: 24px 28px;">
         <div style="
@@ -321,29 +345,29 @@ function _showCredentialWarning(form, score) {
           font-size: 28px;
           animation: aegisPulse 2s infinite;
         ">🔐</div>
-        <h2 style="font-size: 18px; font-weight: 800; color: #ef4444; margin: 0 0 10px;">Credential Submission Blocked</h2>
+        <h2 style="font-size: 18px; font-weight: 800; color: #ef4444; margin: 0 0 10px;">Password Input Frozen</h2>
         <p style="font-size: 12px; color: #94a3b8; line-height: 1.6; margin: 0 0 18px;">
           This page has a <strong style="color: #f87171;">${score}% phishing risk</strong>. 
-          Submitting your password here may expose your credentials to attackers.
+          AegisOne has frozen your keyboard to prevent accidental credential exposure.
         </p>
         <div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15); border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; text-align: left; font-size: 11px; color: #94a3b8;">
-          <div style="margin-bottom: 4px;"><strong style="color: #f1f5f9;">Page:</strong> ${location.hostname}</div>
+          <div style="margin-bottom: 4px;"><strong style="color: #f1f5f9;">Domain:</strong> ${location.hostname}</div>
           <div><strong style="color: #f1f5f9;">Risk Score:</strong> <span style="color: #f87171;">${score}%</span></div>
         </div>
-        <p style="font-size: 10px; color: #f87171; font-style: italic; margin: 0;">Never enter passwords on untrusted pages.</p>
+        <p style="font-size: 10px; color: #f87171; font-style: italic; margin: 0;">If this is a legitimate portal, you may proceed at your own risk.</p>
       </div>
       <div style="display: flex; gap: 10px; padding: 14px 20px; background: rgba(15,10,10,0.5); border-top: 1px solid rgba(239,68,68,0.12);">
         <button id="aegis-cred-block" style="
           flex: 1.5; background: #ef4444; color: #fff; border: none;
           padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
           cursor: pointer; font-family: inherit;
-        ">🛡️ Cancel Submission</button>
+        ">🛡️ Keep Protected (Close)</button>
         <button id="aegis-cred-allow" style="
           flex: 1; background: transparent; color: #64748b;
           border: 1px solid rgba(255,255,255,0.08); padding: 10px;
           border-radius: 8px; font-size: 11px; font-weight: 600;
           cursor: pointer; font-family: inherit;
-        ">Proceed Anyway</button>
+        ">Unfreeze & Proceed</button>
       </div>
     </div>
     <style>
@@ -366,6 +390,6 @@ function _showCredentialWarning(form, score) {
 
   document.getElementById("aegis-cred-allow")?.addEventListener("click", () => {
     overlay.remove();
-    form.submit();
+    if (onAllow) onAllow();
   });
 }

@@ -44,10 +44,11 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
           <ul style="list-style:none;padding:0;margin:0;">${factorsHtml}</ul>
         </div>` : ""}
       </div>
-      <div style="display:flex;gap:10px;padding:14px 20px;background:rgba(15,10,10,0.5);border-top:1px solid rgba(239,68,68,0.12);">
-        <button id="aegis-warn-explain" style="flex:1;padding:10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">✨ Explain with AI</button>
-        <button id="aegis-warn-leave" style="flex:1;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">← Leave Page</button>
-        <button id="aegis-warn-continue" style="flex:1;padding:10px;background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Proceed at Risk</button>
+      <div style="display:flex;gap:10px;padding:14px 20px;background:rgba(15,10,10,0.5);border-top:1px solid rgba(239,68,68,0.12); flex-wrap: wrap;">
+        <button id="aegis-warn-explain" style="flex:1;min-width:45%;padding:10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">✨ Explain with AI</button>
+        <button id="aegis-warn-leave" style="flex:1;min-width:45%;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">← Leave Page</button>
+        <button id="aegis-warn-falsepos" style="flex:1;min-width:45%;padding:10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s;">✅ Report False Positive</button>
+        <button id="aegis-warn-continue" style="flex:1;min-width:45%;padding:10px;background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Proceed at Risk</button>
       </div>
     </div>
   `);
@@ -66,6 +67,25 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     document.getElementById("aegis-warning-overlay")?.remove();
     await chrome.runtime.sendMessage({ type: "ALLOW_URL_SESSION", url }).catch(() => {});
     if (onContinue) onContinue();
+  });
+
+  document.getElementById("aegis-warn-falsepos")?.addEventListener("click", async () => {
+    const btn = document.getElementById("aegis-warn-falsepos");
+    if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; }
+    await chrome.runtime.sendMessage({
+      type: MSG.REPORT_THREAT,
+      url: window.location.href,
+      score: score,
+      note: "User reported False Positive"
+    }).catch(() => null);
+    
+    // Auto-allow after reporting false positive
+    setTimeout(async () => {
+      window.__AEGIS_WARNING_DISMISSED__ = true;
+      document.getElementById("aegis-warning-overlay")?.remove();
+      await chrome.runtime.sendMessage({ type: "ALLOW_URL_SESSION", url }).catch(() => {});
+      if (onContinue) onContinue();
+    }, 600);
   });
 
   document.getElementById("aegis-warn-explain")?.addEventListener("click", async () => {
