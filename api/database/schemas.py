@@ -16,6 +16,7 @@ class UserRole(str, Enum):
     EMPLOYEE = "employee"
     DEPARTMENT_ADMIN = "department_admin"
     SUPER_ADMIN = "super_admin"
+    GLOBAL_ADMIN = "global_admin"
 
 
 class Verdict(str, Enum):

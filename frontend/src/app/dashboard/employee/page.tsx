@@ -58,7 +58,7 @@ export default function EmployeeDashboard() {
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       {/* Page header */}
       <motion.div variants={fadeUp}>
-        <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Welcome back, {user.fullName.split(" ")[0]}</h1>
+        <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Welcome back, {(user?.fullName || user?.full_name || "User").split(" ")[0]}</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Your personal security overview</p>
       </motion.div>
 

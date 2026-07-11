@@ -73,10 +73,9 @@ async def refresh_tokens(req: RefreshRequest, db: AsyncSession = Depends(get_db)
 @router.post("/register", response_model=UserInfo)
 async def register(
     req: RegisterRequest, 
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.SUPER_ADMIN))
+    db: AsyncSession = Depends(get_db)
 ):
-    """Register new employee. Only SUPER_ADMIN can do this."""
+    """Register a new user account."""
     result = await db.execute(select(User).where(User.email == req.email))
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -84,8 +83,11 @@ async def register(
             detail="Email already registered",
         )
         
+    # Determine organization_id. Default to org_default if none provided.
+    org_id = req.organization_id if req.organization_id else "org_default"
+    
     new_user = User(
-        organization_id=req.organization_id or getattr(current_user, "organization_id", "org_default"),
+        organization_id=org_id,
         email=req.email,
         password_hash=hash_password(req.password),
         full_name=req.full_name,

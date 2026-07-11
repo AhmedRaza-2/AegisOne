@@ -106,7 +106,7 @@ function SidebarContent({
           <div className="flex items-center gap-3 px-2 py-2 mb-2">
             <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">{initials}</div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-surface-900 dark:text-white truncate">{user.fullName}</div>
+              <div className="text-sm font-medium text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || "User"}</div>
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${roleBadge.color}`}>{roleBadge.label}</span>
             </div>
           </div>
@@ -121,17 +121,38 @@ function SidebarContent({
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, isLoading, theme, toggleTheme } = useAuth();
+  const { user, logout, theme, toggleTheme } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isAuthorizing, setIsAuthorizing] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [user, isLoading, router]);
+    // Basic auth check
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
 
-  if (isLoading || !user) {
+    // Strict role-based route isolation
+    const role = user.role;
+    
+    // Check if user is in unauthorized territory
+    if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin") {
+      router.replace(role === "department_admin" ? "/dashboard/supervisor" : "/dashboard/employee");
+    } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin") {
+      router.replace(role === "super_admin" ? "/dashboard/admin" : "/dashboard/employee");
+    } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin")) {
+      router.replace("/dashboard/admin");
+    } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin")) {
+      router.replace("/dashboard/supervisor");
+    } else {
+      setIsAuthorizing(false);
+    }
+  }, [user, router, pathname]);
+
+  if (!user || isAuthorizing) {
     return (
       <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center">
         <Shield className="w-8 h-8 text-brand-500 animate-pulse" />
@@ -141,7 +162,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = navByRole[user.role] || navByRole.employee;
   const roleBadge = getRoleBadge(user.role);
-  const initials = user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2);
+  const userName = user?.fullName || user?.full_name || "User";
+  const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2);
 
   const handleLogout = () => { logout(); router.replace("/login"); };
 
