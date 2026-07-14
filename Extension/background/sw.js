@@ -375,7 +375,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const url = msg.url || tabData?.url;
 
           // Try LLM-based XAI first
-          let xaiResult = await explainWithAI(tabData, url);
+          let xaiResult = await explainWithAI(tabData, url, msg.score);
 
           // Fall back to local explanation if LLM unavailable
           if (xaiResult?.error || !xaiResult?.summary) {

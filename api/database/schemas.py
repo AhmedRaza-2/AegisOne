@@ -69,6 +69,9 @@ class UserInfo(BaseModel):
     full_name: str
     role: UserRole
     department: str
+    account_status: str
+    approved_by: Optional[int] = None
+    status_reason: Optional[str] = None
     created_at: datetime
 
 

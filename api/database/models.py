@@ -46,9 +46,12 @@ class User(Base):
     email           = Column(String(255), unique=True, nullable=False, index=True)
     password_hash   = Column(String(255), nullable=False)
     full_name       = Column(String(255), nullable=False)
-    role            = Column(String(50),  nullable=False, default="employee")
-    # employee | department_admin | super_admin
+    role            = Column(String(50),  nullable=False, default="user")
+    # user | admin | super_admin
     department      = Column(String(255), default="General")
+    account_status  = Column(String(50),  default="pending") # pending, approved, rejected, disabled
+    approved_by     = Column(Integer,     nullable=True)
+    status_reason   = Column(Text,        nullable=True)
     is_active       = Column(Boolean,     default=True)
     last_login      = Column(DateTime,    nullable=True)
     created_at      = Column(DateTime,    server_default=func.now())

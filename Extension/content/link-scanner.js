@@ -116,7 +116,13 @@ function _scanVisibleLinks() {
 
     if (!urls.length) return;
 
-    const res = await chrome.runtime.sendMessage({ type: "SEARCH_SCAN", urls }).catch(() => null);
+    let res = null;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "SEARCH_SCAN", urls });
+    } catch (e) {
+      // Catch "Extension context invalidated" silently
+      return;
+    }
     if (!res?.results) return;
 
     const riskMap = new Map();

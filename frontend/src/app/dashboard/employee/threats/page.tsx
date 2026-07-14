@@ -1,136 +1,249 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
-import { ShieldAlert, ShieldX, Link, Download, QrCode, MonitorPlay, AlertTriangle, Bug, Activity } from "lucide-react";
+import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
-};
+const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
-
-const ICON_MAP: Record<string, any> = {
-  "Phishing Websites": ShieldX,
-  "Fake Login Pages": ShieldAlert,
-  "Suspicious URLs": Link,
-  "Malicious Downloads": Download,
-  "Dangerous QR Codes": QrCode,
-  "Brand Impersonation": MonitorPlay,
-  "Suspicious Scripts": Bug
-};
-
-function parseLocalDate(dateStr: string) {
-  if (!dateStr) return new Date();
-  if (!dateStr.endsWith("Z") && !dateStr.includes("+")) {
-    dateStr += "Z";
-  }
-  return new Date(dateStr);
-}
 
 export default function ThreatCenterPage() {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("All");
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:9000/user/threats?email=${encodeURIComponent(user.email)}`)
-        .then(res => res.json())
-        .then(res => {
-          setData(res);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error(err);
-          setLoading(false);
-        });
+      const fetchData = () => {
+        fetch(`http://localhost:9000/user/threats?email=${encodeURIComponent(user.email)}`)
+          .then(res => res.json())
+          .then(res => {
+            setData(res);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error(err);
+            setLoading(false);
+          });
+      };
+      
+      fetchData();
+      const interval = setInterval(fetchData, 5000);
+      return () => clearInterval(interval);
     }
   }, [user]);
 
   if (!user) return null;
-  
-  if (loading) {
-    return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-brand-500 animate-spin" /></div>;
-  }
+  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-[#4F84F8] animate-spin" /></div>;
 
-  const cards = data?.cards || [];
   const recent = data?.recent || [];
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={fadeUp} className="flex items-center justify-between">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto">
+      
+      {/* Header */}
+      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
-            <ShieldAlert className="w-6 h-6 text-red-500" /> Threat Center
-          </h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Comprehensive breakdown of all categorized threats prevented by AegisOne.</p>
+          <h1 className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">Threat Center</h1>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Monitor and remediate active security incidents in real-time.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#4F84F8] hover:bg-[#3D6CE5] transition-colors text-white">
+            <Zap className="w-4 h-4" />
+            Quick Action
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.1] hover:bg-surface-50 dark:hover:bg-white/[0.05] transition-colors text-surface-700 dark:text-surface-300">
+            <Download className="w-4 h-4" />
+            Export
+          </button>
         </div>
       </motion.div>
 
-      {/* Threat Category Cards */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {cards.map((card: any) => {
-          const Icon = ICON_MAP[card.title] || AlertTriangle;
-          return (
-            <div key={card.title} className="p-4 rounded-xl bg-surface-50 dark:bg-white/[0.02] border border-surface-200/50 dark:border-white/[0.05] hover:border-red-500/30 transition-colors group cursor-pointer">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
-                  <Icon className="w-5 h-5 text-red-500" />
-                </div>
-                <div className="text-2xl font-bold text-surface-900 dark:text-white">{card.count}</div>
-              </div>
-              <div className="text-xs font-semibold text-surface-600 dark:text-surface-400 uppercase tracking-wide">{card.title}</div>
+      {/* Filter Row */}
+      <motion.div variants={fadeUp} className="flex items-center gap-3 border-b border-surface-200 dark:border-white/[0.04] pb-4">
+         <span className="text-xs font-bold text-surface-500 uppercase tracking-widest mr-2">Filter:</span>
+         {["All", "Critical", "High", "Medium", "Low"].map((f) => (
+           <button 
+             key={f}
+             onClick={() => setFilter(f)}
+             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+               filter === f 
+                 ? "bg-[#4F84F8] text-white" 
+                 : "bg-surface-100 dark:bg-white/[0.03] text-surface-600 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-white/[0.06] border border-transparent dark:border-white/[0.05]"
+             }`}
+           >
+             {f}
+           </button>
+         ))}
+      </motion.div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        {/* Main Incident List */}
+        <div className="xl:col-span-2 space-y-4">
+          
+          {recent.length === 0 && (
+            <div className="p-8 text-center text-surface-500 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04]">
+              No recent threats found matching the current filter.
             </div>
-          );
-        })}
-      </motion.div>
+          )}
 
-      {/* Recent Threats Breakdown */}
-      <motion.div variants={fadeUp} className="stat-card">
-        <h2 className="text-sm font-semibold mb-4 text-surface-900 dark:text-white">Recent Detections</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-surface-200 dark:border-white/[0.05] text-xs uppercase text-surface-500 font-semibold tracking-wider">
-                <th className="pb-3 pl-2">Timestamp</th>
-                <th className="pb-3">Target</th>
-                <th className="pb-3">Category</th>
-                <th className="pb-3">Risk</th>
-                <th className="pb-3 text-right pr-2">Decision</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm divide-y divide-surface-200/50 dark:divide-white/[0.02]">
-              {recent.map((threat: any) => (
-                <tr key={threat.id} className="hover:bg-surface-50 dark:hover:bg-white/[0.01] transition-colors">
-                  <td className="py-3 pl-2 text-surface-500 text-xs">
-                    {parseLocalDate(threat.timestamp).toLocaleString(undefined, {
-                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                    })}
-                  </td>
-                  <td className="py-3 font-mono text-xs text-surface-900 dark:text-surface-200 max-w-[200px] truncate" title={threat.target}>{threat.target}</td>
-                  <td className="py-3">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-100 dark:bg-white/[0.05] text-[11px] font-semibold text-surface-700 dark:text-surface-300">
-                      {threat.category}
-                    </span>
-                  </td>
-                  <td className="py-3 font-bold text-red-500">{threat.riskScore}%</td>
-                  <td className="py-3 text-right pr-2">
-                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${threat.decision === 'Blocked' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                      {threat.decision}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {recent.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-surface-500 text-sm">No recent threats found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {recent.map((threat: any) => {
+             const isCritical = threat.riskScore >= 80;
+             const isHigh = threat.riskScore >= 60 && threat.riskScore < 80;
+             const isMedium = threat.riskScore >= 30 && threat.riskScore < 60;
+             
+             let severity = "Low";
+             let colorClass = "bg-surface-400 dark:bg-surface-600";
+             let textClass = "text-surface-600 dark:text-surface-400";
+             let borderClass = "border-surface-300 dark:border-surface-600";
+             let bgLightClass = "bg-surface-100 dark:bg-white/[0.05]";
+             let icon = <RefreshCw className={`w-6 h-6 text-surface-500`} />;
+
+             if (isCritical) {
+               severity = "Critical"; colorClass = "bg-red-500"; textClass = "text-red-500";
+               borderClass = "border-red-500"; bgLightClass = "bg-red-500/10";
+               icon = <AlertCircle className="w-6 h-6 text-red-500" />;
+             } else if (isHigh) {
+               severity = "High"; colorClass = "bg-amber-500"; textClass = "text-amber-500";
+               borderClass = "border-amber-500/50"; bgLightClass = "bg-amber-500/10";
+               icon = <ShieldAlert className="w-6 h-6 text-amber-500" />;
+             } else if (isMedium) {
+               severity = "Medium"; colorClass = "bg-[#4F84F8]"; textClass = "text-[#4F84F8]";
+               borderClass = "border-[#4F84F8]/50"; bgLightClass = "bg-[#4F84F8]/10";
+               icon = <Shield className="w-6 h-6 text-[#4F84F8]" />;
+             }
+
+             return (
+              <motion.div key={threat.id} variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col sm:flex-row gap-5 relative overflow-hidden group">
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${colorClass}`}></div>
+                
+                <div className="flex-1 flex gap-5">
+                  <div className={`w-12 h-12 rounded-xl ${bgLightClass} border border-white/[0.05] flex items-center justify-center shrink-0`}>
+                    {icon}
+                  </div>
+                  <div className="flex-1">
+                     <div className="flex items-center gap-2 mb-2">
+                       <span className={`px-2 py-0.5 rounded border ${isCritical ? 'bg-red-500 text-white border-red-500' : borderClass + ' ' + textClass} text-[10px] font-bold uppercase tracking-wider`}>{severity}</span>
+                       <span className="text-xs text-surface-500 font-mono">#{threat.id.split('-')[0].toUpperCase()}</span>
+                     </div>
+                     <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">{threat.category}</h3>
+                     <div className="text-[11px] font-mono text-surface-600 dark:text-surface-400 leading-relaxed bg-surface-50 dark:bg-[#0B0F19] p-3 rounded-lg border border-surface-200 dark:border-white/[0.05]">
+                        TARGET: {threat.target}<br/>
+                        {threat.decision === 'Blocked' && <span className="text-red-500">ACTION: Request Terminated</span>}
+                     </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:items-end justify-between shrink-0 gap-4">
+                   <div className="grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-2 text-left sm:text-right w-full">
+                     <div>
+                        <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-0.5">Detection Time</div>
+                        <div className="text-xs font-mono text-surface-900 dark:text-white">{new Date(threat.timestamp).toLocaleString()}</div>
+                     </div>
+                     <div>
+                        <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-0.5">Target Endpoint</div>
+                        <div className="text-xs font-mono text-surface-900 dark:text-white flex items-center sm:justify-end gap-1"><Monitor className="w-3 h-3" /> LOCAL-WKST</div>
+                     </div>
+                   </div>
+                   
+                   <div className="flex items-center gap-2 w-full sm:justify-end">
+                     {threat.decision === 'Blocked' && (
+                       <button className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold transition-colors">
+                         Remediate
+                       </button>
+                     )}
+                     <button className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-surface-100 dark:bg-white/[0.05] hover:bg-surface-200 dark:hover:bg-white/[0.08] text-surface-900 dark:text-white text-xs font-bold transition-colors">
+                       Details
+                     </button>
+                   </div>
+                </div>
+              </motion.div>
+             );
+          })}
+
         </div>
-      </motion.div>
+
+        {/* Right Sidebar */}
+        <div className="xl:col-span-1 space-y-6">
+           
+           {/* Global Activity */}
+           <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col">
+              <h3 className="text-sm font-bold text-surface-900 dark:text-white mb-4">Global Activity</h3>
+              <div className="relative h-40 w-full rounded-lg border border-surface-100 dark:border-white/[0.05] bg-[#0B0F19] overflow-hidden mb-4 flex items-center justify-center">
+                 {/* Fake Map visualization */}
+                 <svg className="absolute w-[150%] h-[150%] opacity-20" viewBox="0 0 800 400" fill="none">
+                    <path d="M100 200 Q200 100 400 200 T700 200" stroke="#4F84F8" strokeWidth="2" strokeDasharray="4 4" />
+                    <circle cx="100" cy="200" r="4" fill="#ef4444" />
+                    <circle cx="400" cy="200" r="4" fill="#ef4444" />
+                    <circle cx="700" cy="200" r="4" fill="#4F84F8" />
+                 </svg>
+                 <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/50 backdrop-blur border border-white/[0.1] text-[9px] font-bold text-[#4F84F8] tracking-widest uppercase flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse"></span> Live Feed
+                 </div>
+                 <div className="absolute bottom-2 left-2 right-2 text-[10px] font-mono text-surface-400 bg-black/80 p-2 rounded">
+                    BLOCK: 192.168.1.1 -&gt; AWS-US-EAST<br/>
+                    INFO: New edge point established in Frankfurt
+                 </div>
+              </div>
+           </motion.div>
+
+           {/* Active Alerts */}
+           <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col">
+              <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-4">Active Alerts</h3>
+              <div className="space-y-4">
+                 <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                       <div className="text-sm font-bold text-surface-900 dark:text-white mb-0.5">DDoS Attack Mitigation</div>
+                       <div className="text-xs text-surface-500 leading-relaxed mb-1">Elevated traffic detected on port 80/443 in Tokyo datacenter.</div>
+                       <div className="text-[10px] text-surface-400 font-bold uppercase">1 minute ago</div>
+                    </div>
+                 </div>
+                 <div className="h-px w-full bg-surface-100 dark:bg-white/[0.05]"></div>
+                 
+                 <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                       <div className="text-sm font-bold text-surface-900 dark:text-white mb-0.5">Anomalous DNS Query</div>
+                       <div className="text-xs text-surface-500 leading-relaxed mb-1">Unexpected TXT record request from HR-Subnet-01.</div>
+                       <div className="text-[10px] text-surface-400 font-bold uppercase">12 minutes ago</div>
+                    </div>
+                 </div>
+                 <div className="h-px w-full bg-surface-100 dark:bg-white/[0.05]"></div>
+                 
+                 <div className="flex items-start gap-3">
+                    <ShieldCheck className="w-4 h-4 text-[#4F84F8] shrink-0 mt-0.5" />
+                    <div>
+                       <div className="text-sm font-bold text-surface-900 dark:text-white mb-0.5">Auto-Patch Successful</div>
+                       <div className="text-xs text-surface-500 leading-relaxed mb-1">Kernel vulnerability CVE-2023-4521 patched on 12 nodes.</div>
+                       <div className="text-[10px] text-surface-400 font-bold uppercase">45 minutes ago</div>
+                    </div>
+                 </div>
+              </div>
+           </motion.div>
+
+           {/* Small Stats */}
+           <div className="grid grid-cols-2 gap-4">
+              <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
+                 <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Remediated</h3>
+                 <div className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">124</div>
+              </motion.div>
+              <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
+                 <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Threat Score</h3>
+                 <div className="text-3xl font-bold text-red-500 tracking-tight">9.2</div>
+              </motion.div>
+           </div>
+           
+           <motion.div variants={fadeUp}>
+             <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-surface-100 dark:bg-white/[0.03] hover:bg-surface-200 dark:hover:bg-white/[0.06] transition-colors text-sm font-bold text-surface-700 dark:text-surface-300 border border-surface-200 dark:border-white/[0.05]">
+               <ExternalLink className="w-4 h-4" /> View Full Network Report
+             </button>
+           </motion.div>
+
+        </div>
+      </div>
     </motion.div>
   );
 }

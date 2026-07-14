@@ -2,7 +2,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { scanHistory } from "@/lib/mock-data";
 import { History, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 function RiskBadge({ level }: { level: string }) {
   if (level === "safe") return <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-650 dark:text-emerald-400"><CheckCircle className="w-3 h-3" />Safe</span>;

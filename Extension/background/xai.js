@@ -20,7 +20,7 @@ import { getCachedResult } from "./cache.js";
  * @param {string} url
  * @returns {Promise<XAIResult>}
  */
-export async function explainWithAI(tabData, url) {
+export async function explainWithAI(tabData, url, explicitScore) {
   let scanData = tabData;
   if (url && url !== tabData?.url) {
     const cached = await getCachedResult(url);
@@ -33,11 +33,12 @@ export async function explainWithAI(tabData, url) {
 
   // ── Build compact evidence payload ───────────────────
   // We deliberately do NOT send full HTML, all cookies, or full JS.
+  const finalScore = explicitScore !== undefined ? explicitScore : scanData.score;
   const evidence = {
     url,
     domain: scanData.domain,
-    risk_score: scanData.score,
-    verdict: scanData.verdict,
+    risk_score: finalScore,
+    verdict: finalScore >= 80 ? "danger" : finalScore >= 50 ? "warning" : "safe",
     threat_type: scanData.threat_type,
 
     // Risk breakdown — structured features only

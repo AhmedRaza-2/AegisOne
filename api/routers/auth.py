@@ -33,6 +33,17 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
             detail="Account is deactivated",
         )
         
+    if user.account_status == "pending":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is awaiting admin approval",
+        )
+    elif user.account_status in ("rejected", "disabled"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account access denied",
+        )
+        
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
     refresh_token = create_refresh_token(data={"sub": user.email, "role": user.role})
     
@@ -56,10 +67,10 @@ async def refresh_tokens(req: RefreshRequest, db: AsyncSession = Depends(get_db)
     email = payload.get("sub")
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.account_status != "approved":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or deactivated",
+            detail="User not found, deactivated, or not approved",
         )
 
     return TokenResponse(
@@ -70,7 +81,7 @@ async def refresh_tokens(req: RefreshRequest, db: AsyncSession = Depends(get_db)
     )
 
 
-@router.post("/register", response_model=UserInfo)
+@router.post("/register", response_model=UserInfo, status_code=status.HTTP_201_CREATED)
 async def register(
     req: RegisterRequest, 
     db: AsyncSession = Depends(get_db)
@@ -92,7 +103,8 @@ async def register(
         password_hash=hash_password(req.password),
         full_name=req.full_name,
         role=req.role.value,
-        department=req.department
+        department=req.department,
+        account_status="pending"
     )
     
     db.add(new_user)

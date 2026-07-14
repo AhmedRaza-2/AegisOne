@@ -85,6 +85,8 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = 
   if (!urlModel) {
     const form = new FormData();
     form.append("url", url);
+    const scanType = hasDOMFeatures ? "website" : "url";
+    form.append("scan_type", scanType);
     urlModel = await callAPI("/analyze/url", form, true);
   }
 

@@ -11,7 +11,7 @@ import uuid
 import httpx
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query
 from typing import Dict, Any, List
-from sqlalchemy import select
+from sqlalchemy import select, desc, func, update, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel as BaseModel_
 
@@ -60,7 +60,7 @@ DEFAULT_POLICY = {
 # --- Compatibility Endpoints ---
 
 @router.post("/analyze/url")
-async def api_url(url: str = Form(...), db: AsyncSession = Depends(get_db)):
+async def api_url(url: str = Form(...), scan_type: str = Form("url"), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = predict_url(url)
     
@@ -71,7 +71,7 @@ async def api_url(url: str = Form(...), db: AsyncSession = Depends(get_db)):
     scan = WebsiteScan(
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
         organization_id="org_default",
-        scan_type="url",
+        scan_type=scan_type,
         url=url[:2048],
         domain=url.split("/")[2] if "//" in url else url[:255],
         risk_score=score,
@@ -900,14 +900,14 @@ async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(
     )
     threats = q.scalars().all()
     
-    # Categorization buckets
+    # Dynamic Categorization buckets based on actual scan types
     categories = {
         "Phishing Websites": 0,
+        "Malware Domains": 0,
+        "Malicious Text/Emails": 0,
+        "Dangerous Downloads": 0,
+        "Dangerous QR/Images": 0,
         "Fake Login Pages": 0,
-        "Suspicious URLs": 0,
-        "Malicious Downloads": 0,
-        "Dangerous QR Codes": 0,
-        "Brand Impersonation": 0,
         "Suspicious Scripts": 0
     }
     
@@ -916,30 +916,36 @@ async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(
     for t in threats:
         tt = (t.threat_type or "").lower()
         st = (t.scan_type or "").lower()
-        factors = str(t.top_factors or "").lower()
+        url_lower = (t.url or "").lower()
         
-        assigned_cat = "Suspicious URLs"
+        assigned_cat = "Suspicious Content"
         
-        if "login" in factors or "credential" in tt:
-            categories["Fake Login Pages"] += 1
-            assigned_cat = "Fake Login Pages"
-        elif "brand" in factors or "impersonat" in tt:
-            categories["Brand Impersonation"] += 1
-            assigned_cat = "Brand Impersonation"
-        elif "script" in factors or "xss" in tt:
-            categories["Suspicious Scripts"] += 1
-            assigned_cat = "Suspicious Scripts"
-        elif st == "attachment":
-            categories["Malicious Downloads"] += 1
-            assigned_cat = "Malicious Downloads"
+        # Determine strict category based on scan_type and threat_type
+        if st == "text":
+            categories["Malicious Text/Emails"] += 1
+            assigned_cat = "Malicious Text/Emails"
         elif st == "image" or "qr" in tt:
-            categories["Dangerous QR Codes"] += 1
-            assigned_cat = "Dangerous QR Codes"
-        elif "phishing" in tt:
+            categories["Dangerous QR/Images"] += 1
+            assigned_cat = "Dangerous QR/Images"
+        elif st == "attachment":
+            categories["Dangerous Downloads"] += 1
+            assigned_cat = "Dangerous Downloads"
+        elif st == "url":
+            if "login" in url_lower or "signin" in url_lower or "credential" in tt:
+                categories["Fake Login Pages"] += 1
+                assigned_cat = "Fake Login Pages"
+            elif "malware" in tt:
+                categories["Malware Domains"] += 1
+                assigned_cat = "Malware Domains"
+            elif "script" in tt or "xss" in tt:
+                categories["Suspicious Scripts"] += 1
+                assigned_cat = "Suspicious Scripts"
+            else:
+                categories["Phishing Websites"] += 1
+                assigned_cat = "Phishing Websites"
+        else:
             categories["Phishing Websites"] += 1
             assigned_cat = "Phishing Websites"
-        else:
-            categories["Suspicious URLs"] += 1
             
         recent_threats.append({
             "id": t.scan_id,
@@ -950,11 +956,13 @@ async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(
             "timestamp": str(t.created_at)
         })
         
+    # Remove categories with 0 count to keep UI clean, but ensure at least 4 for grid layout
     cards = [{"title": k, "count": v} for k, v in categories.items()]
+    cards.sort(key=lambda x: x["count"], reverse=True)
     
     return {
         "cards": cards,
-        "recent": recent_threats[:15]
+        "recent": recent_threats[:25]
     }
 
 @router.get("/user/url-intelligence")
@@ -1020,17 +1028,15 @@ async def get_user_analytics(email: str = Query(None), db: AsyncSession = Depend
     for i in range(6, -1, -1):
         target_date = (now - timedelta(days=i)).date()
         # Count total vs threats for that day
-        total_q = await db.execute(
+        total = await db.scalar(
             select(func.count(WebsiteScan.id))
-            .where(func.date(WebsiteScan.created_at) == target_date)
-        )
-        total = total_q.scalar() or 0
+            .where(cast(WebsiteScan.created_at, Date) == target_date)
+        ) or 0
         
-        threats_q = await db.execute(
+        threats = await db.scalar(
             select(func.count(WebsiteScan.id))
-            .where(func.date(WebsiteScan.created_at) == target_date, WebsiteScan.decision.in_(["warn", "block"]))
-        )
-        threats = threats_q.scalar() or 0
+            .where(cast(WebsiteScan.created_at, Date) == target_date, WebsiteScan.decision.in_(["warn", "block"]))
+        ) or 0
         
         daily_trend.append({
             "name": target_date.strftime("%a"),
@@ -1115,16 +1121,32 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     )
     today_blocks = today_blocks_q.scalar() or 0
     
-    # 6. Credential Events (Today) - Using SecurityEvent 'credential_intercept'
+    # 6. Detailed Scan Types Breakdown
+    scan_types_q = await db.execute(
+        select(WebsiteScan.scan_type, func.count(WebsiteScan.id))
+        .group_by(WebsiteScan.scan_type)
+    )
+    scan_types_raw = scan_types_q.all()
+    types_breakdown = {"website": 0, "url": 0, "text": 0, "image": 0, "attachment": 0}
+    for row in scan_types_raw:
+        stype = (row[0] or "url").lower()
+        if stype in types_breakdown:
+            types_breakdown[stype] += row[1]
+            
+    # 7. Critical vs Non-Critical (All Time)
+    critical_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.risk_score >= 75)
+    )
+    critical_count = critical_q.scalar() or 0
+    non_critical_count = total_scans - critical_count
+
+    # 8. Credential Events (Today)
     today_creds_q = await db.execute(
         select(func.count(SecurityEvent.id))
         .where(SecurityEvent.timestamp >= today_start, SecurityEvent.event_type == "credential_intercept")
     )
     today_creds = today_creds_q.scalar() or 0
-
-    # 7. Downloads (Today) - Mocking for now since DownloadEvent isn't populated
-    today_downloads = 0
-    today_downloads_blocked = 0
 
     # All-time threats blocked
     threats_blocked_q = await db.execute(
@@ -1137,7 +1159,7 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     if total_scans > 0:
         safe_rate = round(((total_scans - threats_blocked) / total_scans) * 100)
         
-    # Recent scans (fetch enough for all old logs to show in timeline)
+    # Recent scans
     scans_q = await db.execute(
         select(WebsiteScan)
         .order_by(WebsiteScan.created_at.desc())
@@ -1146,37 +1168,35 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     recent_scans = scans_q.scalars().all()
     
     # Calculate Security Health Score (0-100)
-    health_score = 94 # Base
-    if today_blocks > 0: health_score -= (today_blocks * 2)
-    if today_warns > 0: health_score -= (today_warns * 1)
-    if today_creds > 0: health_score -= 5
-    if health_score > 100: health_score = 100
+    health_score = 100
+    if critical_count > 0: health_score -= min(30, critical_count * 2)
+    if today_warns > 0: health_score -= min(15, today_warns * 1)
+    if today_creds > 0: health_score -= 10
     if health_score < 0: health_score = 0
     
-    # Dynamic AI Summary (Module 1 & 22)
-    ai_summary = "Today you browsed safely."
-    if today_blocks > 0:
-        ai_summary = f"Today, {today_blocks} phishing website(s) were blocked and {today_warns} suspicious pages were prevented."
+    # Dynamic AI Summary
+    ai_summary = "Your digital footprint is currently secure."
+    if critical_count > 0:
+        ai_summary = f"AegisOne has blocked {critical_count} critical threats recently. "
     if today_creds > 0:
-        ai_summary += f" We successfully protected your credentials {today_creds} times."
-    elif today_blocks > 0:
-        ai_summary += " No credentials were compromised."
+        ai_summary += f"We successfully protected your credentials {today_creds} times today."
 
     last_scan = str(recent_scans[0].created_at) if recent_scans else None
     
     return {
         "totalScans": total_scans,
         "threatsBlocked": threats_blocked,
+        "criticalThreats": critical_count,
+        "nonCriticalThreats": non_critical_count,
         "safeRate": safe_rate,
         "lastScan": last_scan,
         "healthScore": health_score,
+        "scanBreakdown": types_breakdown,
         "todayStats": {
             "scans": today_scans,
             "safe": today_safe,
             "warnings": today_warns,
             "blocked": today_blocks,
-            "downloads": today_downloads,
-            "downloadsBlocked": today_downloads_blocked,
             "credentials": today_creds
         },
         "aiSummary": ai_summary,

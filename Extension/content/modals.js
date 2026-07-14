@@ -97,6 +97,7 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     const res = await chrome.runtime.sendMessage({
       type: MSG.XAI_REQUEST,
       url,
+      score: score,
     }).catch(() => null);
 
     document.getElementById("aegis-warning-overlay")?.remove();
@@ -438,6 +439,7 @@ function _showCompactResult({ title, subtitle, score, factors, id, contextUrl })
         const res = await chrome.runtime.sendMessage({
           type: "XAI_REQUEST",
           url: contextUrl || window.location.href,
+          score: score,
         }).catch(() => null);
 
         popup.remove();

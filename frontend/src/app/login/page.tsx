@@ -20,7 +20,7 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("registered") === "true") {
-        setSuccessMsg("Registration successful! You can now log in.");
+        setSuccessMsg("Registration successful. Please wait for an admin to approve your account.");
       }
     }
   }, []);
@@ -116,7 +116,11 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            {error && <p className="text-sm text-red-500 dark:text-red-400 text-center">{error}</p>}
+            {error && (
+              error.includes("awaiting admin approval") 
+                ? <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-600 dark:text-yellow-400 text-center">{error}</div>
+                : <p className="text-sm text-red-500 dark:text-red-400 text-center">{error}</p>
+            )}
             <button
               type="submit"
               disabled={loading}

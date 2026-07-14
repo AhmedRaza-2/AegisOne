@@ -8,7 +8,7 @@ import json
 from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, cast, Date
 
 from api.database.db import get_db
 from api.database.models import (
@@ -30,9 +30,6 @@ from api.services.model_orchestrator import get_model_status
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
-# SQLite-compatible "today" filter using the database's date() function
-_TODAY = func.date("now")
-
 
 # ── Shared scope helper ───────────────────────────────────────────────────────
 
@@ -52,10 +49,8 @@ async def _compute_and_store_daily_stats(db: AsyncSession, org_id: str, target_d
     and upsert them into dashboard_statistics.
     Called as a background task from /admin/stats/refresh.
     """
-    date_str = target_date.isoformat()
-
     def today_filter(col):
-        return func.date(col) == date_str
+        return cast(col, Date) == target_date
 
     # Scan counts
     total_scans = await db.scalar(
@@ -165,18 +160,15 @@ async def _compute_and_store_daily_stats(db: AsyncSession, org_id: str, target_d
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    # current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
 ):
     """
     Real-time admin statistics.
     Today's view reads from dashboard_statistics (fast pre-aggregate).
     All-time totals are computed live from the event tables.
     """
-    org_id   = "org_default"
-    is_super = True
-    class DummyUser:
-        role = Role.SUPER_ADMIN.value
-    current_user = DummyUser()
+    org_id   = getattr(current_user, "organization_id", None) or "org_default"
+    is_super = current_user.role == Role.SUPER_ADMIN.value
 
     # ── 1. Today's stats — from pre-aggregated table if available ─────────────
     today_row = await db.scalar(
@@ -193,7 +185,7 @@ async def get_stats(
         scans_today = await db.scalar(
             _org_scope(
                 select(func.count(WebsiteScan.id))
-                .where(func.date(WebsiteScan.created_at) == _TODAY),
+                .where(cast(WebsiteScan.created_at, Date) == date.today()),
                 WebsiteScan, current_user,
             )
         ) or 0
@@ -201,7 +193,7 @@ async def get_stats(
         ev_today = await db.scalar(
             _org_scope(
                 select(func.count(SecurityEvent.id))
-                .where(func.date(SecurityEvent.timestamp) == _TODAY),
+                .where(cast(SecurityEvent.timestamp, Date) == date.today()),
                 SecurityEvent, current_user,
             )
         ) or 0
@@ -211,7 +203,7 @@ async def get_stats(
             _org_scope(
                 select(func.count(WebsiteScan.id))
                 .where(WebsiteScan.decision.in_(["warn", "block"]))
-                .where(func.date(WebsiteScan.created_at) == _TODAY),
+                .where(cast(WebsiteScan.created_at, Date) == date.today()),
                 WebsiteScan, current_user,
             )
         ) or 0
@@ -566,3 +558,74 @@ async def get_audit_logs(
             for r in rows
         ],
     }
+
+
+# ── User Approvals ────────────────────────────────────────────────────────────
+
+from pydantic import BaseModel
+from fastapi import HTTPException
+
+class StatusUpdateRequest(BaseModel):
+    status: str
+    reason: str = None
+
+@router.get("/users/pending")
+async def get_pending_users(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.DEPARTMENT_ADMIN))
+):
+    """Fetch all users awaiting approval."""
+    # If the user is just an admin (not super_admin), restrict to their org
+    query = select(User).where(User.account_status == "pending")
+    query = _org_scope(query, User, user)
+    
+    result = await db.execute(query.order_by(User.created_at.desc()))
+    users = result.scalars().all()
+    
+    return {
+        "pending": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "full_name": u.full_name,
+                "department": u.department,
+                "created_at": str(u.created_at)
+            }
+            for u in users
+        ]
+    }
+
+
+@router.patch("/users/{user_id}/status")
+async def update_user_status(
+    user_id: int,
+    req: StatusUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.DEPARTMENT_ADMIN))
+):
+    """Approve, reject, or disable a user account."""
+    if req.status not in ["approved", "rejected", "disabled", "pending"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+        
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Check permissions
+    if admin.role not in ["super_admin", "global_admin"] and user.organization_id != admin.organization_id:
+        raise HTTPException(status_code=403, detail="Cannot modify users outside your organization")
+        
+    # Prevent standard admins from modifying super admins
+    if user.role in ["super_admin", "global_admin"] and admin.role not in ["super_admin", "global_admin"]:
+        raise HTTPException(status_code=403, detail="Cannot modify super_admin accounts")
+
+    user.account_status = req.status
+    user.status_reason = req.reason
+    user.approved_by = admin.id
+    
+    await db.commit()
+    
+    return {"message": f"User account {req.status}", "user_id": user_id, "status": req.status}
+

@@ -440,6 +440,13 @@ def predict_url(url: str, include_xai: bool = False) -> dict:
         domain = parsed.netloc.lower()
         if domain.startswith("www."):
             domain = domain[4:]
+            
+        if not domain and " " not in url and "." in url:
+            parsed = urlparse("http://" + url)
+            domain = parsed.netloc.lower()
+            if domain.startswith("www."):
+                domain = domain[4:]
+                
         for trusted in TRUSTED_DOMAINS:
             if domain == trusted or domain.endswith("." + trusted):
                 dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)

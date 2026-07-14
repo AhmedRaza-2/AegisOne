@@ -7,7 +7,7 @@ import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
   UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
-  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit
+  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
@@ -20,13 +20,11 @@ interface NavItem {
 
 const navByRole: Record<string, NavItem[]> = {
   employee: [
-    { label: "Dashboard Overview", href: "/dashboard/employee", icon: LayoutDashboard },
+    { label: "Overview", href: "/dashboard/employee", icon: LayoutDashboard },
     { label: "Threat Center", href: "/dashboard/employee/threats", icon: Shield },
-    { label: "Protection Logs", href: "/dashboard/employee/history", icon: History },
-    { label: "Explainable AI", href: "/dashboard/employee/xai", icon: BrainCircuit },
-    { label: "Risk Analytics", href: "/dashboard/employee/analytics", icon: BarChart3 },
-    { label: "Alerts & Timeline", href: "/dashboard/employee/timeline", icon: Clock },
-    { label: "System & Settings", href: "/dashboard/employee/settings", icon: Settings },
+    { label: "AI Insights", href: "/dashboard/employee/xai", icon: Lightbulb },
+    { label: "Analytics", href: "/dashboard/employee/analytics", icon: BarChart3 },
+    { label: "Settings", href: "/dashboard/employee/settings", icon: Settings },
   ],
   office_admin: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
@@ -35,9 +33,18 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Incidents", href: "/dashboard/supervisor/incidents", icon: AlertTriangle },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
   ],
+  department_admin: [
+    { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
+    { label: "Scan", href: "/dashboard/supervisor/scan", icon: Scan },
+    { label: "Approvals", href: "/dashboard/admin/approvals", icon: ShieldAlert },
+    { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
+    { label: "Incidents", href: "/dashboard/supervisor/incidents", icon: AlertTriangle },
+    { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
+  ],
   global_admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
+    { label: "Approvals", href: "/dashboard/admin/approvals", icon: Users },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
     { label: "Settings", href: "/dashboard/admin/settings", icon: Settings },
@@ -46,6 +53,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Scan", href: "/dashboard/admin/scan", icon: Scan },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
+    { label: "Approvals", href: "/dashboard/admin/approvals", icon: ShieldAlert },
     { label: "Users", href: "/dashboard/admin/users", icon: Users },
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
@@ -53,7 +61,6 @@ const navByRole: Record<string, NavItem[]> = {
   ],
 };
 
-// Extracted static component outside DashboardLayout to prevent mounting leaks
 function SidebarContent({
   collapsed,
   navItems,
@@ -64,38 +71,34 @@ function SidebarContent({
   roleBadge,
   handleLogout,
   setMobileOpen,
-}: {
-  collapsed: boolean;
-  navItems: NavItem[];
-  pathname: string;
-  router: any;
-  initials: string;
-  user: any;
-  roleBadge: any;
-  handleLogout: () => void;
-  setMobileOpen: (open: boolean) => void;
-}) {
+}: any) {
   return (
     <>
-      {/* Logo */}
-      <div className="h-16 flex items-center gap-2.5 px-4 border-b border-surface-200 dark:border-white/[0.06] shrink-0">
-        <ShieldCheck className="w-7 h-7 text-brand-600 dark:text-brand-500 shrink-0" />
-        {!collapsed && <span className="text-lg font-bold tracking-tight text-surface-900 dark:text-white">AegisOne</span>}
+      <div className="h-20 flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
+        {!collapsed ? (
+          <div className="flex flex-col">
+            <span className="text-xl font-bold tracking-tight text-brand-600 dark:text-[#4F84F8]">AegisOne</span>
+            <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest mt-0.5">Enterprise Security</span>
+          </div>
+        ) : (
+          <div className="mx-auto">
+            <ShieldCheck className="w-8 h-8 text-brand-600 dark:text-[#4F84F8]" />
+          </div>
+        )}
       </div>
 
-      {/* Nav Items */}
-      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto custom-scrollbar">
-        {navItems.map(item => {
-          const active = pathname === item.href;
+      <nav className="flex-1 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+        {navItems.map((item: any) => {
+          const active = pathname === item.href || (item.href !== "/dashboard/employee" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+              className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${
                 active
-                  ? "bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 shadow-sm"
-                  : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent"
+                  ? "bg-surface-100 dark:bg-white/[0.02] text-surface-900 dark:text-white border-l-2 border-brand-500 dark:border-[#4F84F8]"
+                  : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02] border-l-2 border-transparent"
               }`}
               title={collapsed ? item.label : undefined}
             >
@@ -106,28 +109,33 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* User section */}
-      <div className="border-t border-surface-200 dark:border-white/[0.06] p-3 shrink-0">
+      <div className="p-4 shrink-0 mt-auto border-t border-surface-200 dark:border-white/[0.04]">
         {!collapsed && (
-          <div className="flex items-center gap-3 px-2 py-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">{initials}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || "User"}</div>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${roleBadge.color}`}>{roleBadge.label}</span>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-surface-900 flex items-center justify-center overflow-hidden border border-surface-700">
+               <span className="text-sm font-bold text-white">{initials}</span>
             </div>
+            <div className="flex flex-col min-w-0">
+               <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || "Admin User"}</span>
+               <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate">{roleBadge.label} Access</span>
+            </div>
+            <button onClick={handleLogout} className="ml-auto text-surface-500 hover:text-surface-900 dark:hover:text-white transition-colors">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         )}
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-surface-500 hover:text-red-600 hover:bg-red-600/5 dark:text-surface-400 dark:hover:text-red-400 dark:hover:bg-red-400/5 transition-all" title="Logout">
-          <LogOut className="w-[18px] h-[18px] shrink-0" />
-          {!collapsed && <span>Logout</span>}
-        </button>
+        {collapsed && (
+          <button onClick={handleLogout} className="mx-auto flex justify-center text-surface-500 hover:text-red-500 transition-colors" title="Logout">
+            <LogOut className="w-5 h-5" />
+          </button>
+        )}
       </div>
     </>
   );
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, theme, toggleTheme } = useAuth();
+  const { user, logout, theme, toggleTheme, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -135,18 +143,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isAuthorizing, setIsAuthorizing] = useState(true);
 
   useEffect(() => {
-    // Basic auth check
+    if (isLoading) return;
+    
     if (!user) {
       router.replace("/login");
       return;
     }
-
-    // Strict role-based route isolation
     const role = user.role;
-    
-    // Check if user is in unauthorized territory
     if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin") {
-      router.replace(role === "department_admin" ? "/dashboard/supervisor" : "/dashboard/employee");
+      // Allow department_admin to access approvals page
+      if (role === "department_admin" && pathname === "/dashboard/admin/approvals") {
+        setIsAuthorizing(false);
+      } else {
+        router.replace(role === "department_admin" ? "/dashboard/supervisor" : "/dashboard/employee");
+      }
     } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin") {
       router.replace(role === "super_admin" ? "/dashboard/admin" : "/dashboard/employee");
     } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin")) {
@@ -156,11 +166,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } else {
       setIsAuthorizing(false);
     }
-  }, [user, router, pathname]);
+  }, [user, isLoading, router, pathname]);
 
-  if (!user || isAuthorizing) {
+  if (isLoading || !user || isAuthorizing) {
     return (
-      <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex items-center justify-center">
         <Shield className="w-8 h-8 text-brand-500 animate-pulse" />
       </div>
     );
@@ -168,15 +178,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = navByRole[user.role] || navByRole.employee;
   const roleBadge = getRoleBadge(user.role);
-  const userName = user?.fullName || user?.full_name || "User";
+  const userName = user?.fullName || user?.full_name || "Admin User";
   const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2);
 
   const handleLogout = () => { logout(); router.replace("/login"); };
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex transition-colors duration-300">
-      {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.06] bg-white dark:bg-surface-950 transition-all duration-300 ${collapsed ? "w-[68px]" : "w-[240px]"} shrink-0 h-screen sticky top-0`}>
+    <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex transition-colors duration-300 font-sans">
+      <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] transition-all duration-300 ${collapsed ? "w-[80px]" : "w-[260px]"} shrink-0 h-screen sticky top-0`}>
         <SidebarContent
           collapsed={collapsed}
           navItems={navItems}
@@ -188,73 +197,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           handleLogout={handleLogout}
           setMobileOpen={setMobileOpen}
         />
-        <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
+        <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#1A2133] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </aside>
 
-      {/* Mobile sidebar overlay */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
-            <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="fixed left-0 top-0 h-full w-[260px] bg-white dark:bg-surface-950 border-r border-surface-200 dark:border-white/[0.06] z-50 flex flex-col md:hidden">
-              <SidebarContent
-                collapsed={false}
-                navItems={navItems}
-                pathname={pathname}
-                router={router}
-                initials={initials}
-                user={user}
-                roleBadge={roleBadge}
-                handleLogout={handleLogout}
-                setMobileOpen={setMobileOpen}
-              />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Top bar */}
-        <header className="h-16 border-b border-surface-200 dark:border-white/[0.06] bg-white/85 dark:bg-surface-950/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 transition-colors duration-300">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04]">
-              <Menu className="w-5 h-5 text-surface-500 dark:text-surface-400" />
-            </button>
-            <div>
-              <h2 className="text-sm font-semibold text-surface-900 dark:text-white">
-                {user.role === "global_admin" 
-                  ? "AegisOne Platform Head" 
-                  : user.organization === "org-1" 
-                  ? "U Bank Limited" 
-                  : user.organization === "org-2" 
-                  ? "INARA Technologies" 
-                  : user.organization === "org-3" 
-                  ? "Apex Financial Corp" 
-                  : "Apex Financial Corp"}
-              </h2>
-              <p className="text-xs text-surface-500 dark:text-surface-400">
-                {user.role === "global_admin" ? "Systems Operations" : user.department}
-              </p>
+        <header className="h-16 border-b border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#0F1423] flex items-center justify-between px-6 sticky top-0 z-30 transition-colors duration-300">
+          <div className="flex-1 flex items-center">
+             <button onClick={() => setMobileOpen(true)} className="md:hidden mr-4 p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04]">
+               <Menu className="w-5 h-5 text-surface-500 dark:text-surface-400" />
+             </button>
+            <div className="relative w-full max-w-md hidden md:block">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
+               <input 
+                 type="text" 
+                 placeholder="Search logs, threats, endpoints..." 
+                 className="w-full bg-surface-100 dark:bg-[#141A29] border border-transparent dark:border-transparent rounded-full pl-9 pr-4 py-2 text-sm text-surface-900 dark:text-white placeholder:text-surface-500 focus:outline-none focus:border-brand-500 dark:focus:ring-1 dark:focus:ring-brand-500/50 transition-colors"
+               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Theme Toggle */}
-            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors" title="Toggle Theme">
+          <div className="flex items-center gap-6">
+            <button onClick={toggleTheme} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors">
               {theme === "dark" ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-surface-600" />}
             </button>
-            <button className="relative p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors">
-              <Bell className="w-5 h-5 text-surface-500 dark:text-surface-400" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+            <button className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative">
+              <Bell className="w-4 h-4" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white dark:bg-[#0F1423] flex items-center justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-white"></span>
+              </span>
             </button>
-            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400 md:hidden">{initials}</div>
+            <button className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors">
+               <Activity className="w-4 h-4" />
+            </button>
+            <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1] hidden sm:block"></div>
+            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-surface-700 dark:text-surface-400">
+               System Status: <span className="flex items-center gap-1.5 text-surface-900 dark:text-white"><span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]"></span> Operational</span>
+            </div>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-4 md:p-6 text-surface-900 dark:text-white">
+        <main className="flex-1 p-6 md:p-8 text-surface-900 dark:text-white overflow-hidden">
           {children}
         </main>
       </div>
