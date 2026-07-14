@@ -4,7 +4,7 @@ import { scanHistory, users, incidents, threatTrends, getUserById } from "@/lib/
 import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -23,6 +23,22 @@ export default function SupervisorDashboard() {
   const tooltipBg = isDark ? "#1e293b" : "#ffffff";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const tooltipColor = isDark ? "#ffffff" : "#0f172a";
+
+  const [realStats, setRealStats] = useState<any>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("aegis_token");
+    fetch("http://localhost:9000/admin/stats", {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.detail) {
+          setRealStats(data);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   // Stabilize metrics calculation using useMemo
   const deptEmployees = useMemo(() => {
@@ -78,12 +94,12 @@ export default function SupervisorDashboard() {
 
   const statsCards = useMemo(() => {
     return [
-      { label: "Employees", value: deptEmployees.length, icon: Users, color: "text-brand-600 dark:text-brand-400", trend: "+2 this month", trendUp: true },
-      { label: "Total Scans", value: (deptScans.length * 12 + 342).toLocaleString(), icon: BarChart3, color: "text-cyan-600 dark:text-cyan-400", trend: "+18% vs last week", trendUp: true },
-      { label: "Threats Blocked", value: deptThreats.length * 3 + 18, icon: ShieldCheck, color: "text-red-600 dark:text-red-400", trend: "-5% vs last week", trendUp: false },
-      { label: "Open Incidents", value: openIncidents.length, icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400", trend: `${openIncidents.length} pending`, trendUp: false },
+      { label: "Employees", value: realStats ? realStats.total_users : deptEmployees.length, icon: Users, color: "text-brand-600 dark:text-brand-400", trend: "+2 this month", trendUp: true },
+      { label: "Total Scans", value: realStats ? realStats.total_scans.toLocaleString() : (deptScans.length * 12 + 342).toLocaleString(), icon: BarChart3, color: "text-cyan-600 dark:text-cyan-400", trend: "+18% vs last week", trendUp: true },
+      { label: "Threats Blocked", value: realStats ? realStats.threats_detected : deptThreats.length * 3 + 18, icon: ShieldCheck, color: "text-red-600 dark:text-red-400", trend: "-5% vs last week", trendUp: false },
+      { label: "Open Incidents", value: realStats ? realStats.threat_reports_pending : openIncidents.length, icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400", trend: `${realStats ? realStats.threat_reports_pending : openIncidents.length} pending`, trendUp: false },
     ];
-  }, [deptEmployees.length, deptScans.length, deptThreats.length, openIncidents.length]);
+  }, [realStats, deptEmployees.length, deptScans.length, deptThreats.length, openIncidents.length]);
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">

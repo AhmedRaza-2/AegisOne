@@ -116,48 +116,46 @@ export default function ThreatCenterPage() {
              }
 
              return (
-              <motion.div key={threat.id} variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col sm:flex-row gap-5 relative overflow-hidden group">
+              <motion.div key={threat.id} variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col gap-4 relative overflow-hidden group hover:border-surface-300 dark:hover:border-white/[0.08] transition-colors">
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${colorClass}`}></div>
                 
-                <div className="flex-1 flex gap-5">
-                  <div className={`w-12 h-12 rounded-xl ${bgLightClass} border border-white/[0.05] flex items-center justify-center shrink-0`}>
-                    {icon}
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 justify-between items-start">
+                  <div className="flex gap-4 overflow-hidden">
+                    <div className={`w-10 h-10 rounded-full ${bgLightClass} flex items-center justify-center shrink-0`}>
+                      {icon}
+                    </div>
+                    <div className="overflow-hidden">
+                       <div className="flex items-center gap-2 mb-1">
+                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isCritical ? 'bg-red-500 text-white' : bgLightClass + ' ' + textClass}`}>{severity}</span>
+                         <span className="text-xs text-surface-500 font-mono">#{threat.id.split('-')[0].toUpperCase()}</span>
+                       </div>
+                       <h3 className="text-base font-bold text-surface-900 dark:text-white">{threat.category}</h3>
+                       
+                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-surface-500 mt-2">
+                         <div className="flex items-center gap-1.5" title={threat.target}>
+                           <span className="font-semibold text-surface-600 dark:text-surface-400">Target:</span> 
+                           <span className="truncate max-w-[200px] sm:max-w-xs block">{threat.target}</span>
+                         </div>
+                         <div className="w-1 h-1 rounded-full bg-surface-300 dark:bg-surface-700 hidden sm:block"></div>
+                         <div className="flex items-center gap-1.5">
+                           <span className="font-semibold text-surface-600 dark:text-surface-400">Status:</span> 
+                           <span className={threat.decision === 'Blocked' ? 'text-red-500 font-bold' : 'text-amber-500 font-bold'}>{threat.decision === 'Blocked' ? 'Blocked' : 'Proceeded'}</span>
+                         </div>
+                       </div>
+                       
+                       <div className="flex items-center gap-4 text-xs text-surface-400 mt-3">
+                         <div className="flex items-center gap-1.5"><Monitor className="w-3.5 h-3.5" /> LOCAL-WKST</div>
+                         <div className="w-1 h-1 rounded-full bg-surface-300 dark:bg-surface-700"></div>
+                         <div>{new Date(threat.timestamp).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'})}</div>
+                       </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                     <div className="flex items-center gap-2 mb-2">
-                       <span className={`px-2 py-0.5 rounded border ${isCritical ? 'bg-red-500 text-white border-red-500' : borderClass + ' ' + textClass} text-[10px] font-bold uppercase tracking-wider`}>{severity}</span>
-                       <span className="text-xs text-surface-500 font-mono">#{threat.id.split('-')[0].toUpperCase()}</span>
-                     </div>
-                     <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">{threat.category}</h3>
-                     <div className="text-[11px] font-mono text-surface-600 dark:text-surface-400 leading-relaxed bg-surface-50 dark:bg-[#0B0F19] p-3 rounded-lg border border-surface-200 dark:border-white/[0.05]">
-                        TARGET: {threat.target}<br/>
-                        {threat.decision === 'Blocked' && <span className="text-red-500">ACTION: Request Terminated</span>}
-                     </div>
+                  
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
+                    <button className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-surface-100 dark:bg-white/[0.05] hover:bg-surface-200 dark:hover:bg-white/[0.08] text-surface-900 dark:text-white text-xs font-semibold transition-colors">
+                      View Details
+                    </button>
                   </div>
-                </div>
-                
-                <div className="flex flex-col sm:items-end justify-between shrink-0 gap-4">
-                   <div className="grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-2 text-left sm:text-right w-full">
-                     <div>
-                        <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-0.5">Detection Time</div>
-                        <div className="text-xs font-mono text-surface-900 dark:text-white">{new Date(threat.timestamp).toLocaleString()}</div>
-                     </div>
-                     <div>
-                        <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-0.5">Target Endpoint</div>
-                        <div className="text-xs font-mono text-surface-900 dark:text-white flex items-center sm:justify-end gap-1"><Monitor className="w-3 h-3" /> LOCAL-WKST</div>
-                     </div>
-                   </div>
-                   
-                   <div className="flex items-center gap-2 w-full sm:justify-end">
-                     {threat.decision === 'Blocked' && (
-                       <button className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold transition-colors">
-                         Remediate
-                       </button>
-                     )}
-                     <button className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-surface-100 dark:bg-white/[0.05] hover:bg-surface-200 dark:hover:bg-white/[0.08] text-surface-900 dark:text-white text-xs font-bold transition-colors">
-                       Details
-                     </button>
-                   </div>
                 </div>
               </motion.div>
              );
@@ -183,8 +181,8 @@ export default function ThreatCenterPage() {
                     <span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse"></span> Live Feed
                  </div>
                  <div className="absolute bottom-2 left-2 right-2 text-[10px] font-mono text-surface-400 bg-black/80 p-2 rounded">
-                    BLOCK: 192.168.1.1 -&gt; AWS-US-EAST<br/>
-                    INFO: New edge point established in Frankfurt
+                    BLOCK: {data?.globalActivity?.source || "192.168.1.1"} -&gt; {data?.globalActivity?.dest || "AWS-US-EAST"}<br/>
+                    INFO: {data?.globalActivity?.info || "New edge point established in Frankfurt"}
                  </div>
               </div>
            </motion.div>
@@ -193,34 +191,18 @@ export default function ThreatCenterPage() {
            <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col">
               <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-4">Active Alerts</h3>
               <div className="space-y-4">
-                 <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                       <div className="text-sm font-bold text-surface-900 dark:text-white mb-0.5">DDoS Attack Mitigation</div>
-                       <div className="text-xs text-surface-500 leading-relaxed mb-1">Elevated traffic detected on port 80/443 in Tokyo datacenter.</div>
-                       <div className="text-[10px] text-surface-400 font-bold uppercase">1 minute ago</div>
-                    </div>
-                 </div>
-                 <div className="h-px w-full bg-surface-100 dark:bg-white/[0.05]"></div>
-                 
-                 <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                       <div className="text-sm font-bold text-surface-900 dark:text-white mb-0.5">Anomalous DNS Query</div>
-                       <div className="text-xs text-surface-500 leading-relaxed mb-1">Unexpected TXT record request from HR-Subnet-01.</div>
-                       <div className="text-[10px] text-surface-400 font-bold uppercase">12 minutes ago</div>
-                    </div>
-                 </div>
-                 <div className="h-px w-full bg-surface-100 dark:bg-white/[0.05]"></div>
-                 
-                 <div className="flex items-start gap-3">
-                    <ShieldCheck className="w-4 h-4 text-[#4F84F8] shrink-0 mt-0.5" />
-                    <div>
-                       <div className="text-sm font-bold text-surface-900 dark:text-white mb-0.5">Auto-Patch Successful</div>
-                       <div className="text-xs text-surface-500 leading-relaxed mb-1">Kernel vulnerability CVE-2023-4521 patched on 12 nodes.</div>
-                       <div className="text-[10px] text-surface-400 font-bold uppercase">45 minutes ago</div>
-                    </div>
-                 </div>
+                 {(data?.activeAlerts || []).map((alert: any, idx: number) => (
+                   <div key={idx} className="flex items-start gap-3 border-b border-surface-100 dark:border-white/[0.05] pb-3 last:border-0 last:pb-0">
+                      {alert.icon === 'shield' ? <ShieldAlert className="w-4 h-4 text-[#4F84F8] shrink-0 mt-0.5" /> :
+                       alert.icon === 'check' ? <ShieldCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" /> :
+                       <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
+                      <div>
+                         <div className="text-sm font-bold text-surface-900 dark:text-white mb-0.5">{alert.title}</div>
+                         <div className="text-xs text-surface-500 leading-relaxed mb-1">{alert.desc}</div>
+                         <div className="text-[10px] text-surface-400 font-bold uppercase">{alert.time}</div>
+                      </div>
+                   </div>
+                 ))}
               </div>
            </motion.div>
 
@@ -228,11 +210,11 @@ export default function ThreatCenterPage() {
            <div className="grid grid-cols-2 gap-4">
               <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
                  <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Remediated</h3>
-                 <div className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">124</div>
+                 <div className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">{data?.remediatedCount || 0}</div>
               </motion.div>
               <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
                  <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Threat Score</h3>
-                 <div className="text-3xl font-bold text-red-500 tracking-tight">9.2</div>
+                 <div className="text-3xl font-bold text-red-500 tracking-tight">{data?.threatScore || "0.0"}</div>
               </motion.div>
            </div>
            

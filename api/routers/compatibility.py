@@ -9,6 +9,7 @@ import os
 import json
 import uuid
 import httpx
+import asyncio
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query
 from typing import Dict, Any, List
 from sqlalchemy import select, desc, func, update, cast, Date
@@ -147,7 +148,7 @@ async def api_image(file: UploadFile = File(...)):
 
 
 @router.post("/analyze/download_url")
-async def api_download_url(url: str = Form(...)):
+async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_db)):
     start = time.time()
     
     is_local = False
@@ -165,12 +166,12 @@ async def api_download_url(url: str = Form(...)):
 
     if is_local:
         if not os.path.exists(local_path):
-            result = predict_url(url)
+            result = await asyncio.to_thread(predict_url, url)
             result["latency_ms"] = round((time.time() - start) * 1000, 1)
             result["note"] = f"Local file not found: {local_path}"
             return result
 
-        extraction = process_attachment(local_path)
+        extraction = await asyncio.to_thread(process_attachment, local_path)
         file_bytes_len = os.path.getsize(local_path)
         results = {
             "source_url": url,
@@ -216,7 +217,7 @@ async def api_download_url(url: str = Form(...)):
 
             file_bytes = b"".join(chunks)
         except Exception as e:
-            result = predict_url(url)
+            result = await asyncio.to_thread(predict_url, url)
             result["latency_ms"] = round((time.time() - start) * 1000, 1)
             result["note"] = f"Could not fetch file ({e}) — URL-only check"
             return result
@@ -225,7 +226,7 @@ async def api_download_url(url: str = Form(...)):
         try:
             with os.fdopen(fd, "wb") as f:
                 f.write(file_bytes)
-            extraction = process_attachment(temp_path)
+            extraction = await asyncio.to_thread(process_attachment, temp_path)
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -272,6 +273,30 @@ async def api_download_url(url: str = Form(...)):
     results["phishing_signals"] = phishing_signals
     results["phishing_probability"] = round(max_prob, 4)
     results["latency_ms"] = round((time.time() - start) * 1000, 1)
+    
+    # Store DownloadEvent in DB
+    try:
+        from urllib.parse import urlparse
+        import uuid
+        parsed = urlparse(url)
+        filename = os.path.basename(parsed.path) or "unknown_file"
+        file_ext = os.path.splitext(filename)[1][:32] or ""
+        filename = filename[:512]
+        
+        db.add(DownloadEvent(
+            download_id=f"dl-{uuid.uuid4()}",
+            organization_id="org_default",
+            filename=filename,
+            extension=file_ext,
+            file_size_kb=results.get("file_size_kb", 0.0),
+            risk_score=int(results["phishing_probability"] * 100),
+            threat_type="Malicious File" if is_phishing else "Safe",
+            decision="block" if results["phishing_probability"] >= 0.75 else ("warn" if is_phishing else "allow"),
+            macros_found=results.get("macros_found", False)
+        ))
+        await db.commit()
+    except Exception as e:
+        print(f"[AegisOne] Failed to log download event: {e}")
     
     return results
 
@@ -1147,6 +1172,16 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
         .where(SecurityEvent.timestamp >= today_start, SecurityEvent.event_type == "credential_intercept")
     )
     today_creds = today_creds_q.scalar() or 0
+    
+    # 9. Download Events (Files)
+    files_total_q = await db.execute(select(func.count(DownloadEvent.id)))
+    files_total = files_total_q.scalar() or 0
+    
+    files_blocked_q = await db.execute(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "block"))
+    files_blocked = files_blocked_q.scalar() or 0
+    
+    files_warned_q = await db.execute(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "warn"))
+    files_proceeded_at_risk = files_warned_q.scalar() or 0
 
     # All-time threats blocked
     threats_blocked_q = await db.execute(
@@ -1154,6 +1189,18 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
         .where(WebsiteScan.decision.in_(["warn", "block"]))
     )
     threats_blocked = threats_blocked_q.scalar() or 0
+    
+    web_blocked_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.scan_type == "website", WebsiteScan.decision.in_(["warn", "block"]))
+    )
+    web_blocked = web_blocked_q.scalar() or 0
+
+    url_blocked_q = await db.execute(
+        select(func.count(WebsiteScan.id))
+        .where(WebsiteScan.scan_type == "url", WebsiteScan.decision.in_(["warn", "block"]))
+    )
+    url_blocked = url_blocked_q.scalar() or 0
     
     safe_rate = 100
     if total_scans > 0:
@@ -1163,9 +1210,63 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     scans_q = await db.execute(
         select(WebsiteScan)
         .order_by(WebsiteScan.created_at.desc())
-        .limit(500)
+        .limit(200)
     )
     recent_scans = scans_q.scalars().all()
+    
+    # Recent downloads
+    dl_q = await db.execute(
+        select(DownloadEvent)
+        .order_by(DownloadEvent.created_at.desc())
+        .limit(200)
+    )
+    recent_downloads = dl_q.scalars().all()
+    
+    # Combine and sort both lists
+    combined_activity = []
+    for s in recent_scans:
+        combined_activity.append({
+            "id": s.scan_id,
+            "scanType": s.scan_type,
+            "inputPreview": s.url,
+            "domain": s.domain,
+            "riskScore": s.risk_score,
+            "threatType": s.threat_type,
+            "topFactors": s.top_factors,
+            "decision": s.decision,
+            "riskLevel": "danger" if s.decision == "block" else "suspicious" if s.decision == "warn" else "safe",
+            "timestamp": s.created_at,
+            "iso_timestamp": str(s.created_at).replace(" ", "T") + "Z"
+        })
+        
+    for d in recent_downloads:
+        action_text = "blocked" if d.decision == "block" else ("proceeded at risk" if d.decision == "warn" else "downloaded")
+        combined_activity.append({
+            "id": d.download_id,
+            "scanType": "attachment",
+            "inputPreview": f"File Download ({action_text}): {d.filename}",
+            "domain": "Local Device",
+            "riskScore": d.risk_score,
+            "threatType": d.threat_type or "Malicious File",
+            "topFactors": "[]",
+            "decision": d.decision,
+            "riskLevel": "danger" if d.decision == "block" else "suspicious" if d.decision == "warn" else "safe",
+            "timestamp": d.created_at,
+            "iso_timestamp": str(d.created_at).replace(" ", "T") + "Z"
+        })
+        
+    # Sort descending by timestamp
+    combined_activity.sort(key=lambda x: x["timestamp"], reverse=True)
+    # Take top 500
+    combined_activity = combined_activity[:500]
+    
+    # Clean up the output dicts to match what the frontend expects
+    final_scans = []
+    for item in combined_activity:
+        out = item.copy()
+        out["timestamp"] = out["iso_timestamp"]
+        del out["iso_timestamp"]
+        final_scans.append(out)
     
     # Calculate Security Health Score (0-100)
     health_score = 100
@@ -1173,6 +1274,11 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     if today_warns > 0: health_score -= min(15, today_warns * 1)
     if today_creds > 0: health_score -= 10
     if health_score < 0: health_score = 0
+    
+    # Calculate Component Scores based on real telemetry
+    network_score = max(0, 100 - min(100, critical_count * 3 + today_warns * 1))
+    endpoint_score = max(0, 100 - min(100, files_blocked * 5 + files_proceeded_at_risk * 10))
+    identity_score = max(0, 100 - min(100, today_creds * 20))
     
     # Dynamic AI Summary
     ai_summary = "Your digital footprint is currently secure."
@@ -1191,7 +1297,24 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
         "safeRate": safe_rate,
         "lastScan": last_scan,
         "healthScore": health_score,
+        "networkScore": network_score,
+        "endpointScore": endpoint_score,
+        "identityScore": identity_score,
         "scanBreakdown": types_breakdown,
+        "webStats": {
+            "scanned": types_breakdown.get("website", 0),
+            "blocked": web_blocked
+        },
+        "urlStats": {
+            "scanned": types_breakdown.get("url", 0),
+            "blocked": url_blocked
+        },
+        "fileStats": {
+            "downloaded": files_total,
+            "phishing": files_blocked + files_proceeded_at_risk,
+            "blocked": files_blocked,
+            "proceededAtRisk": files_proceeded_at_risk
+        },
         "todayStats": {
             "scans": today_scans,
             "safe": today_safe,
@@ -1200,19 +1323,102 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
             "credentials": today_creds
         },
         "aiSummary": ai_summary,
-        "scans": [
-            {
-                "id": s.scan_id,
-                "scanType": s.scan_type,
-                "inputPreview": s.url,
-                "domain": s.domain,
-                "riskScore": s.risk_score,
-                "threatType": s.threat_type,
-                "topFactors": s.top_factors,
-                "decision": s.decision,
-                "riskLevel": "danger" if s.decision == "block" else "suspicious" if s.decision == "warn" else "safe",
-                "timestamp": str(s.created_at)
-            }
-            for s in recent_scans
-        ]
+        "scans": final_scans
+    }
+
+
+@router.get("/user/threats")
+async def get_user_threats(email: str = Query(...), db: AsyncSession = Depends(get_db)):
+    # Get recent blocked/warned website scans
+    web_q = await db.execute(
+        select(WebsiteScan)
+        .where(WebsiteScan.decision.in_(["warn", "block"]))
+        .order_by(WebsiteScan.created_at.desc())
+        .limit(50)
+    )
+    web_threats = web_q.scalars().all()
+
+    # Get recent blocked/warned downloads
+    dl_q = await db.execute(
+        select(DownloadEvent)
+        .where(DownloadEvent.decision.in_(["warn", "block"]))
+        .order_by(DownloadEvent.created_at.desc())
+        .limit(50)
+    )
+    dl_threats = dl_q.scalars().all()
+
+    combined = []
+    for w in web_threats:
+        combined.append({
+            "id": w.scan_id,
+            "category": "Phishing " + w.scan_type.capitalize() if w.scan_type else "Phishing Website",
+            "target": w.url,
+            "decision": "Blocked" if w.decision == "block" else "Proceeded at Risk",
+            "riskScore": w.risk_score,
+            "timestamp": w.created_at,
+            "iso_timestamp": str(w.created_at).replace(" ", "T") + "Z"
+        })
+    
+    for d in dl_threats:
+        combined.append({
+            "id": d.download_id,
+            "category": "Malicious Attachment",
+            "target": d.filename,
+            "decision": "Blocked" if d.decision == "block" else "Proceeded at Risk",
+            "riskScore": d.risk_score,
+            "timestamp": d.created_at,
+            "iso_timestamp": str(d.created_at).replace(" ", "T") + "Z"
+        })
+    
+    combined.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    # Remediated count (all blocks)
+    rem_web_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.decision == "block"))
+    rem_dl_q = await db.execute(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "block"))
+    remediated = (rem_web_q.scalar() or 0) + (rem_dl_q.scalar() or 0)
+
+    # Calculate average threat score for active threats
+    avg_threat_score = 0.0
+    if combined:
+        avg_threat_score = round(sum(c["riskScore"] for c in combined[:10]) / len(combined[:10]) / 10, 1)
+
+    # Dynamic Active Alerts
+    active_alerts = []
+    if any("Website" in c["category"] for c in combined[:5]):
+        active_alerts.append({
+            "title": "Phishing Spike Detected",
+            "desc": "Multiple phishing URLs intercepted in the last hour.",
+            "time": "Just now",
+            "icon": "shield"
+        })
+    if any("Attachment" in c["category"] for c in combined[:5]):
+        active_alerts.append({
+            "title": "Malware Payload Intercepted",
+            "desc": "High-risk executable or macro document blocked.",
+            "time": "12 minutes ago",
+            "icon": "alert"
+        })
+    if len(active_alerts) == 0:
+        active_alerts.append({
+            "title": "System Secure",
+            "desc": "No active attack vectors detected currently.",
+            "time": "Present",
+            "icon": "check"
+        })
+    
+    global_activity = {
+        "source": "192.168.1.1",
+        "dest": "AWS-US-EAST",
+        "info": "New edge point established in Frankfurt"
+    }
+    if combined:
+        global_activity["dest"] = "BLOCKED-NODE"
+        global_activity["info"] = f"Blocked connection to {combined[0]['target'][:30]}..."
+
+    return {
+        "recent": combined[:50],
+        "remediatedCount": remediated,
+        "threatScore": avg_threat_score,
+        "activeAlerts": active_alerts,
+        "globalActivity": global_activity
     }

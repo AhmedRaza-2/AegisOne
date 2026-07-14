@@ -1080,7 +1080,7 @@
       img.dataset.aegisRegistered = "1";
       img.style.cursor = "pointer";
 
-      img.addEventListener("click", async (e) => {
+      img.addEventListener("mouseenter", async (e) => {
         const src = img.src || img.currentSrc;
         if (!src || src.startsWith("data:")) return;
 
