@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Shield, Copy, CheckCircle2, Download, Terminal, LogOut,
-  Building2, Key, Cpu, Users, Globe, AlertCircle, Loader2,
-  ExternalLink, ChevronRight, Package, ArrowRight
+  Shield, Copy, CheckCircle2, Terminal, LogOut,
+  AlertCircle, Loader2, ArrowRight, X, ChevronRight, Server, Download, ArrowDown
 } from 'lucide-react';
 import { getMyOrganization, logoutOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
@@ -12,7 +11,7 @@ import type { Organization } from '../lib/supabase';
 const SETUP_WIZARD_URL = 'http://localhost:3001';
 const DASHBOARD_URL = 'http://localhost:3002/login';
 
-// ─── Small helpers ────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────
 function CopyButton({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -23,60 +22,19 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
   return (
     <button
       onClick={copy}
-      className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg transition-all ${
+      className={`flex items-center gap-1.5 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg transition-all ${
         copied
-          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-          : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
+          ? 'bg-emerald-500 text-white border border-emerald-600 shadow-md'
+          : 'bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white border border-white/10 backdrop-blur-sm'
       }`}
     >
-      {copied ? <CheckCircle2 className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-      {copied ? 'Copied!' : (label ?? 'Copy')}
+      {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? 'Copied' : (label ?? 'Copy')}
     </button>
   );
 }
 
-function InfoRow({ label, value, mono = false, copiable = false }: {
-  label: string; value: string; mono?: boolean; copiable?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-slate-800 last:border-0">
-      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className={`text-sm text-white ${mono ? 'font-mono' : 'font-medium'}`}>{value}</span>
-        {copiable && <CopyButton value={value} />}
-      </div>
-    </div>
-  );
-}
-
-const STEPS = [
-  {
-    icon: <Download className="w-5 h-5" />,
-    title: 'Download Deployment Bundle',
-    desc: 'Get your pre-configured Docker package with your organization credentials baked in.',
-    color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-  },
-  {
-    icon: <Terminal className="w-5 h-5" />,
-    title: 'Run on Your Server',
-    desc: 'Execute docker compose up -d inside your organization\'s own infrastructure.',
-    color: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
-  },
-  {
-    icon: <Cpu className="w-5 h-5" />,
-    title: 'Complete Setup Wizard',
-    desc: 'Add departments, employees, and configure security policies — all locally.',
-    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-  },
-  {
-    icon: <Shield className="w-5 h-5" />,
-    title: 'Protection Goes Live',
-    desc: 'Install browser extensions and start real-time phishing detection. Zero data leaves your network.',
-    color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-  },
-];
-
-// ─── Main Portal ──────────────────────────────────────────────────────────────
+// ─── Main Component ────────────────────────────────────────────────────────
 export default function PortalPage() {
   const navigate = useNavigate();
   const [org, setOrg] = useState<Organization | null>(null);
@@ -96,59 +54,10 @@ export default function PortalPage() {
     navigate('/login');
   };
 
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownloadBundle = () => {
-    if (!org) return;
-    setDownloading(true);
-
-    // Build the deployment bundle JSON
-    const bundle = {
-      aegisone_version: `v${org.product_version}`,
-      generated_at: new Date().toISOString(),
-      organization: {
-        id: org.org_id,
-        name: org.name,
-        industry: org.industry,
-        country: org.country,
-        admin_email: org.admin_email,
-        allowed_users: org.allowed_users,
-      },
-      credentials: {
-        deployment_token: org.deployment_token,
-        license_key: org.license_key,
-      },
-      setup_instructions: {
-        step_1: 'Run setup wizard at http://localhost:3001 on your office server',
-        step_2: 'Paste your Deployment Token when prompted',
-        step_3: 'Add departments and employees inside the setup wizard',
-        step_4: 'Access your dashboard at http://localhost:3002',
-      },
-      docker_command: `docker compose up -d --env ORG_ID=${org.org_id} LICENSE_KEY=${org.license_key}`,
-    };
-
-    // Trigger browser download
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `aegisone-bundle-${org.org_id}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    setTimeout(() => {
-      setDownloading(false);
-      // Open setup wizard in new tab
-      window.open(SETUP_WIZARD_URL, '_blank');
-    }, 800);
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#0A5ED6] animate-spin" />
       </div>
     );
   }
@@ -156,13 +65,26 @@ export default function PortalPage() {
   if (!org) return null;
 
   const statusColor = org.status === 'active'
-    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+    ? 'text-emerald-700 bg-emerald-100 border-emerald-200'
     : org.status === 'pending'
-    ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
-    : 'text-red-400 bg-red-500/10 border-red-500/30';
+    ? 'text-amber-700 bg-amber-100 border-amber-200'
+    : 'text-red-700 bg-red-100 border-red-200';
+
+  const isApproved = org.status === 'active';
+
+  // The massive all-in-one Docker command
+  const dockerCommand = `docker run -d \\
+  --name aegisone-shield \\
+  -p 3000:3000 -p 5432:5432 \\
+  -e ORG_ID="${org.org_id}" \\
+  -e LICENSE_KEY="${org.license_key}" \\
+  -e DEPLOYMENT_TOKEN="${org.deployment_token}" \\
+  -e ADMIN_EMAIL="${org.admin_email}" \\
+  --restart unless-stopped \\
+  aegisone/enterprise-shield:latest`;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
       {/* Decorative bg */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#0A5ED6]/5 rounded-full blur-[120px]" />
@@ -170,12 +92,12 @@ export default function PortalPage() {
       </div>
 
       {/* Nav */}
-      <nav className="sticky top-0 z-20 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white/90 backdrop-blur-sm shadow-sm">
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white/90 backdrop-blur-sm shadow-sm">
         <Link to="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 flex items-center justify-center">
             <Shield className="w-4 h-4 text-[#0A5ED6]" />
           </div>
-          <span className="font-bold text-[#0F172A] text-sm">AegisOne</span>
+          <span className="font-bold text-[#0F172A] text-sm tracking-tight">AegisOne Onboarding</span>
         </Link>
         <div className="flex items-center gap-4">
           <span className="hidden sm:block text-xs text-slate-500 font-semibold">{org.admin_email}</span>
@@ -188,220 +110,163 @@ export default function PortalPage() {
         </div>
       </nav>
 
-      {/* Main */}
-      <div className="max-w-5xl mx-auto px-4 py-10 space-y-8 relative z-10">
-
-        {/* Welcome banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
-          <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Organization Dashboard</p>
-            <h1 className="text-2xl font-bold text-[#0F172A]">{org.name}</h1>
-            <p className="text-sm text-[#45464D] mt-0.5">{org.industry} · {org.country}</p>
-          </div>
-          <span className={`self-start sm:self-auto text-xs font-bold px-3 py-1.5 rounded-full border uppercase tracking-wider ${statusColor}`}>
-            {org.status === 'active' && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
-            {org.status === 'pending' && <AlertCircle className="w-3 h-3 inline mr-1" />}
-            License {org.status}
+      {/* Main Content */}
+      <div className="max-w-5xl mx-auto w-full px-4 py-16 relative z-10 flex flex-col gap-12">
+        
+        {/* Header Title */}
+        <div className="text-center space-y-4 mb-4">
+          <span className={`inline-flex items-center text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider mb-2 ${statusColor}`}>
+            {org.status === 'active' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+            {org.status === 'pending' && <AlertCircle className="w-3 h-3 mr-1" />}
+            {org.status === 'suspended' && <X className="w-3 h-3 mr-1" />}
+            Status: {org.status}
           </span>
+          <h1 className="text-4xl md:text-5xl font-bold text-[#0F172A] tracking-tight">Welcome to AegisOne, {org.name}</h1>
+          <p className="text-base text-slate-500 max-w-2xl mx-auto leading-relaxed">
+            Your deployment credentials have been securely generated and bound to your account. 
+            Follow the zero-friction onboarding flow below to spin up your sovereign infrastructure instantly.
+          </p>
         </div>
 
-        {org.status === 'pending' ? (
-          <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-10 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-8 h-8 text-amber-500" />
-            </div>
-            <h2 className="text-xl font-bold text-[#0F172A]">Your request is under review</h2>
-            <p className="text-[#45464D] max-w-md mx-auto text-sm leading-relaxed">
-              Your registration has been published. Our team is currently reviewing your application. We will contact you soon with your approval status and next steps.
-            </p>
-          </div>
-        ) : org.status === 'suspended' ? (
-          <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-10 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-red-100 border border-red-200 flex items-center justify-center mx-auto mb-4">
-              <X className="w-8 h-8 text-red-500" />
-            </div>
-            <h2 className="text-xl font-bold text-[#0F172A]">Application Declined</h2>
-            <p className="text-[#45464D] max-w-md mx-auto text-sm leading-relaxed">
-              Unfortunately, we are unable to approve your organization at this time.
-            </p>
-            {org.product_version !== '1.0.0' && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl inline-block text-left">
-                <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Reason</p>
-                <p className="text-sm text-red-600">{org.product_version}</p>
-              </div>
+        {!isApproved ? (
+          <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-12 text-center space-y-5 max-w-2xl mx-auto w-full mt-8">
+            {org.status === 'pending' ? (
+              <>
+                <div className="w-20 h-20 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-10 h-10 text-amber-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-[#0F172A]">Your request is under review</h2>
+                <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
+                  Your registration has been successfully published. Our team is currently reviewing your enterprise application. Once approved, your deployment command will unlock here automatically.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 rounded-full bg-red-100 border border-red-200 flex items-center justify-center mx-auto mb-4">
+                  <X className="w-10 h-10 text-red-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-[#0F172A]">Application Declined</h2>
+                <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
+                  Unfortunately, we are unable to approve your organization at this time.
+                </p>
+                {org.product_version !== '1.0.0' && (
+                  <div className="mt-4 p-5 bg-red-50 border border-red-200 rounded-xl inline-block text-left w-full max-w-md">
+                    <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Reason for Rejection</p>
+                    <p className="text-sm text-red-600">{org.product_version}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (
-          <>
-            {/* Stats row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { icon: <Key className="w-5 h-5 text-[#0A5ED6]" />, label: 'Organization ID', value: org.org_id },
-                { icon: <Users className="w-5 h-5 text-purple-600" />, label: 'Allowed Users', value: `${org.allowed_users}` },
-                { icon: <Package className="w-5 h-5 text-emerald-600" />, label: 'Product Version', value: `v${org.product_version}` },
-                { icon: <Globe className="w-5 h-5 text-amber-600" />, label: 'Deployment Type', value: 'Self-Hosted' },
-              ].map(s => (
-                <div key={s.label} className="bg-white border border-slate-200 shadow-sm rounded-2xl p-4 space-y-2">
-                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center">{s.icon}</div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{s.label}</p>
-                  <p className="text-lg font-bold text-[#0F172A] font-mono">{s.value}</p>
-                </div>
-              ))}
-            </div>
+          <div className="animate-fadeIn max-w-4xl mx-auto w-full relative">
+            
+            {/* The Connecting Line */}
+            <div className="absolute left-6 top-8 bottom-16 w-0.5 bg-gradient-to-b from-blue-200 via-slate-200 to-emerald-200 hidden md:block" />
 
-            {/* Credentials card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-xl bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 flex items-center justify-center">
-                  <Key className="w-4 h-4 text-[#0A5ED6]" />
+            <div className="space-y-16">
+              
+              {/* Step 1: Install Docker */}
+              <div className="flex flex-col md:flex-row gap-6 md:gap-10 relative z-10">
+                <div className="shrink-0 flex justify-center md:block">
+                  <div className="w-12 h-12 rounded-full bg-white border-4 border-slate-100 shadow-sm flex items-center justify-center text-slate-500 font-bold text-lg relative">
+                    1
+                    <div className="absolute -bottom-6 text-slate-300 hidden md:block"><ArrowDown className="w-5 h-5" /></div>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-bold text-[#0F172A] text-sm">Deployment Credentials</h2>
-                  <p className="text-xs text-slate-500">Store these securely. Used during your first local setup.</p>
-                </div>
-              </div>
-
-              <InfoRow label="Organization ID"    value={org.org_id}            mono copiable />
-              <InfoRow label="Deployment Token"   value={org.deployment_token}  mono copiable />
-              <InfoRow label="License Key"        value={org.license_key}       mono copiable />
-              <InfoRow label="Admin Email"        value={org.admin_email}             copiable />
-
-              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                  Keep your Deployment Token and License Key private. These are used to activate your local AegisOne portal during the first boot. Do not share them.
-                </p>
-              </div>
-            </div>
-
-            {/* Download & Docker Instructions */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-6 text-white shadow-xl">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                <div className="w-14 h-14 rounded-2xl bg-[#0A5ED6]/20 border border-[#0A5ED6]/30 flex items-center justify-center shrink-0">
-                  <Download className="w-7 h-7 text-[#0A5ED6]" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="font-bold text-white text-base">Local Docker Setup Guide</h2>
-                  <p className="text-sm text-slate-400 mt-1">
-                    Your environment is ready. Follow these layman steps to spin up AegisOne on your local server.
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Install Docker Engine</h3>
+                  <p className="text-base text-slate-600 mb-5 leading-relaxed max-w-2xl mx-auto md:mx-0">
+                    AegisOne operates entirely inside a secure container to ensure zero data leaves your network. 
+                    Before continuing, ensure Docker is installed and running on your host server.
                   </p>
+                  <a
+                    href="https://docs.docker.com/get-docker/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 text-sm font-bold text-[#0A5ED6] hover:text-white bg-blue-50 hover:bg-[#0A5ED6] border border-blue-100 hover:border-[#0A5ED6] px-6 py-3 rounded-xl transition-all shadow-sm"
+                  >
+                    <Download className="w-4 h-4" /> Download Docker Free
+                  </a>
                 </div>
-                <button
-                  onClick={handleDownloadBundle}
-                  disabled={downloading}
-                  className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] disabled:bg-[#0A5ED6]/50 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shrink-0 whitespace-nowrap"
-                >
-                  {downloading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Preparing...</>
-                  ) : (
-                    <><Download className="w-4 h-4" /> Download Config Bundle</>
-                  )}
-                </button>
               </div>
 
-              {/* Docker Setup Steps */}
-              <div className="bg-slate-950 rounded-xl p-5 border border-slate-800 space-y-4">
-                <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#0A5ED6]" /> 
-                  Quick Start Instructions
-                </h3>
-                
-                <div className="space-y-4 text-sm text-slate-300">
-                  <div className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">1</div>
-                    <div>
-                      <p className="font-semibold text-white mb-1">Download Configuration</p>
-                      <p className="text-xs">Click the button above to download your <code className="text-[#0A5ED6] bg-[#0A5ED6]/10 px-1 py-0.5 rounded">aegisone-bundle.json</code> file.</p>
-                    </div>
+              {/* Step 2: Run Command */}
+              <div className="flex flex-col md:flex-row gap-6 md:gap-10 relative z-10">
+                <div className="shrink-0 flex justify-center md:block">
+                  <div className="w-12 h-12 rounded-full bg-white border-4 border-blue-100 shadow-sm flex items-center justify-center text-[#0A5ED6] font-bold text-lg relative">
+                    2
+                    <div className="absolute -bottom-6 text-[#0A5ED6] animate-bounce hidden md:block"><ArrowDown className="w-5 h-5" /></div>
                   </div>
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Run the Start Command</h3>
+                  <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
+                    There are no configuration files to manually download. We have automatically injected your 
+                    <strong className="text-slate-800"> Organization ID</strong>, <strong className="text-slate-800">License Key</strong>, and <strong className="text-slate-800">Deployment Token</strong> into the command below. 
+                    Simply paste this into your server's terminal.
+                  </p>
                   
-                  <div className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">2</div>
-                    <div>
-                      <p className="font-semibold text-white mb-1">Install Docker</p>
-                      <p className="text-xs">Ensure you have <a href="https://docs.docker.com/get-docker/" target="_blank" rel="noreferrer" className="text-[#0A5ED6] hover:underline">Docker installed</a> on your machine or server.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">3</div>
-                    <div className="w-full">
-                      <p className="font-semibold text-white mb-1">Run the AegisOne Container</p>
-                      <p className="text-xs mb-2">Open your terminal/command prompt and run the following command:</p>
-                      <div className="bg-black/50 p-3 rounded-lg border border-slate-800 overflow-x-auto">
-                        <code className="text-emerald-400 font-mono text-xs whitespace-pre">
-                          docker run -d \<br/>
-                          &nbsp;&nbsp;--name aegisone-shield \<br/>
-                          &nbsp;&nbsp;-p 3000:3000 -p 5432:5432 \<br/>
-                          &nbsp;&nbsp;-v ./aegisone-bundle.json:/app/config.json \<br/>
-                          &nbsp;&nbsp;aegisone/enterprise-shield:latest
-                        </code>
+                  {/* Premium Terminal Block */}
+                  <div className="bg-[#0F172A] rounded-2xl p-6 md:p-8 shadow-2xl relative group overflow-hidden border border-slate-800 text-left">
+                    {/* Decorative glow */}
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#0A5ED6]/30 rounded-full blur-[80px] pointer-events-none" />
+                    
+                    <div className="flex items-center justify-between mb-6 relative z-10">
+                      <div className="flex gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500" />
+                        <div className="w-3 h-3 rounded-full bg-amber-500" />
+                        <div className="w-3 h-3 rounded-full bg-emerald-500" />
                       </div>
+                      <CopyButton value={dockerCommand} label="Copy Script" />
                     </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">4</div>
-                    <div>
-                      <p className="font-semibold text-white mb-1">Access Your Local Dashboard</p>
-                      <p className="text-xs">Open <a href="http://localhost:3000" target="_blank" rel="noreferrer" className="text-[#0A5ED6] hover:underline">http://localhost:3000</a> in your browser to view your live perimeter security!</p>
+                    
+                    <div className="overflow-x-auto relative z-10 pb-2">
+                      <pre className="text-emerald-400 font-mono text-sm sm:text-base leading-relaxed">
+                        {dockerCommand}
+                      </pre>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Secondary CTA row */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-blue-500/20">
-                <a
-                  href={SETUP_WIZARD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all border border-slate-700"
-                >
-                  <ChevronRight className="w-4 h-4 text-blue-400" />
-                  Open Setup Wizard
-                </a>
-                <a
-                  href={DASHBOARD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all border border-slate-700"
-                >
-                  <ArrowRight className="w-4 h-4 text-emerald-400" />
-                  Go to Dashboard
-                </a>
-              </div>
-            </div>
-
-            {/* Next Steps */}
-            <div>
-              <h2 className="text-base font-bold text-white mb-4">Your Setup Journey</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {STEPS.map((s, i) => (
-                  <div key={i} className={`bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3 relative hover:border-slate-700 transition-all`}>
-                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${s.color}`}>
-                      {s.icon}
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Step {i + 1}</p>
-                      <h3 className="text-sm font-bold text-white leading-snug">{s.title}</h3>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">{s.desc}</p>
-                    </div>
-                    {i < STEPS.length - 1 && (
-                      <ChevronRight className="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 hidden lg:block" />
-                    )}
+              {/* Step 3: Access Dashboard */}
+              <div className="flex flex-col md:flex-row gap-6 md:gap-10 relative z-10">
+                <div className="shrink-0 flex justify-center md:block">
+                  <div className="w-12 h-12 rounded-full bg-white border-4 border-emerald-100 shadow-sm flex items-center justify-center text-emerald-600 font-bold text-lg">
+                    3
                   </div>
-                ))}
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Boot Up Local Dashboard</h3>
+                  <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
+                    Once the terminal finishes downloading the images and booting the container (this usually takes 30 to 60 seconds), 
+                    your isolated instance of AegisOne is live. Proceed to the local setup wizard to configure your network.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                    <a
+                      href={SETUP_WIZARD_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-4 rounded-xl text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                    >
+                      Open Setup Wizard <ChevronRight className="w-4 h-4" />
+                    </a>
+                    <a
+                      href={DASHBOARD_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-8 py-4 rounded-xl text-sm transition-all border border-emerald-200 shadow-sm"
+                    >
+                      Go to Local Dashboard <ArrowRight className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Docs link */}
-            <div className="flex justify-center pt-2">
-              <a href="#" className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors">
-                <ExternalLink className="w-3.5 h-3.5" /> View Full Installation Guide
-              </a>
             </div>
-          </>
+          </div>
         )}
 
       </div>
