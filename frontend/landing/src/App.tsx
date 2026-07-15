@@ -3,9 +3,7 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import ExplainerVideo from './components/ExplainerVideo';
 import InvisibleRisk from './components/InvisibleRisk';
-import Compliance from './components/Compliance';
 import OnboardingFlow from './components/OnboardingFlow';
-import TechnicalBlueprint from './components/TechnicalBlueprint';
 import DeploymentStack from './components/DeploymentStack';
 import ReadySection from './components/ReadySection';
 import Footer from './components/Footer';
@@ -14,8 +12,10 @@ import {
   ShieldCheck, X, Check, Server, Database, Key, Send, Copy, Sparkles, 
   ArrowRight, Calendar, Clock, Mail, User, MessageSquare, ExternalLink, ShieldAlert
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function App() {
+  const navigate = useNavigate();
   // Setup Request Modal States
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [setupStep, setSetupStep] = useState(1);
@@ -78,14 +78,37 @@ export default function App() {
     showToast(`Setup request generated for ${companyName}! Notification emails dispatched.`);
   };
 
-  const handleDemoSubmit = (e: React.FormEvent) => {
+  const handleDemoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!demoName || !demoEmail) {
       showToast('Please enter both your Name and Email address.');
       return;
     }
+    
+    try {
+      // Send real email using FormSubmit API (fire and forget to not block UI)
+      fetch('https://formsubmit.co/ajax/araza2125-012.pgc@gmail.com', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            _subject: `New AegisOne Demo Request from ${demoName}`,
+            name: demoName,
+            email: demoEmail,
+            date: selectedDate,
+            time: selectedTime,
+            message: `You have a new live demo request.\n\nName: ${demoName}\nEmail: ${demoEmail}\nDate: ${selectedDate}\nTime: ${selectedTime}`
+        })
+      }).catch(err => console.error("Email send error:", err));
+      
+    } catch (err) {
+      console.error(err);
+    }
+    
     setDemoStep(2);
-    showToast(`Live Demo requested on ${selectedDate} at ${selectedTime}!`);
+    showToast(`Live Demo requested! Meeting details sent to your email and Admin.`);
   };
 
   const isCloudDeployment = deploymentCloud === 'AWS Private Cloud' || deploymentCloud === 'Google Cloud VPC';
@@ -115,10 +138,7 @@ export default function App() {
         <div className="animate-fadeIn">
           {/* Hero Banner Section */}
           <Hero 
-            onRequestSetup={() => {
-              setSetupStep(1);
-              setShowSetupModal(true);
-            }}
+            onRequestSetup={() => navigate('/register')}
             onViewArchitecture={() => handleScrollTo('architecture')}
           />
 
@@ -128,34 +148,18 @@ export default function App() {
             {/* Cloud Risk Analysis Section */}
             <InvisibleRisk />
 
-            {/* Compliance Governance Section */}
-            <Compliance 
-              onDownloadWhitepaper={() => {
-                showToast('AegisOne Security Whitepaper downloaded successfully.');
-              }}
-            />
-
             {/* Onboarding Timeline Section */}
             <OnboardingFlow 
-              onStartOnboarding={() => {
-                setSetupStep(1);
-                setShowSetupModal(true);
-              }}
+              onStartOnboarding={() => navigate('/register')}
               onSelectPhase={handleOnboardingSelectPhase}
             />
-
-            {/* Technical Blueprint Section */}
-            <TechnicalBlueprint />
 
             {/* Deployment Stack Section */}
             <DeploymentStack />
 
             {/* Ready Call-To-Action Section */}
             <ReadySection 
-              onRequestSetup={() => {
-                setSetupStep(1);
-                setShowSetupModal(true);
-              }}
+              onRequestSetup={() => navigate('/register')}
               onScheduleDemo={() => {
                 setDemoStep(1);
                 setShowDemoModal(true);
@@ -169,212 +173,6 @@ export default function App() {
         onOpenPrivacy={() => setShowPrivacyModal(true)}
         onOpenTerms={() => setShowTermsModal(true)}
       />
-
-      {/* 1. SETUP REQUEST / CONFIGURATOR MODAL */}
-      {showSetupModal && (
-        <div id="setup-modal-overlay" className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div id="setup-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
-            
-            {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="24" height="24" rx="6" fill="#0F172A"/>
-                  <path d="M12 5.5L6.5 7.5V11.5C6.5 14.85 8.85 17.95 12 18.5C15.15 17.95 17.5 14.85 17.5 11.5V7.5L12 5.5Z" fill="#0A5ED6"/>
-                  <path d="M11.5 8H12.5V14.5H11.5V8ZM12 16C11.5 16 11.25 15.75 11.25 15.25C11.25 14.75 11.5 14.5 12 14.5C12.5 14.5 12.75 14.75 12.75 15.25C12.75 15.75 12.5 16 12 16Z" fill="white"/>
-                </svg>
-                <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Quick Configurator</span>
-              </div>
-              <button 
-                onClick={() => setShowSetupModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6">
-              {setupStep === 1 ? (
-                /* Step 1: Input Form */
-                <form onSubmit={handleSetupSubmit} className="space-y-4" id="setup-step1-form">
-                  <p className="font-sans text-xs text-[#45464D] leading-relaxed">
-                    Configure your private link protection system. Once you fill this form, we will generate setup steps tailored to your selected hosting environment.
-                  </p>
-
-                  {/* Company Name */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700">Company Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="e.g. Acme Ltd or Local SME"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
-                    />
-                  </div>
-
-                  {/* Work Email */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700">Work Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={workEmail}
-                      onChange={(e) => setWorkEmail(e.target.value)}
-                      placeholder="you@company.com"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
-                    />
-                  </div>
-
-                  {/* Regional Config & Cloud */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="font-sans text-xs font-semibold text-slate-700">Hosting Area</label>
-                      <select
-                        value={nodeRegion}
-                        onChange={(e) => setNodeRegion(e.target.value)}
-                        className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] outline-hidden cursor-pointer"
-                      >
-                        <option>Pakistan Edge</option>
-                        <option>Asia South</option>
-                        <option>Global Free-Tier</option>
-                        <option>On-Premises Office</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="font-sans text-xs font-semibold text-slate-700">Office Server</label>
-                      <select
-                        value={deploymentCloud}
-                        onChange={(e) => setDeploymentCloud(e.target.value)}
-                        className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] outline-hidden cursor-pointer"
-                      >
-                        <option>Local Office PC</option>
-                        <option>Docker / Bare Metal</option>
-                        <option>AWS Private Cloud</option>
-                        <option>Google Cloud VPC</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Submit buttons */}
-                  <button
-                    type="submit"
-                    className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
-                  >
-                    Generate Setup Blueprint
-                    <Send className="w-4 h-4" />
-                  </button>
-                </form>
-              ) : (
-                /* Step 2: Dynamic Result based on Local vs Cloud Choice */
-                <div className="space-y-4" id="setup-step2-success">
-                  {isCloudDeployment ? (
-                    /* Cloud VPC Deployment Consultation Flow (Requires Discussion) */
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2.5 text-blue-700 bg-blue-50 border border-blue-100 p-3.5 rounded-xl">
-                        <ShieldAlert className="w-5 h-5 text-blue-600 shrink-0" />
-                        <span className="font-sans text-sm font-bold">Cloud VPC Integration Triggered</span>
-                      </div>
-
-                      <p className="font-sans text-sm text-[#45464D] leading-relaxed">
-                        Excellent choice. Because <strong>{deploymentCloud}</strong> settings require isolated subnet routes and private DNS redirection, our network engineering team must assist you with deployment.
-                      </p>
-
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2 text-xs">
-                        <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          Architecture Proposal Sent to: <span className="font-mono text-blue-600">{workEmail}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          AegisOne Setup Desk Notified: <span className="font-mono text-[#0F172A]">araza2125012.pgc@gmail.com</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          Deployment Area Assigned: <span className="font-semibold text-slate-800">{nodeRegion}</span>
-                        </div>
-                      </div>
-
-                      <div className="pt-2">
-                        <h4 className="font-sans text-xs font-bold text-[#0F172A] mb-2 uppercase">Need immediate setup?</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <a 
-                            href="https://wa.me/923001234567" 
-                            target="_blank" 
-                            referrerPolicy="no-referrer"
-                            className="font-sans flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" /> Chat via WhatsApp
-                          </a>
-                          <a 
-                            href={`mailto:araza2125012.pgc@gmail.com?subject=AegisOne Cloud VPC Setup Proposal for ${companyName}`}
-                            className="font-sans flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
-                          >
-                            <Mail className="w-3.5 h-3.5" /> Direct Support Email
-                          </a>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-slate-100 pt-3 flex justify-end">
-                        <button
-                          onClick={() => setShowSetupModal(false)}
-                          className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
-                        >
-                          Finish Setup
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Local Docker / Local PC Flow (Immediate Self-Serve) */
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
-                        <Sparkles className="w-5 h-5 text-emerald-500 shrink-0" />
-                        <span className="font-sans text-sm font-semibold">Local Node License Generated!</span>
-                      </div>
-
-                      <p className="font-sans text-xs text-[#45464D] leading-relaxed">
-                        We have successfully dispatched configuration blueprints to both <strong className="text-[#0F172A]">{workEmail}</strong> and our monitoring desk at <strong className="text-[#0F172A]">araza2125012.pgc@gmail.com</strong>. Copy the local deployment command to boot:
-                      </p>
-
-                      {/* Copy code display */}
-                      <div className="relative bg-slate-900 rounded-lg p-4 border border-slate-800 font-mono text-[11px] text-slate-200 leading-relaxed overflow-x-auto whitespace-pre">
-                        {`# Run this command on your office server\ndocker run -d --name aegisone-perimeter \\\n  -e LICENSE_KEY="aegis_sme_${companyName.toLowerCase().replace(/\s+/g, '_')}_99x" \\\n  -e SERVER_PORT="3000" \\\n  -p 3000:3000 \\\n  aegisone/core:v2.4.0`}
-                      </div>
-
-                      {/* Copy blueprint button */}
-                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`docker run -d --name aegisone-perimeter -e LICENSE_KEY="aegis_sme_${companyName.toLowerCase().replace(/\s+/g, '_')}_99x" -p 3000:3000 aegisone/core:v2.4.0`);
-                            showToast('Launch command copied to clipboard.');
-                          }}
-                          className="font-sans flex-1 text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-[#0F172A] py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                        >
-                          <Copy className="w-3.5 h-3.5" /> Copy Command
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSetupModal(false);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                            showToast('Live Threat Dashboard launched successfully!');
-                          }}
-                          className="font-sans flex-1 text-center text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                        >
-                          Open Live Dashboard
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {/* 2. STATEFUL LIVE DEMO SCHEDULER MODAL */}
       {showDemoModal && (
@@ -518,7 +316,7 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Dispatched briefing copy to: <span className="text-white">araza2125012.pgc@gmail.com</span>
+                        Dispatched briefing copy to: <span className="text-white">araza2125-012.pgc@gmail.com</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -539,7 +337,7 @@ export default function App() {
                         <MessageSquare className="w-3.5 h-3.5" /> Chat via WhatsApp
                       </a>
                       <a 
-                        href={`mailto:araza2125012.pgc@gmail.com?subject=Scheduled AegisOne Demo Support for ${demoName}`}
+                        href={`mailto:araza2125-012.pgc@gmail.com?subject=Scheduled AegisOne Demo Support for ${demoName}`}
                         className="font-sans flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
                       >
                         <Mail className="w-3.5 h-3.5" /> Direct Support Email
@@ -607,7 +405,7 @@ export default function App() {
               </p>
 
               <p className="italic text-slate-500 pt-2 border-t border-slate-100">
-                For questions regarding security architecture, custom air-gapped systems, or isolated office networks, please write directly to our desk at araza2125012.pgc@gmail.com
+                For questions regarding security architecture, custom air-gapped systems, or isolated office networks, please write directly to our desk at araza2125-012.pgc@gmail.com
               </p>
             </div>
 
@@ -664,7 +462,7 @@ export default function App() {
 
               <h4 className="font-bold text-[#0F172A] uppercase">3. Support &amp; SLA</h4>
               <p>
-                Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125012.pgc@gmail.com.
+                Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125-012.pgc@gmail.com.
               </p>
 
               <h4 className="font-bold text-[#0F172A] uppercase">4. Limitations</h4>

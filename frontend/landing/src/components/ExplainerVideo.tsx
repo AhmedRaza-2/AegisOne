@@ -98,7 +98,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
         </div>
 
         {/* Centered Large Video Container */}
-        <div className="max-w-4xl mx-auto w-full">
+        <div className="w-full mx-auto">
           <div className="relative bg-slate-900/90 border border-slate-800 rounded-3xl p-6 overflow-hidden shadow-2xl min-h-[450px] flex flex-col justify-between">
             {/* Camera Frame Corners */}
             <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-slate-700 pointer-events-none" />
@@ -129,7 +129,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 muted
                 loop
                 playsInline
-                className="w-full h-full object-contain max-h-[450px]"
+                className="w-full h-full object-cover rounded-xl"
                 onClick={togglePlay}
               />
             </div>

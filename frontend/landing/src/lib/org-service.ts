@@ -36,6 +36,21 @@ export interface RegisterPayload {
 }
 
 export async function registerOrganization(payload: RegisterPayload): Promise<Organization> {
+  // 0. Check if the organization name is already registered
+  const { data: existingOrg, error: checkError } = await supabase
+    .from('organizations')
+    .select('id')
+    .ilike('name', payload.name)
+    .maybeSingle();
+
+  if (checkError) {
+    throw new Error('Failed to verify organization uniqueness.');
+  }
+  
+  if (existingOrg) {
+    throw new Error(`An organization named "${payload.name}" is already registered. Please login or contact support.`);
+  }
+
   // 1. Create Supabase Auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: payload.admin_email,
@@ -58,7 +73,7 @@ export async function registerOrganization(payload: RegisterPayload): Promise<Or
     admin_name: payload.admin_name,
     admin_email: payload.admin_email,
     phone: payload.phone,
-    status: 'active' as const,  // auto-activate for now
+    status: 'pending' as const,
     license_key: generateLicenseKey(),
     deployment_token: generateDeploymentToken(),
     allowed_users: payload.employee_count,
@@ -91,6 +106,22 @@ export async function loginOrganization(email: string, password: string): Promis
   return org;
 }
 
+// ─── Password Reset ─────────────────────────────────────────────────────────
+
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/update-password`,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function updatePassword(newPassword: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword
+  });
+  if (error) throw new Error(error.message);
+}
+
 // ─── Session ─────────────────────────────────────────────────────────────────
 
 export async function getMyOrganization(): Promise<Organization | null> {
@@ -114,4 +145,30 @@ export async function logoutOrganization(): Promise<void> {
 export async function getCurrentAuthUser() {
   const { data: { user } } = await supabase.auth.getUser();
   return user;
+}
+
+// ─── Admin Functions ─────────────────────────────────────────────────────────
+
+export async function getOrganizations(): Promise<Organization[]> {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data as Organization[];
+}
+
+export async function updateOrganizationStatus(orgId: string, status: 'active' | 'pending' | 'suspended', reason?: string): Promise<void> {
+  const updates: any = { status };
+  if (reason) {
+    updates.product_version = reason; // reusing product_version to store rejection reason without DB migration
+  }
+
+  const { error } = await supabase
+    .from('organizations')
+    .update(updates)
+    .eq('id', orgId);
+
+  if (error) throw new Error(error.message);
 }

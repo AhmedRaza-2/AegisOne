@@ -5,6 +5,8 @@ import App from './App.tsx';
 import RegisterPage from './pages/RegisterPage.tsx';
 import LoginPage from './pages/LoginPage.tsx';
 import PortalPage from './pages/PortalPage.tsx';
+import AdminDashboard from './pages/AdminDashboard.tsx';
+import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
 import './index.css';
 
 console.log("main.tsx: Script started executing");
@@ -28,6 +30,8 @@ try {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login"    element={<LoginPage />} />
           <Route path="/portal"   element={<PortalPage />} />
+          <Route path="/admin"    element={<AdminDashboard />} />
+          <Route path="/update-password" element={<UpdatePasswordPage />} />
         </Routes>
       </BrowserRouter>
     </StrictMode>,

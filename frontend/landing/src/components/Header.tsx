@@ -1,26 +1,43 @@
 import React from 'react';
 import { Menu, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 interface HeaderProps {
-  onScrollTo: (elementId: string) => void;
+  onScrollTo?: (elementId: string) => void;
 }
 
 export default function Header({ onScrollTo }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const navItems = [
     { label: 'Why In-House?', id: 'why-in-house' },
     { label: 'How It Works', id: 'how-it-works' },
     { label: 'Architecture', id: 'architecture' },
     { label: 'Deployment', id: 'deployment' },
-    { label: 'Documentation', id: 'documentation' },
   ];
 
   const handleNavClick = (id: string) => {
     setMobileMenuOpen(false);
-    onScrollTo(id);
+    if (onScrollTo) {
+      onScrollTo(id);
+    } else {
+      navigate('/?scroll=' + id);
+    }
   };
+
+  // If navigating from another page with ?scroll= param, try to scroll
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const scrollId = params.get('scroll');
+    if (scrollId && onScrollTo) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => onScrollTo(scrollId), 100);
+      // Clean up URL
+      navigate('/', { replace: true });
+    }
+  }, [location, onScrollTo, navigate]);
 
   return (
     <header id="header-root" className="sticky top-0 z-50 bg-[#F8FAFC]/90 backdrop-blur-md border-b border-[#E2E8F0] px-6 py-4 transition-all duration-300">
@@ -30,7 +47,11 @@ export default function Header({ onScrollTo }: HeaderProps) {
           id="logo-container" 
           className="flex items-center gap-2.5 cursor-pointer group"
           onClick={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (location.pathname === '/') {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              navigate('/');
+            }
           }}
         >
           {/* Custom generated precise vector logo icon matching screenshot */}

@@ -162,26 +162,26 @@ export default function PortalPage() {
     : 'text-red-400 bg-red-500/10 border-red-500/30';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans">
       {/* Decorative bg */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/4 rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-cyan-600/3 rounded-full blur-[150px]" />
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#0A5ED6]/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-cyan-600/5 rounded-full blur-[120px]" />
       </div>
 
       {/* Nav */}
-      <nav className="sticky top-0 z-20 flex items-center justify-between px-6 py-4 border-b border-slate-900 bg-slate-950/90 backdrop-blur-sm">
+      <nav className="sticky top-0 z-20 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white/90 backdrop-blur-sm shadow-sm">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-blue-400" />
+          <div className="w-8 h-8 rounded-lg bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 flex items-center justify-center">
+            <Shield className="w-4 h-4 text-[#0A5ED6]" />
           </div>
-          <span className="font-bold text-white text-sm">AegisOne</span>
+          <span className="font-bold text-[#0F172A] text-sm">AegisOne</span>
         </Link>
         <div className="flex items-center gap-4">
-          <span className="hidden sm:block text-xs text-slate-400">{org.admin_email}</span>
+          <span className="hidden sm:block text-xs text-slate-500 font-semibold">{org.admin_email}</span>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 border border-transparent hover:border-red-200"
           >
             <LogOut className="w-3.5 h-3.5" /> Sign Out
           </button>
@@ -192,11 +192,11 @@ export default function PortalPage() {
       <div className="max-w-5xl mx-auto px-4 py-10 space-y-8 relative z-10">
 
         {/* Welcome banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-900">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Organization Dashboard</p>
-            <h1 className="text-2xl font-bold text-white">{org.name}</h1>
-            <p className="text-sm text-slate-400 mt-0.5">{org.industry} · {org.country}</p>
+            <h1 className="text-2xl font-bold text-[#0F172A]">{org.name}</h1>
+            <p className="text-sm text-[#45464D] mt-0.5">{org.industry} · {org.country}</p>
           </div>
           <span className={`self-start sm:self-auto text-xs font-bold px-3 py-1.5 rounded-full border uppercase tracking-wider ${statusColor}`}>
             {org.status === 'active' && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
@@ -205,123 +205,204 @@ export default function PortalPage() {
           </span>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { icon: <Key className="w-5 h-5 text-blue-400" />, label: 'Organization ID', value: org.org_id },
-            { icon: <Users className="w-5 h-5 text-purple-400" />, label: 'Allowed Users', value: `${org.allowed_users}` },
-            { icon: <Package className="w-5 h-5 text-emerald-400" />, label: 'Product Version', value: `v${org.product_version}` },
-            { icon: <Globe className="w-5 h-5 text-amber-400" />, label: 'Deployment Type', value: 'Self-Hosted' },
-          ].map(s => (
-            <div key={s.label} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
-              <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center">{s.icon}</div>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{s.label}</p>
-              <p className="text-lg font-bold text-white font-mono">{s.value}</p>
+        {org.status === 'pending' ? (
+          <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-10 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-amber-500" />
             </div>
-          ))}
-        </div>
-
-        {/* Credentials card */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-800">
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <Key className="w-4 h-4 text-blue-400" />
-            </div>
-            <div>
-              <h2 className="font-bold text-white text-sm">Deployment Credentials</h2>
-              <p className="text-xs text-slate-500">Store these securely. Used during your first local setup.</p>
-            </div>
-          </div>
-
-          <InfoRow label="Organization ID"    value={org.org_id}            mono copiable />
-          <InfoRow label="Deployment Token"   value={org.deployment_token}  mono copiable />
-          <InfoRow label="License Key"        value={org.license_key}       mono copiable />
-          <InfoRow label="Admin Email"        value={org.admin_email}             copiable />
-
-          <div className="mt-4 bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-300/80 leading-relaxed">
-              Keep your Deployment Token and License Key private. These are used to activate your local AegisOne portal during the first boot. Do not share them.
+            <h2 className="text-xl font-bold text-[#0F172A]">Your request is under review</h2>
+            <p className="text-[#45464D] max-w-md mx-auto text-sm leading-relaxed">
+              Your registration has been published. Our team is currently reviewing your application. We will contact you soon with your approval status and next steps.
             </p>
           </div>
-        </div>
-
-          {/* Download CTA */}
-          <div className="bg-gradient-to-br from-blue-600/15 to-cyan-600/10 border border-blue-500/20 rounded-2xl p-6 flex flex-col gap-5">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <Download className="w-7 h-7 text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <h2 className="font-bold text-white text-base">Download Your Deployment Bundle</h2>
-                <p className="text-sm text-slate-400 mt-1">
-                  Your <code className="font-mono text-blue-300">aegisone-bundle.json</code> contains your Org ID, License Key, and Deployment Token. The setup wizard will open automatically.
-                </p>
-              </div>
-              <button
-                onClick={handleDownloadBundle}
-                disabled={downloading}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shrink-0 whitespace-nowrap"
-              >
-                {downloading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Preparing...</>
-                ) : (
-                  <><Download className="w-4 h-4" /> Download Bundle</>
-                )}
-              </button>
+        ) : org.status === 'suspended' ? (
+          <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-10 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-red-100 border border-red-200 flex items-center justify-center mx-auto mb-4">
+              <X className="w-8 h-8 text-red-500" />
             </div>
-
-            {/* Secondary CTA row */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-blue-500/20">
-              <a
-                href={SETUP_WIZARD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all border border-slate-700"
-              >
-                <ChevronRight className="w-4 h-4 text-blue-400" />
-                Open Setup Wizard
-              </a>
-              <a
-                href={DASHBOARD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all border border-slate-700"
-              >
-                <ArrowRight className="w-4 h-4 text-emerald-400" />
-                Go to Dashboard
-              </a>
-            </div>
+            <h2 className="text-xl font-bold text-[#0F172A]">Application Declined</h2>
+            <p className="text-[#45464D] max-w-md mx-auto text-sm leading-relaxed">
+              Unfortunately, we are unable to approve your organization at this time.
+            </p>
+            {org.product_version !== '1.0.0' && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl inline-block text-left">
+                <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Reason</p>
+                <p className="text-sm text-red-600">{org.product_version}</p>
+              </div>
+            )}
           </div>
+        ) : (
+          <>
+            {/* Stats row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { icon: <Key className="w-5 h-5 text-[#0A5ED6]" />, label: 'Organization ID', value: org.org_id },
+                { icon: <Users className="w-5 h-5 text-purple-600" />, label: 'Allowed Users', value: `${org.allowed_users}` },
+                { icon: <Package className="w-5 h-5 text-emerald-600" />, label: 'Product Version', value: `v${org.product_version}` },
+                { icon: <Globe className="w-5 h-5 text-amber-600" />, label: 'Deployment Type', value: 'Self-Hosted' },
+              ].map(s => (
+                <div key={s.label} className="bg-white border border-slate-200 shadow-sm rounded-2xl p-4 space-y-2">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center">{s.icon}</div>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{s.label}</p>
+                  <p className="text-lg font-bold text-[#0F172A] font-mono">{s.value}</p>
+                </div>
+              ))}
+            </div>
 
-        {/* Next Steps */}
-        <div>
-          <h2 className="text-base font-bold text-white mb-4">Your Setup Journey</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {STEPS.map((s, i) => (
-              <div key={i} className={`bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3 relative hover:border-slate-700 transition-all`}>
-                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${s.color}`}>
-                  {s.icon}
+            {/* Credentials card */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 flex items-center justify-center">
+                  <Key className="w-4 h-4 text-[#0A5ED6]" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Step {i + 1}</p>
-                  <h3 className="text-sm font-bold text-white leading-snug">{s.title}</h3>
-                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">{s.desc}</p>
+                  <h2 className="font-bold text-[#0F172A] text-sm">Deployment Credentials</h2>
+                  <p className="text-xs text-slate-500">Store these securely. Used during your first local setup.</p>
                 </div>
-                {i < STEPS.length - 1 && (
-                  <ChevronRight className="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 hidden lg:block" />
-                )}
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Docs link */}
-        <div className="flex justify-center pt-2">
-          <a href="#" className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors">
-            <ExternalLink className="w-3.5 h-3.5" /> View Full Installation Guide
-          </a>
-        </div>
+              <InfoRow label="Organization ID"    value={org.org_id}            mono copiable />
+              <InfoRow label="Deployment Token"   value={org.deployment_token}  mono copiable />
+              <InfoRow label="License Key"        value={org.license_key}       mono copiable />
+              <InfoRow label="Admin Email"        value={org.admin_email}             copiable />
+
+              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                  Keep your Deployment Token and License Key private. These are used to activate your local AegisOne portal during the first boot. Do not share them.
+                </p>
+              </div>
+            </div>
+
+            {/* Download & Docker Instructions */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-6 text-white shadow-xl">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-[#0A5ED6]/20 border border-[#0A5ED6]/30 flex items-center justify-center shrink-0">
+                  <Download className="w-7 h-7 text-[#0A5ED6]" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="font-bold text-white text-base">Local Docker Setup Guide</h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Your environment is ready. Follow these layman steps to spin up AegisOne on your local server.
+                  </p>
+                </div>
+                <button
+                  onClick={handleDownloadBundle}
+                  disabled={downloading}
+                  className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] disabled:bg-[#0A5ED6]/50 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shrink-0 whitespace-nowrap"
+                >
+                  {downloading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Preparing...</>
+                  ) : (
+                    <><Download className="w-4 h-4" /> Download Config Bundle</>
+                  )}
+                </button>
+              </div>
+
+              {/* Docker Setup Steps */}
+              <div className="bg-slate-950 rounded-xl p-5 border border-slate-800 space-y-4">
+                <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                  <Package className="w-4 h-4 text-[#0A5ED6]" /> 
+                  Quick Start Instructions
+                </h3>
+                
+                <div className="space-y-4 text-sm text-slate-300">
+                  <div className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">1</div>
+                    <div>
+                      <p className="font-semibold text-white mb-1">Download Configuration</p>
+                      <p className="text-xs">Click the button above to download your <code className="text-[#0A5ED6] bg-[#0A5ED6]/10 px-1 py-0.5 rounded">aegisone-bundle.json</code> file.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">2</div>
+                    <div>
+                      <p className="font-semibold text-white mb-1">Install Docker</p>
+                      <p className="text-xs">Ensure you have <a href="https://docs.docker.com/get-docker/" target="_blank" rel="noreferrer" className="text-[#0A5ED6] hover:underline">Docker installed</a> on your machine or server.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">3</div>
+                    <div className="w-full">
+                      <p className="font-semibold text-white mb-1">Run the AegisOne Container</p>
+                      <p className="text-xs mb-2">Open your terminal/command prompt and run the following command:</p>
+                      <div className="bg-black/50 p-3 rounded-lg border border-slate-800 overflow-x-auto">
+                        <code className="text-emerald-400 font-mono text-xs whitespace-pre">
+                          docker run -d \<br/>
+                          &nbsp;&nbsp;--name aegisone-shield \<br/>
+                          &nbsp;&nbsp;-p 3000:3000 -p 5432:5432 \<br/>
+                          &nbsp;&nbsp;-v ./aegisone-bundle.json:/app/config.json \<br/>
+                          &nbsp;&nbsp;aegisone/enterprise-shield:latest
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">4</div>
+                    <div>
+                      <p className="font-semibold text-white mb-1">Access Your Local Dashboard</p>
+                      <p className="text-xs">Open <a href="http://localhost:3000" target="_blank" rel="noreferrer" className="text-[#0A5ED6] hover:underline">http://localhost:3000</a> in your browser to view your live perimeter security!</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Secondary CTA row */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-blue-500/20">
+                <a
+                  href={SETUP_WIZARD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all border border-slate-700"
+                >
+                  <ChevronRight className="w-4 h-4 text-blue-400" />
+                  Open Setup Wizard
+                </a>
+                <a
+                  href={DASHBOARD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all border border-slate-700"
+                >
+                  <ArrowRight className="w-4 h-4 text-emerald-400" />
+                  Go to Dashboard
+                </a>
+              </div>
+            </div>
+
+            {/* Next Steps */}
+            <div>
+              <h2 className="text-base font-bold text-white mb-4">Your Setup Journey</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {STEPS.map((s, i) => (
+                  <div key={i} className={`bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3 relative hover:border-slate-700 transition-all`}>
+                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${s.color}`}>
+                      {s.icon}
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Step {i + 1}</p>
+                      <h3 className="text-sm font-bold text-white leading-snug">{s.title}</h3>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">{s.desc}</p>
+                    </div>
+                    {i < STEPS.length - 1 && (
+                      <ChevronRight className="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 hidden lg:block" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Docs link */}
+            <div className="flex justify-center pt-2">
+              <a href="#" className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors">
+                <ExternalLink className="w-3.5 h-3.5" /> View Full Installation Guide
+              </a>
+            </div>
+          </>
+        )}
 
       </div>
     </div>

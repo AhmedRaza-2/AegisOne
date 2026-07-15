@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import Header from '../components/Header';
 import {
   Building2, User, Mail, Lock, Phone, Globe, Users, Briefcase,
   ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff
@@ -34,13 +35,13 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
         <React.Fragment key={step}>
           <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all duration-300 ${
             step < current ? 'bg-emerald-500 text-white' :
-            step === current ? 'bg-blue-500 text-white ring-4 ring-blue-500/30' :
-            'bg-slate-800 text-slate-500'
+            step === current ? 'bg-[#0A5ED6] text-white ring-4 ring-[#0A5ED6]/30' :
+            'bg-slate-200 text-slate-500'
           }`}>
             {step < current ? <CheckCircle2 className="w-4 h-4" /> : step}
           </div>
           {step < total && (
-            <div className={`h-px w-10 transition-all duration-300 ${step < current ? 'bg-emerald-500' : 'bg-slate-800'}`} />
+            <div className={`h-px w-10 transition-all duration-300 ${step < current ? 'bg-emerald-500' : 'bg-slate-200'}`} />
           )}
         </React.Fragment>
       ))}
@@ -58,7 +59,7 @@ interface InputProps {
 function Field({ label, icon, error, children }: InputProps) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
         {icon} {label}
       </label>
       {children}
@@ -67,7 +68,7 @@ function Field({ label, icon, error, children }: InputProps) {
   );
 }
 
-const inputCls = "w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all";
+const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#0A5ED6] focus:bg-white transition-all";
 const selectCls = inputCls + " appearance-none cursor-pointer";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -156,34 +157,25 @@ export default function RegisterPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-      {/* Top bar */}
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-slate-900">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-blue-400" />
-          </div>
-          <span className="font-bold text-white text-sm tracking-tight">AegisOne</span>
-        </Link>
-        <span className="text-xs text-slate-500">
-          Already registered?{' '}
-          <Link to="/login" className="text-blue-400 font-semibold hover:text-blue-300 transition-colors">
-            Sign In
-          </Link>
-        </span>
-      </nav>
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans">
+      <Header />
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-lg">
-
+      <div className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
+        {/* Decorative background positioned behind the form area */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden flex justify-center items-center">
+          <div className="w-[600px] h-[600px] bg-[#0A5ED6]/5 rounded-full blur-[120px]" />
+        </div>
+        
+        <div className="w-full max-w-lg relative z-10">
+          
           {/* Header */}
           <div className="text-center mb-8 space-y-2">
-            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-semibold text-blue-400 uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 px-3 py-1 rounded-full text-xs font-semibold text-[#0A5ED6] uppercase tracking-wider">
               Organization Registration
             </div>
-            <h1 className="text-2xl font-bold text-white">Deploy AegisOne in Your Organization</h1>
-            <p className="text-sm text-slate-400">
+            <h1 className="text-2xl font-bold text-[#0F172A]">Deploy AegisOne in Your Organization</h1>
+            <p className="text-sm text-[#45464D]">
               {step === 1 && 'Tell us about your organization.'}
               {step === 2 && 'Who is the primary security administrator?'}
               {step === 3 && 'Secure your admin portal account.'}
@@ -193,7 +185,7 @@ export default function RegisterPage() {
           <StepIndicator current={step} total={3} />
 
           {/* Form Card */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xl">
             <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} className="space-y-5" noValidate>
 
               {/* ── STEP 1: Organization ── */}
@@ -234,8 +226,8 @@ export default function RegisterPage() {
                           onClick={() => setForm(p => ({ ...p, employee_count: r.value }))}
                           className={`py-2 px-1 rounded-lg border text-xs font-semibold transition-all ${
                             form.employee_count === r.value
-                              ? 'bg-blue-500/20 border-blue-500 text-blue-300'
-                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                              ? 'bg-[#0A5ED6]/10 border-[#0A5ED6] text-[#0A5ED6]'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-[#0A5ED6]'
                           }`}
                         >
                           {r.label}
@@ -299,13 +291,13 @@ export default function RegisterPage() {
                         onChange={set('password')}
                         autoFocus
                       />
-                      <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                      <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0A5ED6] transition-colors">
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                     {/* Strength bar */}
                     {form.password && (
-                      <div className="mt-1.5 h-1 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="mt-1.5 h-1 bg-slate-200 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full transition-all duration-300 ${
                           form.password.length < 8 ? 'w-1/4 bg-red-500' :
                           !/[A-Z]/.test(form.password) || !/[0-9]/.test(form.password) ? 'w-2/4 bg-amber-500' :
@@ -325,7 +317,7 @@ export default function RegisterPage() {
                         value={form.confirm_password}
                         onChange={set('confirm_password')}
                       />
-                      <button type="button" onClick={() => setShowConfirm(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                      <button type="button" onClick={() => setShowConfirm(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0A5ED6] transition-colors">
                         {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -337,13 +329,13 @@ export default function RegisterPage() {
                       type="checkbox"
                       checked={form.agreed}
                       onChange={set('agreed')}
-                      className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-900 accent-blue-500 cursor-pointer"
+                      className="mt-0.5 w-4 h-4 rounded border-slate-300 bg-white accent-[#0A5ED6] cursor-pointer"
                     />
-                    <span className="text-xs text-slate-400 leading-relaxed">
+                    <span className="text-xs text-[#45464D] leading-relaxed">
                       I agree to AegisOne's{' '}
-                      <span className="text-blue-400 hover:text-blue-300 cursor-pointer">Terms of Service</span>{' '}
+                      <span className="text-[#0A5ED6] hover:text-blue-800 cursor-pointer">Terms of Service</span>{' '}
                       and{' '}
-                      <span className="text-blue-400 hover:text-blue-300 cursor-pointer">Privacy Policy</span>.
+                      <span className="text-[#0A5ED6] hover:text-blue-800 cursor-pointer">Privacy Policy</span>.
                       I understand that organization data is stored only on my own server.
                     </span>
                   </label>
@@ -352,8 +344,8 @@ export default function RegisterPage() {
 
               {/* Error */}
               {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-xs text-red-400 font-medium flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-600 font-medium flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-600 shrink-0" />
                   {error}
                 </div>
               )}
@@ -364,7 +356,7 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => { setStep(s => s - 1); setError(''); }}
-                    className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-slate-700 text-slate-300 text-sm font-semibold hover:border-slate-600 hover:bg-slate-800 transition-all"
+                    className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:border-slate-300 hover:bg-slate-50 transition-all"
                   >
                     <ChevronLeft className="w-4 h-4" /> Back
                   </button>
@@ -372,7 +364,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white font-bold py-3 rounded-xl text-sm transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] disabled:bg-[#0A5ED6]/50 text-white font-bold py-3 rounded-xl text-sm transition-all"
                 >
                   {loading ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Creating Organization...</>
@@ -387,10 +379,17 @@ export default function RegisterPage() {
             </form>
           </div>
 
-          {/* Footer note */}
-          <p className="text-center text-xs text-slate-600 mt-6">
-            🔒 We only store your organization profile. No employee, threat, or internal data ever reaches our servers.
-          </p>
+          <div className="mt-8 text-center space-y-3">
+            <p className="text-sm text-[#45464D]">
+              Already registered?{' '}
+              <Link to="/login" className="text-[#0A5ED6] font-semibold hover:text-blue-800 transition-colors">
+                Sign In to Portal
+              </Link>
+            </p>
+            <p className="text-xs text-[#45464D]">
+              We only store your organization profile. No employee, threat, or internal data ever reaches our servers.
+            </p>
+          </div>
         </div>
       </div>
     </div>
