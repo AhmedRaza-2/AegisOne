@@ -69,10 +69,10 @@ CREATE INDEX ix_dashboard_statistics_organization_id ON dashboard_statistics (or
 CREATE UNIQUE INDEX ix_ds_org_date ON dashboard_statistics (organization_id, date);
 
 CREATE TABLE devices (
-	id SERIAL NOT NULL, 
 	device_id VARCHAR(128) NOT NULL, 
 	organization_id VARCHAR(64) NOT NULL, 
 	user_id INTEGER, 
+	device_name VARCHAR(255),
 	browser VARCHAR(100), 
 	browser_version VARCHAR(50), 
 	os VARCHAR(100), 
@@ -80,10 +80,8 @@ CREATE TABLE devices (
 	status VARCHAR(32), 
 	last_seen TIMESTAMP WITHOUT TIME ZONE DEFAULT now(), 
 	created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(), 
-	PRIMARY KEY (id)
+	PRIMARY KEY (device_id)
 );
-
-CREATE UNIQUE INDEX ix_devices_device_id ON devices (device_id);
 
 CREATE INDEX ix_devices_user_id ON devices (user_id);
 
@@ -246,28 +244,56 @@ CREATE INDEX ix_tr_org_status ON threat_reports (organization_id, status);
 
 CREATE INDEX ix_threat_reports_created_at ON threat_reports (created_at);
 
+CREATE TABLE departments (
+	department_id SERIAL NOT NULL,
+	organization_id VARCHAR(64) NOT NULL,
+	department_name VARCHAR(255) NOT NULL,
+	department_code VARCHAR(50),
+	lead_user_id INTEGER,
+	created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+	PRIMARY KEY (department_id)
+);
+
+CREATE INDEX ix_departments_org_id ON departments (organization_id);
+
+CREATE TABLE invitations (
+	id SERIAL NOT NULL,
+	organization_id VARCHAR(64) NOT NULL,
+	user_id INTEGER,
+	email_sent BOOLEAN DEFAULT false,
+	activation_status VARCHAR(50) DEFAULT 'pending',
+	activation_date TIMESTAMP WITHOUT TIME ZONE,
+	created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+	PRIMARY KEY (id)
+);
+
+CREATE INDEX ix_invitations_org_id ON invitations (organization_id);
+CREATE INDEX ix_invitations_user_id ON invitations (user_id);
+
 CREATE TABLE users (
-	id SERIAL NOT NULL, 
-	organization_id VARCHAR(64) NOT NULL, 
+	user_id SERIAL NOT NULL, 
+	organization_id VARCHAR(64) NOT NULL,
+	employee_id VARCHAR(100),
+	first_name VARCHAR(255) NOT NULL, 
+	last_name VARCHAR(255) NOT NULL, 
 	email VARCHAR(255) NOT NULL, 
-	password_hash VARCHAR(255) NOT NULL, 
-	full_name VARCHAR(255) NOT NULL, 
+	phone VARCHAR(50),
+	department_id INTEGER,
 	role VARCHAR(50) NOT NULL, 
-	department VARCHAR(255), 
-	account_status VARCHAR(50), 
-	approved_by INTEGER, 
-	status_reason TEXT, 
-	is_active BOOLEAN, 
+	designation VARCHAR(255),
+	status VARCHAR(50) DEFAULT 'active',
+	password_hash VARCHAR(255) NOT NULL, 
+	force_password_change BOOLEAN DEFAULT true,
 	last_login TIMESTAMP WITHOUT TIME ZONE, 
 	created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(), 
-	PRIMARY KEY (id)
+	PRIMARY KEY (user_id)
 );
 
 CREATE INDEX ix_users_organization_id ON users (organization_id);
 
 CREATE UNIQUE INDEX ix_users_email ON users (email);
 
-CREATE INDEX ix_users_org_dept ON users (organization_id, department);
+CREATE INDEX ix_users_org_dept ON users (organization_id, department_id);
 
 CREATE TABLE website_scans (
 	id SERIAL NOT NULL, 

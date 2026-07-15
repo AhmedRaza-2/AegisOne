@@ -77,6 +77,8 @@ export default function PortalPage() {
   --name aegisone-shield \\
   -p 3000:3000 -p 5432:5432 \\
   -e ORG_ID="${org.org_id}" \\
+  -e ORG_NAME="${org.name}" \\
+  -e ORG_INDUSTRY="${org.industry || 'Technology'}" \\
   -e LICENSE_KEY="${org.license_key}" \\
   -e DEPLOYMENT_TOKEN="${org.deployment_token}" \\
   -e ADMIN_EMAIL="${org.admin_email}" \\

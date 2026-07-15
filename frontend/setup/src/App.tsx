@@ -1,732 +1,712 @@
-import React, { useState } from 'react';
-import Header from './components/Header';
-import Hero from './components/Hero';
-import ExplainerVideo from './components/ExplainerVideo';
-import InvisibleRisk from './components/InvisibleRisk';
-import Compliance from './components/Compliance';
-import OnboardingFlow from './components/OnboardingFlow';
-import TechnicalBlueprint from './components/TechnicalBlueprint';
-import DeploymentStack from './components/DeploymentStack';
-import ReadySection from './components/ReadySection';
-import Footer from './components/Footer';
-import Dashboard from './components/Dashboard';
-import AuthScreen from './components/AuthScreen';
-import { getCurrentSession, signOutUser } from './lib/firebase';
-import { UserSession } from './types';
-
-import { 
-  ShieldCheck, X, Check, Server, Database, Key, Send, Copy, Sparkles, 
-  ArrowRight, Calendar, Clock, Mail, User, MessageSquare, ExternalLink, ShieldAlert
+import React, { useState, useEffect } from 'react';
+import {
+  Building2, Users, Download, Upload, CheckCircle2, AlertCircle, Key, Mail,
+  ShieldCheck, Activity, ArrowRight, ChevronRight, Loader2, Sparkles, UserPlus,
+  Shield, Network, HardDrive, FileSpreadsheet, Lock, Check, Search, Laptop, Globe
 } from 'lucide-react';
 
+type SetupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+interface Department {
+  id: string;
+  name: string;
+  code: string;
+  leadId?: string;
+}
+
+interface Employee {
+  id: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  departmentCode: string;
+  role: string;
+  designation: string;
+  status: 'pending' | 'valid' | 'invalid';
+  error?: string;
+  generatedPassword?: string;
+}
+
+interface ActivationStatus {
+  emailSent: boolean;
+  firstLogin: boolean;
+  extensionInstalled: boolean;
+  deviceRegistered: boolean;
+  status: 'Active' | 'Pending' | 'Install Extension';
+}
+
 export default function App() {
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
-  const [session, setSession] = useState<UserSession | null>(getCurrentSession());
-  
-  // Setup Request Modal States
-  const [showSetupModal, setShowSetupModal] = useState(false);
-  const [setupStep, setSetupStep] = useState(1);
-  const [companyName, setCompanyName] = useState('');
-  const [workEmail, setWorkEmail] = useState('');
-  const [nodeRegion, setNodeRegion] = useState('Pakistan Edge');
-  const [deploymentCloud, setDeploymentCloud] = useState('Local Office PC');
+  const [step, setStep] = useState<SetupStep>(1);
+  const [loading, setLoading] = useState(false);
 
-  // Live Demo Booking Modal States
-  const [showDemoModal, setShowDemoModal] = useState(false);
-  const [demoStep, setDemoStep] = useState(1);
-  const [demoName, setDemoName] = useState('');
-  const [demoEmail, setDemoEmail] = useState('');
-  const [selectedDate, setSelectedDate] = useState('2026-06-29');
-  const [selectedTime, setSelectedTime] = useState('02:00 PM PKT');
+  // Step 1: Org Info (Pre-filled from Docker Environment Variables)
+  const [orgName, setOrgName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [timezone, setTimezone] = useState('UTC+00:00');
+  const [configLoaded, setConfigLoaded] = useState(false);
 
-  // Privacy Policy & Terms Modal States
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
+  // Simulate backend fetching the Docker Environment variables
+  useEffect(() => {
+    const fetchDockerConfig = async () => {
+      // Simulating GET /api/system/config
+      await new Promise(r => setTimeout(r, 1000));
+      setOrgName('Acme Corp'); // This would be process.env.ORG_NAME in backend
+      setIndustry('Technology'); // This would be process.env.ORG_INDUSTRY in backend
+      setConfigLoaded(true);
+    };
+    fetchDockerConfig();
+  }, []);
 
-  const [successToast, setSuccessToast] = useState<string | null>(null);
+  // Step 2: Departments
+  const [departments, setDepartments] = useState<Department[]>([
+    { id: '1', name: 'Information Technology', code: 'IT' },
+    { id: '2', name: 'Human Resources', code: 'HR' },
+    { id: '3', name: 'Finance', code: 'FIN' },
+  ]);
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptCode, setNewDeptCode] = useState('');
 
-  const availableDates = [
-    { label: 'Mon, Jun 29', value: 'Monday, June 29' },
-    { label: 'Tue, Jun 30', value: 'Tuesday, June 30' },
-    { label: 'Wed, Jul 01', value: 'Wednesday, July 01' },
-  ];
+  // Step 3 & 4: Employees
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [fileUploaded, setFileUploaded] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
 
-  const availableTimes = [
-    { label: '11:00 AM PKT', value: '11:00 AM PKT' },
-    { label: '02:00 PM PKT', value: '02:00 PM PKT' },
-    { label: '04:30 PM PKT', value: '04:30 PM PKT' },
-  ];
+  // Step 7: Rollout Status
+  const [rolloutActive, setRolloutActive] = useState(false);
 
-  const handleScrollTo = (elementId: string) => {
-    const el = document.getElementById(elementId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+  const handleNextStep = async () => {
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 800)); // Fake network delay
+    setStep((s) => Math.min(s + 1, 8) as SetupStep);
+    setLoading(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const showToast = (message: string) => {
-    setSuccessToast(message);
+  const handleAddDepartment = () => {
+    if (!newDeptName || !newDeptCode) return;
+    setDepartments([...departments, { id: Math.random().toString(), name: newDeptName, code: newDeptCode.toUpperCase() }]);
+    setNewDeptName('');
+    setNewDeptCode('');
+  };
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleDownloadTemplate = () => {
+    const csvContent = "Employee ID,First Name,Last Name,Email,Phone Number,Department Code,Role,Designation\nEMP001,Ahmed,Raza,ahmed@company.com,03001234567,IT,Employee,Software Engineer\nEMP002,Ali,Khan,ali@company.com,03001234568,HR,Manager,HR Lead";
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Employee_Template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').filter(l => l.trim() !== '');
+      
+      if (lines.length < 2) {
+        setLoading(false);
+        return; // Empty or just headers
+      }
+
+      const parsedEmployees: Employee[] = [];
+      const seenEmails = new Set<string>();
+
+      for (let i = 1; i < lines.length; i++) {
+        // Handle CSV split, ignoring commas inside quotes is hard with simple split, but this is a basic version
+        const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (cols.length < 6) continue;
+        
+        const [employeeId, firstName, lastName, email, phone, departmentCode, role, designation] = cols;
+        
+        let status: 'valid' | 'invalid' = 'valid';
+        let error = '';
+
+        const allowedRoles = ['employee', 'manager', 'admin'];
+        const normalizedRole = (role || '').toLowerCase().trim();
+
+        if (!email || !email.includes('@')) {
+          status = 'invalid';
+          error = 'Invalid Email';
+        } else if (seenEmails.has(email)) {
+          status = 'invalid';
+          error = 'Duplicate Email';
+        } else if (!departments.find(d => d.code === departmentCode)) {
+          status = 'invalid';
+          error = `Invalid Dept: ${departmentCode}`;
+        } else if (!allowedRoles.includes(normalizedRole)) {
+          status = 'invalid';
+          error = `Invalid Role: Must be Employee, Manager, or Admin`;
+        }
+
+        if (email) seenEmails.add(email);
+
+        parsedEmployees.push({
+          id: Math.random().toString(),
+          employeeId: employeeId || `EMP${i}`,
+          firstName: firstName || 'Unknown',
+          lastName: lastName || 'User',
+          email: email || '',
+          phone: phone || '',
+          departmentCode: departmentCode || 'NONE',
+          role: role || 'Employee',
+          designation: designation || '',
+          status,
+          error
+        });
+      }
+
+      setTimeout(() => {
+        setEmployees(parsedEmployees);
+        setFileUploaded(true);
+        setPreviewMode(true);
+        setStep(4);
+        setLoading(false);
+      }, 800);
+    };
+    reader.readAsText(file);
+    // reset input so same file can be uploaded again if needed
+    e.target.value = '';
+  };
+
+  const validEmployees = employees.filter(e => e.status === 'valid');
+  const invalidEmployees = employees.filter(e => e.status === 'invalid');
+
+  const generatePasswordsAndMails = () => {
+    setLoading(true);
     setTimeout(() => {
-      setSuccessToast(null);
-    }, 4500);
+      setEmployees(employees.map(e => ({
+        ...e,
+        generatedPassword: e.status === 'valid' ? Math.random().toString(36).slice(-10) + 'X#' : undefined
+      })));
+      setStep(6);
+      setLoading(false);
+    }, 2000);
   };
 
-  const handleOnboardingSelectPhase = (phaseNum: number) => {
-    if (phaseNum === 4) {
-      setIsDashboardOpen(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      showToast('Live Threat Monitor opened successfully! Simulated threats are streaming.');
-    } else {
-      showToast(`Phase ${phaseNum} Interactive configuration simulated successfully.`);
-    }
-  };
-
-  const handleSetupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyName || !workEmail) {
-      showToast('Please enter both Company Name and Work Email.');
-      return;
-    }
-    setSetupStep(2);
-    showToast(`Setup request generated for ${companyName}! Notification emails dispatched.`);
-  };
-
-  const handleDemoSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!demoName || !demoEmail) {
-      showToast('Please enter both your Name and Email address.');
-      return;
-    }
-    setDemoStep(2);
-    showToast(`Live Demo requested on ${selectedDate} at ${selectedTime}!`);
-  };
-
-  const isCloudDeployment = deploymentCloud === 'AWS Private Cloud' || deploymentCloud === 'Google Cloud VPC';
+  const STEPS = [
+    { num: 1, title: 'Organization' },
+    { num: 2, title: 'Departments' },
+    { num: 3, title: 'Import Employees' },
+    { num: 4, title: 'Validation' },
+    { num: 5, title: 'Assign Leads' },
+    { num: 6, title: 'Security' },
+    { num: 7, title: 'Rollout' },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900 relative">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans selection:bg-blue-100 selection:text-blue-900">
       
-      {/* Toast Notification */}
-      {successToast && (
-        <div 
-          id="toast-notification"
-          className="fixed bottom-6 right-6 z-50 bg-[#0F172A] border border-slate-800 text-white rounded-xl py-3.5 px-5 shadow-2xl flex items-center gap-3 animate-fadeIn glow-blue"
-        >
-          <div className="bg-[#0A5ED6] p-1.5 rounded-full text-white">
-            <Check className="w-4 h-4" />
+      {/* Top Navbar */}
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 flex items-center justify-center">
+            <Shield className="w-4 h-4 text-[#0A5ED6]" />
           </div>
-          <span className="font-sans text-sm font-semibold">{successToast}</span>
+          <span className="font-bold text-[#0F172A] text-sm tracking-tight">AegisOne Local Setup Engine</span>
         </div>
-      )}
+        <div className="flex items-center gap-4">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Docker Connected
+          </span>
+        </div>
+      </nav>
 
-      {/* Navigation Header */}
-      <Header 
-        onRequestSetup={() => {
-          setSetupStep(1);
-          setShowSetupModal(true);
-        }}
-        onOpenDashboard={() => {
-          setIsDashboardOpen(!isDashboardOpen);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onScrollTo={handleScrollTo}
-        isDashboardOpen={isDashboardOpen}
-      />
-
-      {/* Main Container */}
-      <main className="flex-1" id="main-content">
-        {isDashboardOpen ? (
-          /* Active Interactive Simulation Dashboard Hub */
-          <div className="animate-fadeIn">
-            {session ? (
-              <Dashboard 
-                session={session} 
-                onLogOut={() => {
-                  signOutUser();
-                  setSession(null);
-                }} 
-              />
-            ) : (
-              <AuthScreen onAuthSuccess={(s) => setSession(s)} />
-            )}
-          </div>
-        ) : (
-          /* High-Fidelity Landing Page Views */
-          <div className="animate-fadeIn">
-            {/* Hero Banner Section */}
-            <Hero 
-              onRequestSetup={() => {
-                setSetupStep(1);
-                setShowSetupModal(true);
-              }}
-              onViewArchitecture={() => handleScrollTo('architecture')}
-            />
-
-            {/* Interactive 3D Video Explainer Tour Section */}
-            <ExplainerVideo onShowNotification={showToast} />
-
-            {/* Cloud Risk Analysis Section */}
-            <InvisibleRisk />
-
-            {/* Compliance Governance Section */}
-            <Compliance 
-              onDownloadWhitepaper={() => {
-                showToast('AegisOne Security Whitepaper downloaded successfully.');
-              }}
-            />
-
-            {/* Onboarding Timeline Section */}
-            <OnboardingFlow 
-              onStartOnboarding={() => {
-                setSetupStep(1);
-                setShowSetupModal(true);
-              }}
-              onSelectPhase={handleOnboardingSelectPhase}
-            />
-
-            {/* Technical Blueprint Section */}
-            <TechnicalBlueprint />
-
-            {/* Deployment Stack Section */}
-            <DeploymentStack />
-
-            {/* Ready Call-To-Action Section */}
-            <ReadySection 
-              onRequestSetup={() => {
-                setSetupStep(1);
-                setShowSetupModal(true);
-              }}
-              onScheduleDemo={() => {
-                setDemoStep(1);
-                setShowDemoModal(true);
-              }}
-            />
-          </div>
-        )}
-      </main>
-
-      {/* Footer Brand bar */}
-      <Footer 
-        onOpenPrivacy={() => setShowPrivacyModal(true)}
-        onOpenTerms={() => setShowTermsModal(true)}
-      />
-
-      {/* 1. SETUP REQUEST / CONFIGURATOR MODAL */}
-      {showSetupModal && (
-        <div id="setup-modal-overlay" className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div id="setup-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
-            
-            {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="24" height="24" rx="6" fill="#0F172A"/>
-                  <path d="M12 5.5L6.5 7.5V11.5C6.5 14.85 8.85 17.95 12 18.5C15.15 17.95 17.5 14.85 17.5 11.5V7.5L12 5.5Z" fill="#0A5ED6"/>
-                  <path d="M11.5 8H12.5V14.5H11.5V8ZM12 16C11.5 16 11.25 15.75 11.25 15.25C11.25 14.75 11.5 14.5 12 14.5C12.5 14.5 12.75 14.75 12.75 15.25C12.75 15.75 12.5 16 12 16Z" fill="white"/>
-                </svg>
-                <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Quick Configurator</span>
-              </div>
-              <button 
-                onClick={() => setShowSetupModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      <div className="max-w-6xl mx-auto w-full px-4 py-8 flex flex-col lg:flex-row gap-8">
+        
+        {/* Left Sidebar Stepper */}
+        <div className="w-full lg:w-64 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm sticky top-24">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6">Setup Progress</h3>
+            <div className="space-y-6 relative">
+              <div className="absolute left-3.5 top-2 bottom-2 w-0.5 bg-slate-100"></div>
+              {STEPS.map((s) => {
+                const isActive = step === s.num;
+                const isPast = step > s.num;
+                return (
+                  <div key={s.num} className="flex items-center gap-4 relative z-10">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                      isPast ? 'bg-emerald-500 text-white border-2 border-emerald-500' :
+                      isActive ? 'bg-white text-[#0A5ED6] border-2 border-[#0A5ED6] shadow-[0_0_0_4px_rgba(10,94,214,0.1)]' :
+                      'bg-white text-slate-400 border-2 border-slate-200'
+                    }`}>
+                      {isPast ? <Check className="w-4 h-4" /> : s.num}
+                    </div>
+                    <span className={`font-semibold text-sm ${
+                      isActive ? 'text-[#0F172A]' : isPast ? 'text-slate-600' : 'text-slate-400'
+                    }`}>
+                      {s.title}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
+          </div>
+        </div>
 
-            {/* Modal Body */}
-            <div className="p-6">
-              {setupStep === 1 ? (
-                /* Step 1: Input Form */
-                <form onSubmit={handleSetupSubmit} className="space-y-4" id="setup-step1-form">
-                  <p className="font-sans text-xs text-[#45464D] leading-relaxed">
-                    Configure your private link protection system. Once you fill this form, we will generate setup steps tailored to your selected hosting environment.
-                  </p>
-
-                  {/* Company Name */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700">Company Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="e.g. Acme Ltd or Local SME"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
-                    />
-                  </div>
-
-                  {/* Work Email */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700">Work Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={workEmail}
-                      onChange={(e) => setWorkEmail(e.target.value)}
-                      placeholder="you@company.com"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
-                    />
-                  </div>
-
-                  {/* Regional Config & Cloud */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="font-sans text-xs font-semibold text-slate-700">Hosting Area</label>
-                      <select
-                        value={nodeRegion}
-                        onChange={(e) => setNodeRegion(e.target.value)}
-                        className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] outline-hidden cursor-pointer"
-                      >
-                        <option>Pakistan Edge</option>
-                        <option>Asia South</option>
-                        <option>Global Free-Tier</option>
-                        <option>On-Premises Office</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="font-sans text-xs font-semibold text-slate-700">Office Server</label>
-                      <select
-                        value={deploymentCloud}
-                        onChange={(e) => setDeploymentCloud(e.target.value)}
-                        className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] outline-hidden cursor-pointer"
-                      >
-                        <option>Local Office PC</option>
-                        <option>Docker / Bare Metal</option>
-                        <option>AWS Private Cloud</option>
-                        <option>Google Cloud VPC</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Submit buttons */}
-                  <button
-                    type="submit"
-                    className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
-                  >
-                    Generate Setup Blueprint
-                    <Send className="w-4 h-4" />
-                  </button>
-                </form>
-              ) : (
-                /* Step 2: Dynamic Result based on Local vs Cloud Choice */
-                <div className="space-y-4" id="setup-step2-success">
-                  {isCloudDeployment ? (
-                    /* Cloud VPC Deployment Consultation Flow (Requires Discussion) */
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2.5 text-blue-700 bg-blue-50 border border-blue-100 p-3.5 rounded-xl">
-                        <ShieldAlert className="w-5 h-5 text-blue-600 shrink-0" />
-                        <span className="font-sans text-sm font-bold">Cloud VPC Integration Triggered</span>
-                      </div>
-
-                      <p className="font-sans text-sm text-[#45464D] leading-relaxed">
-                        Excellent choice. Because <strong>{deploymentCloud}</strong> settings require isolated subnet routes and private DNS redirection, our network engineering team must assist you with deployment.
-                      </p>
-
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2 text-xs">
-                        <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          Architecture Proposal Sent to: <span className="font-mono text-blue-600">{workEmail}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          AegisOne Setup Desk Notified: <span className="font-mono text-[#0F172A]">araza2125012.pgc@gmail.com</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          Deployment Area Assigned: <span className="font-semibold text-slate-800">{nodeRegion}</span>
-                        </div>
-                      </div>
-
-                      <div className="pt-2">
-                        <h4 className="font-sans text-xs font-bold text-[#0F172A] mb-2 uppercase">Need immediate setup?</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <a 
-                            href="https://wa.me/923001234567" 
-                            target="_blank" 
-                            referrerPolicy="no-referrer"
-                            className="font-sans flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" /> Chat via WhatsApp
-                          </a>
-                          <a 
-                            href={`mailto:araza2125012.pgc@gmail.com?subject=AegisOne Cloud VPC Setup Proposal for ${companyName}`}
-                            className="font-sans flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
-                          >
-                            <Mail className="w-3.5 h-3.5" /> Direct Support Email
-                          </a>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-slate-100 pt-3 flex justify-end">
-                        <button
-                          onClick={() => setShowSetupModal(false)}
-                          className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
-                        >
-                          Finish Setup
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Local Docker / Local PC Flow (Immediate Self-Serve) */
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
-                        <Sparkles className="w-5 h-5 text-emerald-500 shrink-0" />
-                        <span className="font-sans text-sm font-semibold">Local Node License Generated!</span>
-                      </div>
-
-                      <p className="font-sans text-xs text-[#45464D] leading-relaxed">
-                        We have successfully dispatched configuration blueprints to both <strong className="text-[#0F172A]">{workEmail}</strong> and our monitoring desk at <strong className="text-[#0F172A]">araza2125012.pgc@gmail.com</strong>. Copy the local deployment command to boot:
-                      </p>
-
-                      {/* Copy code display */}
-                      <div className="relative bg-slate-900 rounded-lg p-4 border border-slate-800 font-mono text-[11px] text-slate-200 leading-relaxed overflow-x-auto whitespace-pre">
-                        {`# Run this command on your office server\ndocker run -d --name aegisone-perimeter \\\n  -e LICENSE_KEY="aegis_sme_${companyName.toLowerCase().replace(/\s+/g, '_')}_99x" \\\n  -e SERVER_PORT="3000" \\\n  -p 3000:3000 \\\n  aegisone/core:v2.4.0`}
-                      </div>
-
-                      {/* Copy blueprint button */}
-                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`docker run -d --name aegisone-perimeter -e LICENSE_KEY="aegis_sme_${companyName.toLowerCase().replace(/\s+/g, '_')}_99x" -p 3000:3000 aegisone/core:v2.4.0`);
-                            showToast('Launch command copied to clipboard.');
-                          }}
-                          className="font-sans flex-1 text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-[#0F172A] py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                        >
-                          <Copy className="w-3.5 h-3.5" /> Copy Command
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSetupModal(false);
-                            window.open('http://localhost:3002/login', '_blank');
-                            showToast('Redirecting to Live Threat Dashboard...');
-                          }}
-                          className="font-sans flex-1 text-center text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                        >
-                          Open Live Dashboard
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+        {/* Main Content Area */}
+        <div className="flex-1 min-w-0">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-lg p-8 md:p-12">
+            
+            {/* STEP 1: ORGANIZATION INFO */}
+            {step === 1 && (
+              <div className="animate-fadeIn space-y-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Organization Information</h2>
+                  <p className="text-slate-500 text-sm">Let's verify your company's core identity imported from your Docker deployment command.</p>
                 </div>
-              )}
-            </div>
+                
+                {!configLoaded ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                    <Loader2 className="w-8 h-8 text-[#0A5ED6] animate-spin" />
+                    <p className="text-sm text-slate-500 font-semibold animate-pulse">Reading environment variables from Docker container...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2 relative">
+                        <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
+                          Organization Name
+                          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">FROM_ENV</span>
+                        </label>
+                        <input type="text" value={orgName} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-semibold outline-none cursor-not-allowed" />
+                      </div>
+                      <div className="space-y-2 relative">
+                        <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
+                          Industry
+                          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">FROM_ENV</span>
+                        </label>
+                        <input type="text" value={industry} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-semibold outline-none cursor-not-allowed" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase">Timezone</label>
+                        <select value={timezone} onChange={e => setTimezone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-[#0A5ED6] outline-none">
+                          <option>UTC+00:00 (GMT)</option>
+                          <option>UTC+05:00 (PKT)</option>
+                          <option>UTC-05:00 (EST)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase">Logo Upload</label>
+                        <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-xl px-4 py-3 text-sm text-center text-slate-500 cursor-pointer hover:bg-slate-100">
+                          Click to upload logo (optional)
+                        </div>
+                      </div>
+                    </div>
 
-          </div>
-        </div>
-      )}
-
-      {/* 2. STATEFUL LIVE DEMO SCHEDULER MODAL */}
-      {showDemoModal && (
-        <div id="demo-modal-overlay" className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div id="demo-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
-            
-            {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#0A5ED6]" />
-                <span className="font-sans font-bold text-lg text-[#0F172A]">Schedule a Live Interactive Demo</span>
+                    <div className="pt-6 border-t border-slate-100 flex justify-end">
+                      <button onClick={handleNextStep} disabled={loading} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-              <button 
-                onClick={() => setShowDemoModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            )}
 
-            {/* Modal Body */}
-            <div className="p-6">
-              {demoStep === 1 ? (
-                /* Step 1: Selection Form */
-                <form onSubmit={handleDemoSubmit} className="space-y-4" id="demo-form">
-                  <p className="font-sans text-xs text-[#45464D] leading-relaxed">
-                    Pick a convenient date and slot below. We will demonstrate how AegisOne operates inside your local servers to block scammers without reading your private links.
-                  </p>
+            {/* STEP 2: DEPARTMENTS */}
+            {step === 2 && (
+              <div className="animate-fadeIn space-y-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Create Departments</h2>
+                  <p className="text-slate-500 text-sm">Define the organizational structure before importing employees.</p>
+                </div>
 
-                  {/* Name Input */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700 flex items-center gap-1">
-                      <User className="w-3 h-3 text-slate-400" /> Your Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={demoName}
-                      onChange={(e) => setDemoName(e.target.value)}
-                      placeholder="e.g. Haris Khan"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
-                    />
-                  </div>
-
-                  {/* Email Input */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700 flex items-center gap-1">
-                      <Mail className="w-3 h-3 text-slate-400" /> Email Address
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={demoEmail}
-                      onChange={(e) => setDemoEmail(e.target.value)}
-                      placeholder="you@domain.com"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
-                    />
-                  </div>
-
-                  {/* Date Picker Input */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700 flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" /> Preferred Date
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={selectedDate}
-                      onChange={(e) => {
-                        // Format the date back nicely for user display
-                        setSelectedDate(e.target.value);
-                      }}
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] outline-none transition-colors"
-                    />
-                  </div>
-
-                  {/* Time Picker Slot */}
-                  <div className="space-y-1.5">
-                    <label className="font-sans text-xs font-semibold text-slate-700 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" /> Preferred Time Slot (Enter any time or timezone)
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        required
-                        value={selectedTime}
-                        onChange={(e) => setSelectedTime(e.target.value)}
-                        placeholder="e.g. 02:30 PM PKT or 11:00 AM EST"
-                        className="font-sans text-sm flex-1 bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-none transition-colors"
-                      />
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                  <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex-1 space-y-2">
+                      <label className="text-xs font-bold text-slate-700 uppercase">Department Name</label>
+                      <input type="text" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} placeholder="e.g. Marketing" className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0A5ED6]" />
                     </div>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      <span className="text-[10px] text-slate-500 font-sans">Quick slots:</span>
-                      {['11:00 AM PKT', '02:00 PM PKT', '04:30 PM PKT', '09:00 AM EST'].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setSelectedTime(preset)}
-                          className="font-sans text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                        >
-                          {preset}
-                        </button>
-                      ))}
+                    <div className="w-full sm:w-32 space-y-2">
+                      <label className="text-xs font-bold text-slate-700 uppercase">Code</label>
+                      <input type="text" value={newDeptCode} onChange={e => setNewDeptCode(e.target.value)} placeholder="MKT" className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0A5ED6] uppercase" />
                     </div>
-                  </div>
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
-                  >
-                    Confirm Live Demo Booking
-                    <Check className="w-4 h-4" />
-                  </button>
-                </form>
-              ) : (
-                /* Step 2: Confirmation / Simulated Outbound Email logs */
-                <div className="space-y-5" id="demo-success-view">
-                  <div className="flex items-center gap-2.5 text-emerald-600 bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
-                    <Sparkles className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <div>
-                      <h4 className="font-sans font-bold text-sm">Demo Successfully Scheduled!</h4>
-                      <p className="font-sans text-xs text-emerald-700">Google Calendar invites dispatched.</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-900 rounded-xl p-4 border border-slate-800 text-slate-200 font-sans text-xs space-y-2.5">
-                    <div className="border-b border-slate-800 pb-2 text-slate-400 font-mono text-[10px] uppercase tracking-wider">
-                      Invitee Details
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Guest Name:</span> <strong className="text-white">{demoName}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Date &amp; Time:</span> <strong className="text-white text-[#0A5ED6]">{selectedDate} at {selectedTime}</strong>
-                    </div>
-                    <div className="pt-2 border-t border-slate-800 space-y-1.5 font-mono text-[11px] text-slate-400">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Sent calendar invite to: <span className="text-blue-400">{demoEmail}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Dispatched briefing copy to: <span className="text-white">araza2125012.pgc@gmail.com</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Meeting Location: Google Meet (Private Link enclosed in mail)
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <h5 className="font-sans text-xs font-bold text-slate-700 uppercase">Alternative Instant Contact</h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <a 
-                        href="https://wa.me/923001234567" 
-                        target="_blank" 
-                        referrerPolicy="no-referrer"
-                        className="font-sans flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" /> Chat via WhatsApp
-                      </a>
-                      <a 
-                        href={`mailto:araza2125012.pgc@gmail.com?subject=Scheduled AegisOne Demo Support for ${demoName}`}
-                        className="font-sans flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
-                      >
-                        <Mail className="w-3.5 h-3.5" /> Direct Support Email
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-slate-100 pt-3 flex justify-end">
-                    <button
-                      onClick={() => setShowDemoModal(false)}
-                      className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
-                    >
-                      Close Window
+                    <button onClick={handleAddDepartment} className="bg-slate-900 hover:bg-black text-white font-bold px-6 py-2.5 rounded-lg text-sm transition-colors w-full sm:w-auto">
+                      Add
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
 
-          </div>
-        </div>
-      )}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                      <tr>
+                        <th className="px-6 py-3 font-bold uppercase tracking-wider text-xs">Department Name</th>
+                        <th className="px-6 py-3 font-bold uppercase tracking-wider text-xs">Code</th>
+                        <th className="px-6 py-3 font-bold uppercase tracking-wider text-xs text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {departments.map(dept => (
+                        <tr key={dept.id} className="hover:bg-slate-50">
+                          <td className="px-6 py-4 font-semibold text-[#0F172A]">{dept.name}</td>
+                          <td className="px-6 py-4 font-mono text-slate-500">{dept.code}</td>
+                          <td className="px-6 py-4 text-right">
+                            <button onClick={() => setDepartments(departments.filter(d => d.id !== dept.id))} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase cursor-pointer">Remove</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-      {/* 3. PRIVACY POLICY MODAL */}
-      {showPrivacyModal && (
-        <div id="privacy-modal-overlay" className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div id="privacy-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
-            {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-[#0A5ED6]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Privacy Commitment</span>
+                <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
+                  <button onClick={() => setStep(1)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
+                  <button onClick={handleNextStep} disabled={loading || departments.length === 0} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50">
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
+                  </button>
+                </div>
               </div>
-              <button 
-                onClick={() => setShowPrivacyModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            )}
 
-            {/* Modal Content */}
-            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#45464D] leading-relaxed">
-              <p className="font-semibold text-[#0F172A] text-sm">Your Data Stays With You — Always.</p>
-              <p>
-                At AegisOne, we design security tools around the fundamental right to data sovereignty. Unlike other link check and phishing services, our software functions directly inside your private hardware or corporate VPC. We do not inspect, upload, store, or transmit your URL checks, internal email activities, or employee credentials to our own external database servers.
-              </p>
+            {/* STEP 3: IMPORT EMPLOYEES */}
+            {step === 3 && (
+              <div className="animate-fadeIn space-y-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Import Employees</h2>
+                  <p className="text-slate-500 text-sm mb-4">Download our standardized template, fill in your employee details, and upload it back here for automatic validation.</p>
+                </div>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">1. Zero Log Transmission</h4>
-              <p>
-                All link inspection, scam diagnostics, and threat score calculations are completed entirely in memory on your private node. No log data or metadata containing user identity is sent back to AegisOne or any third-party analytics provider.
-              </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+                  {/* Download Card */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-8 text-center flex flex-col justify-center h-full min-h-[340px]">
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
+                      <FileSpreadsheet className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <h3 className="font-bold text-[#0F172A] mb-2">1. Download Template</h3>
+                    <p className="text-sm text-blue-800 mb-6">Download this ready-to-use file to easily add your team members.</p>
+                    
+                    <button onClick={handleDownloadTemplate} className="flex items-center justify-center gap-2 bg-white border border-blue-200 text-blue-700 font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-blue-100 transition-colors text-sm w-full max-w-[240px] cursor-pointer shadow-sm hover:shadow mb-6">
+                      <Download className="w-4 h-4" /> Employee_Template.csv
+                    </button>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">2. Local Storage Control</h4>
-              <p>
-                The audit trail, blocked scam URLs, and administrative threat reports generated by the software are saved directly onto your office local PostgreSQL database. You hold the unique decryption keys and maintain absolute control over security logs.
-              </p>
+                    <ul className="text-[11px] text-blue-800/80 space-y-1.5 text-left mx-auto max-w-[240px]">
+                      <li className="flex items-start gap-1.5 leading-snug"><span className="text-blue-400 font-bold">•</span> <span>Only type <strong>Employee</strong>, <strong>Manager</strong>, or <strong>Admin</strong> in the Role column.</span></li>
+                      <li className="flex items-start gap-1.5 leading-snug"><span className="text-blue-400 font-bold">•</span> <span>Use the exact <strong>Department Codes</strong> you created earlier.</span></li>
+                    </ul>
+                  </div>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">3. Strict Compliance</h4>
-              <p>
-                Because AegisOne does not act as a central data processor for your user traffic, using AegisOne greatly simplifies your GDPR, HIPAA, and SOC2 compliance profiles. No "cross-border data transfer" agreements are required for our core perimeter checks.
-              </p>
+                  {/* Upload Card */}
+                  <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-slate-100 transition-colors cursor-pointer flex flex-col justify-center h-full min-h-[340px]" onClick={() => fileInputRef.current?.click()}>
+                    <input 
+                      type="file" 
+                      accept=".csv" 
+                      ref={fileInputRef} 
+                      onChange={handleFileUpload} 
+                      className="hidden" 
+                    />
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center h-full space-y-4">
+                        <Loader2 className="w-10 h-10 text-[#0A5ED6] animate-spin" />
+                        <p className="text-sm font-semibold text-slate-600">Validating CSV data...</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
+                          <Upload className="w-8 h-8 text-slate-500" />
+                        </div>
+                        <h3 className="font-bold text-[#0F172A] mb-2">2. Upload Data</h3>
+                        <p className="text-sm text-slate-500 mb-6">Click to upload your filled CSV file here to validate and import.</p>
+                        <button className="flex items-center justify-center gap-2 bg-slate-900 text-white font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-black transition-colors text-sm w-full max-w-[240px]">
+                          Select CSV File
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-              <p className="italic text-slate-500 pt-2 border-t border-slate-100">
-                For questions regarding security architecture, custom air-gapped systems, or isolated office networks, please write directly to our desk at araza2125012.pgc@gmail.com
-              </p>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
-              <button
-                onClick={() => setShowPrivacyModal(false)}
-                className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
-              >
-                Accept &amp; Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. TERMS OF SERVICE MODAL */}
-      {showTermsModal && (
-        <div id="terms-modal-overlay" className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div id="terms-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
-            {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-[#0A5ED6]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M16 13H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M16 17H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M10 9H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Software Terms of Use</span>
+                <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
+                  <button onClick={() => setStep(2)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
+                  <div className="text-slate-400 text-sm font-semibold px-4">Upload a CSV to continue</div>
+                </div>
               </div>
-              <button 
-                onClick={() => setShowTermsModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            )}
 
-            {/* Modal Content */}
-            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#45464D] leading-relaxed">
-              <p className="font-semibold text-[#0F172A] text-sm">Simple, Direct License Agreements</p>
-              
-              <h4 className="font-bold text-[#0F172A] uppercase">1. Sovereign Node Licensing</h4>
-              <p>
-                AegisOne grants you a non-exclusive, non-transferable license to execute our sovereign link filtering container on your own physical computer servers or cloud VPC subnets. You are solely responsible for setting up and keeping the Docker container active.
-              </p>
+            {/* STEP 4: VALIDATION PREVIEW */}
+            {step === 4 && (
+              <div className="animate-fadeIn space-y-6">
+                <div className="flex items-center justify-between bg-slate-900 rounded-2xl p-6 text-white shadow-lg">
+                  <div>
+                    <h3 className="text-lg font-bold">Preview Import</h3>
+                    <p className="text-sm text-slate-400">Review data integrity before writing to PostgreSQL.</p>
+                  </div>
+                  <div className="flex gap-6 text-center">
+                    <div>
+                      <p className="text-3xl font-bold">{employees.length}</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Parsed</p>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-emerald-400">{validEmployees.length}</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Valid</p>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-red-400">{invalidEmployees.length}</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Errors</p>
+                    </div>
+                  </div>
+                </div>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">2. No Malicious Misuse</h4>
-              <p>
-                The provided AegisOne software is created solely to detect, block, and log phishing emails, scam portals, and credential stealing links targeting your staff. You may not reverse engineer, redistribute, or use our cognitive heuristics for malicious purposes.
-              </p>
+                {invalidEmployees.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <h4 className="text-sm font-bold text-red-800 flex items-center gap-2 mb-3"><AlertCircle className="w-4 h-4" /> Validation Errors Found</h4>
+                    <ul className="space-y-2">
+                      {invalidEmployees.map(emp => (
+                        <li key={emp.id} className="text-xs text-red-700 bg-white px-3 py-2 rounded border border-red-100 flex justify-between">
+                          <span><strong>{emp.firstName} {emp.lastName}</strong> ({emp.email})</span>
+                          <span className="font-bold uppercase tracking-wider">{emp.error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button onClick={() => { setPreviewMode(false); setStep(3); }} className="mt-4 text-xs font-bold text-red-700 underline hover:text-red-900">Upload corrected file</button>
+                  </div>
+                )}
 
-              <h4 className="font-bold text-[#0F172A] uppercase">3. Support &amp; SLA</h4>
-              <p>
-                Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125012.pgc@gmail.com.
-              </p>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                   <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                      <tr>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">ID</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Name</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Email</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Dept</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {validEmployees.slice(0,3).map(emp => (
+                        <tr key={emp.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 font-mono text-slate-500 text-xs">{emp.employeeId}</td>
+                          <td className="px-4 py-3 font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</td>
+                          <td className="px-4 py-3 text-slate-600">{emp.email}</td>
+                          <td className="px-4 py-3 font-mono text-blue-600 font-bold">{emp.departmentCode}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase"><CheckCircle2 className="w-3 h-3"/> Valid</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">4. Limitations</h4>
-              <p>
-                AegisOne checks links on a localized best-effort basis using premium localized rulesets with speed in mind. While we strive for near 100% scam block accuracy, network environments should combine AegisOne with active personnel training.
-              </p>
-            </div>
+                <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
+                  <button onClick={() => { setPreviewMode(false); setStep(3); }} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
+                  <button 
+                    onClick={handleNextStep} 
+                    disabled={invalidEmployees.length > 0 || validEmployees.length === 0 || loading} 
+                    className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Import {validEmployees.length} Valid Employees <ArrowRight className="w-4 h-4" /></>}
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {/* Modal Footer */}
-            <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
-              <button
-                onClick={() => setShowTermsModal(false)}
-                className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
-              >
-                Accept Terms
-              </button>
-            </div>
+            {/* STEP 5: ASSIGN LEADS */}
+            {step === 5 && (
+              <div className="animate-fadeIn space-y-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Assign Department Leads</h2>
+                  <p className="text-slate-500 text-sm">Select managers for each department. Leads have access to department-level threat reports.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {departments.map(dept => {
+                    const deptEmployees = validEmployees.filter(e => e.departmentCode === dept.code);
+                    return (
+                      <div key={dept.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-bold text-[#0F172A]">{dept.name}</h4>
+                          <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{dept.code}</span>
+                        </div>
+                        {deptEmployees.length > 0 ? (
+                           <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#0A5ED6] outline-none cursor-pointer">
+                             <option value="">Select Lead...</option>
+                             {deptEmployees.map(e => (
+                               <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.designation})</option>
+                             ))}
+                           </select>
+                        ) : (
+                          <p className="text-xs text-red-500 font-semibold italic">No valid employees imported for this department.</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
+                  <button onClick={() => setStep(3)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
+                  <button onClick={handleNextStep} disabled={loading} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Save Assignments <ArrowRight className="w-4 h-4" /></>}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 6: ACCOUNT GENERATION & SECURITY */}
+            {step === 6 && (
+              <div className="animate-fadeIn space-y-8 text-center py-8">
+                <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Lock className="w-12 h-12 text-[#0A5ED6]" />
+                </div>
+                <h2 className="text-3xl font-bold text-[#0F172A] mb-4">Generate Secure Accounts</h2>
+                <p className="text-slate-600 max-w-xl mx-auto leading-relaxed mb-8">
+                  Instead of predictable defaults, AegisOne will now generate cryptographically secure, random 14-character passwords for all {validEmployees.length} employees. 
+                  <br/><br/>
+                  We will then automatically dispatch "Welcome to AegisOne" emails containing their temporary credentials, login URL, and Chrome Extension download link. Users will be forced to change this password on their first login.
+                </p>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 max-w-lg mx-auto text-left space-y-3">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Automated Actions Queue</h4>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Hash & Store secure passwords to local DB</div>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Generate Temporary Login Tokens</div>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Dispatch {validEmployees.length} Email Invitations</div>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Enable Force-Password-Change policy</div>
+                </div>
+
+                <div className="pt-8">
+                  <button 
+                    onClick={() => {
+                      setLoading(true);
+                      setTimeout(() => {
+                        setRolloutActive(true);
+                        setStep(7);
+                        setLoading(false);
+                      }, 2500);
+                    }} 
+                    disabled={loading} 
+                    className="inline-flex items-center gap-2 bg-[#0F172A] hover:bg-black text-white font-bold px-10 py-4 rounded-xl transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5 disabled:opacity-50"
+                  >
+                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Executing Security Protocol...</> : <><ShieldCheck className="w-5 h-5" /> Execute & Send Welcome Emails</>}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 7: EMPLOYEE ACTIVATION STATUS (ROLLOUT) */}
+            {step === 7 && (
+              <div className="animate-fadeIn space-y-8">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#0F172A] mb-2 flex items-center gap-2">
+                      <Activity className="w-6 h-6 text-emerald-500" /> Employee Activation Status
+                    </h2>
+                    <p className="text-slate-500 text-sm">Monitor your organization's onboarding progress in real-time. AegisOne becomes fully active once extensions are installed.</p>
+                  </div>
+                  <button className="flex items-center gap-2 bg-slate-900 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-black transition-colors text-sm">
+                    Go to Full Dashboard <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Employees</p>
+                    <p className="text-2xl font-bold text-[#0F172A]">{validEmployees.length}</p>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Emails Sent</p>
+                    <p className="text-2xl font-bold text-blue-600">{validEmployees.length}</p>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Extensions Installed</p>
+                    <p className="text-2xl font-bold text-amber-500">1</p>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Fully Active</p>
+                    <p className="text-2xl font-bold text-emerald-600">1</p>
+                  </div>
+                </div>
+
+                {/* Status Table */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                   <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                      <tr>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px]">Employee</th>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-center">Email Sent</th>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-center">First Login</th>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-center">Ext Installed</th>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-center">Device Reg</th>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {/* Mocked Statuses for demonstration */}
+                      <tr className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-[#0F172A]">Ahmed Raza</p>
+                          <p className="text-xs text-slate-500">ahmed@company.com</p>
+                        </td>
+                        <td className="px-6 py-4 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="inline-flex bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Active</span>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-[#0F172A]">Ali Khan</p>
+                          <p className="text-xs text-slate-500">ali@company.com</p>
+                        </td>
+                        <td className="px-6 py-4 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-slate-300 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-slate-300 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-slate-300 mx-auto" /></td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="inline-flex bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold uppercase">Pending</span>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-[#0F172A]">Sara Ali</p>
+                          <p className="text-xs text-slate-500">sara@company.com</p>
+                        </td>
+                        <td className="px-6 py-4 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-slate-300 mx-auto" /></td>
+                        <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-slate-300 mx-auto" /></td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="inline-flex bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Install Ext</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-8 bg-[#0F172A] rounded-2xl p-8 text-center text-white relative overflow-hidden shadow-2xl">
+                  <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#0A5ED6]/30 rounded-full blur-[80px] pointer-events-none" />
+                  <div className="relative z-10 flex flex-col items-center">
+                    <ShieldCheck className="w-16 h-16 text-emerald-400 mb-4" />
+                    <h3 className="text-2xl font-bold mb-2">Organization is Live</h3>
+                    <p className="text-slate-300 text-sm max-w-lg mb-6">
+                      AegisOne is successfully deployed and waiting for extension check-ins. Your dashboard will now start populating with live threat events automatically.
+                    </p>
+                    <button className="bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3.5 rounded-xl shadow-lg transition-transform hover:-translate-y-0.5">
+                      Launch Security Dashboard
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
           </div>
         </div>
-      )}
-
+      </div>
     </div>
   );
 }

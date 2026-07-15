@@ -8,7 +8,7 @@ export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [authError, setAuthError] = useState('');
-  
+
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -55,7 +55,7 @@ export default function AdminDashboard() {
   const handleReject = async (id: string) => {
     const reason = window.prompt("Enter reason for rejection (this will be shown to the user):");
     if (reason === null) return; // User cancelled
-    
+
     try {
       await updateOrganizationStatus(id, 'suspended', reason);
       setOrgs(orgs.map(o => o.id === id ? { ...o, status: 'suspended', product_version: reason } : o));
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
                 type="password"
                 value={adminPassword}
                 onChange={e => setAdminPassword(e.target.value)}
-                placeholder="Admin Password (admin123)"
+                placeholder="Enter AdminPassword"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:border-[#0A5ED6] outline-none"
                 autoFocus
               />
@@ -162,11 +162,10 @@ export default function AdminDashboard() {
                   <td className="px-6 py-4">{org.admin_name}</td>
                   <td className="px-6 py-4 text-slate-600 font-mono text-xs">{org.admin_email}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
-                      org.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${org.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
                       org.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
+                        'bg-red-100 text-red-700'
+                      }`}>
                       {org.status}
                     </span>
                     {org.status === 'suspended' && org.product_version !== '1.0.0' && (
@@ -191,7 +190,7 @@ export default function AdminDashboard() {
                       </>
                     )}
                     {org.status !== 'pending' && (
-                       <span className="text-xs font-semibold text-slate-400 italic">Resolved</span>
+                      <span className="text-xs font-semibold text-slate-400 italic">Resolved</span>
                     )}
                   </td>
                 </tr>
