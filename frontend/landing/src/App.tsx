@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import ExplainerVideo from './components/ExplainerVideo';
 import InvisibleRisk from './components/InvisibleRisk';
+import CoreModules from './components/CoreModules';
 import OnboardingFlow from './components/OnboardingFlow';
 import DeploymentStack from './components/DeploymentStack';
 import ReadySection from './components/ReadySection';
@@ -120,7 +121,7 @@ export default function App() {
       {successToast && (
         <div 
           id="toast-notification"
-          className="fixed bottom-6 right-6 z-50 bg-[#0F172A] border border-slate-800 text-white rounded-xl py-3.5 px-5 shadow-2xl flex items-center gap-3 animate-fadeIn glow-blue"
+          className="fixed bottom-6 right-6 z-50 bg-white border border-slate-200 text-slate-800 rounded-xl py-3.5 px-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] flex items-center gap-3 animate-fadeIn"
         >
           <div className="bg-[#0A5ED6] p-1.5 rounded-full text-white">
             <Check className="w-4 h-4" />
@@ -147,6 +148,9 @@ export default function App() {
 
             {/* Cloud Risk Analysis Section */}
             <InvisibleRisk />
+
+            {/* Core Platform Modules Section */}
+            <CoreModules />
 
             {/* Onboarding Timeline Section */}
             <OnboardingFlow 
@@ -299,27 +303,27 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="bg-slate-900 rounded-xl p-4 border border-slate-800 text-slate-200 font-sans text-xs space-y-2.5">
-                    <div className="border-b border-slate-800 pb-2 text-slate-400 font-mono text-[10px] uppercase tracking-wider">
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-slate-600 font-sans text-xs space-y-2.5">
+                    <div className="border-b border-slate-200 pb-2 text-slate-500 font-mono text-[10px] uppercase tracking-wider font-bold">
                       Invitee Details
                     </div>
                     <div>
-                      <span className="text-slate-400">Guest Name:</span> <strong className="text-white">{demoName}</strong>
+                      <span className="text-slate-500">Guest Name:</span> <strong className="text-slate-800">{demoName}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400">Date &amp; Time:</span> <strong className="text-white text-[#0A5ED6]">{selectedDate} at {selectedTime}</strong>
+                      <span className="text-slate-500">Date &amp; Time:</span> <strong className="text-[#0A5ED6]">{selectedDate} at {selectedTime}</strong>
                     </div>
-                    <div className="pt-2 border-t border-slate-800 space-y-1.5 font-mono text-[11px] text-slate-400">
+                    <div className="pt-2 border-t border-slate-200 space-y-1.5 font-mono text-[11px] text-slate-500">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Sent calendar invite to: <span className="text-blue-400">{demoEmail}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Sent calendar invite to: <span className="text-blue-600">{demoEmail}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Dispatched briefing copy to: <span className="text-white">araza2125-012.pgc@gmail.com</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Dispatched briefing copy to: <span className="text-slate-800">araza2125-012.pgc@gmail.com</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Meeting Location: Google Meet (Private Link enclosed in mail)
                       </div>
                     </div>
@@ -338,7 +342,7 @@ export default function App() {
                       </a>
                       <a 
                         href={`mailto:araza2125-012.pgc@gmail.com?subject=Scheduled AegisOne Demo Support for ${demoName}`}
-                        className="font-sans flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
+                        className="font-sans flex items-center justify-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
                       >
                         <Mail className="w-3.5 h-3.5" /> Direct Support Email
                       </a>

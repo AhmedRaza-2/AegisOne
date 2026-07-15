@@ -1,5 +1,6 @@
 import React from 'react';
 import { Compass, Server, Download, BarChart3, ArrowRight, CheckCircle2, Copy, Play } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface OnboardingFlowProps {
   onStartOnboarding: () => void;
@@ -108,16 +109,18 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
                     }`}
                   >
                     {/* Node on central line */}
-                    <div 
+                    <motion.div 
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
                       className={`absolute left-6 md:left-1/2 -translate-x-1/2 z-10 w-12 h-12 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 ${
                         isActive 
-                          ? 'bg-[#0A5ED6] text-white border-[#0A5ED6] shadow-md shadow-blue-300' 
+                          ? 'bg-[#0A5ED6] text-white border-[#0A5ED6] shadow-[0_4px_12px_rgba(10,94,214,0.3)]' 
                           : 'bg-white text-slate-400 border-slate-300 hover:border-[#0A5ED6] hover:text-[#0A5ED6]'
                       }`}
                       onClick={() => setActiveTab(phase.num)}
                     >
                       <IconComponent className="w-5 h-5" />
-                    </div>
+                    </motion.div>
 
                     {/* Empty block for horizontal balance */}
                     <div className="hidden md:block md:w-1/2" />
@@ -128,7 +131,7 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
                         onClick={() => setActiveTab(phase.num)}
                         className={`p-6 rounded-xl border transition-all duration-300 text-left cursor-pointer ${
                           isActive 
-                            ? 'bg-white border-[#0A5ED6] shadow-md scale-[1.02]' 
+                            ? 'bg-white border-[#0A5ED6] shadow-[0_8px_30px_rgb(0,0,0,0.06)] scale-[1.02]' 
                             : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
                         }`}
                       >
@@ -151,49 +154,62 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
 
           {/* Interactive Console Right (5 cols on large screens) */}
           <div className="lg:col-span-5 lg:sticky lg:top-28">
-            <div className="bg-slate-900 text-slate-100 rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+            <div className="bg-white text-slate-800 rounded-xl border border-slate-200 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] overflow-hidden">
               {/* Console Header */}
-              <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <span className="font-mono text-xs text-slate-400">Interactive Walkthrough Console</span>
+              <div className="bg-[#FAFAFA] px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-slate-200" />
+                    <div className="w-3 h-3 rounded-full bg-slate-200" />
+                    <div className="w-3 h-3 rounded-full bg-slate-200" />
+                  </div>
+                  <span className="font-mono text-xs text-slate-400 font-semibold">Interactive Walkthrough</span>
                 </div>
-                <span className="font-mono text-[10px] text-blue-400 bg-blue-950 border border-blue-900 px-2 py-0.5 rounded uppercase font-semibold">
+                <span className="font-mono text-[10px] text-[#0A5ED6] bg-blue-50 border border-blue-100 px-2 py-0.5 rounded uppercase font-semibold">
                   Phase {activeTab}
                 </span>
               </div>
 
               {/* Console Body */}
               <div className="p-5 space-y-4 text-left">
-                <h4 className="font-sans font-semibold text-white text-base">
-                  {phases[activeTab - 1].demo.title}
-                </h4>
-                
-                {/* Code Block Container */}
-                <div className="relative bg-slate-950 rounded-lg p-4 border border-slate-800 font-mono text-xs text-slate-300 leading-relaxed overflow-x-auto min-h-[140px] whitespace-pre">
-                  <button 
-                    onClick={() => handleCopy(phases[activeTab - 1].demo.code)}
-                    className="absolute top-2 right-2 p-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer"
-                    title="Copy code"
+                <AnimatePresence mode="wait">
+                  <motion.div 
+                    key={activeTab}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    {copiedText === phases[activeTab - 1].demo.code ? (
-                      <span className="text-[10px] text-emerald-400 font-sans font-semibold px-1">Copied!</span>
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                  {phases[activeTab - 1].demo.code}
-                </div>
+                    <h4 className="font-sans font-semibold text-[#0F172A] text-base mb-4">
+                      {phases[activeTab - 1].demo.title}
+                    </h4>
+                    
+                    {/* Code Block Container */}
+                    <div className="relative bg-[#FAFAFA] rounded-lg p-4 border border-slate-200 font-mono text-xs text-slate-600 leading-relaxed overflow-x-auto min-h-[140px] whitespace-pre shadow-inner mb-4">
+                      <button 
+                        onClick={() => handleCopy(phases[activeTab - 1].demo.code)}
+                        className="absolute top-2 right-2 p-1.5 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-400 hover:text-[#0A5ED6] transition-all cursor-pointer shadow-sm"
+                        title="Copy code"
+                      >
+                        {copiedText === phases[activeTab - 1].demo.code ? (
+                          <span className="text-[10px] text-emerald-400 font-sans font-semibold px-1">Copied!</span>
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      {phases[activeTab - 1].demo.code}
+                    </div>
 
-                {/* Simulated action button */}
-                <button
-                  id={`btn-console-phase-${activeTab}`}
-                  onClick={() => onSelectPhase(activeTab)}
-                  className="font-sans w-full text-center text-sm font-semibold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer"
-                >
-                  <Play className="w-4 h-4" />
-                  {phases[activeTab - 1].demo.actionText}
-                </button>
+                    <button
+                      id={`btn-console-phase-${activeTab}`}
+                      onClick={() => onSelectPhase(activeTab)}
+                      className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+                    >
+                      <Play className="w-4 h-4" />
+                      {phases[activeTab - 1].demo.actionText}
+                    </button>
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
             

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Play, Pause, RotateCw, Volume2, VolumeX, Maximize2, Shield, Tv
+  Play, Pause, Volume2, VolumeX, Maximize2, PlayCircle
 } from 'lucide-react';
 import generateVideo from '../../generate.mp4';
+import { motion } from 'framer-motion';
 
 interface ExplainerVideoProps {
   onShowNotification: (msg: string) => void;
@@ -73,55 +74,43 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
   };
 
   return (
-    <section id="how-it-works" className="min-h-[90dvh] flex flex-col justify-center py-20 bg-slate-950 text-white relative overflow-hidden border-t border-b border-slate-900">
-      {/* Decorative cyber grid lines */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] opacity-25 pointer-events-none" />
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#0A5ED6]/10 rounded-full filter blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full filter blur-[100px] pointer-events-none" />
-
-      <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
+    <section id="how-it-works" className="py-24 bg-[#F8FAFC] relative overflow-hidden">
+      <div className="max-w-[1400px] mx-auto px-6 relative z-10 w-full flex flex-col items-center">
 
         {/* Header Block */}
-        <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
-          <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/15 border border-[#0A5ED6]/30 px-3.5 py-1.5 rounded-full">
-            <Tv className="w-3.5 h-3.5 text-[#0A5ED6]" />
-            <span className="font-sans text-xs font-semibold uppercase tracking-wider text-blue-400">
-              Interactive 3D Simulation
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mb-12 space-y-5"
+        >
+          <div className="inline-flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+            <PlayCircle className="w-4 h-4 text-[#0A5ED6]" />
+            <span className="font-sans text-xs font-semibold text-slate-600">
+              Watch Product Demo
             </span>
           </div>
-          <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-white">
-            See AegisOne <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">How It Works</span> in Action
+          <h2 className="font-sans text-4xl md:text-5xl font-bold tracking-tight text-[#0F172A]">
+            See how AegisOne <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Works</span>
           </h2>
-          <p className="font-sans text-sm text-slate-400 leading-relaxed">
-            Take a self-guided animated tour of our threat containment. Watch how our perimeter stands guard without inspecting private data.
+          <p className="font-sans text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto">
+            Take a self-guided tour of our threat containment. Watch how our perimeter stands guard without inspecting your private data.
           </p>
-        </div>
+        </motion.div>
 
         {/* Centered Large Video Container */}
-        <div className="w-full mx-auto">
-          <div className="relative bg-slate-900/90 border border-slate-800 rounded-3xl p-6 overflow-hidden shadow-2xl min-h-[450px] flex flex-col justify-between">
-            {/* Camera Frame Corners */}
-            <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-slate-700 pointer-events-none" />
-            <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-slate-700 pointer-events-none" />
-            <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-slate-700 pointer-events-none" />
-            <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-slate-700 pointer-events-none" />
-
-            {/* Simulated Live View Finder Badge */}
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400 font-bold">
-                  AEGISONE_EXPLAINER_PART_1.MP4
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 font-mono text-[10px] text-blue-400 bg-blue-500/10 px-2.5 py-0.5 rounded-full">
-                <Shield className="w-3 h-3" />
-                <span>Sovereign Protection Active</span>
-              </div>
-            </div>
-
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 30 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.7, delay: 0.2 }}
+          className="w-full max-w-5xl mx-auto"
+        >
+          <div className="relative bg-white border border-slate-200/80 rounded-[2rem] p-2 sm:p-4 overflow-hidden shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] transition-shadow duration-500 hover:shadow-[0_30px_70px_-15px_rgba(0,0,0,0.08)] flex flex-col">
+            
             {/* Video Stage */}
-            <div className="flex-1 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/60 flex items-center justify-center relative group min-h-[300px]">
+            <div className="relative w-full aspect-video bg-slate-50 rounded-[1.5rem] overflow-hidden border border-slate-100">
               <video
                 ref={videoRef}
                 src={generateVideo}
@@ -129,27 +118,38 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 muted
                 loop
                 playsInline
-                className="w-full h-full object-cover rounded-xl"
+                className="w-full h-full object-cover cursor-pointer hover:scale-[1.01] transition-transform duration-700 ease-out"
                 onClick={togglePlay}
               />
+              
+              {/* Optional: Centered Play Overlay if paused (Enhances UX) */}
+              {!isPlaying && (
+                <div 
+                  className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-[2px] pointer-events-none transition-opacity duration-300"
+                >
+                  <div className="w-20 h-20 rounded-full bg-white/90 shadow-xl flex items-center justify-center text-[#0A5ED6] pl-1.5 backdrop-blur-sm border border-white">
+                    <Play className="w-8 h-8" />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Custom Video Controls Panel */}
-            <div className="border-t border-slate-800/80 pt-4 mt-4">
+            {/* Refined Minimal Video Controls */}
+            <div className="pt-4 pb-2 px-4 sm:px-6">
               <div className="flex items-center justify-between gap-4">
                 {/* Control Actions */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-5">
                   <button
                     onClick={togglePlay}
-                    className="w-10 h-10 rounded-full bg-[#0A5ED6] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
+                    className="w-12 h-12 rounded-full bg-[#0A5ED6] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-md cursor-pointer"
                     title={isPlaying ? "Pause" : "Play"}
                   >
-                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                    {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-1" />}
                   </button>
 
-                  <div className="font-mono text-xs text-slate-400">
-                    <span className="text-white">{formatTime(currentTime)}</span>
-                    <span className="mx-1">/</span>
+                  <div className="font-mono text-sm font-medium text-slate-400 select-none">
+                    <span className="text-slate-700">{formatTime(currentTime)}</span>
+                    <span className="mx-1.5 text-slate-300">/</span>
                     <span>{formatTime(duration || 10)}</span>
                   </div>
                 </div>
@@ -158,7 +158,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 <div className="flex items-center gap-3">
                   <button
                     onClick={toggleMute}
-                    className="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                     title={isMuted ? "Unmute" : "Mute"}
                   >
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -166,7 +166,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
 
                   <button
                     onClick={handleFullscreen}
-                    className="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                     title="Fullscreen"
                   >
                     <Maximize2 className="w-4 h-4" />
@@ -176,7 +176,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
             </div>
 
           </div>
-        </div>
+        </motion.div>
 
       </div>
     </section>

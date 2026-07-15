@@ -29,3 +29,28 @@
   animation: pulse-slow 8s infinite ease-in-out;
 }
 
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+@keyframes shine {
+  0% { left: -100%; opacity: 0; }
+  20% { opacity: 0.5; }
+  100% { left: 100%; opacity: 0; }
+}
+
+.animate-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shine 4s infinite linear;
+}

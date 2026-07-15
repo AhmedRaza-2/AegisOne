@@ -7,6 +7,12 @@ import LoginPage from './pages/LoginPage.tsx';
 import PortalPage from './pages/PortalPage.tsx';
 import AdminDashboard from './pages/AdminDashboard.tsx';
 import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
+
+import AIEnginePage from './pages/features/AIEnginePage.tsx';
+import RealTimeMonitoringPage from './pages/features/RealTimeMonitoringPage.tsx';
+import ExplainableAIPage from './pages/features/ExplainableAIPage.tsx';
+import AnalyticsPage from './pages/features/AnalyticsPage.tsx';
+
 import './index.css';
 
 console.log("main.tsx: Script started executing");
@@ -32,6 +38,11 @@ try {
           <Route path="/portal"   element={<PortalPage />} />
           <Route path="/admin"    element={<AdminDashboard />} />
           <Route path="/update-password" element={<UpdatePasswordPage />} />
+          
+          <Route path="/features/ai-engine" element={<AIEnginePage />} />
+          <Route path="/features/real-time-monitoring" element={<RealTimeMonitoringPage />} />
+          <Route path="/features/explainable-ai" element={<ExplainableAIPage />} />
+          <Route path="/features/analytics" element={<AnalyticsPage />} />
         </Routes>
       </BrowserRouter>
     </StrictMode>,
