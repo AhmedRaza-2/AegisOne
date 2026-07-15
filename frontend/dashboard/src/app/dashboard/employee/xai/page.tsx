@@ -1,7 +1,7 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
-import { BrainCircuit, Activity, ShieldAlert, Download, Share2, Globe, Monitor, Shield, Network, EyeOff, Lock, Clock, Zap } from "lucide-react";
+import { BrainCircuit, Activity, ShieldAlert, Download, Share2, Globe, Monitor, Shield, Network, EyeOff, Lock, Clock, Zap, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };

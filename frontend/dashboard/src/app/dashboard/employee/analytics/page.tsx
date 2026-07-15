@@ -22,6 +22,9 @@ const categoryData = [
   { name: 'Malware', value: 15, color: '#F87171' },
 ];
 
+const intensityColors = ['bg-surface-100 dark:bg-[#1A2133]', 'bg-[#A5C0FF]', 'bg-[#4F84F8]', 'bg-[#3D6CE5]', 'bg-[#294BBD]'];
+const heatmapDays = Array.from({ length: 48 }, () => Math.floor(Math.random() * 5));
+
 export default function AnalyticsPage() {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);

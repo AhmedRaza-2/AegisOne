@@ -5,6 +5,9 @@ All paths, secrets, and tuning parameters in one place.
 import os
 import secrets
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ═══════════════════════════════════════════════════════════════
 # PATHS
