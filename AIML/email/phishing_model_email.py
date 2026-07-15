@@ -223,7 +223,10 @@ class PhishingDetector(nn.Module):
         super().__init__()
 
         # ── 1. DistilBERT backbone with LoRA ──
-        self.distilbert = DistilBertModel.from_pretrained("distilbert-base-uncased")
+        self.distilbert = DistilBertModel.from_pretrained(
+            "distilbert-base-uncased",
+            attn_implementation="eager"
+        )
 
         lora_config = LoraConfig(
             task_type=TaskType.FEATURE_EXTRACTION,

@@ -93,7 +93,10 @@ class URLDetector(nn.Module):
         super().__init__()
 
         # ⚡ LIGHTWEIGHT BERT (KEY UPGRADE)
-        self.bert = AutoModel.from_pretrained(model_name)
+        self.bert = AutoModel.from_pretrained(
+            model_name,
+            attn_implementation="eager"
+        )
 
         # freeze most layers (speed boost)
         for param in self.bert.parameters():

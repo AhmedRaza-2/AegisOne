@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import io
+<<<<<<< HEAD
 import random
 import statistics
 import sys
@@ -8,11 +9,22 @@ import time
 
 import httpx
 
+=======
+import requests
+import json
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+>>>>>>> ff262510555dc5ea98c2935a24986f2270118617
 
 # Fix encoding for Windows console
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
+<<<<<<< HEAD
 API_URL = "http://localhost:9000"
+=======
+API_URL = os.environ.get("AEGIS_API_URL", "http://127.0.0.1:9000")
+NUM_BOTS = 500
+>>>>>>> ff262510555dc5ea98c2935a24986f2270118617
 
 URL_PAYLOADS = [
     {"url": "https://www.google.com/search?q=company+portal"},
@@ -28,6 +40,7 @@ TEXT_PAYLOADS = [
     {"text": "Your account has been suspended due to suspicious activity. Verify immediately at http://verify-account-now.info"},
 ]
 
+<<<<<<< HEAD
 
 def build_payload(bot_id: int) -> tuple[str, dict]:
     """Rotate payloads so the backend sees duplicate bursts under load."""
@@ -38,6 +51,13 @@ def build_payload(bot_id: int) -> tuple[str, dict]:
         payload = TEXT_PAYLOADS[bot_id % len(TEXT_PAYLOADS)]
     return endpoint, payload
 
+=======
+def simulate_employee(bot_id: int):
+    """Simulates a single employee sending a random request."""
+    # Randomly decide if the employee sends a URL or Text
+    endpoint = random.choice(["/scan/url", "/scan/text"])
+    payload = random.choice(URL_PAYLOADS) if endpoint == "/scan/url" else random.choice(TEXT_PAYLOADS)
+>>>>>>> ff262510555dc5ea98c2935a24986f2270118617
 
 async def simulate_employee(
     bot_id: int,
@@ -56,6 +76,7 @@ async def simulate_employee(
 
     started = time.perf_counter()
     try:
+<<<<<<< HEAD
         response = await client.post(f"{API_URL}{endpoint}", json=payload)
         elapsed = time.perf_counter() - started
 
@@ -143,9 +164,69 @@ async def main():
     max_time = max(latencies) if latencies else 0.0
     rps = len(successful) / total_time if total_time > 0 else 0.0
 
+=======
+        # Use a persistent session to allow connection reuse
+        response = requests.post(f"{API_URL}{endpoint}", json=payload, timeout=10.0)
+        elapsed = time.time() - start_time
+        
+        if response.status_code == 200:
+            result = response.json()
+            verdict = result.get('verdict', 'UNKNOWN')
+            return {"bot_id": bot_id, "success": True, "time": elapsed, "verdict": verdict}
+        else:
+            return {"bot_id": bot_id, "success": False, "time": elapsed, "error": f"HTTP {response.status_code}"}
+            
+    except Exception as e:
+        elapsed = time.time() - start_time
+        return {"bot_id": bot_id, "success": False, "time": elapsed, "error": str(e)}
+
+def main():
+    print(f"🚀 Starting Load Test with {NUM_BOTS} Concurrent Employee Bots...\n")
+    print("Simulating traffic... This will take a few seconds as bots randomly fire their requests.  \n")
+    
+    stats = []
+    start_total = time.time()
+    
+    # 30 threads prevents OS context-switch thrashing while saturating Uvicorn
+    session = requests.Session()
+    
+    def bound_simulate(bot_id):
+        # Pass the session to reuse TCP connections
+        endpoint = random.choice(["/scan/url", "/scan/text"])
+        payload = random.choice(URL_PAYLOADS) if endpoint == "/scan/url" else random.choice(TEXT_PAYLOADS)
+
+        start_time = time.time()
+        try:
+            response = session.post(f"{API_URL}{endpoint}", json=payload, timeout=10.0)
+            elapsed = time.time() - start_time
+            if response.status_code == 200:
+                return {"bot_id": bot_id, "success": True, "time": elapsed, "verdict": response.json().get('verdict', 'UNKNOWN')}
+            return {"bot_id": bot_id, "success": False, "time": elapsed, "error": f"HTTP {response.status_code}"}
+        except Exception as e:
+            return {"bot_id": bot_id, "success": False, "time": time.time() - start_time, "error": str(e)}
+
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        futures = [executor.submit(bound_simulate, i+1) for i in range(NUM_BOTS)]
+        
+        for future in as_completed(futures):
+            stats.append(future.result())
+
+    total_time = time.time() - start_total
+    
+    successes = [s for s in stats if s['success']]
+    failures = [s for s in stats if not s['success']]
+    latencies = [s['time'] for s in stats]
+    
+    rps = NUM_BOTS / total_time if total_time > 0 else 0
+    avg_lat = sum(latencies) / len(latencies) if latencies else 0
+    max_lat = max(latencies) if latencies else 0
+    min_lat = min(latencies) if latencies else 0
+    
+>>>>>>> ff262510555dc5ea98c2935a24986f2270118617
     print("=" * 50)
     print("LOAD TEST RESULTS")
     print("=" * 50)
+<<<<<<< HEAD
     print(f"Total Requests      : {num_bots}")
     print(f"Total Time Taken    : {total_time:.2f} seconds")
     print(f"Throughput (RPS)    : {rps:.2f} requests/sec\n")
@@ -165,6 +246,26 @@ async def main():
         for error, count in sorted(error_counts.items(), key=lambda item: item[1], reverse=True):
             print(f" - {error} (x{count})")
 
+=======
+    print(f"Total Bots Simulated : {NUM_BOTS}")
+    print(f"Total Time Taken     : {total_time:.2f} seconds")
+    print(f"Throughput (RPS)     : {rps:.2f} requests/sec\n")
+    print(f"✅ Successful Scans  : {len(successes)}")
+    print(f"❌ Failed Scans      : {len(failures)}\n")
+    print(f"⏱️ Average Latency   : {avg_lat:.2f}s per request")
+    print(f"⏱️ Fastest Response  : {min_lat:.2f}s")
+    print(f"⏱️ Slowest Response  : {max_lat:.2f}s")
+    print("=" * 50)
+    
+    if failures:
+        print("\nErrors encountered:")
+        error_counts = {}
+        for f in failures:
+            e = f["error"]
+            error_counts[e] = error_counts.get(e, 0) + 1
+        for e, count in error_counts.items():
+            print(f"  - {e}: {count} times")
+>>>>>>> ff262510555dc5ea98c2935a24986f2270118617
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

@@ -2,7 +2,7 @@
 AegisOne API — Pydantic Schemas
 Request/response models for all endpoints.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -14,7 +14,7 @@ from enum import Enum
 
 class UserRole(str, Enum):
     EMPLOYEE = "employee"
-    DEPARTMENT_ADMIN = "department_admin"
+    OFFICE_ADMIN = "office_admin"
     SUPER_ADMIN = "super_admin"
     GLOBAL_ADMIN = "global_admin"
 
@@ -68,11 +68,37 @@ class UserInfo(BaseModel):
     email: str
     full_name: str
     role: UserRole
+<<<<<<< HEAD
     department: str
     account_status: str
     approved_by: Optional[int] = None
     status_reason: Optional[str] = None
+=======
+    department: Optional[str] = None
+>>>>>>> ff262510555dc5ea98c2935a24986f2270118617
     created_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_orm_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            # Resolve department name string from ORM relationship or default
+            dept_name = None
+            if hasattr(data, "department") and data.department:
+                dept_name = data.department.name
+            
+            return {
+                "id": data.id,
+                "email": data.email,
+                "full_name": data.full_name,
+                "role": data.role,
+                "department": dept_name,
+                "created_at": data.created_at
+            }
+        return data
+
+    class Config:
+        from_attributes = True
 
 
 class RefreshRequest(BaseModel):

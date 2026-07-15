@@ -34,3 +34,7 @@ python-docx>=1.0.0
 beautifulsoup4>=4.12.0
 filetype>=1.2.0
 oletools>=0.60.1
+
+# Performance & Optimization
+slowapi>=0.1.9
+orjson>=3.9.0
