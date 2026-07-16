@@ -1,11 +1,73 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Compass, Server, Download, BarChart3, ArrowRight, CheckCircle2, Copy, Play } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 
 interface OnboardingFlowProps {
   onStartOnboarding: () => void;
   onSelectPhase: (phaseNum: number) => void;
 }
+
+const PhaseNode = ({ phase, isActive, setActiveTab }: any) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { margin: "-45% 0px -45% 0px" });
+  
+  useEffect(() => {
+    if (isInView) {
+      setActiveTab(phase.num);
+    }
+  }, [isInView, phase.num, setActiveTab]);
+  
+  const IconComponent = phase.icon;
+  
+  return (
+    <div 
+      ref={ref}
+      id={`onboarding-phase-${phase.num}`}
+      className={`relative flex flex-col md:flex-row items-start md:items-center min-h-[50vh] py-10 ${
+        phase.side === 'left' ? 'md:flex-row-reverse' : ''
+      }`}
+    >
+      {/* Node on central line */}
+      <motion.div 
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        className={`absolute left-6 md:left-1/2 -translate-x-1/2 z-10 w-12 h-12 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-500 ${
+          isActive 
+            ? 'bg-[#0A5ED6] text-white border-[#0A5ED6] shadow-[0_4px_20px_rgba(10,94,214,0.4)]' 
+            : 'bg-white text-slate-400 border-slate-300 hover:border-[#0A5ED6] hover:text-[#0A5ED6]'
+        }`}
+        onClick={() => setActiveTab(phase.num)}
+      >
+        <IconComponent className="w-5 h-5" />
+      </motion.div>
+
+      {/* Empty block for horizontal balance */}
+      <div className="hidden md:block md:w-1/2" />
+
+      {/* Card container */}
+      <div className="w-full md:w-1/2 pl-14 md:pl-0 md:px-8">
+        <div 
+          onClick={() => setActiveTab(phase.num)}
+          className={`p-6 rounded-xl border transition-all duration-500 text-left cursor-pointer ${
+            isActive 
+              ? 'bg-white border-[#0A5ED6] shadow-[0_10px_40px_rgb(0,0,0,0.08)] scale-[1.02]' 
+              : 'bg-white/50 border-slate-200 hover:border-slate-300 opacity-60 hover:opacity-100 scale-95'
+          }`}
+        >
+          <span className="font-mono text-xs font-bold text-[#0A5ED6] block mb-1">
+            {phase.tagline}
+          </span>
+          <h3 className="font-sans font-bold text-lg text-[#0F172A] mb-2">
+            {phase.title}
+          </h3>
+          <p className="font-sans text-sm text-[#45464D] leading-relaxed">
+            {phase.description}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: OnboardingFlowProps) {
   const [activeTab, setActiveTab] = React.useState<number>(1);
@@ -95,60 +157,15 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
             <div className="absolute left-6 md:left-1/2 top-4 bottom-4 w-0.5 bg-[#E2E8F0] -translate-x-1/2" />
 
             {/* Phases */}
-            <div className="space-y-12">
-              {phases.map((phase) => {
-                const IconComponent = phase.icon;
-                const isActive = activeTab === phase.num;
-
-                return (
-                  <div 
-                    key={phase.num}
-                    id={`onboarding-phase-${phase.num}`}
-                    className={`relative flex flex-col md:flex-row items-start md:items-center ${
-                      phase.side === 'left' ? 'md:flex-row-reverse' : ''
-                    }`}
-                  >
-                    {/* Node on central line */}
-                    <motion.div 
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`absolute left-6 md:left-1/2 -translate-x-1/2 z-10 w-12 h-12 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 ${
-                        isActive 
-                          ? 'bg-[#0A5ED6] text-white border-[#0A5ED6] shadow-[0_4px_12px_rgba(10,94,214,0.3)]' 
-                          : 'bg-white text-slate-400 border-slate-300 hover:border-[#0A5ED6] hover:text-[#0A5ED6]'
-                      }`}
-                      onClick={() => setActiveTab(phase.num)}
-                    >
-                      <IconComponent className="w-5 h-5" />
-                    </motion.div>
-
-                    {/* Empty block for horizontal balance */}
-                    <div className="hidden md:block md:w-1/2" />
-
-                    {/* Card container */}
-                    <div className="w-full md:w-1/2 pl-14 md:pl-0 md:px-8">
-                      <div 
-                        onClick={() => setActiveTab(phase.num)}
-                        className={`p-6 rounded-xl border transition-all duration-300 text-left cursor-pointer ${
-                          isActive 
-                            ? 'bg-white border-[#0A5ED6] shadow-[0_8px_30px_rgb(0,0,0,0.06)] scale-[1.02]' 
-                            : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
-                        }`}
-                      >
-                        <span className="font-mono text-xs font-bold text-[#0A5ED6] block mb-1">
-                          {phase.tagline}
-                        </span>
-                        <h3 className="font-sans font-bold text-lg text-[#0F172A] mb-2">
-                          {phase.title}
-                        </h3>
-                        <p className="font-sans text-sm text-[#45464D] leading-relaxed">
-                          {phase.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="space-y-0">
+              {phases.map((phase) => (
+                <PhaseNode 
+                  key={phase.num} 
+                  phase={phase} 
+                  isActive={activeTab === phase.num} 
+                  setActiveTab={setActiveTab} 
+                />
+              ))}
             </div>
           </div>
 

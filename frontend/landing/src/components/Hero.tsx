@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, ShieldCheck, Cpu, Play, CheckCircle2, ShieldAlert, Shield } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -27,6 +27,11 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
   const [activeIncident, setActiveIncident] = useState<string | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [shieldHealth, setShieldHealth] = useState(100);
+
+  // Scroll animations for 3D wow factor
+  const { scrollY } = useScroll();
+  const rotateX = useTransform(scrollY, [0, 400], [20, 0]);
+  const scale = useTransform(scrollY, [0, 400], [0.9, 1]);
 
   // Auto increment threat count to simulate active real-time filtering
   useEffect(() => {
@@ -131,14 +136,16 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
 
         {/* Right Column - Beautiful interactive Organization Shield Perimeter with Sad Attackers */}
         <motion.div 
-          className="lg:col-span-6 flex justify-center" 
+          className="lg:col-span-6 flex justify-center perspective-[1200px]" 
           id="hero-right-visual"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
+          style={{ perspective: 1200 }}
         >
           <motion.div 
-            className="relative w-full max-w-[490px] rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] p-6 overflow-hidden flex flex-col justify-between min-h-[460px]"
+            className="relative w-full max-w-[490px] rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_80px_-15px_rgba(0,0,0,0.1)] p-6 overflow-hidden flex flex-col justify-between min-h-[460px]"
+            style={{ rotateX, scale, transformStyle: "preserve-3d" }}
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
           >
