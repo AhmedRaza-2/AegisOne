@@ -3,8 +3,13 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from api.database.db import get_db
+from api.database.models import User
+from api.auth.password import hash_password
 
 router = APIRouter(
     prefix="/setup",
@@ -77,7 +82,7 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
                 <h3>Your Temporary Credentials</h3>
                 <div class="cred-row">
                   <span class="cred-label">Login URL:</span>
-                  <a href="http://localhost:3001" style="color: #0A5ED6; font-weight: 500;">http://localhost:3001</a>
+                  <a href="http://localhost:3002/login" style="color: #0A5ED6; font-weight: 500;">http://localhost:3002/login</a>
                 </div>
                 <div class="cred-row">
                   <span class="cred-label">Email:</span>
@@ -90,7 +95,7 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
               </div>
               
               <div class="btn-container">
-                <a href="http://localhost:3001" class="btn">Access Your Account</a>
+                <a href="http://localhost:3002/login" class="btn">Access Your Account</a>
               </div>
               
               <p style="font-size: 14px; color: #475569;">If you need assistance or believe you received this email in error, please contact your department lead or IT administrator.</p>
@@ -131,14 +136,45 @@ def background_email_task(employees: List[Employee]):
         send_welcome_email(emp, smtp_user, smtp_pass)
 
 @router.post("/execute")
-async def execute_setup(request: SetupExecuteRequest, background_tasks: BackgroundTasks):
+async def execute_setup(request: SetupExecuteRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """
     Executes the final setup steps:
-    1. Saves employees to DB (mocked here, should connect to real DB logic).
+    1. Saves employees to DB with hashed passwords.
     2. Dispatches Welcome Emails via background task.
     """
     
-    # 1. We schedule the email sending to happen in the background so the UI doesn't hang.
+    # 1. Save employees to DB
+    try:
+        for emp in request.employees:
+            # Check if user already exists
+            stmt = select(User).where(User.email == emp.email)
+            result = await db.execute(stmt)
+            existing = result.scalars().first()
+            if not existing:
+                db_user = User(
+                    email=emp.email,
+                    password_hash=hash_password(emp.generatedPassword),
+                    full_name=f"{emp.firstName} {emp.lastName}",
+                    role=emp.role.lower(),
+                    department=emp.departmentCode,
+                    account_status="approved",
+                    organization_id="org_default" # Temporary default organization
+                )
+                db.add(db_user)
+            else:
+                # If user exists, update their password so they can log in
+                existing.password_hash = hash_password(emp.generatedPassword)
+                existing.full_name = f"{emp.firstName} {emp.lastName}"
+                existing.role = emp.role.lower()
+                existing.department = emp.departmentCode
+                existing.account_status = "approved"
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        print(f"Error saving users to database: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database write failed")
+    
+    # 2. We schedule the email sending to happen in the background so the UI doesn't hang.
     background_tasks.add_task(background_email_task, request.employees)
     
-    return {"status": "success", "message": f"Setup executed. Dispatching {len(request.employees)} emails in the background."}
+    return {"status": "success", "message": f"Setup executed. {len(request.employees)} users saved and emails dispatching in background."}
