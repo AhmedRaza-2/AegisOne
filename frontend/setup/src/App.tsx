@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Building2, Users, Download, Upload, CheckCircle2, AlertCircle, Key, Mail,
   ShieldCheck, Activity, ArrowRight, ChevronRight, Loader2, Sparkles, UserPlus,
-  Shield, Network, HardDrive, FileSpreadsheet, Lock, Check, Search, Laptop, Globe
+  Shield, Network, HardDrive, FileSpreadsheet, Lock, Check, Search, Laptop, Globe, X
 } from 'lucide-react';
 
 type SetupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -49,14 +49,24 @@ export default function App() {
 
   // Simulate backend fetching the Docker Environment variables
   useEffect(() => {
-    const fetchDockerConfig = async () => {
-      // Simulating GET /api/system/config
-      await new Promise(r => setTimeout(r, 1000));
-      setOrgName('Acme Corp'); // This would be process.env.ORG_NAME in backend
-      setIndustry('Technology'); // This would be process.env.ORG_INDUSTRY in backend
+    const searchParams = new URLSearchParams(window.location.search);
+    const orgNameParam = searchParams.get('orgName');
+    const industryParam = searchParams.get('industry');
+
+    if (orgNameParam && industryParam) {
+      setOrgName(orgNameParam);
+      setIndustry(industryParam);
       setConfigLoaded(true);
-    };
-    fetchDockerConfig();
+    } else {
+      const fetchDockerConfig = async () => {
+        // Simulating GET /api/system/config fallback
+        await new Promise(r => setTimeout(r, 1000));
+        setOrgName('Acme Corp'); 
+        setIndustry('Technology'); 
+        setConfigLoaded(true);
+      };
+      fetchDockerConfig();
+    }
   }, []);
 
   // Step 2: Departments
@@ -94,7 +104,19 @@ export default function App() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleDownloadTemplate = () => {
-    const csvContent = "Employee ID,First Name,Last Name,Email,Phone Number,Department Code,Role,Designation\nEMP001,Ahmed,Raza,ahmed@company.com,03001234567,IT,Employee,Software Engineer\nEMP002,Ali,Khan,ali@company.com,03001234568,HR,Manager,HR Lead";
+    let csvContent = "Employee ID,First Name,Last Name,Email,Phone Number,Department Code,Role,Designation\n";
+    
+    if (departments.length > 0) {
+      csvContent += departments.map((dept, idx) => {
+        const id = `EMP00${idx + 1}`;
+        const fName = `Sample`;
+        const lName = `User${idx + 1}`;
+        const role = idx === 0 ? 'Admin' : (idx === 1 ? 'Manager' : 'Employee');
+        return `${id},${fName},${lName},user${idx+1}@company.local,0300123456${idx},${dept.code},${role},Staff Member`;
+      }).join('\n');
+    } else {
+      csvContent += "EMP001,Ahmed,Raza,ahmed@company.local,03001234567,IT,Employee,Software Engineer\nEMP002,Ali,Khan,ali@company.local,03001234568,HR,Manager,HR Lead";
+    }
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -546,8 +568,8 @@ export default function App() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
-                  <button onClick={() => setStep(3)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
-                  <button onClick={handleNextStep} disabled={loading} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
+                  <button onClick={() => setStep(4)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
+                  <button onClick={generatePasswordsAndMails} disabled={loading} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Save Assignments <ArrowRight className="w-4 h-4" /></>}
                   </button>
                 </div>
@@ -575,15 +597,30 @@ export default function App() {
                   <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Enable Force-Password-Change policy</div>
                 </div>
 
-                <div className="pt-8">
+                <div className="pt-8 border-t border-slate-100 flex justify-between items-center">
+                  <button onClick={() => setStep(5)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       setLoading(true);
-                      setTimeout(() => {
-                        setRolloutActive(true);
-                        setStep(7);
+                      try {
+                        const response = await fetch('http://localhost:8000/setup/execute', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ employees: validEmployees })
+                        });
+                        
+                        if (response.ok) {
+                          setRolloutActive(true);
+                          setStep(7);
+                        } else {
+                          console.error('Failed to execute setup', await response.text());
+                          // You can add error handling state here if needed
+                        }
+                      } catch (err) {
+                        console.error('Network error during setup execution', err);
+                      } finally {
                         setLoading(false);
-                      }, 2500);
+                      }
                     }} 
                     disabled={loading} 
                     className="inline-flex items-center gap-2 bg-[#0F172A] hover:bg-black text-white font-bold px-10 py-4 rounded-xl transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5 disabled:opacity-50"
