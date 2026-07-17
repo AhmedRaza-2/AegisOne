@@ -60,6 +60,8 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: str
     full_name: str
+    department: Optional[str] = None
+    organization_id: Optional[str] = None
 
 
 class UserInfo(BaseModel):

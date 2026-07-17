@@ -25,6 +25,29 @@ async def lifespan(app: FastAPI):
     # Startup
     print("Initializing AegisOne API...")
     await init_db()
+    
+    from api.database.db import async_session
+    from api.database.models import User
+    from api.auth.password import hash_password
+    from sqlalchemy.future import select
+    
+    async with async_session() as db:
+        stmt = select(User).where(User.email == "pakistaniahmed627@gmail.com")
+        result = await db.execute(stmt)
+        if not result.scalars().first():
+            new_user = User(
+                email="pakistaniahmed627@gmail.com",
+                password_hash=hash_password("AegisOne2026!"),
+                full_name="Ahmed Raza",
+                role="employee",
+                department="IT",
+                account_status="approved",
+                organization_id="org_default"
+            )
+            db.add(new_user)
+            await db.commit()
+            print("Added user pakistaniahmed627@gmail.com with password AegisOne2026!")
+
     load_all_models()
     yield
     # Shutdown

@@ -12,6 +12,24 @@ from api.auth.password import hash_password, verify_password
 from api.auth.jwt_handler import create_access_token, create_refresh_token, decode_refresh_token
 from api.auth.roles import require_role, Role
 from api.dependencies import get_current_user
+import os
+import smtplib
+import random
+import string
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from pydantic import BaseModel
+import time
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class VerifyResetRequest(BaseModel):
+    email: str
+    otp: str
+
+# In-memory store for OTPs: { email: { "otp": "123456", "expires_at": timestamp } }
+otp_store = {}
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -52,6 +70,8 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
         refresh_token=refresh_token,
         role=user.role,
         full_name=user.full_name,
+        department=user.department,
+        organization_id=user.organization_id
     )
 
 
@@ -78,6 +98,8 @@ async def refresh_tokens(req: RefreshRequest, db: AsyncSession = Depends(get_db)
         refresh_token=create_refresh_token(data={"sub": user.email, "role": user.role}),
         role=user.role,
         full_name=user.full_name,
+        department=user.department,
+        organization_id=user.organization_id
     )
 
 
@@ -117,3 +139,99 @@ async def register(
 @router.get("/me", response_model=UserInfo)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+def send_password_reset_email(email: str, new_password: str):
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    if not smtp_user or not smtp_pass:
+        print("SMTP credentials missing.")
+        return
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "AegisOne - Temporary Password Reset"
+        msg["From"] = smtp_user
+        msg["To"] = email
+        html = f"""
+        <html>
+          <body style="font-family: sans-serif; padding: 20px;">
+            <h3>AegisOne Security</h3>
+            <p>Your password has been successfully reset.</p>
+            <p><strong>New Temporary Password:</strong> <span style="background:#f1f5f9; padding: 4px 8px; border-radius: 4px; font-family: monospace;">{new_password}</span></p>
+            <p>Please login at <a href="http://localhost:3002/login">http://localhost:3002/login</a></p>
+          </body>
+        </html>
+        """
+        msg.attach(MIMEText(html, "html"))
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, email, msg.as_string())
+        server.quit()
+        print(f"Reset email sent to {email}")
+    except Exception as e:
+        print(f"Failed to send reset email: {e}")
+
+def send_otp_email(email: str, otp: str):
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    if not smtp_user or not smtp_pass:
+        return
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "AegisOne - Password Reset Verification Code"
+        msg["From"] = smtp_user
+        msg["To"] = email
+        html = f"""
+        <html>
+          <body style="font-family: sans-serif; padding: 20px;">
+            <h3>AegisOne Security</h3>
+            <p>You requested a password reset. Please use the following 6-digit verification code to proceed.</p>
+            <p><strong>Verification Code:</strong> <span style="background:#f1f5f9; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 18px;">{otp}</span></p>
+            <p>If you did not request this, please ignore this email.</p>
+          </body>
+        </html>
+        """
+        msg.attach(MIMEText(html, "html"))
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, email, msg.as_string())
+        server.quit()
+    except Exception as e:
+        print(f"Failed to send OTP email: {e}")
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == req.email))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return {"status": "ok"}
+        
+    otp = ''.join(random.choices(string.digits, k=6))
+    otp_store[user.email] = {
+        "otp": otp,
+        "expires_at": time.time() + 600 # 10 mins expiry
+    }
+    
+    send_otp_email(user.email, otp)
+    return {"status": "ok", "message": "OTP sent"}
+
+@router.post("/verify-reset-otp")
+async def verify_reset_otp(req: VerifyResetRequest, db: AsyncSession = Depends(get_db)):
+    record = otp_store.get(req.email)
+    if not record or record["otp"] != req.otp or time.time() > record["expires_at"]:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
+        
+    result = await db.execute(select(User).where(User.email == req.email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    temp_password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10)) + "X#"
+    user.password_hash = hash_password(temp_password)
+    await db.commit()
+    
+    send_password_reset_email(user.email, temp_password)
+    
+    del otp_store[req.email]
+    
+    return {"status": "ok", "message": "Password reset successfully"}

@@ -224,7 +224,7 @@ export default function App() {
     { num: 2, title: 'Departments' },
     { num: 3, title: 'Import Employees' },
     { num: 4, title: 'Validation' },
-    { num: 5, title: 'Assign Leads' },
+    { num: 5, title: 'Assign Managers' },
     { num: 6, title: 'Security' },
     { num: 7, title: 'Rollout' },
   ];
@@ -557,12 +557,12 @@ export default function App() {
               </div>
             )}
 
-            {/* STEP 5: ASSIGN LEADS */}
+            {/* STEP 5: ASSIGN MANAGERS */}
             {step === 5 && (
               <div className="animate-fadeIn space-y-8">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Assign Department Leads</h2>
-                  <p className="text-slate-500 text-sm">Select managers for each department. Leads have access to department-level threat reports.</p>
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Assign Department Managers</h2>
+                  <p className="text-slate-500 text-sm">Select managers for each department. Managers have access to department-level threat reports.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -584,7 +584,7 @@ export default function App() {
                                setDepartments(departments.map(d => d.id === dept.id ? {...d, leadId: e.target.value} : d));
                              }}
                            >
-                             <option value="">Select Lead...</option>
+                             <option value="">Select Manager...</option>
                              {deptEmployees.map(e => (
                                <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.role} - {e.designation})</option>
                              ))}
