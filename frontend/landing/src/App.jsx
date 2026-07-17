@@ -1,5 +1,5 @@
 import HeroSection from "./components/HeroSection"
-import SectionBrands from "./components/SectionBrands"
+import SectionReviews from "./components/SectionReviews"
 import SectionAbout from "./components/SectionAbout"
 import SectionProcess from "./components/SectionProcess"
 import SectionServices from "./components/SectionServices"
@@ -17,7 +17,7 @@ const App = () => {
       <SectionProcess />
       <SectionTechStack />
       <SectionAbout />
-      <SectionBrands />
+      <SectionReviews />
       <SectionContact />
       <SiteFooter />
     </>
