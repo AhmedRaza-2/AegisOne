@@ -45,9 +45,34 @@ export default function EmployeesPage() {
     return employeesWithStats.filter(u => u.fullName.toLowerCase().includes(s) || u.email.toLowerCase().includes(s));
   }, [employeesWithStats, deferredSearch]);
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email) return;
+
+    const names = fullName.split(' ');
+    const firstName = names[0];
+    const lastName = names.length > 1 ? names.slice(1).join(' ') : 'User';
+    const generatedPassword = Math.random().toString(36).slice(-10) + 'X#';
+
+    try {
+      await fetch("http://localhost:8000/setup/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employees: [{
+            firstName,
+            lastName,
+            email,
+            departmentCode: user.department,
+            role: "employee",
+            designation: "Employee",
+            generatedPassword
+          }]
+        })
+      });
+    } catch (error) {
+      console.error("Failed to send setup email:", error);
+    }
 
     users.add({
       fullName,

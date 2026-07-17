@@ -16,7 +16,7 @@ export default function UsersPage() {
   // Form States
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"super_admin" | "office_admin">("office_admin");
+  const [role, setRole] = useState<"admin" | "manager" | "employee">("employee");
   const [department, setDepartment] = useState("Cyber Security");
 
   if (!user) return null;
@@ -32,8 +32,8 @@ export default function UsersPage() {
 
   const filtered = useMemo(() => {
     return tenantUsers.filter(u => {
-      // Only display administrative/supervisory accounts here
-      if (u.role === "employee") return false;
+      // Remove employee filter so admin can manage ALL users
+      // if (u.role === "employee") return false;
       
       const matchSearch = !deferredSearch || 
         u.fullName.toLowerCase().includes(deferredSearch.toLowerCase()) || 
@@ -44,9 +44,34 @@ export default function UsersPage() {
     });
   }, [tenantUsers, deferredSearch, roleFilter]);
 
-  const handleAddAdmin = (e: React.FormEvent) => {
+  const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email) return;
+
+    const names = fullName.split(' ');
+    const firstName = names[0];
+    const lastName = names.length > 1 ? names.slice(1).join(' ') : 'User';
+    const generatedPassword = Math.random().toString(36).slice(-10) + 'X#';
+
+    try {
+      await fetch("http://localhost:8000/setup/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employees: [{
+            firstName,
+            lastName,
+            email,
+            departmentCode: department || "General",
+            role: role,
+            designation: role === "employee" ? "Employee" : "Management",
+            generatedPassword
+          }]
+        })
+      });
+    } catch (error) {
+      console.error("Failed to send setup email:", error);
+    }
 
     users.add({
       fullName,
@@ -69,7 +94,7 @@ export default function UsersPage() {
       alert("You cannot delete your own administrative account.");
       return;
     }
-    if (confirm("Are you sure you want to remove this administrative account?")) {
+    if (confirm("Are you sure you want to remove this user? Ensure you have the department manager's consent if removing an employee.")) {
       users.delete(id);
       setUserList(users.getAll());
     }
@@ -80,19 +105,19 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
-            <Users className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Administrative Directory
+            <Users className="w-6 h-6 text-brand-650 dark:text-brand-400" /> User Management
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
             {user.role === "global_admin" 
-              ? "All active platform administrators and department supervisors" 
-              : `Manage company supervisors and administrators for ${user.organization === "org-1" ? "U Bank Limited" : "INARA Technologies"}`}
+              ? "All active platform users across all organizations" 
+              : `Manage all employees, managers, and administrators for ${user.organization === "org-1" ? "U Bank Limited" : "INARA Technologies"}`}
           </p>
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
           className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
         >
-          <Plus className="w-4 h-4" /> Add Administrator
+          <Plus className="w-4 h-4" /> Add User
         </button>
       </div>
 
@@ -103,12 +128,12 @@ export default function UsersPage() {
             type="text" 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
-            placeholder="Search administrators..." 
+            placeholder="Search users..." 
             className="w-full pl-9 pr-4 py-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 transition-all" 
           />
         </div>
         <div className="flex gap-2">
-          {["all", "super_admin", "office_admin"].map(r => (
+          {["all", "admin", "manager", "employee"].map(r => (
             <button 
               key={r} 
               onClick={() => setRoleFilter(r)} 
@@ -118,7 +143,7 @@ export default function UsersPage() {
                   : "text-surface-500 hover:text-surface-900 border border-transparent hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.04]"
               }`}
             >
-              {r === "all" ? "All Roles" : r === "super_admin" ? "Super Admin" : "Supervisor"}
+              {r === "all" ? "All Roles" : r === "admin" ? "Admin" : r === "manager" ? "Manager" : "Employee"}
             </button>
           ))}
         </div>
@@ -129,7 +154,7 @@ export default function UsersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-200 dark:border-white/[0.06] bg-surface-50/50 dark:bg-white/[0.01]">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Administrator</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">User</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Role</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Department</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Status</th>
@@ -142,7 +167,7 @@ export default function UsersPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-surface-500">
-                    No administrators found matching criteria.
+                    No users found matching criteria.
                   </td>
                 </tr>
               ) : (
@@ -197,7 +222,7 @@ export default function UsersPage() {
                           <button 
                             onClick={() => handleDeleteAdmin(u.id)}
                             className="p-1 rounded text-surface-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                            title="Remove Administrator"
+                            title="Remove User"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -212,7 +237,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Modal: Add Administrator */}
+      {/* Modal: Add User */}
       <AnimatePresence>
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -220,10 +245,10 @@ export default function UsersPage() {
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-lg relative z-10 overflow-hidden">
               <div className="p-6 border-b border-surface-200 dark:border-white/[0.06]">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Add Administrator</h3>
+                  <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Add User</h3>
                   <button onClick={() => setShowAddModal(false)} className="text-surface-400 hover:text-surface-600"><X className="w-4 h-4" /></button>
                 </div>
-                <p className="text-xs text-surface-500 mt-1">Register a department supervisor or company admin profile</p>
+                <p className="text-xs text-surface-500 mt-1">Register an employee, manager, or admin profile</p>
               </div>
               <form onSubmit={handleAddAdmin} className="p-6 space-y-4">
                 <div>
@@ -249,14 +274,15 @@ export default function UsersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Administrative Level</label>
+                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Access Level</label>
                   <select
                     value={role}
                     onChange={e => setRole(e.target.value as any)}
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
                   >
-                    <option value="office_admin">Level 2: Department Supervisor (Manager)</option>
-                    <option value="super_admin">Level 1: Organization Admin (Super Admin)</option>
+                    <option value="employee">Employee</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </div>
                 <div>

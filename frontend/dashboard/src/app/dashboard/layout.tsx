@@ -71,14 +71,64 @@ function SidebarContent({
   roleBadge,
   handleLogout,
   setMobileOpen,
+  theme,
+  toggleTheme,
 }: any) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [verifyMsg, setVerifyMsg] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+
+  const handlePasswordReset = async () => {
+    if (!user?.email) return;
+    setResetting(true);
+    setVerifyMsg("");
+    setVerifyError("");
+    try {
+      await fetch("http://127.0.0.1:8000/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email })
+      });
+      setShowOtpModal(true);
+      setVerifyMsg("A 6-digit verification code has been sent to your email.");
+      setMenuOpen(false);
+    } catch(e) {
+      alert("Failed to send reset code.");
+    }
+    setResetting(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetting(true);
+    setVerifyError("");
+    try {
+      const res = await fetch("http://127.0.0.1:8000/auth/verify-reset-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user?.email, otp })
+      });
+      if (!res.ok) {
+        throw new Error("Invalid verification code.");
+      }
+      setVerifyMsg("Success! Your new temporary password has been emailed to you.");
+      setOtp("");
+      // Keep modal open so the user can log out
+    } catch (e: any) {
+      setVerifyError(e.message || "Failed to verify code.");
+    }
+    setResetting(false);
+  };
   return (
     <>
       <div className="h-20 flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
         {!collapsed ? (
           <div className="flex flex-col">
             <span className="text-xl font-bold tracking-tight text-brand-600 dark:text-[#4F84F8]">AegisOne</span>
-            <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest mt-0.5">Enterprise Security</span>
+            <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest mt-0.5">{roleBadge?.label || "Enterprise"} Portal</span>
           </div>
         ) : (
           <div className="mx-auto">
@@ -109,19 +159,102 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="p-4 shrink-0 mt-auto border-t border-surface-200 dark:border-white/[0.04]">
+      <div className="p-4 shrink-0 mt-auto border-t border-surface-200 dark:border-white/[0.04] relative">
+        {/* OTP Modal */}
+        {showOtpModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-2xl rounded-2xl w-full max-w-sm p-6 relative">
+              <button 
+                onClick={() => setShowOtpModal(false)}
+                className="absolute top-4 right-4 text-surface-400 hover:text-surface-900 dark:hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center mx-auto mb-3">
+                  <Key className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Verify Identity</h3>
+                <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Enter the 6-digit code sent to your email</p>
+              </div>
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                {verifyMsg && <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 dark:text-green-400 text-center">{verifyMsg}</div>}
+                {verifyError && <p className="text-sm text-red-500 dark:text-red-400 text-center">{verifyError}</p>}
+                
+                {!verifyMsg.includes("Success") ? (
+                  <>
+                    <div>
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={e => setOtp(e.target.value)}
+                        placeholder="123456"
+                        maxLength={6}
+                        required
+                        className="w-full px-4 py-3 bg-white dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-center tracking-[0.5em] text-xl font-bold text-surface-900 dark:text-white placeholder-surface-300 dark:placeholder-surface-700 focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
+                      />
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      disabled={resetting || otp.length < 6}
+                      className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {resetting ? "Verifying..." : "Verify & Reset Password"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Log Out & Use New Password
+                  </button>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
+
+        {menuOpen && !collapsed && (
+          <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden py-1 z-50">
+            <div className="px-4 py-2 text-xs text-surface-500 dark:text-surface-400 font-medium truncate border-b border-surface-100 dark:border-white/[0.04] mb-1">
+              {user?.email || "No email available"}
+            </div>
+            <button onClick={() => { toggleTheme(); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-300 dark:hover:text-white dark:hover:bg-white/[0.04] transition-colors text-left">
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+            </button>
+            <button onClick={handlePasswordReset} disabled={resetting} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-300 dark:hover:text-white dark:hover:bg-white/[0.04] transition-colors text-left disabled:opacity-50">
+              <Key className="w-4 h-4" />
+              {resetting ? "Sending..." : "Reset Password"}
+            </button>
+            <div className="h-px bg-surface-200 dark:bg-white/[0.08] my-1"></div>
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left">
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
+        )}
+        
         {!collapsed && (
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-surface-900 flex items-center justify-center overflow-hidden border border-surface-700">
+          <div 
+            className="flex items-center gap-3 p-2 -m-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] cursor-pointer transition-colors"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center overflow-hidden shrink-0">
                <span className="text-sm font-bold text-white">{initials}</span>
             </div>
-            <div className="flex flex-col min-w-0">
-               <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || "Admin User"}</span>
-               <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate">{roleBadge.label} Access</span>
+            <div className="flex flex-col min-w-0 flex-1">
+               <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || user?.name || "User"}</span>
+               <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium">
+                 {roleBadge?.label || user?.role || "Role"} {user?.department ? `• ${user.department}` : ""}
+               </span>
             </div>
-            <button onClick={handleLogout} className="ml-auto text-surface-500 hover:text-surface-900 dark:hover:text-white transition-colors">
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="shrink-0 text-surface-400">
+              {menuOpen ? <ChevronRight className="w-4 h-4 rotate-90 transition-transform" /> : <ChevronRight className="w-4 h-4 transition-transform" />}
+            </div>
           </div>
         )}
         {collapsed && (
@@ -185,7 +318,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex transition-colors duration-300 font-sans">
-      <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] transition-all duration-300 ${collapsed ? "w-[80px]" : "w-[260px]"} shrink-0 h-screen sticky top-0`}>
+      <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] transition-all duration-300 ${collapsed ? "w-[80px]" : "w-[260px]"} shrink-0 h-screen sticky top-0 z-50`}>
         <SidebarContent
           collapsed={collapsed}
           navItems={navItems}
@@ -196,6 +329,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           roleBadge={roleBadge}
           handleLogout={handleLogout}
           setMobileOpen={setMobileOpen}
+          theme={theme}
+          toggleTheme={toggleTheme}
         />
         <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#1A2133] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}

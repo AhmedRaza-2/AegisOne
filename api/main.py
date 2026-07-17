@@ -38,8 +38,9 @@ from api.config import (
 )
 from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
+from api.services.model_orchestrator import load_all_models
 
-from api.routers import auth, scan, admin, health, compatibility
+from api.routers import auth, scan, admin, health, compatibility, setup
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
@@ -81,6 +82,29 @@ async def lifespan(app: FastAPI):
     logger.info(f"Thread pool configured: 32 workers")
 
     await init_db()
+    
+    from api.database.db import async_session
+    from api.database.models import User
+    from api.auth.password import hash_password
+    from sqlalchemy.future import select
+    
+    async with async_session() as db:
+        stmt = select(User).where(User.email == "pakistaniahmed627@gmail.com")
+        result = await db.execute(stmt)
+        if not result.scalars().first():
+            new_user = User(
+                email="pakistaniahmed627@gmail.com",
+                password_hash=hash_password("AegisOne2026!"),
+                full_name="Ahmed Raza",
+                role="employee",
+                department="IT",
+                account_status="approved",
+                organization_id="org_default"
+            )
+            db.add(new_user)
+            await db.commit()
+            print("Added user pakistaniahmed627@gmail.com with password AegisOne2026!")
+
     load_all_models()
     
     # Pre-warm the cache for load tests and start background queue workers
@@ -170,6 +194,7 @@ app.include_router(auth.router)
 app.include_router(scan.router)
 app.include_router(admin.router)
 app.include_router(compatibility.router)
+app.include_router(setup.router)
 
 
 @app.get("/")       
