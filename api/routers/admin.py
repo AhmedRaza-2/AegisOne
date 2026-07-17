@@ -12,6 +12,7 @@ from sqlalchemy import select, func, update, cast, Date
 
 from api.database.db import get_db
 from api.database.models import (
+    Department,
     User,
     Device,
     WebsiteScan,
@@ -38,6 +39,12 @@ def _org_scope(query, model, user):
     if user.role != Role.SUPER_ADMIN.value:
         org_id = getattr(user, "organization_id", None) or "org_default"
         query = query.where(getattr(model, "organization_id") == org_id)
+
+        # RBAC: Manager can only access their own department
+        if user.role == Role.MANAGER.value:
+            if hasattr(model, "department_id"):
+                query = query.where(getattr(model, "department_id") == getattr(user, "department_id", None))
+
     return query
 
 
@@ -629,3 +636,104 @@ async def update_user_status(
     
     return {"message": f"User account {req.status}", "user_id": user_id, "status": req.status}
 
+
+# ── Phase 2: User & Department CRUD ──────────────────────────────────────────
+
+from api.auth.password import hash_password
+
+class DepartmentCreate(BaseModel):
+    name: str
+    manager_id: int | None = None
+
+class UserCreate(BaseModel):
+    email: str
+    full_name: str
+    password: str
+    role: str
+    department_id: int | None = None
+
+@router.get("/departments")
+async def get_departments(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """List departments. Admin sees all, Manager sees all (View only)."""
+    q = select(Department).where(Department.organization_id == admin.organization_id)
+    rows = (await db.execute(q)).scalars().all()
+    return {"departments": [{"id": r.id, "name": r.name, "manager_id": r.manager_id} for r in rows]}
+
+@router.post("/departments")
+async def create_department(
+    req: DepartmentCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Create a department (Admin only)."""
+    new_dept = Department(
+        organization_id=admin.organization_id,
+        name=req.name,
+        manager_id=req.manager_id
+    )
+    db.add(new_dept)
+    await db.commit()
+    return {"status": "success", "department_id": new_dept.id}
+
+@router.get("/users")
+async def get_users(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """List employees. Managers only see their own department."""
+    q = select(User).where(User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+    
+    rows = (await db.execute(q)).scalars().all()
+    return {"users": [{"id": r.id, "email": r.email, "full_name": r.full_name, "role": r.role, "department_id": r.department_id, "account_status": r.account_status} for r in rows]}
+
+@router.post("/users")
+async def create_user(
+    req: UserCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Create a user. Managers can only create in their own department."""
+    target_dept = req.department_id
+    
+    if admin.role == Role.MANAGER.value:
+        target_dept = admin.department_id
+        if req.role in [Role.ADMIN.value, Role.SUPER_ADMIN.value]:
+            raise HTTPException(status_code=403, detail="Managers cannot create admin accounts.")
+            
+    new_user = User(
+        organization_id=admin.organization_id,
+        email=req.email,
+        full_name=req.full_name,
+        password_hash=hash_password(req.password),
+        role=req.role,
+        department_id=target_dept,
+        account_status="active"
+    )
+    db.add(new_user)
+    await db.commit()
+    return {"status": "success", "user_id": new_user.id}
+
+@router.put("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int,
+    new_password: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Force reset user password. Managers can only reset their own department."""
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+    return {"status": "success"}

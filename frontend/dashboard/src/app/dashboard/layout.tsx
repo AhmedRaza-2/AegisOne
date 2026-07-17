@@ -7,7 +7,7 @@ import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
   UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
-  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert
+  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
@@ -26,38 +26,27 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Analytics", href: "/dashboard/employee/analytics", icon: BarChart3 },
     { label: "Settings", href: "/dashboard/employee/settings", icon: Settings },
   ],
-  office_admin: [
+  manager: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/supervisor/scan", icon: Scan },
-    { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
+    { label: "Employees", href: "/dashboard/admin/users", icon: Users },
+    { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
     { label: "Incidents", href: "/dashboard/supervisor/incidents", icon: AlertTriangle },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
   ],
-  department_admin: [
-    { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/supervisor/scan", icon: Scan },
-    { label: "Approvals", href: "/dashboard/admin/approvals", icon: ShieldAlert },
-    { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
-    { label: "Incidents", href: "/dashboard/supervisor/incidents", icon: AlertTriangle },
-    { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
-  ],
-  global_admin: [
+  admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
-    { label: "Approvals", href: "/dashboard/admin/approvals", icon: Users },
-    { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
+    { label: "Users", href: "/dashboard/admin/users", icon: Users },
+    { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
+    { label: "Devices", href: "/dashboard/admin/devices", icon: Monitor },
+    { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
     { label: "Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
   super_admin: [
-    { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/admin/scan", icon: Scan },
+    { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
-    { label: "Approvals", href: "/dashboard/admin/approvals", icon: ShieldAlert },
-    { label: "Users", href: "/dashboard/admin/users", icon: Users },
-    { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
-    { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
-    { label: "Settings", href: "/dashboard/admin/settings", icon: Settings },
+    { label: "Global Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
 };
 

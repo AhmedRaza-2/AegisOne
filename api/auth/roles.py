@@ -8,16 +8,16 @@ from api.dependencies import get_current_user
 
 class Role(str, Enum):
     EMPLOYEE = "employee"
-    DEPARTMENT_ADMIN = "department_admin"
-    SUPER_ADMIN = "super_admin"
-    GLOBAL_ADMIN = "global_admin"
+    MANAGER = "manager"
+    ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"  # For platform management (internal only)
 
 # Role hierarchy: higher index = more permissions
 ROLE_HIERARCHY = {
-    Role.EMPLOYEE:        0,
-    Role.DEPARTMENT_ADMIN: 1,
-    Role.SUPER_ADMIN:     2,
-    Role.GLOBAL_ADMIN:    3,
+    Role.EMPLOYEE:    0,
+    Role.MANAGER:     1,
+    Role.ADMIN:       2,
+    Role.SUPER_ADMIN: 3,
 }
 
 

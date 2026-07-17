@@ -12,8 +12,9 @@ Design principles:
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean,
-    DateTime, Text, Date, Index, func,
+    DateTime, Text, Date, Index, func, ForeignKey
 )
+from sqlalchemy.orm import relationship
 from api.database.db import Base
 
 
@@ -29,8 +30,32 @@ class Organization(Base):
     name            = Column(String(255), nullable=False)
     domain          = Column(String(255), nullable=True)   # e.g. ubank.com.pk
     plan            = Column(String(50),  default="standard")  # standard | enterprise
+    timezone        = Column(String(100), default="UTC")
+    logo_url        = Column(String(512), nullable=True)
     is_active       = Column(Boolean,     default=True)
     created_at      = Column(DateTime,    server_default=func.now())
+
+    # Relationships
+    departments     = relationship("Department", back_populates="organization", cascade="all, delete")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 1.5 DEPARTMENTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Department(Base):
+    """Department within an organization."""
+    __tablename__ = "departments"
+
+    id              = Column(Integer,     primary_key=True, autoincrement=True)
+    organization_id = Column(String(64),  ForeignKey("organizations.id"), nullable=False, index=True)
+    name            = Column(String(255), nullable=False)
+    manager_id      = Column(Integer,     ForeignKey("users.id"), nullable=True)
+    created_at      = Column(DateTime,    server_default=func.now())
+
+    # Relationships
+    organization    = relationship("Organization", back_populates="departments")
+    users           = relationship("User", back_populates="dept_rel", foreign_keys="User.department_id")
+    manager         = relationship("User", foreign_keys=[manager_id])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -42,22 +67,28 @@ class User(Base):
     __tablename__ = "users"
 
     id              = Column(Integer,     primary_key=True, autoincrement=True)
-    organization_id = Column(String(64),  nullable=False, index=True, default="org_default")
+    organization_id = Column(String(64),  ForeignKey("organizations.id"), nullable=False, index=True, default="org_default")
     email           = Column(String(255), unique=True, nullable=False, index=True)
     password_hash   = Column(String(255), nullable=False)
     full_name       = Column(String(255), nullable=False)
-    role            = Column(String(50),  nullable=False, default="user")
-    # user | admin | super_admin
-    department      = Column(String(255), default="General")
-    account_status  = Column(String(50),  default="pending") # pending, approved, rejected, disabled
+    role            = Column(String(50),  nullable=False, default="employee")
+    # employee | manager | admin
+    department_id   = Column(Integer,     ForeignKey("departments.id"), nullable=True)
+    department      = Column(String(255), default="General") # Legacy field, keep for compatibility
+    account_status  = Column(String(50),  default="pending") # pending, active, disabled, locked
     approved_by     = Column(Integer,     nullable=True)
     status_reason   = Column(Text,        nullable=True)
     is_active       = Column(Boolean,     default=True)
     last_login      = Column(DateTime,    nullable=True)
     created_at      = Column(DateTime,    server_default=func.now())
 
+    # Relationships
+    dept_rel        = relationship("Department", back_populates="users", foreign_keys=[department_id])
+    devices         = relationship("Device", back_populates="user", cascade="all, delete")
+    login_history   = relationship("LoginHistory", back_populates="user", cascade="all, delete")
+
     __table_args__ = (
-        Index("ix_users_org_dept", "organization_id", "department"),
+        Index("ix_users_org_dept", "organization_id", "department_id"),
     )
 
 
@@ -75,7 +106,7 @@ class Device(Base):
     id                = Column(Integer,     primary_key=True, autoincrement=True)
     device_id         = Column(String(128), unique=True, nullable=False, index=True)
     organization_id   = Column(String(64),  nullable=False, index=True, default="org_default")
-    user_id           = Column(Integer,     nullable=True, index=True)
+    user_id           = Column(Integer,     ForeignKey("users.id"), nullable=True, index=True)
     browser           = Column(String(100), default="unknown")
     browser_version   = Column(String(50),  default="unknown")
     os                = Column(String(100), default="unknown")
@@ -84,9 +115,29 @@ class Device(Base):
     last_seen         = Column(DateTime,    server_default=func.now(), onupdate=func.now())
     created_at        = Column(DateTime,    server_default=func.now())
 
+    # Relationships
+    user              = relationship("User", back_populates="devices")
+
     __table_args__ = (
         Index("ix_devices_org_status", "organization_id", "status"),
     )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 3.5 LOGIN HISTORY
+# ══════════════════════════════════════════════════════════════════════════════
+
+class LoginHistory(Base):
+    """Access logs for auditing."""
+    __tablename__ = "login_history"
+
+    id              = Column(Integer,     primary_key=True, autoincrement=True)
+    user_id         = Column(Integer,     ForeignKey("users.id"), nullable=False, index=True)
+    device_id       = Column(String(128), nullable=True)
+    ip_address      = Column(String(45),  nullable=True)
+    status          = Column(String(32),  default="success") # success, failed
+    timestamp       = Column(DateTime,    server_default=func.now(), index=True)
+
+    user            = relationship("User", back_populates="login_history")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
