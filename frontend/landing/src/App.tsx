@@ -1,4 +1,13 @@
 import React, { useState } from 'react';
+import SiteHeader from './components/SiteHeader';
+import HeroSection from './components/HeroSection';
+import SectionServices from './components/SectionServices';
+import SectionProcess from './components/SectionProcess';
+import SectionTechStack from './components/SectionTechStack';
+import SectionAbout from './components/SectionAbout';
+import SectionReviews from './components/SectionReviews';
+import SectionContact from './components/SectionContact';
+import SiteFooter from './components/SiteFooter';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import ExplainerVideo from './components/ExplainerVideo';
@@ -129,50 +138,24 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigation Header */}
-      <Header onScrollTo={handleScrollTo} />
+            {/* Navigation Header */}
+      <SiteHeader />
 
       {/* Main Container */}
       <main className="flex-1" id="main-content">
-        {/* High-Fidelity Landing Page Views */}
         <div className="animate-fadeIn">
-          {/* Hero Banner Section */}
-          <Hero 
-            onRequestSetup={() => navigate('/register')}
-            onViewArchitecture={() => handleScrollTo('architecture')}
-          />
-
-          {/* Interactive 3D Video Explainer Tour Section */}
-            <ExplainerVideo onShowNotification={showToast} />
-
-            {/* Cloud Risk Analysis Section */}
-            <InvisibleRisk />
-
-            {/* Onboarding Timeline Section */}
-            <OnboardingFlow 
-              onStartOnboarding={() => navigate('/register')}
-              onSelectPhase={handleOnboardingSelectPhase}
-            />
-
-            {/* Deployment Stack Section */}
-            <DeploymentStack />
-
-            {/* Ready Call-To-Action Section */}
-            <ReadySection 
-              onRequestSetup={() => navigate('/register')}
-              onScheduleDemo={() => {
-                setDemoStep(1);
-                setShowDemoModal(true);
-              }}
-            />
-          </div>
+          <HeroSection />
+          <SectionServices />
+          <SectionProcess />
+          <SectionTechStack />
+          <SectionAbout />
+          <SectionReviews />
+          <SectionContact />
+        </div>
       </main>
 
       {/* Footer Brand bar */}
-      <Footer 
-        onOpenPrivacy={() => setShowPrivacyModal(true)}
-        onOpenTerms={() => setShowTermsModal(true)}
-      />
+      <SiteFooter />
 
       {/* 2. STATEFUL LIVE DEMO SCHEDULER MODAL */}
       {showDemoModal && (

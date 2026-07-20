@@ -167,7 +167,7 @@ async def _compute_and_store_daily_stats(db: AsyncSession, org_id: str, target_d
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """
     Real-time admin statistics.
@@ -327,7 +327,7 @@ async def get_stats(
 async def refresh_daily_stats(
     bg_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """
     Trigger re-computation of today's pre-aggregated DashboardStatistic row.
@@ -347,7 +347,7 @@ async def get_events(
     severity:   str | None = None,
     event_type: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Paginated security event timeline for the dashboard."""
     q = _org_scope(
@@ -392,7 +392,7 @@ async def get_scans(
     verdict:   str | None = None,   # safe | warning | danger
     scan_type: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Paginated website scan history."""
     q = _org_scope(
@@ -434,7 +434,7 @@ async def get_scans(
 @router.get("/devices")
 async def get_devices(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Registered device roster with last-seen timestamps."""
     q = _org_scope(
@@ -467,7 +467,7 @@ async def get_threat_reports(
     page:          int        = 1,
     page_size:     int        = 50,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Paginated threat report queue (Module 15)."""
     q = _org_scope(
@@ -503,7 +503,7 @@ async def get_threat_reports(
 @router.get("/policies")
 async def get_policies(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Return the active policy list for the org (Module 16)."""
     org_id = getattr(current_user, "organization_id", None) or "org_default"
@@ -579,7 +579,7 @@ class StatusUpdateRequest(BaseModel):
 @router.get("/users/pending")
 async def get_pending_users(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(Role.DEPARTMENT_ADMIN))
+    user: User = Depends(require_role(Role.MANAGER))
 ):
     """Fetch all users awaiting approval."""
     # If the user is just an admin (not super_admin), restrict to their org
@@ -608,7 +608,7 @@ async def update_user_status(
     user_id: int,
     req: StatusUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_role(Role.DEPARTMENT_ADMIN))
+    admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Approve, reject, or disable a user account."""
     if req.status not in ["approved", "rejected", "disabled", "pending"]:

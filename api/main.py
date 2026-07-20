@@ -14,7 +14,7 @@ from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
 from api.services.model_orchestrator import load_all_models
 
-from api.routers import auth, scan, admin, health, compatibility, setup
+from api.routers import auth, scan, admin, health, compatibility, setup, public
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
@@ -93,6 +93,7 @@ app.include_router(scan.router)
 app.include_router(admin.router)
 app.include_router(compatibility.router)
 app.include_router(setup.router)
+app.include_router(public.router)
 
 
 @app.get("/")       
