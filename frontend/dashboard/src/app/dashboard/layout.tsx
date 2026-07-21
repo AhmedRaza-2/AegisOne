@@ -279,16 +279,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const role = user.role;
     if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin") {
       // Allow department_admin to access approvals page
-      if (role === "department_admin" && pathname === "/dashboard/admin/approvals") {
+      if ((role === "department_admin" || role === "manager") && pathname === "/dashboard/admin/approvals") {
         setIsAuthorizing(false);
       } else {
-        router.replace(role === "department_admin" ? "/dashboard/supervisor" : "/dashboard/employee");
+        router.replace((role === "department_admin" || role === "manager" || role === "office_admin") ? "/dashboard/supervisor" : "/dashboard/employee");
       }
-    } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin") {
+    } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin" && role !== "manager") {
       router.replace(role === "super_admin" ? "/dashboard/admin" : "/dashboard/employee");
     } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin")) {
       router.replace("/dashboard/admin");
-    } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin")) {
+    } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin" || role === "manager")) {
       router.replace("/dashboard/supervisor");
     } else {
       setIsAuthorizing(false);
