@@ -149,6 +149,33 @@ async def api_image(file: UploadFile = File(...)):
     }
 
 
+@router.post("/analyze/document")
+async def api_document(file: UploadFile = File(...)):
+    start = time.time()
+    import tempfile
+    suffix = os.path.splitext(file.filename)[1] if file.filename else ""
+    fd, temp_path = tempfile.mkstemp(suffix=suffix)
+    try:
+        raw = await file.read()
+        with os.fdopen(fd, "wb") as f:
+            f.write(raw)
+        raw_result = await asyncio.to_thread(process_attachment, temp_path)
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+    is_phish = raw_result.get("heuristic_risk") == "high" or "prediction" in raw_result.get("sub_results", {}).get("text", {}) and raw_result["sub_results"]["text"]["prediction"] == "phishing"
+    prob = 0.95 if is_phish else 0.05
+    
+    return {
+        "prediction": "phishing" if is_phish else "legitimate",
+        "confidence": prob if is_phish else 1.0 - prob,
+        "phishing_probability": prob,
+        "model": "document_orchestrator",
+        "sub_results": raw_result.get("sub_results", {}),
+        "latency_ms": round((time.time() - start) * 1000, 1)
+    }
+
 @router.post("/analyze/download_url")
 async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_db)):
     start = time.time()

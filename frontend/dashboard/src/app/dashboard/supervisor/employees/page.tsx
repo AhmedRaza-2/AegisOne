@@ -1,8 +1,7 @@
-"use client";
+import { useState, useMemo, useDeferredValue } from "react";
 import { users, scanHistory } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
-import { Users, ShieldCheck, ShieldOff, Search, Plus, Trash2, X } from "lucide-react";
-import { useState, useMemo, useDeferredValue } from "react";
+import { Users, Search, Activity, ShieldAlert, Download, Key, TrendingUp, Sparkles, X, Plus, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function EmployeesPage() {
@@ -10,11 +9,7 @@ export default function EmployeesPage() {
   const [userList, setUserList] = useState(() => users.getAll());
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  // Form States
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
   if (!user) return null;
 
@@ -31,10 +26,22 @@ export default function EmployeesPage() {
     return deptEmployees.map(emp => {
       const empScans = scanHistory.filter(s => s.userId === emp.id);
       const threats = empScans.filter(s => s.prediction !== "legitimate");
+      const blocked = threats.filter(t => t.category === "phishing" || t.category === "malware");
+      
+      const score = Math.max(0, 100 - threats.length * 2 - blocked.length * 5);
+      let status = "Excellent";
+      if (score < 60) status = "Warning";
+      else if (score < 80) status = "Needs Attention";
+
       return {
         ...emp,
-        scansCount: empScans.length + (emp.fullName.charCodeAt(0) % 25),
-        threatsCount: threats.length + (emp.fullName.charCodeAt(1) % 3),
+        score,
+        threatsCount: threats.length,
+        blockedCount: blocked.length,
+        status,
+        downloadsScanned: empScans.filter(s => s.category === "malware").length * 5 + 12,
+        credentialEvents: threats.length * 2,
+        lastActivity: emp.isActive ? "Just now" : "2 hours ago"
       };
     });
   }, [deptEmployees]);
@@ -45,75 +52,17 @@ export default function EmployeesPage() {
     return employeesWithStats.filter(u => u.fullName.toLowerCase().includes(s) || u.email.toLowerCase().includes(s));
   }, [employeesWithStats, deferredSearch]);
 
-  const handleAddEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName || !email) return;
-
-    const names = fullName.split(' ');
-    const firstName = names[0];
-    const lastName = names.length > 1 ? names.slice(1).join(' ') : 'User';
-    const generatedPassword = Math.random().toString(36).slice(-10) + 'X#';
-
-    try {
-      await fetch("http://localhost:8000/setup/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employees: [{
-            firstName,
-            lastName,
-            email,
-            departmentCode: user.department,
-            role: "employee",
-            designation: "Employee",
-            generatedPassword
-          }]
-        })
-      });
-    } catch (error) {
-      console.error("Failed to send setup email:", error);
-    }
-
-    users.add({
-      fullName,
-      email,
-      role: "employee",
-      department: user.department,
-      organization: user.organization,
-      avatarUrl: "",
-      extensionInstalled: Math.random() > 0.3, // Mock extension installation
-    });
-
-    setUserList(users.getAll());
-    setFullName("");
-    setEmail("");
-    setShowAddModal(false);
-  };
-
-  const handleDeleteEmployee = (id: string) => {
-    if (confirm("Are you sure you want to remove this employee from your department team?")) {
-      users.delete(id);
-      setUserList(users.getAll());
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
-            <Users className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Department Team
+            <Users className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Employee Security Analytics
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            {user.department} Department — {deptEmployees.length} active employees
+            Department: {user.department} — Aggregated health metrics
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Plus className="w-4 h-4" /> Add Team Member
-        </button>
       </div>
 
       <div className="flex gap-3 items-center">
@@ -129,110 +78,127 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.length === 0 ? (
-          <div className="col-span-full glass-card p-8 text-center text-surface-500">
-            No department employees found.
-          </div>
-        ) : (
-          filtered.map(emp => {
-            const initials = emp.fullName.split(" ").map(n => n[0]).join("").slice(0, 2);
-            return (
-              <div key={emp.id} className="glass-card p-5 hover:border-brand-500/20 dark:hover:border-white/[0.12] transition-all flex flex-col justify-between">
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-brand-600/10 flex items-center justify-center text-xs font-bold text-brand-650 dark:text-brand-400 uppercase">
-                        {initials}
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-surface-900 dark:text-white">{emp.fullName}</div>
-                        <div className="text-xs text-surface-500">{emp.email}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteEmployee(emp.id)}
-                      className="p-1 rounded text-surface-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                      title="Remove employee"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-center mb-4">
-                    <div className="px-2 py-2 rounded-lg bg-surface-100/50 dark:bg-white/[0.02]">
-                      <div className="text-lg font-bold text-surface-800 dark:text-surface-200">{emp.scansCount}</div>
-                      <div className="text-[10px] text-surface-500">Scans</div>
-                    </div>
-                    <div className="px-2 py-2 rounded-lg bg-surface-100/50 dark:bg-white/[0.02]">
-                      <div className={`text-lg font-bold ${emp.threatsCount > 2 ? "text-red-650 dark:text-red-400" : "text-surface-800 dark:text-surface-200"}`}>{emp.threatsCount}</div>
-                      <div className="text-[10px] text-surface-500">Threats</div>
-                    </div>
-                    <div className="px-2 py-2 rounded-lg bg-surface-100/50 dark:bg-white/[0.02]">
-                      <div className="text-lg font-bold text-surface-800 dark:text-surface-200 flex items-center justify-center gap-1">
-                        {emp.extensionInstalled ? (
-                          <ShieldCheck className="w-4 h-4 text-emerald-650 dark:text-emerald-450" />
-                        ) : (
-                          <ShieldOff className="w-4 h-4 text-surface-400" />
-                        )}
-                      </div>
-                      <div className="text-[10px] text-surface-500">Shield</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-auto pt-3 border-t border-surface-150 dark:border-white/[0.03] flex items-center justify-between text-xs text-surface-500">
-                  <span className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${emp.isActive ? "bg-emerald-500 animate-pulse" : "bg-surface-450"}`} />
-                    {emp.isActive ? "Active" : "Inactive"}
-                  </span>
-                  <span>Last login: {new Date(emp.lastLogin).toLocaleDateString()}</span>
-                </div>
-              </div>
-            );
-          })
-        )}
+      <div className="stat-card overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead>
+            <tr className="border-b border-surface-200 dark:border-white/[0.06]">
+              <th className="px-4 py-3 font-medium text-surface-500">Employee</th>
+              <th className="px-4 py-3 font-medium text-surface-500 text-right">Score</th>
+              <th className="px-4 py-3 font-medium text-surface-500 text-right">Threats</th>
+              <th className="px-4 py-3 font-medium text-surface-500 text-right">Blocked</th>
+              <th className="px-4 py-3 font-medium text-surface-500">Last Activity</th>
+              <th className="px-4 py-3 font-medium text-surface-500">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-surface-500">No employees found.</td>
+              </tr>
+            ) : (
+              filtered.map(emp => (
+                <tr 
+                  key={emp.id} 
+                  onClick={() => setSelectedEmployee(emp)}
+                  className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
+                >
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-surface-900 dark:text-white">{emp.fullName}</div>
+                    <div className="text-xs text-surface-500">{emp.email}</div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-semibold ${emp.score >= 80 ? 'text-emerald-500' : emp.score >= 60 ? 'text-amber-500' : 'text-red-500'}`}>{emp.score}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-surface-700 dark:text-surface-300">{emp.threatsCount}</td>
+                  <td className="px-4 py-3 text-right text-surface-700 dark:text-surface-300">{emp.blockedCount}</td>
+                  <td className="px-4 py-3 text-surface-600 dark:text-surface-400">{emp.lastActivity}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 text-[10px] font-medium rounded-full ${emp.status === 'Excellent' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : emp.status === 'Warning' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
+                      {emp.status}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Modal: Add Employee */}
       <AnimatePresence>
-        {showAddModal && (
+        {selectedEmployee && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-lg relative z-10 overflow-hidden">
-              <div className="p-6 border-b border-surface-200 dark:border-white/[0.06]">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Register Employee</h3>
-                  <button onClick={() => setShowAddModal(false)} className="text-surface-400 hover:text-surface-600"><X className="w-4 h-4" /></button>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedEmployee(null)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-2xl rounded-2xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              <div className="p-6 border-b border-surface-200 dark:border-white/[0.06] flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-surface-900 dark:text-white">{selectedEmployee.fullName}</h3>
+                  <p className="text-sm text-surface-500">Security Health Profile (Aggregated)</p>
                 </div>
-                <p className="text-xs text-surface-500 mt-1">Deploy new end-user access for the {user.department} department</p>
+                <button onClick={() => setSelectedEmployee(null)} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.05] transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
               </div>
-              <form onSubmit={handleAddEmployee} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
-                    placeholder="e.g. Bilal Tariq"
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
-                  />
+
+              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.05]">
+                    <div className="text-xs text-surface-500 mb-1">Security Score</div>
+                    <div className={`text-2xl font-bold ${selectedEmployee.score >= 80 ? 'text-emerald-500' : selectedEmployee.score >= 60 ? 'text-amber-500' : 'text-red-500'}`}>{selectedEmployee.score}</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.05]">
+                    <div className="text-xs text-surface-500 mb-1">Threat Count</div>
+                    <div className="text-2xl font-bold text-surface-900 dark:text-white">{selectedEmployee.threatsCount}</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.05]">
+                    <div className="text-xs text-surface-500 mb-1">Blocked Attempts</div>
+                    <div className="text-2xl font-bold text-surface-900 dark:text-white">{selectedEmployee.blockedCount}</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.05]">
+                    <div className="text-xs text-surface-500 mb-1">Risk Trend</div>
+                    <div className="text-2xl font-bold text-surface-900 dark:text-white flex items-center gap-1">
+                      <TrendingUp className="w-4 h-4 text-brand-500" /> Stable
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="e.g. employee@company.com"
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
-                  />
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="p-5 rounded-xl border border-surface-200 dark:border-white/[0.05]">
+                    <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-surface-900 dark:text-white"><Activity className="w-4 h-4 text-blue-500" /> Protection Statistics</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-surface-600 dark:text-surface-400 flex items-center gap-2"><Download className="w-4 h-4" /> Downloads Scanned</span>
+                        <span className="font-semibold text-surface-900 dark:text-white">{selectedEmployee.downloadsScanned}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-surface-600 dark:text-surface-400 flex items-center gap-2"><Key className="w-4 h-4" /> Credential Events</span>
+                        <span className="font-semibold text-surface-900 dark:text-white">{selectedEmployee.credentialEvents}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-surface-600 dark:text-surface-400 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Policy Compliance</span>
+                        <span className="font-semibold text-emerald-500">100%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-xl border border-surface-200 dark:border-white/[0.05] bg-brand-50/50 dark:bg-brand-900/10">
+                    <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-surface-900 dark:text-white"><Sparkles className="w-4 h-4 text-brand-500" /> AI Recommendations</h4>
+                    <ul className="space-y-3 text-sm text-surface-600 dark:text-surface-400 list-disc list-inside">
+                      {selectedEmployee.score >= 80 ? (
+                        <>
+                          <li>Employee is maintaining excellent security hygiene.</li>
+                          <li>No immediate awareness training required.</li>
+                        </>
+                      ) : (
+                        <>
+                          <li>Recommend reviewing "Identifying Phishing Links" training.</li>
+                          <li>Employee recently interacted with suspicious credential prompts.</li>
+                          <li>Consider a brief check-in regarding recent blocked downloads.</li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
                 </div>
-                <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors">Add to Team</button>
-                </div>
-              </form>
+              </div>
             </motion.div>
           </div>
         )}

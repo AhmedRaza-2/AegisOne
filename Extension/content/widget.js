@@ -31,7 +31,6 @@ export function createWidget() {
           <span class="aegis-brand-name">AegisOne</span>
         </div>
         <div class="aegis-header-controls">
-          <button id="aegis-btn-scan" title="Full page scan" class="aegis-ctrl-btn aegis-scan-btn">🔍</button>
           <button id="aegis-btn-min" title="Minimize" class="aegis-ctrl-btn">—</button>
           <button id="aegis-btn-off" title="Turn off" class="aegis-ctrl-btn">✕</button>
         </div>
@@ -41,7 +40,6 @@ export function createWidget() {
           <div id="aegis-status-icon" class="aegis-s-icon">🔍</div>
           <div class="aegis-s-info">
             <div id="aegis-s-title" class="aegis-s-title">Scanning...</div>
-            <div id="aegis-s-sub" class="aegis-s-sub">Analyzing page security</div>
           </div>
         </div>
         <div id="aegis-risk-row">
@@ -52,10 +50,9 @@ export function createWidget() {
           <span id="aegis-risk-pct" class="aegis-risk-pct">—</span>
         </div>
         <div id="aegis-actions" class="aegis-actions hidden">
-          <button id="aegis-action-details" class="aegis-btn-secondary">📊 Details</button>
-          <button id="aegis-action-xai" class="aegis-btn-primary">✨ Explain AI</button>
+          <button id="aegis-action-details" class="aegis-btn-secondary" title="View Details">Details</button>
+          <button id="aegis-action-xai" class="aegis-btn-primary" title="Explain with AI">Explain AI</button>
         </div>
-        <div id="aegis-threat-count" class="aegis-footer-note"></div>
       </div>
     </div>
   `;
@@ -74,11 +71,9 @@ export function updateWidget(data) {
   const statusCard = document.getElementById("aegis-status-card");
   const icon = document.getElementById("aegis-status-icon");
   const title = document.getElementById("aegis-s-title");
-  const sub = document.getElementById("aegis-s-sub");
   const fill = document.getElementById("aegis-risk-bar-fill");
   const pct = document.getElementById("aegis-risk-pct");
   const actions = document.getElementById("aegis-actions");
-  const note = document.getElementById("aegis-threat-count");
 
   if (!statusCard || !widget) return;
 
@@ -88,7 +83,6 @@ export function updateWidget(data) {
     statusCard.className = "aegis-status scanning";
     icon.textContent = "🔍";
     title.textContent = "Scanning...";
-    sub.textContent = "Analyzing page security";
     return;
   }
 
@@ -113,9 +107,6 @@ export function updateWidget(data) {
   icon.textContent = iconText;
   title.textContent = titleText;
 
-  const topReason = top_factors?.[0]?.label;
-  sub.textContent = topReason || (score === 0 ? "No threats detected" : `${score}% risk detected`);
-
   // Risk bar
   const barColor = score < 20 ? "#10b981" : score < 50 ? "#f59e0b" : score < 80 ? "#f97316" : "#ef4444";
   fill.style.width = `${score}%`;
@@ -125,8 +116,6 @@ export function updateWidget(data) {
 
   // Always show action buttons
   actions.classList.remove("hidden");
-
-  note.textContent = "";
 
   // Update details panel if it's open
   _refreshDetailsPanel(score, top_factors, threat_type);
@@ -339,6 +328,7 @@ function _injectStyles() {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
       font-size: 12px !important;
       user-select: none !important;
+      pointer-events: none !important;
     }
     #aegis-mini-bubble {
       display: none;
@@ -350,18 +340,20 @@ function _injectStyles() {
       font-size: 22px;
       cursor: pointer;
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      pointer-events: auto !important;
     }
     #aegis-widget-v2.minimized #aegis-mini-bubble { display: flex !important; }
     #aegis-widget-v2.minimized #aegis-widget-main { display: none !important; }
 
     #aegis-widget-main {
-      width: 240px;
+      width: 200px;
       background: rgba(13, 17, 23, 0.97);
       border: 1px solid #2d3548;
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
       backdrop-filter: blur(12px);
+      pointer-events: auto !important;
     }
 
     #aegis-header {

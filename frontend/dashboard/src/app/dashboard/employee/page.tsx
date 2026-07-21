@@ -327,12 +327,12 @@ export default function EmployeeDashboard() {
                     <div className={`w-full p-4 rounded-xl border ${isBlock ? 'border-red-500/20 bg-red-500/5' : 'border-surface-200 dark:border-white/[0.05] bg-surface-50 dark:bg-white/[0.02]'}`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-xs font-bold ${isBlock ? 'text-red-500' : isSafe ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {isBlock ? 'Threat Blocked' : isDownload ? 'File Scanned' : 'Website Scanned'}
+                          {isBlock ? 'Threat Blocked' : scan.scanType === 'text' ? 'Text Scanned' : scan.scanType === 'image' ? 'Image Scanned' : scan.scanType === 'document' || scan.scanType === 'attachment' ? 'File Scanned' : 'URL Scanned'}
                         </span>
                         <span className="text-[10px] font-mono text-surface-400">{timeStr}</span>
                       </div>
                       <div className="text-xs text-surface-600 dark:text-surface-400 truncate w-full">
-                        {scan.inputPreview || scan.domain || 'Local event'}
+                        {scan.inputPreview ? scan.inputPreview.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : scan.domain || 'Local event'}
                       </div>
                       <div className="text-[10px] text-surface-500 mt-1 font-mono">
                         Risk {scan.riskScore}% • {isBlock ? 'Blocked' : 'Allowed'} • AI Conf {100 - (scan.riskScore || 0)}%

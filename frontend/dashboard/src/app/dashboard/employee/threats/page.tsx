@@ -2,6 +2,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor, BrainCircuit } from "lucide-react";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } } };
@@ -49,6 +50,18 @@ export default function ThreatCenterPage() {
     ? (recent.reduce((acc: number, t: any) => acc + (t.riskScore || 0), 0) / recent.length).toFixed(1) 
     : "0.0";
 
+  const handleExport = () => {
+    if (!recent.length) return alert("No data to export");
+    const headers = "ID,Category,Target,Risk Score,Decision,Timestamp\n";
+    const csv = recent.map((t: any) => `${t.id},${t.category},"${t.target}",${t.riskScore},${t.decision},${t.timestamp}`).join("\n");
+    const blob = new Blob([headers + csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aegisone_threats_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  };
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto">
       
@@ -59,11 +72,11 @@ export default function ThreatCenterPage() {
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Review and manage blocked threats in real-time.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#4F84F8] hover:bg-[#3D6CE5] transition-colors text-white">
+          <Link href="/dashboard/employee/scan" className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#4F84F8] hover:bg-[#3D6CE5] transition-colors text-white">
             <Zap className="w-4 h-4" />
             Quick Scan
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.1] hover:bg-surface-50 dark:hover:bg-white/[0.05] transition-colors text-surface-700 dark:text-surface-300">
+          </Link>
+          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.1] hover:bg-surface-50 dark:hover:bg-white/[0.05] transition-colors text-surface-700 dark:text-surface-300">
             <Download className="w-4 h-4" />
             Export Data
           </button>

@@ -4,27 +4,22 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function FileScanner() {
-  const [downloadUrl, setDownloadUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  };
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleScan = async () => {
-    if (!downloadUrl || !isValidUrl(downloadUrl)) return;
+    if (!file) return;
     setLoading(true);
     setResult(null);
     try {
       const formData = new FormData();
-      formData.append("url", downloadUrl);
-      const res = await fetch("http://localhost:8000/analyze/download_url", {
+      formData.append("file", file);
+      // fallback to image if document endpoint doesn't exist, but we will try /analyze/document or /analyze/image
+      // the user mentioned it should be like images
+      const res = await fetch("http://localhost:8000/analyze/document", {
         method: "POST",
         body: formData
       });
@@ -42,22 +37,30 @@ export function FileScanner() {
          <Upload className="w-6 h-6 text-[#4F84F8]" />
        </div>
        <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">Scan Document</h3>
-       <p className="text-xs text-surface-500 mb-6 max-w-sm flex-grow">Paste a direct link to a file, PDF, or attachment for deep scanning before downloading.</p>
+       <p className="text-xs text-surface-500 mb-6 max-w-sm flex-grow">Upload a suspicious PDF, Word document, or attachment for deep scanning.</p>
        
        <div className="w-full mt-auto">
          <input 
-           type="text" 
-           value={downloadUrl}
-           onChange={(e) => setDownloadUrl(e.target.value)}
-           placeholder="https://example.com/file.pdf" 
-           className={`w-full bg-surface-50 dark:bg-[#0B0F19] border ${downloadUrl && !isValidUrl(downloadUrl) ? 'border-red-500/50 focus:ring-red-500/50' : 'border-surface-200 dark:border-white/[0.1] focus:ring-[#4F84F8]/50'} rounded-xl px-4 py-3 mb-4 text-sm focus:outline-none focus:ring-2 focus:border-[#4F84F8]/50 text-surface-900 dark:text-white transition-all`} 
+           type="file" 
+           accept=".pdf,.doc,.docx,.txt"
+           className="hidden" 
+           ref={fileInputRef} 
+           onChange={(e) => setFile(e.target.files?.[0] || null)}
          />
+         
+         <div 
+           onClick={() => fileInputRef.current?.click()}
+           className={`w-full border-2 border-dashed ${file ? 'border-[#4F84F8] bg-[#4F84F8]/5' : 'border-surface-200 dark:border-white/[0.1] bg-surface-50 dark:bg-[#0B0F19] hover:bg-surface-100 dark:hover:bg-white/[0.03]'} rounded-xl py-3 px-4 mb-4 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 h-[46px]`}>
+           <span className={`text-sm font-bold truncate w-full ${file ? 'text-[#4F84F8]' : 'text-surface-500'}`}>
+             {file ? file.name : 'Click or drag document here'}
+           </span>
+         </div>
          
          <button 
            onClick={handleScan}
-           disabled={loading || !downloadUrl || !isValidUrl(downloadUrl)}
+           disabled={loading || !file}
            className="w-full py-3 bg-[#4F84F8] disabled:opacity-50 text-white rounded-xl font-bold text-sm hover:bg-[#3D6CE5] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#4F84F8]/20 disabled:shadow-none hover:shadow-[#4F84F8]/40">
-           {loading ? <Activity className="w-4 h-4 animate-spin" /> : 'Scan Download'}
+           {loading ? <Activity className="w-4 h-4 animate-spin" /> : 'Scan Document'}
          </button>
        </div>
 

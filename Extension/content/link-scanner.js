@@ -372,46 +372,50 @@ function _ensureLinkStyles() {
     #aegis-hover-tooltip {
       position: fixed !important;
       z-index: 2147483647 !important;
-      background: rgba(10, 18, 35, 0.97) !important;
-      border: 1px solid rgba(99,102,241,0.4) !important;
-      border-radius: 12px !important;
-      padding: 11px 15px !important;
-      min-width: 210px !important;
-      max-width: 300px !important;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.75), 0 0 0 1px rgba(99,102,241,0.15) !important;
+      background: rgba(15, 23, 42, 0.95) !important;
+      border: 1px solid rgba(99,102,241,0.3) !important;
+      border-radius: 8px !important;
+      padding: 8px 12px !important;
+      min-width: 160px !important;
+      max-width: 240px !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.1) !important;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
       pointer-events: none !important;
       transition: opacity 0.12s ease !important;
-      backdrop-filter: blur(12px) !important;
+      backdrop-filter: blur(8px) !important;
       color: #e2e8f0 !important;
     }
     .aegis-tip-url {
-      font-size: 10px !important;
+      font-size: 9.5px !important;
       color: #64748b !important;
       word-break: break-all !important;
-      margin-bottom: 7px !important;
+      margin-bottom: 5px !important;
       border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-      padding-bottom: 6px !important;
+      padding-bottom: 4px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
     }
     .aegis-tip-score {
       display: flex !important;
       justify-content: space-between !important;
       align-items: center !important;
-      font-size: 12px !important;
-      margin-bottom: 5px !important;
+      font-size: 11px !important;
+      margin-bottom: 4px !important;
     }
     .aegis-tip-pct {
-      font-size: 13px !important;
+      font-size: 12px !important;
       font-weight: 800 !important;
     }
     .aegis-tip-reason {
-      font-size: 10px !important;
+      font-size: 9.5px !important;
       color: #94a3b8 !important;
-      margin-top: 4px !important;
+      margin-top: 3px !important;
       font-style: italic !important;
+      line-height: 1.3 !important;
     }
     .aegis-tip-scanning {
-      font-size: 11px !important;
+      font-size: 10px !important;
       color: #818cf8 !important;
       display: flex !important;
       align-items: center !important;
