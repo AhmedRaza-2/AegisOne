@@ -6,7 +6,7 @@
  */
 
 // ── API Configuration ────────────────────────────────────
-export const API_BASE = "http://localhost:9000";
+export const API_BASE = "http://localhost:8000";
 export const API_TIMEOUT_MS = 6000;
 export const HEALTH_CHECK_INTERVAL_MS = 30_000;
 export const EVENT_SYNC_INTERVAL_MS = 30_000;

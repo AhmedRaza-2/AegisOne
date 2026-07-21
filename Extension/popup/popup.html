@@ -26,76 +26,76 @@
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      width: 360px;
+      width: 310px;
       font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
-      font-size: 12px;
+      font-size: 11px;
     }
 
     /* ── Header ───────────────────────────────────────── */
     .header {
-      background: linear-gradient(160deg, #0d1425 0%, #111827 100%);
-      padding: 13px 15px 11px;
+      background: var(--card2);
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
     }
-    .brand { display: flex; align-items: center; gap: 8px; }
-    .brand-logo { font-size: 20px; }
-    .brand-name { font-weight: 800; font-size: 14px; letter-spacing: 0.3px; }
-    .brand-sub  { font-size: 9px; color: var(--muted); margin-top: 1px; }
+    .brand { display: flex; align-items: center; gap: 6px; }
+    .brand-logo { font-size: 16px; }
+    .brand-name { font-weight: 700; font-size: 12px; }
+    .brand-sub  { font-size: 8px; color: var(--muted); margin-top: 1px; display: none; }
 
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
 
-    .shield-toggle { display: flex; align-items: center; gap: 5px; }
-    .toggle-label { font-size: 9px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
-    .toggle-switch { position: relative; width: 30px; height: 17px; cursor: pointer; }
+    .shield-toggle { display: flex; align-items: center; gap: 4px; }
+    .toggle-label { font-size: 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+    .toggle-switch { position: relative; width: 26px; height: 14px; cursor: pointer; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-slider {
       position: absolute; inset: 0; background: var(--border2);
-      border-radius: 17px; transition: 0.25s;
+      border-radius: 14px; transition: 0.25s;
     }
     .toggle-slider:before {
       content: ''; position: absolute;
-      width: 11px; height: 11px; left: 3px; top: 3px;
+      width: 10px; height: 10px; left: 2px; top: 2px;
       background: white; border-radius: 50%; transition: 0.25s;
     }
     input:checked + .toggle-slider { background: var(--green); }
-    input:checked + .toggle-slider:before { transform: translateX(13px); }
+    input:checked + .toggle-slider:before { transform: translateX(12px); }
 
     .server-dot {
-      width: 7px; height: 7px; border-radius: 50%;
+      width: 6px; height: 6px; border-radius: 50%;
       background: var(--muted); transition: background 0.3s;
       cursor: help;
     }
-    .server-dot.online  { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    .server-dot.online  { background: var(--green); box-shadow: 0 0 4px var(--green); }
     .server-dot.offline { background: var(--red); }
 
     /* ── Verdict Section ──────────────────────────────── */
     .verdict-section {
-      padding: 12px 14px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border);
     }
     .section-label {
-      font-size: 9px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px;
+      font-size: 8px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px;
     }
     .verdict-box {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--card); border-radius: 10px;
-      padding: 10px 12px; border: 1px solid var(--border2);
+      display: flex; align-items: center; gap: 8px;
+      background: transparent; border-radius: 6px;
+      padding: 8px; border: 1px solid var(--border2);
       transition: border-color 0.3s, background 0.3s;
     }
-    .verdict-icon { font-size: 26px; flex-shrink: 0; }
-    .verdict-text .status { font-size: 14px; font-weight: 700; }
-    .verdict-text .detail { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
-    .verdict-box.safe    { border-color: rgba(16,185,129,0.25); background: rgba(16,185,129,0.04); }
+    .verdict-icon { font-size: 20px; flex-shrink: 0; }
+    .verdict-text .status { font-size: 12px; font-weight: 700; }
+    .verdict-text .detail { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
+    .verdict-box.safe    { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.05); }
     .verdict-box.safe    .status { color: var(--green); }
-    .verdict-box.caution { border-color: rgba(251,191,36,0.25); background: rgba(251,191,36,0.04); }
+    .verdict-box.caution { border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.05); }
     .verdict-box.caution .status { color: var(--amber); }
-    .verdict-box.warning { border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.05); }
+    .verdict-box.warning { border-color: rgba(249,115,22,0.4); background: rgba(249,115,22,0.05); }
     .verdict-box.warning .status { color: var(--orange); }
-    .verdict-box.danger  { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+    .verdict-box.danger  { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
     .verdict-box.danger  .status { color: var(--red); }
     .verdict-box.unknown { border-color: var(--border2); }
     .verdict-box.unknown .status { color: var(--muted); }
@@ -214,9 +214,6 @@
         <span id="riskPct">0%</span>
       </div>
       <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
-    </div>
-    <div id="summaryBox" style="margin-top:10px;padding:10px 12px;border:1px solid var(--border2);border-radius:10px;background:rgba(255,255,255,0.02);font-size:11px;line-height:1.5;color:var(--text);">
-      No scan yet. Open a page to see a quick security summary.
     </div>
   </div>
 

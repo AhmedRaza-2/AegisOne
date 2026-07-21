@@ -10,7 +10,7 @@ import json
 import uuid
 import httpx
 import asyncio
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query, Body
 from typing import Dict, Any, List
 from sqlalchemy import select, desc, func, update, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,8 +62,9 @@ DEFAULT_POLICY = {
 
 @router.post("/analyze/url")
 async def api_url(url: str = Form(...), scan_type: str = Form("url"), db: AsyncSession = Depends(get_db)):
+    import asyncio
     start = time.time()
-    result = predict_url(url)
+    result = await asyncio.to_thread(predict_url, url)
     
     # Store the scan for dashboard analytics
     score = result.get("phishing_probability", 0) * 100
@@ -89,8 +90,9 @@ async def api_url(url: str = Form(...), scan_type: str = Form("url"), db: AsyncS
 
 @router.post("/analyze/text")
 async def api_text(text: str = Form(...), db: AsyncSession = Depends(get_db)):
+    import asyncio
     start = time.time()
-    result = predict_text(text)
+    result = await asyncio.to_thread(predict_text, text)
     
     # Store the scan for dashboard analytics
     score = result.get("phishing_probability", 0) * 100
@@ -302,7 +304,7 @@ async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_
 
 
 @router.post("/xai/explain")
-async def api_explain(evidence: Dict[str, Any]):
+async def api_explain(evidence: Dict[str, Any] = Body(...)):
     start = time.time()
     explanation = generate_explanation(evidence)
     explanation["latency_ms"] = round((time.time() - start) * 1000, 1)
@@ -449,16 +451,17 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
                 user_action=details.get("user_action", "warned"),
             ))
         elif event.type in {"download_blocked", "download_allowed"}:
+            raw_filename = details.get("filename") or event.url or "unknown"
             db.add(DownloadEvent(
                 download_id=event_id,
                 organization_id=event.org_id or DEFAULT_POLICY["org_id"],
                 user_id=event.user_id,
-                filename=details.get("filename", event.url or "unknown"),
-                extension=details.get("extension", ""),
-                sha256=details.get("sha256", ""),
+                filename=str(raw_filename)[:500],
+                extension=str(details.get("extension", ""))[:32],
+                sha256=str(details.get("sha256", ""))[:64],
                 file_size_kb=float(details.get("size", 0) or 0) / 1024,
                 risk_score=event.risk_score or 0,
-                decision=details.get("decision", event.verdict or "allow"),
+                decision=str(details.get("decision", event.verdict or "allow"))[:32],
             ))
         elif event.type == "threat_report":
             db.add(ThreatReport(
@@ -480,9 +483,27 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
                 llm_model=details.get("llm_model", ""),
                 response_time=float(details.get("response_time", 0.0) or 0.0),
             ))
+        elif event.type in {"page_scan", "website_scan", "url_scan"}:
+            decision = details.get("decision", event.verdict or "allow")
+            verdict_mapped = "safe" if decision == "allow" else "warning" if decision == "warn" else "danger"
+            db.add(WebsiteScan(
+                scan_id=event_id,
+                organization_id=event.org_id or DEFAULT_POLICY["org_id"],
+                user_id=event.user_id,
+                device_id=event.device_id,
+                url=event.url or event.domain or "unknown",
+                domain=event.domain or "unknown",
+                scan_type="navigation",
+                risk_score=event.risk_score or 0,
+                confidence=1.0,
+                threat_type=details.get("threat_type", ""),
+                verdict=verdict_mapped,
+                decision=decision
+            ))
 
     await db.commit()
     return {"status": "success", "count": persisted}
+
 
 
 @router.post("/reports/threat", response_model=ThreatReportResponse)
@@ -1047,7 +1068,7 @@ async def get_user_analytics(email: str = Query(None), db: AsyncSession = Depend
     from sqlalchemy import func
     
     # 1. Daily Risk Trend (Last 7 Days)
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     daily_trend = []
     
     for i in range(6, -1, -1):
@@ -1109,7 +1130,7 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     from sqlalchemy import func
     
     # Get today's start and end for date filtering (using 30-day window so FYP demo has data)
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.utcnow()
     today_start = now_utc - timedelta(days=30)
     
     # We ignore the specific user email for MVP and return all scans
@@ -1173,15 +1194,18 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     )
     today_creds = today_creds_q.scalar() or 0
     
-    # 9. Download Events (Files)
+    # 9. Download Events (Files) - Combine extension downloads and manual document scans
     files_total_q = await db.execute(select(func.count(DownloadEvent.id)))
-    files_total = files_total_q.scalar() or 0
+    files_ws_total_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document"))
+    files_total = (files_total_q.scalar() or 0) + (files_ws_total_q.scalar() or 0)
     
     files_blocked_q = await db.execute(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "block"))
-    files_blocked = files_blocked_q.scalar() or 0
+    files_ws_blocked_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document", WebsiteScan.decision == "block"))
+    files_blocked = (files_blocked_q.scalar() or 0) + (files_ws_blocked_q.scalar() or 0)
     
     files_warned_q = await db.execute(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "warn"))
-    files_proceeded_at_risk = files_warned_q.scalar() or 0
+    files_ws_warned_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document", WebsiteScan.decision == "warn"))
+    files_proceeded_at_risk = (files_warned_q.scalar() or 0) + (files_ws_warned_q.scalar() or 0)
 
     # All-time threats blocked
     threats_blocked_q = await db.execute(

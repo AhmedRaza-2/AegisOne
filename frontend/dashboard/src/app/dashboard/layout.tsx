@@ -7,7 +7,7 @@ import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
   UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
-  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2
+  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2, FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
@@ -20,11 +20,11 @@ interface NavItem {
 
 const navByRole: Record<string, NavItem[]> = {
   employee: [
-    { label: "Overview", href: "/dashboard/employee", icon: LayoutDashboard },
-    { label: "Threat Center", href: "/dashboard/employee/threats", icon: Shield },
-    { label: "AI Insights", href: "/dashboard/employee/xai", icon: Lightbulb },
-    { label: "Analytics", href: "/dashboard/employee/analytics", icon: BarChart3 },
-    { label: "Settings", href: "/dashboard/employee/settings", icon: Settings },
+    { label: "Security Overview", href: "/dashboard/employee", icon: ShieldCheck },
+    { label: "Threat Center", href: "/dashboard/employee/threats", icon: ShieldAlert },
+    { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan },
+    { label: "History", href: "/dashboard/employee/history", icon: History },
+    { label: "Profile & Devices", href: "/dashboard/employee/settings", icon: Monitor },
   ],
   manager: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },

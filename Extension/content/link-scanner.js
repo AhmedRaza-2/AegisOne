@@ -216,7 +216,7 @@ async function _showImageHoverPreview(img, src, token) {
 
   if (score >= 20) {
     chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
-      fetch("http://localhost:9000/telemetry/hover", {
+      fetch("http://localhost:8000/telemetry/hover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -259,7 +259,7 @@ async function _showHoverPreview(anchor, url, token) {
   // Module 11 — persist hover scan (best-effort, only if notable)
   if (score >= 20) {
     chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
-      fetch("http://localhost:9000/telemetry/hover", {
+      fetch("http://localhost:8000/telemetry/hover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,7 +1,7 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { scanHistory } from "@/lib/mock-data";
-import { History, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { History, CheckCircle, AlertTriangle, XCircle, Download, Calendar } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
 function RiskBadge({ level }: { level: string }) {
@@ -23,11 +23,13 @@ export default function HistoryPage() {
   const { user } = useAuth();
   const [filter, setFilter] = useState<string>("all");
   const [dbScans, setDbScans] = useState<any[]>([]);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:9000/user/stats?email=${encodeURIComponent(user.email)}`)
+      fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(data => {
           setDbScans(data.scans || []);
@@ -43,12 +45,25 @@ export default function HistoryPage() {
   if (!user) return null;
 
   const filtered = useMemo(() => {
-    return filter === "all" 
-      ? dbScans 
-      : filter === "threats" 
-      ? dbScans.filter(s => s.riskLevel !== "safe") 
-      : dbScans.filter(s => s.scanType === filter);
-  }, [dbScans, filter]);
+    let result = dbScans;
+    
+    if (filter !== "all") {
+      if (filter === "threats") result = result.filter(s => s.riskLevel !== "safe");
+      else result = result.filter(s => s.scanType === filter);
+    }
+    
+    if (startDate) {
+      const start = new Date(startDate).getTime();
+      result = result.filter(s => new Date(s.timestamp).getTime() >= start);
+    }
+    if (endDate) {
+      // Add 24 hours to include the end date fully
+      const end = new Date(endDate).getTime() + 86400000;
+      result = result.filter(s => new Date(s.timestamp).getTime() <= end);
+    }
+    
+    return result;
+  }, [dbScans, filter, startDate, endDate]);
 
   return (
     <div className="space-y-6">
@@ -59,24 +74,55 @@ export default function HistoryPage() {
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{dbScans.length} total scans recorded</p>
         </div>
-        <div className="flex flex-wrap gap-1.5 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
-          {["all", "threats", "url", "email", "text"].map(f => (
-            <button 
-              key={f} 
-              onClick={() => setFilter(f)} 
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all capitalize ${
-                filter === f 
-                  ? "bg-white dark:bg-surface-800 text-brand-650 dark:text-brand-400 shadow-sm border border-surface-200/50 dark:border-white/[0.08]" 
-                  : "text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white"
-              }`}
-            >
-              {f === "all" ? "All" : f === "threats" ? "Threats Only" : f.toUpperCase()}
-            </button>
-          ))}
+        <div className="flex flex-col items-end gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#4F84F8] text-white hover:bg-[#3D6CE5] transition-colors">
+            <Download className="w-4 h-4" />
+            Export Logs (CSV)
+          </button>
+          <div className="flex flex-wrap gap-1.5 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
+            {["all", "threats", "url", "email", "text"].map(f => (
+              <button 
+                key={f} 
+                onClick={() => setFilter(f)} 
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all capitalize ${
+                  filter === f 
+                    ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" 
+                    : "text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white"
+                }`}
+              >
+                {f === "all" ? "All" : f === "threats" ? "Threats Only" : f.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="glass-card overflow-hidden">
+      <div className="flex flex-col sm:flex-row gap-4 items-center bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 rounded-xl">
+         <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-surface-500" />
+            <span className="text-sm font-semibold text-surface-900 dark:text-white">Date Range:</span>
+         </div>
+         <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-surface-50 dark:bg-[#0B0F19] border border-surface-200 dark:border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-surface-900 dark:text-white"
+            />
+            <span className="text-surface-500 text-sm">to</span>
+            <input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-surface-50 dark:bg-[#0B0F19] border border-surface-200 dark:border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-surface-900 dark:text-white"
+            />
+            {(startDate || endDate) && (
+              <button onClick={() => { setStartDate(""); setEndDate(""); }} className="text-xs text-red-500 hover:underline ml-2">Clear</button>
+            )}
+         </div>
+      </div>
+
+      <div className="rounded-xl border border-surface-200 dark:border-white/[0.04] overflow-hidden bg-white dark:bg-[#141A29]">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

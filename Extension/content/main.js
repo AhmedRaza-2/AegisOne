@@ -172,14 +172,20 @@
           // Background returns deep page scan results — highlight & dialog
           case "DEEP_PAGE_RESULT": {
             const { composite, textProb, textSignals, badUrls, urlCount } = msg;
+            
+            // The final score should be the maximum of the base URL scan and the deep scan
+            const baseScore = _currentScanData?.score || 0;
+            const mergedScore = Math.max(baseScore, composite);
+            
             const currentResult = {
-              score: composite,
-              verdict: composite >= 80 ? "danger" : composite >= 50 ? "warning" : "safe",
+              score: mergedScore,
+              verdict: mergedScore >= 80 ? "danger" : mergedScore >= 50 ? "warning" : mergedScore >= 20 ? "caution" : "safe",
               top_factors: [
                 ...(badUrls || []).slice(0, 2).map(u => ({ label: `Malicious link: ${u.url.slice(0, 40)}…` })),
                 ...(textSignals || []).slice(0, 2).map(w => ({ label: `Phishing keyword: "${w}"` })),
-              ],
-              threat_type: composite >= 80 ? "phishing" : "suspicious_activity",
+                ...(_currentScanData?.top_factors || []),
+              ].slice(0, 4),
+              threat_type: mergedScore >= 80 ? "phishing" : (_currentScanData?.threat_type || "suspicious_activity"),
             };
             _currentScanData = { ...( _currentScanData || {} ), ...currentResult };
             updateWidget(currentResult);
@@ -424,7 +430,7 @@
       score = Math.min(100, score);
 
       const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
-      await fetch(`http://localhost:9000/telemetry/scripts`, {
+      await fetch(`http://localhost:8000/telemetry/scripts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -473,7 +479,7 @@
       score = Math.min(100, score);
 
       const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
-      await fetch(`http://localhost:9000/telemetry/cookies`, {
+      await fetch(`http://localhost:8000/telemetry/cookies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
