@@ -25,83 +25,70 @@ export default function SupervisorDashboard() {
   const tooltipColor = isDark ? "#ffffff" : "#0f172a";
 
   const [realStats, setRealStats] = useState<any>(null);
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("aegis_token");
-    fetch("http://localhost:9000/admin/stats", {
-      headers: token ? { "Authorization": `Bearer ${token}` } : {}
-    })
+    const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
+    // Fetch Stats
+    fetch("http://localhost:8000/admin/stats", { headers })
       .then(res => res.json())
       .then(data => {
-        if (!data.detail) {
-          setRealStats(data);
-        }
+        if (!data.detail) setRealStats(data);
+      })
+      .catch(console.error);
+
+    // Fetch Users
+    fetch("http://localhost:8000/admin/users", { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.users) setDbUsers(data.users);
       })
       .catch(console.error);
   }, []);
 
-  // Stabilize metrics calculation using useMemo
-  const deptEmployees = useMemo(() => {
-    return users.filter(u => u.department === user.department && u.role === "employee");
-  }, [user.department]);
-
-  const deptScans = useMemo(() => {
-    return scanHistory.filter(s => deptEmployees.some(e => e.id === s.userId));
-  }, [deptEmployees]);
-
-  const deptThreats = useMemo(() => {
-    return deptScans.filter(s => s.prediction !== "legitimate");
-  }, [deptScans]);
-
-  const openIncidents = useMemo(() => {
-    return incidents.filter(i => deptEmployees.some(e => e.id === i.reportedBy) && (i.status === "open" || i.status === "investigating"));
-  }, [deptEmployees]);
-
-  const deptIncidentsList = useMemo(() => {
-    return incidents.filter(i => deptEmployees.some(e => e.id === i.reportedBy));
-  }, [deptEmployees]);
-
-  const threatDist = useMemo(() => {
-    return [
-      { name: "Phishing", value: deptThreats.filter(t => t.category === "phishing" || t.prediction === "phishing").length || 5 },
-      { name: "Malware", value: deptThreats.filter(t => t.category === "malware").length || 2 },
-      { name: "Suspicious", value: deptThreats.filter(t => t.riskLevel === "suspicious").length || 1 },
-      { name: "Safe", value: deptScans.filter(t => t.prediction === "legitimate").length || 8 },
-    ];
-  }, [deptThreats, deptScans]);
-
-  // Employee risk ranking with stable pseudo-random addition
+  // Use real data where possible
+  const totalEmployees = realStats ? realStats.total_users : 0;
+  const totalThreats = realStats ? realStats.threats_detected : 0;
+  const protectedDevices = realStats ? realStats.active_devices : 0;
+  
   const employeeRisk = useMemo(() => {
-    return deptEmployees.map(emp => {
-      const empScans = scanHistory.filter(s => s.userId === emp.id);
-      const empThreats = empScans.filter(s => s.prediction !== "legitimate");
-      // Stable statistics based on employee metadata rather than random seed
-      const scanOffset = (emp.fullName.charCodeAt(0) % 30);
-      const threatsOffset = (emp.fullName.charCodeAt(1) % 4);
-      
-      const totalScans = empScans.length + scanOffset;
-      const threats = empThreats.length + threatsOffset;
-      const riskScore = threats > 0 ? Math.round((threats / Math.max(totalScans, 1)) * 100) : (emp.fullName.charCodeAt(2) % 15);
-      
+    return dbUsers.map(emp => {
       return {
         ...emp,
-        totalScans,
-        threats,
-        riskScore
+        totalScans: emp.total_scans || 0,
+        threats: emp.threats || 0,
+        riskScore: emp.risk_score || 0
       };
     }).sort((a, b) => b.riskScore - a.riskScore);
-  }, [deptEmployees]);
+  }, [dbUsers]);
+
+  const threatDist = useMemo(() => {
+    if (!realStats || !realStats.top_threat_types) {
+      return [
+        { name: "Phishing", value: 5 },
+        { name: "Malware", value: 2 },
+        { name: "Suspicious", value: 1 },
+        { name: "Safe", value: 8 },
+      ];
+    }
+    const types = realStats.top_threat_types;
+    return Object.keys(types).map(k => ({ name: k, value: types[k] }));
+  }, [realStats]);
 
   const statsCards = useMemo(() => {
     return [
-      { label: "Employees", value: deptEmployees.length, icon: Users, color: "text-blue-600 dark:text-blue-400", sub: "18 Online" },
-      { label: "Protected Devices", value: deptEmployees.filter(e => e.extensionInstalled).length, icon: ShieldCheck, color: "text-emerald-600 dark:text-emerald-400", sub: "96% Coverage" },
+      { label: "Employees", value: totalEmployees, icon: Users, color: "text-blue-600 dark:text-blue-400", sub: "Active in Dept" },
+      { label: "Protected Devices", value: protectedDevices, icon: ShieldCheck, color: "text-emerald-600 dark:text-emerald-400", sub: "AegisOne Active" },
       { label: "High Risk", value: employeeRisk.filter(e => e.riskScore > 50).length, icon: AlertTriangle, color: "text-red-600 dark:text-red-400", sub: "Needs Attention" },
-      { label: "Blocked Threats Today", value: deptThreats.length * 3 + 18, icon: ShieldAlert, color: "text-amber-600 dark:text-amber-400", sub: "-5% vs yesterday" },
+      { label: "Blocked Threats Today", value: realStats ? realStats.threats_today : 0, icon: ShieldAlert, color: "text-amber-600 dark:text-amber-400", sub: "Last 24 hours" },
       { label: "Security Score", value: "91/100", icon: BarChart3, color: "text-brand-600 dark:text-brand-400", sub: "Good Standing" },
       { label: "Average AI Confidence", value: "97%", icon: BrainCircuit, color: "text-purple-600 dark:text-purple-400", sub: "Highly Accurate" },
     ];
-  }, [deptEmployees.length, deptThreats.length, employeeRisk]);
+  }, [totalEmployees, protectedDevices, realStats, employeeRisk]);
+
+  const deptIncidentsList: any[] = [];
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -188,9 +175,9 @@ export default function SupervisorDashboard() {
                 <tr key={emp.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02]">
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-brand-600/20 flex items-center justify-center text-[10px] font-bold text-brand-600 dark:text-brand-400">{emp.fullName.split(" ").map(n => n[0]).join("")}</div>
+                      <div className="w-7 h-7 rounded-lg bg-brand-600/20 flex items-center justify-center text-[10px] font-bold text-brand-600 dark:text-brand-400">{(emp.fullName || emp.full_name || "U").split(" ").map((n: string) => n[0]).join("")}</div>
                       <div>
-                        <div className="text-sm text-surface-800 dark:text-surface-200">{emp.fullName}</div>
+                        <div className="text-sm text-surface-800 dark:text-surface-200">{emp.fullName || emp.full_name || "Unknown User"}</div>
                         <div className="text-[10px] text-surface-500">{emp.email}</div>
                       </div>
                     </div>

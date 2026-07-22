@@ -19,8 +19,6 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Extract and validate the current user from JWT token."""
-    with open('f:/AegisOne/trace.txt', 'a') as f:
-        f.write("get_current_user called\\n")
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
