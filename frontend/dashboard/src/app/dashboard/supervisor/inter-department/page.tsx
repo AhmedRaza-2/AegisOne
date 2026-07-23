@@ -17,7 +17,7 @@ const activeRequests = [
 export default function InterDepartmentPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("requests");
-  
+
   if (!user) return null;
 
   return (

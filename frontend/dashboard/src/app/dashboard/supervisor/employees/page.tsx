@@ -36,7 +36,7 @@ export default function EmployeesPage() {
       const totalScans = emp.total_scans || 0;
       const threats = emp.threats || 0;
       const riskScore = emp.risk_score || 0;
-      
+
       const score = Math.max(0, 100 - riskScore);
       let status = "Excellent";
       if (score < 60) status = "Warning";
@@ -78,12 +78,12 @@ export default function EmployeesPage() {
       <div className="flex gap-3 items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input 
-            type="text" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            placeholder="Search employees..." 
-            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 transition-all" 
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search employees..."
+            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 transition-all"
           />
         </div>
       </div>
@@ -107,8 +107,8 @@ export default function EmployeesPage() {
               </tr>
             ) : (
               filtered.map(emp => (
-                <tr 
-                  key={emp.id} 
+                <tr
+                  key={emp.id}
                   onClick={() => setSelectedEmployee(emp)}
                   className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
                 >
@@ -139,7 +139,7 @@ export default function EmployeesPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedEmployee(null)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-2xl rounded-2xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
-              
+
               <div className="p-6 border-b border-surface-200 dark:border-white/[0.06] flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold text-surface-900 dark:text-white">{selectedEmployee.fullName}</h3>
@@ -149,7 +149,7 @@ export default function EmployeesPage() {
               </div>
 
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.05]">
                     <div className="text-xs text-surface-500 mb-1">Security Score</div>

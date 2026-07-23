@@ -21,7 +21,7 @@ export default function ThreatCenterPage() {
   const [escalatingEmployee, setEscalatingEmployee] = useState<any>(null);
   const [escalationReason, setEscalationReason] = useState("");
   const [dbUsers, setDbUsers] = useState<any[]>([]);
-  
+
   useEffect(() => {
     const token = localStorage.getItem("aegis_token");
     const headers = token ? { "Authorization": `Bearer ${token}` } : {};
@@ -41,7 +41,7 @@ export default function ThreatCenterPage() {
     const threats = (emp.id * 3) % 15;
     const totalScans = threats + 20;
     const riskScore = threats > 0 ? Math.round((threats / Math.max(totalScans, 1)) * 100) : (emp.id % 15);
-    
+
     return {
       id: emp.id,
       name: emp.full_name || emp.fullName || "Unknown",
@@ -71,7 +71,7 @@ export default function ThreatCenterPage() {
       </motion.div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        
+
         {/* Phase 4: Live Department Feed */}
         <motion.div variants={fadeUp} className="stat-card flex flex-col h-[500px]">
           <div className="flex items-center justify-between mb-4">
@@ -82,7 +82,7 @@ export default function ThreatCenterPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
             </span>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
             {liveFeed.map((event) => (
               <div key={event.id} className="p-3 rounded-xl border border-surface-200 dark:border-white/[0.05] bg-surface-50/50 dark:bg-white/[0.01] flex gap-3 hover:bg-surface-50 dark:hover:bg-white/[0.03] transition-colors">
@@ -122,7 +122,7 @@ export default function ThreatCenterPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="text-xs text-surface-600 dark:text-surface-400 mb-4 flex items-start gap-2">
                   <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400" />
                   <span>{emp.reason}</span>

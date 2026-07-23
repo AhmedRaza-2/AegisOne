@@ -9,7 +9,7 @@ export default function OrganizationsPage() {
   const { user } = useAuth();
   const [orgs, setOrgs] = useState(() => organizations.getAll());
   const [showAddModal, setShowAddModal] = useState(false);
-  
+
   // Form States
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
@@ -140,13 +140,12 @@ export default function OrganizationsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${
-                        org.plan === "enterprise" 
-                          ? "bg-purple-500/10 text-purple-650 dark:text-purple-400" 
-                          : org.plan === "professional" 
-                          ? "bg-brand-500/10 text-brand-650 dark:text-brand-400" 
-                          : "bg-surface-100 text-surface-600 dark:bg-surface-850 dark:text-surface-400"
-                      }`}>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${org.plan === "enterprise"
+                          ? "bg-purple-500/10 text-purple-650 dark:text-purple-400"
+                          : org.plan === "professional"
+                            ? "bg-brand-500/10 text-brand-650 dark:text-brand-400"
+                            : "bg-surface-100 text-surface-600 dark:bg-surface-850 dark:text-surface-400"
+                        }`}>
                         {org.plan}
                       </span>
                     </td>

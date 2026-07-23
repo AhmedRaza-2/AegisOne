@@ -52,7 +52,7 @@ export default function SupervisorDashboard() {
   const totalEmployees = realStats ? realStats.total_users : 0;
   const totalThreats = realStats ? realStats.threats_detected : 0;
   const protectedDevices = realStats ? realStats.active_devices : 0;
-  
+
   const employeeRisk = useMemo(() => {
     return dbUsers.map(emp => {
       return {
