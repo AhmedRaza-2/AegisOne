@@ -59,19 +59,19 @@ const HeroSection = () => {
                 >
                     <div className="text-center">
                         <h2 className="hero-counter">99.8%</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Phishing Detection</p>
+                        <p className="text-gray-600">Phishing Detection</p>
                     </div>
                     <div className="text-center">
                         <h2 className="hero-counter primary-gradient">&lt; 50ms</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Verdict Latency</p>
+                        <p className="text-gray-600">Verdict Latency</p>
                     </div>
                     <div className="text-center">
                         <h2 className="hero-counter primary-gradient">10k+</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Blocked Threats</p>
+                        <p className="text-gray-600">Blocked Threats</p>
                     </div>
                     <div className="text-center">
                         <h2 className="hero-counter primary-gradient">100%</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Privacy Focused</p>
+                        <p className="text-gray-600">Privacy Focused</p>
                     </div>
                 </motion.div>
 
