@@ -2,8 +2,6 @@
 
 @import "tailwindcss";
 
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
-
 @theme {
   --color-gradient-border: #4e54c8;
   --font-headings: "Tomorrow", sans-serif;
@@ -19,11 +17,6 @@
 
   html {
     scroll-behavior: smooth;
-  }
-
-  html[data-theme="dark"] {
-    --text-color: #FAF9F6;
-    --background-color: #000;
   }
 
   body {
@@ -63,12 +56,6 @@
   background-image: #ECE9E6;
   background-image: -webkit-linear-gradient(to top, #FFFFFF, #ECE9E6);
   background-image: linear-gradient(to top, #FFFFFF, #ECE9E6);
-
-  @variant dark {
-    background-image: #000000;
-    background-image: -webkit-linear-gradient(to bottom, #333, #000000);
-    background-image: linear-gradient(to bottom, #333, #000000);
-  }
 }
 
 /* Globally reduce the font size of the website by 5% */
