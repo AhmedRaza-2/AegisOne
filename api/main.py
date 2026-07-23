@@ -189,7 +189,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-<<<<<<< HEAD
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     print("--- VALIDATION ERROR ---")
@@ -205,9 +204,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": exc.errors(), "body": str(exc.body)},
     )
 
-
-# Include routers
-=======
 
 # 4. Request ID + timing middleware
 @app.middleware("http")
@@ -231,8 +227,6 @@ async def add_request_metadata(request: Request, call_next):
 # ═══════════════════════════════════════════════════════════════
 # ROUTERS
 # ═══════════════════════════════════════════════════════════════
-
->>>>>>> ff262510555dc5ea98c2935a24986f2270118617
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(scan.router)

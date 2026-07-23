@@ -35,13 +35,8 @@ ATTACHMENT_DIR   = MODELS_DIR / "attachements"
 DB_DIR = PROJECT_ROOT / "api" / "database"
 DB_PATH = DB_DIR / "aegisone.db"
 DATABASE_URL = os.environ.get(
-<<<<<<< HEAD
     "AEGIS_DATABASE_URL",
-    f"sqlite+aiosqlite:///{DB_PATH}"
-=======
-    "AEGIS_DATABASE_URL", 
-    "postgresql+asyncpg://postgres:smart123@localhost:5432/aegisone"
->>>>>>> ff262510555dc5ea98c2935a24986f2270118617
+    os.environ.get("DATABASE_URL", f"sqlite+aiosqlite:///{DB_PATH}")
 )
 
 # ═══════════════════════════════════════════════════════════════
