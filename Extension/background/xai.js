@@ -110,10 +110,10 @@ export async function explainWithAI(tabData, url, explicitScore) {
  * @param {object} tabData
  * @returns {object}
  */
-export function generateLocalExplanation(tabData) {
+export function generateLocalExplanation(tabData, explicitScore) {
   if (!tabData) return null;
 
-  const score   = tabData.score || 0;
+  const score   = explicitScore !== undefined ? explicitScore : (tabData.score || 0);
   const factors = (tabData.top_factors || []).filter(f => f.score >= 30);
 
   // Plain-English summary based on score band

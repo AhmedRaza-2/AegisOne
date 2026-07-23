@@ -309,7 +309,7 @@ export async function scanDownload(url, filename) {
   const finalRisk = Math.max(
     urlRisk,
     contentResult?.phishing_probability ?? 0,
-    contentResult?.heuristic_risk ? Math.round(contentResult.heuristic_risk * 100) : 0
+    contentResult?.heuristic_risk ?? 0
   );
   const score = Math.round(finalRisk * 100);
   const verdict = score >= 50 ? VERDICT.DANGER : score >= 20 ? VERDICT.WARNING : VERDICT.SAFE;

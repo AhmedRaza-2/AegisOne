@@ -60,7 +60,7 @@ async function loadControlToggles() {
 // ── Popup Stats ────────────────────────────────────────────
 async function loadPopupStats() {
   try {
-    const res = await fetch("http://localhost:9000/user/stats?email=employee");
+    const res = await fetch("http://localhost:8000/user/stats?email=employee");
     if (res.ok) {
       const data = await res.json();
       const elScans = document.getElementById("statsScans");

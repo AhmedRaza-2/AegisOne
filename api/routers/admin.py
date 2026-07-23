@@ -12,6 +12,7 @@ from sqlalchemy import select, func, update, cast, Date
 
 from api.database.db import get_db
 from api.database.models import (
+    Department,
     User,
     Device,
     WebsiteScan,
@@ -38,6 +39,12 @@ def _org_scope(query, model, user):
     if user.role != Role.SUPER_ADMIN.value:
         org_id = getattr(user, "organization_id", None) or "org_default"
         query = query.where(getattr(model, "organization_id") == org_id)
+
+        # RBAC: Manager can only access their own department
+        if user.role == Role.MANAGER.value:
+            if hasattr(model, "department_id"):
+                query = query.where(getattr(model, "department_id") == getattr(user, "department_id", None))
+
     return query
 
 
@@ -160,8 +167,7 @@ async def _compute_and_store_daily_stats(db: AsyncSession, org_id: str, target_d
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-<<<<<<< HEAD
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """
     Real-time admin statistics.
@@ -176,40 +182,6 @@ async def get_stats(
         select(DashboardStatistic)
         .where(DashboardStatistic.organization_id == org_id)
         .where(DashboardStatistic.date == date.today())
-=======
-    current_user: User = Depends(require_role(Role.OFFICE_ADMIN))
-):
-    """Get system-wide or department-wide statistics."""
-    
-    # Base queries
-    users_query = select(func.count(User.id))
-    scans_query = select(func.count(ScanLog.id))
-    threats_query = select(func.count(ScanLog.id)).where(ScanLog.is_threat == True)
-    
-    # Department admins only see their department stats
-    if current_user.role == Role.OFFICE_ADMIN:
-        users_query = users_query.where(User.department_id == current_user.department_id)
-        # Assuming we join or subquery to filter scans by users in department
-        # For simplicity in this demo, we'll just count total scans globally
-        pass 
-        
-    total_users = await db.scalar(users_query)
-    total_scans = await db.scalar(scans_query)
-    total_threats = await db.scalar(threats_query)
-    
-    # Model status
-    statuses = get_model_status()
-    model_status = {k: v["loaded"] for k, v in statuses.items()}
-    
-    return AdminStatsResponse(
-        total_users=total_users or 0,
-        total_scans=total_scans or 0,
-        scans_today=0,  # Mocked for now
-        threats_detected=total_threats or 0,
-        threats_today=0, # Mocked for now
-        model_status=model_status,
-        top_threat_types={"url": 0, "email": 0} # Mocked
->>>>>>> ff262510555dc5ea98c2935a24986f2270118617
     )
 
     if today_row:
@@ -355,7 +327,7 @@ async def get_stats(
 async def refresh_daily_stats(
     bg_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """
     Trigger re-computation of today's pre-aggregated DashboardStatistic row.
@@ -375,7 +347,7 @@ async def get_events(
     severity:   str | None = None,
     event_type: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Paginated security event timeline for the dashboard."""
     q = _org_scope(
@@ -420,7 +392,7 @@ async def get_scans(
     verdict:   str | None = None,   # safe | warning | danger
     scan_type: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Paginated website scan history."""
     q = _org_scope(
@@ -462,7 +434,7 @@ async def get_scans(
 @router.get("/devices")
 async def get_devices(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Registered device roster with last-seen timestamps."""
     q = _org_scope(
@@ -495,7 +467,7 @@ async def get_threat_reports(
     page:          int        = 1,
     page_size:     int        = 50,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Paginated threat report queue (Module 15)."""
     q = _org_scope(
@@ -531,7 +503,7 @@ async def get_threat_reports(
 @router.get("/policies")
 async def get_policies(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.DEPARTMENT_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """Return the active policy list for the org (Module 16)."""
     org_id = getattr(current_user, "organization_id", None) or "org_default"
@@ -607,7 +579,7 @@ class StatusUpdateRequest(BaseModel):
 @router.get("/users/pending")
 async def get_pending_users(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(Role.DEPARTMENT_ADMIN))
+    user: User = Depends(require_role(Role.MANAGER))
 ):
     """Fetch all users awaiting approval."""
     # If the user is just an admin (not super_admin), restrict to their org
@@ -636,7 +608,7 @@ async def update_user_status(
     user_id: int,
     req: StatusUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_role(Role.DEPARTMENT_ADMIN))
+    admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Approve, reject, or disable a user account."""
     if req.status not in ["approved", "rejected", "disabled", "pending"]:
@@ -664,3 +636,104 @@ async def update_user_status(
     
     return {"message": f"User account {req.status}", "user_id": user_id, "status": req.status}
 
+
+# ── Phase 2: User & Department CRUD ──────────────────────────────────────────
+
+from api.auth.password import hash_password
+
+class DepartmentCreate(BaseModel):
+    name: str
+    manager_id: int | None = None
+
+class UserCreate(BaseModel):
+    email: str
+    full_name: str
+    password: str
+    role: str
+    department_id: int | None = None
+
+@router.get("/departments")
+async def get_departments(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """List departments. Admin sees all, Manager sees all (View only)."""
+    q = select(Department).where(Department.organization_id == admin.organization_id)
+    rows = (await db.execute(q)).scalars().all()
+    return {"departments": [{"id": r.id, "name": r.name, "manager_id": r.manager_id} for r in rows]}
+
+@router.post("/departments")
+async def create_department(
+    req: DepartmentCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Create a department (Admin only)."""
+    new_dept = Department(
+        organization_id=admin.organization_id,
+        name=req.name,
+        manager_id=req.manager_id
+    )
+    db.add(new_dept)
+    await db.commit()
+    return {"status": "success", "department_id": new_dept.id}
+
+@router.get("/users")
+async def get_users(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """List employees. Managers only see their own department."""
+    q = select(User).where(User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+    
+    rows = (await db.execute(q)).scalars().all()
+    return {"users": [{"id": r.id, "email": r.email, "full_name": r.full_name, "role": r.role, "department_id": r.department_id, "account_status": r.account_status} for r in rows]}
+
+@router.post("/users")
+async def create_user(
+    req: UserCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Create a user. Managers can only create in their own department."""
+    target_dept = req.department_id
+    
+    if admin.role == Role.MANAGER.value:
+        target_dept = admin.department_id
+        if req.role in [Role.ADMIN.value, Role.SUPER_ADMIN.value]:
+            raise HTTPException(status_code=403, detail="Managers cannot create admin accounts.")
+            
+    new_user = User(
+        organization_id=admin.organization_id,
+        email=req.email,
+        full_name=req.full_name,
+        password_hash=hash_password(req.password),
+        role=req.role,
+        department_id=target_dept,
+        account_status="active"
+    )
+    db.add(new_user)
+    await db.commit()
+    return {"status": "success", "user_id": new_user.id}
+
+@router.put("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int,
+    new_password: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Force reset user password. Managers can only reset their own department."""
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+    return {"status": "success"}

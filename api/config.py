@@ -149,6 +149,7 @@ TRUSTED_DOMAINS = {
     "apple.com", "amazon.com", "netflix.com", "wikipedia.org", "yahoo.com",
     "espncricinfo.com", "icc-cricket.com", "tapmad.com", "outlook.com", "gmail.com",
     "zoom.us", "slack.com", "teams.live.com", "spotify.com", "pinterest.com", "reddit.com",
+    "openai.com", "whisperai.com", "whispertranscribe.com",
 }
 
 URL_CLASSES = ["benign", "defacement", "phishing", "malware"]

@@ -8,27 +8,21 @@ from api.dependencies import get_current_user
 
 class Role(str, Enum):
     EMPLOYEE = "employee"
+    MANAGER = "manager"
     OFFICE_ADMIN = "office_admin"
+    DEPARTMENT_ADMIN = "office_admin"
+    ADMIN = "admin"
     SUPER_ADMIN = "super_admin"
     GLOBAL_ADMIN = "global_admin"
-<<<<<<< HEAD
 
 # Role hierarchy: higher index = more permissions
 ROLE_HIERARCHY = {
-    Role.EMPLOYEE:        0,
-    Role.DEPARTMENT_ADMIN: 1,
-    Role.SUPER_ADMIN:     2,
-    Role.GLOBAL_ADMIN:    3,
-=======
-
-
-# Role hierarchy: higher index = more permissions
-ROLE_HIERARCHY = {
-    Role.EMPLOYEE: 0,
-    Role.OFFICE_ADMIN: 1,
-    Role.SUPER_ADMIN: 2,
-    Role.GLOBAL_ADMIN: 3,
->>>>>>> ff262510555dc5ea98c2935a24986f2270118617
+    Role.EMPLOYEE:         0,
+    Role.MANAGER:          1,
+    Role.OFFICE_ADMIN:     1,
+    Role.ADMIN:            2,
+    Role.SUPER_ADMIN:      3,
+    Role.GLOBAL_ADMIN:     4,
 }
 
 

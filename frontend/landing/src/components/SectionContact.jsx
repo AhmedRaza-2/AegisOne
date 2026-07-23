@@ -7,14 +7,14 @@ const contact = [
     {
         icon: Mail,
         title: "Email",
-        content: "support@aegisone.ai",
-        link: "mailto:support@aegisone.ai",
+        content: "araza2125012.pgc@gmail.com",
+        link: "mailto:araza2125012.pgc@gmail.com",
     },
     {
         icon: Phone,
         title: "Phone",
-        content: "+1 (800) 555-AEGIS",
-        link: "tel:+18005552344",
+        content: "+92 334 5216102",
+        link: "tel:+923345216102",
     },
     {
         icon: MapPin,

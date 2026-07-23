@@ -22,7 +22,7 @@ chrome.storage.local.get("shield_enabled", (d) => {
 // ──────────────────────────────────────────────
 const CONFIG = {
   // LOCAL (default): run unified_server.py on your machine
-  API_BASE: "http://localhost:9000",
+  API_BASE: "http://localhost:8000",
   // NGROK (free cloud): replace with your ngrok URL when running remotely
   // API_BASE: "https://xxxx-xx-xx.ngrok-free.app",
 

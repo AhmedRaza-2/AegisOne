@@ -7,7 +7,7 @@ import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
   UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
-  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert
+  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2, FileText, MessageSquare, Network
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
@@ -20,44 +20,36 @@ interface NavItem {
 
 const navByRole: Record<string, NavItem[]> = {
   employee: [
-    { label: "Overview", href: "/dashboard/employee", icon: LayoutDashboard },
-    { label: "Threat Center", href: "/dashboard/employee/threats", icon: Shield },
-    { label: "AI Insights", href: "/dashboard/employee/xai", icon: Lightbulb },
-    { label: "Analytics", href: "/dashboard/employee/analytics", icon: BarChart3 },
-    { label: "Settings", href: "/dashboard/employee/settings", icon: Settings },
+    { label: "Security Overview", href: "/dashboard/employee", icon: ShieldCheck },
+    { label: "Threat Center", href: "/dashboard/employee/threats", icon: ShieldAlert },
+    { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan },
+    { label: "History", href: "/dashboard/employee/history", icon: History },
+    { label: "Account Settings", href: "/dashboard/employee/settings", icon: Settings },
   ],
-  office_admin: [
+  manager: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/supervisor/scan", icon: Scan },
+    { label: "Department Analytics", href: "/dashboard/supervisor/analytics", icon: BarChart3 },
     { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
-    { label: "Incidents", href: "/dashboard/supervisor/incidents", icon: AlertTriangle },
+    { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert },
+    { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare },
+    { label: "Inter-Department", href: "/dashboard/supervisor/inter-department", icon: Network },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
+    { label: "Settings", href: "/dashboard/supervisor/settings", icon: Settings },
   ],
-  department_admin: [
-    { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/supervisor/scan", icon: Scan },
-    { label: "Approvals", href: "/dashboard/admin/approvals", icon: ShieldAlert },
-    { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
-    { label: "Incidents", href: "/dashboard/supervisor/incidents", icon: AlertTriangle },
-    { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
-  ],
-  global_admin: [
+  admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
-    { label: "Approvals", href: "/dashboard/admin/approvals", icon: Users },
-    { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
+    { label: "Users", href: "/dashboard/admin/users", icon: Users },
+    { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
+    { label: "Devices", href: "/dashboard/admin/devices", icon: Monitor },
+    { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
     { label: "Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
   super_admin: [
-    { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/admin/scan", icon: Scan },
+    { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
-    { label: "Approvals", href: "/dashboard/admin/approvals", icon: ShieldAlert },
-    { label: "Users", href: "/dashboard/admin/users", icon: Users },
-    { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
-    { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
-    { label: "Settings", href: "/dashboard/admin/settings", icon: Settings },
+    { label: "Global Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
 };
 
@@ -273,6 +265,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(true);
 
   useEffect(() => {
@@ -285,16 +279,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const role = user.role;
     if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin") {
       // Allow department_admin to access approvals page
-      if (role === "department_admin" && pathname === "/dashboard/admin/approvals") {
+      if ((role === "department_admin" || role === "manager") && pathname === "/dashboard/admin/approvals") {
         setIsAuthorizing(false);
       } else {
-        router.replace(role === "department_admin" ? "/dashboard/supervisor" : "/dashboard/employee");
+        router.replace((role === "department_admin" || role === "manager" || role === "office_admin") ? "/dashboard/supervisor" : "/dashboard/employee");
       }
-    } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin") {
+    } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin" && role !== "manager") {
       router.replace(role === "super_admin" ? "/dashboard/admin" : "/dashboard/employee");
     } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin")) {
       router.replace("/dashboard/admin");
-    } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin")) {
+    } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin" || role === "manager")) {
       router.replace("/dashboard/supervisor");
     } else {
       setIsAuthorizing(false);
@@ -356,15 +350,75 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={toggleTheme} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors">
               {theme === "dark" ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-surface-600" />}
             </button>
-            <button className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white dark:bg-[#0F1423] flex items-center justify-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-white"></span>
-              </span>
-            </button>
-            <button className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors">
-               <Activity className="w-4 h-4" />
-            </button>
+            <div className="relative">
+              <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center">
+                <Bell className="w-4 h-4" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white dark:bg-[#0F1423] flex items-center justify-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-500 dark:bg-[#4F84F8]"></span>
+                </span>
+              </button>
+              
+              {notificationsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
+                    <span className="text-sm font-semibold text-surface-900 dark:text-white">Notifications</span>
+                    <span className="text-[10px] bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400 px-2 py-0.5 rounded-full font-medium">1 New</span>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                    <div className="p-4 border-b border-surface-100 dark:border-white/[0.04] hover:bg-surface-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer">
+                      <div className="flex gap-3">
+                        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-surface-900 dark:text-white font-medium">IT Manager Replied</p>
+                          <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-2">"Thanks for letting us know, we are looking into it now."</p>
+                          <p className="text-[10px] text-surface-400 mt-1">Just now</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2 border-t border-surface-100 dark:border-white/[0.04]">
+                    <button onClick={() => setNotificationsOpen(false)} className="w-full py-1.5 text-xs text-center font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/10 rounded-lg transition-colors">
+                      Mark all as read
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <button onClick={() => setActivityOpen(!activityOpen)} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center">
+                 <Activity className="w-4 h-4" />
+              </button>
+              
+              {activityOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04]">
+                    <span className="text-sm font-semibold text-surface-900 dark:text-white">System Performance</span>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-surface-600 dark:text-surface-400">AI Models</span>
+                        <span className="text-emerald-500 font-medium">Optimal</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-surface-100 dark:bg-white/[0.04] rounded-full overflow-hidden">
+                        <div className="w-full h-full bg-emerald-500 rounded-full"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-surface-600 dark:text-surface-400">Ingestion Pipelines</span>
+                        <span className="text-emerald-500 font-medium">Operational</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-surface-100 dark:bg-white/[0.04] rounded-full overflow-hidden">
+                        <div className="w-full h-full bg-emerald-500 rounded-full"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1] hidden sm:block"></div>
             <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-surface-700 dark:text-surface-400">
                System Status: <span className="flex items-center gap-1.5 text-surface-900 dark:text-white"><span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]"></span> Operational</span>

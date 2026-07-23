@@ -14,7 +14,9 @@ from enum import Enum
 
 class UserRole(str, Enum):
     EMPLOYEE = "employee"
+    MANAGER = "manager"
     OFFICE_ADMIN = "office_admin"
+    ADMIN = "admin"
     SUPER_ADMIN = "super_admin"
     GLOBAL_ADMIN = "global_admin"
 
@@ -70,14 +72,10 @@ class UserInfo(BaseModel):
     email: str
     full_name: str
     role: UserRole
-<<<<<<< HEAD
-    department: str
-    account_status: str
+    department: Optional[str] = "General"
+    account_status: Optional[str] = "active"
     approved_by: Optional[int] = None
     status_reason: Optional[str] = None
-=======
-    department: Optional[str] = None
->>>>>>> ff262510555dc5ea98c2935a24986f2270118617
     created_at: datetime
 
     @model_validator(mode="before")

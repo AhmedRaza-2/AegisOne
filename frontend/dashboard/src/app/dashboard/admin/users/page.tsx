@@ -1,104 +1,186 @@
 "use client";
-import { users, getRoleBadge, Role } from "@/lib/mock-data";
-import { Users, Search, ShieldCheck, ShieldOff, Plus, Trash2, X, AlertCircle } from "lucide-react";
-import { useState, useMemo, useDeferredValue } from "react";
+import { Users, Search, ShieldCheck, ShieldOff, Plus, Trash2, X, KeyRound, Ban, CheckCircle } from "lucide-react";
+import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 
+export function getRoleBadge(role: string) {
+  switch (role) {
+    case "global_admin":
+    case "super_admin":
+      return { label: "Platform Head", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" };
+    case "admin":
+      return { label: "Admin", color: "bg-red-500/10 text-red-600 dark:text-red-400" };
+    case "manager":
+      return { label: "Manager", color: "bg-amber-500/10 text-amber-600 dark:text-amber-400" };
+    case "employee":
+      return { label: "Employee", color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" };
+    default:
+      return { label: role, color: "bg-surface-500/10 text-surface-600 dark:text-surface-400" };
+  }
+}
+
 export default function UsersPage() {
   const { user } = useAuth();
-  const [userList, setUserList] = useState(() => users.getAll());
+  const [userList, setUserList] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [roleFilter, setRoleFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Form States
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "manager" | "employee">("employee");
-  const [department, setDepartment] = useState("Cyber Security");
+  const [departmentId, setDepartmentId] = useState("");
 
-  if (!user) return null;
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem("aegis_access_token");
+      if (!token) return;
 
-  // Filter based on currently logged in user's organization
-  const tenantUsers = useMemo(() => {
-    return userList.filter(u => {
-      // Platform Head sees all admins, Org Admin only sees their company admins
-      if (user.role === "global_admin") return true;
-      return u.organization === user.organization;
-    });
-  }, [userList, user]);
+      const [usersRes, deptsRes] = await Promise.all([
+        fetch("http://localhost:8000/admin/users", {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch("http://localhost:8000/admin/departments", {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        setUserList(data.users || []);
+      }
+      if (deptsRes.ok) {
+        const data = await deptsRes.json();
+        setDepartments(data.departments || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filtered = useMemo(() => {
-    return tenantUsers.filter(u => {
-      // Remove employee filter so admin can manage ALL users
-      // if (u.role === "employee") return false;
-      
+    return userList.filter(u => {
       const matchSearch = !deferredSearch || 
-        u.fullName.toLowerCase().includes(deferredSearch.toLowerCase()) || 
-        u.email.toLowerCase().includes(deferredSearch.toLowerCase());
+        u.full_name?.toLowerCase().includes(deferredSearch.toLowerCase()) || 
+        u.email?.toLowerCase().includes(deferredSearch.toLowerCase());
       
       const matchRole = roleFilter === "all" || u.role === roleFilter;
       return matchSearch && matchRole;
     });
-  }, [tenantUsers, deferredSearch, roleFilter]);
+  }, [userList, deferredSearch, roleFilter]);
 
-  const handleAddAdmin = async (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email) return;
 
-    const names = fullName.split(' ');
-    const firstName = names[0];
-    const lastName = names.length > 1 ? names.slice(1).join(' ') : 'User';
     const generatedPassword = Math.random().toString(36).slice(-10) + 'X#';
 
     try {
-      await fetch("http://localhost:8000/setup/execute", {
+      const token = localStorage.getItem("aegis_access_token");
+      const res = await fetch("http://localhost:8000/admin/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
-          employees: [{
-            firstName,
-            lastName,
-            email,
-            departmentCode: department || "General",
-            role: role,
-            designation: role === "employee" ? "Employee" : "Management",
-            generatedPassword
-          }]
+          email,
+          full_name: fullName,
+          password: generatedPassword,
+          role: role,
+          department_id: departmentId ? parseInt(departmentId) : null
         })
       });
+
+      if (res.ok) {
+        // Send email via setup logic in the background
+        const names = fullName.split(' ');
+        fetch("http://localhost:8000/setup/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employees: [{
+              firstName: names[0],
+              lastName: names.length > 1 ? names.slice(1).join(' ') : 'User',
+              email,
+              departmentCode: departments.find(d => d.id.toString() === departmentId)?.name || "General",
+              role: role,
+              designation: role === "employee" ? "Employee" : "Management",
+              generatedPassword
+            }]
+          })
+        }).catch(console.error);
+
+        await fetchData();
+        setFullName("");
+        setEmail("");
+        setShowAddModal(false);
+      } else {
+        const error = await res.json();
+        alert(error.detail || "Failed to create user");
+      }
     } catch (error) {
-      console.error("Failed to send setup email:", error);
-    }
-
-    users.add({
-      fullName,
-      email,
-      role,
-      department,
-      organization: user.organization,
-      avatarUrl: "",
-      extensionInstalled: true,
-    });
-
-    setUserList(users.getAll());
-    setFullName("");
-    setEmail("");
-    setShowAddModal(false);
-  };
-
-  const handleDeleteAdmin = (id: string) => {
-    if (id === user.id) {
-      alert("You cannot delete your own administrative account.");
-      return;
-    }
-    if (confirm("Are you sure you want to remove this user? Ensure you have the department manager's consent if removing an employee.")) {
-      users.delete(id);
-      setUserList(users.getAll());
+      console.error(error);
     }
   };
+
+  const handleUpdateStatus = async (id: number, currentStatus: string) => {
+    const newStatus = currentStatus === "disabled" ? "active" : "disabled";
+    if (!confirm(`Are you sure you want to mark this user as ${newStatus}?`)) return;
+
+    try {
+      const token = localStorage.getItem("aegis_access_token");
+      const res = await fetch(`http://localhost:8000/admin/users/${id}/status`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus, reason: "Admin requested" })
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleResetPassword = async (id: number) => {
+    if (!confirm("Are you sure you want to reset this user's password?")) return;
+    const newPassword = prompt("Enter new password for the user:");
+    if (!newPassword) return;
+
+    try {
+      const token = localStorage.getItem("aegis_access_token");
+      const res = await fetch(`http://localhost:8000/admin/users/${id}/password?new_password=${encodeURIComponent(newPassword)}`, {
+        method: "PUT",
+        headers: { 
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        alert("Password reset successfully.");
+      } else {
+        alert("Failed to reset password.");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  if (!user) return null;
 
   return (
     <div className="space-y-6">
@@ -108,9 +190,7 @@ export default function UsersPage() {
             <Users className="w-6 h-6 text-brand-650 dark:text-brand-400" /> User Management
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            {user.role === "global_admin" 
-              ? "All active platform users across all organizations" 
-              : `Manage all employees, managers, and administrators for ${user.organization === "org-1" ? "U Bank Limited" : "INARA Technologies"}`}
+            Manage employees, managers, and administrators for your organization
           </p>
         </div>
         <button 
@@ -158,22 +238,24 @@ export default function UsersPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Role</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Department</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Extension Shield</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Last Login</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-surface-500">
-                    No users found matching criteria.
-                  </td>
+                  <td colSpan={5} className="px-4 py-8 text-center text-surface-500">Loading users...</td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-surface-500">No users found.</td>
                 </tr>
               ) : (
                 filtered.map(u => {
                   const badge = getRoleBadge(u.role);
-                  const initials = u.fullName.split(" ").map(n => n[0]).join("").slice(0, 2);
+                  const initials = (u.full_name || "U").split(" ").map((n: string) => n[0]).join("").slice(0, 2);
+                  const deptName = departments.find(d => d.id === u.department_id)?.name || "General";
+                  
                   return (
                     <tr key={u.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3.5">
@@ -182,7 +264,7 @@ export default function UsersPage() {
                             {initials}
                           </div>
                           <div>
-                            <div className="font-semibold text-surface-800 dark:text-surface-200">{u.fullName}</div>
+                            <div className="font-semibold text-surface-800 dark:text-surface-200">{u.full_name}</div>
                             <div className="text-[10px] text-surface-500">{u.email}</div>
                           </div>
                         </div>
@@ -193,38 +275,31 @@ export default function UsersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-surface-700 dark:text-surface-300">
-                        {u.department}
+                        {deptName}
                       </td>
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex items-center gap-1 text-xs ${
-                          u.isActive ? "text-emerald-650 dark:text-emerald-450" : "text-surface-400"
+                          u.account_status === "active" ? "text-emerald-650 dark:text-emerald-450" : "text-surface-400"
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${u.isActive ? "bg-emerald-500 animate-pulse" : "bg-surface-400"}`} />
-                          {u.isActive ? "Active" : "Inactive"}
+                          <span className={`w-1.5 h-1.5 rounded-full ${u.account_status === "active" ? "bg-emerald-500 animate-pulse" : "bg-surface-400"}`} />
+                          {u.account_status === "active" ? "Active" : u.account_status}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        {u.extensionInstalled ? (
-                          <span className="flex items-center gap-1 text-xs text-emerald-650 dark:text-emerald-450 font-medium">
-                            <ShieldCheck className="w-4 h-4" /> Active
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-xs text-surface-400 font-medium">
-                            <ShieldOff className="w-4 h-4" /> Missing
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-xs text-surface-500">
-                        {new Date(u.lastLogin).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
                           <button 
-                            onClick={() => handleDeleteAdmin(u.id)}
-                            className="p-1 rounded text-surface-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                            title="Remove User"
+                            onClick={() => handleUpdateStatus(u.id, u.account_status)}
+                            className="p-1 rounded text-surface-400 hover:text-brand-500 hover:bg-brand-500/10 transition-colors"
+                            title={u.account_status === "disabled" ? "Enable User" : "Disable User"}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {u.account_status === "disabled" ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                          </button>
+                          <button 
+                            onClick={() => handleResetPassword(u.id)}
+                            className="p-1 rounded text-surface-400 hover:text-brand-500 hover:bg-brand-500/10 transition-colors"
+                            title="Reset Password"
+                          >
+                            <KeyRound className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -250,7 +325,7 @@ export default function UsersPage() {
                 </div>
                 <p className="text-xs text-surface-500 mt-1">Register an employee, manager, or admin profile</p>
               </div>
-              <form onSubmit={handleAddAdmin} className="p-6 space-y-4">
+              <form onSubmit={handleAddUser} className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Full Name</label>
                   <input
@@ -282,23 +357,28 @@ export default function UsersPage() {
                   >
                     <option value="employee">Employee</option>
                     <option value="manager">Manager</option>
-                    <option value="admin">Admin</option>
+                    {user.role === "admin" || user.role === "super_admin" ? (
+                      <option value="admin">Admin</option>
+                    ) : null}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Department Assignment</label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    value={department}
-                    onChange={e => setDepartment(e.target.value)}
-                    placeholder="e.g. Risk Assessment"
+                    value={departmentId}
+                    onChange={e => setDepartmentId(e.target.value)}
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
-                  />
+                  >
+                    <option value="" disabled>Select Department</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
                   <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors">Register Profile</button>
+                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors">Create User</button>
                 </div>
               </form>
             </motion.div>

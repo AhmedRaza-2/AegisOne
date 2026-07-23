@@ -1,7 +1,7 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { scanHistory, users, incidents, threatTrends, getUserById } from "@/lib/mock-data";
-import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, ShieldAlert, BrainCircuit } from "lucide-react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useMemo, useState, useEffect } from "react";
@@ -94,33 +94,32 @@ export default function SupervisorDashboard() {
 
   const statsCards = useMemo(() => {
     return [
-      { label: "Employees", value: realStats ? realStats.total_users : deptEmployees.length, icon: Users, color: "text-brand-600 dark:text-brand-400", trend: "+2 this month", trendUp: true },
-      { label: "Total Scans", value: realStats ? realStats.total_scans.toLocaleString() : (deptScans.length * 12 + 342).toLocaleString(), icon: BarChart3, color: "text-cyan-600 dark:text-cyan-400", trend: "+18% vs last week", trendUp: true },
-      { label: "Threats Blocked", value: realStats ? realStats.threats_detected : deptThreats.length * 3 + 18, icon: ShieldCheck, color: "text-red-600 dark:text-red-400", trend: "-5% vs last week", trendUp: false },
-      { label: "Open Incidents", value: realStats ? realStats.threat_reports_pending : openIncidents.length, icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400", trend: `${realStats ? realStats.threat_reports_pending : openIncidents.length} pending`, trendUp: false },
+      { label: "Employees", value: deptEmployees.length, icon: Users, color: "text-blue-600 dark:text-blue-400", sub: "18 Online" },
+      { label: "Protected Devices", value: deptEmployees.filter(e => e.extensionInstalled).length, icon: ShieldCheck, color: "text-emerald-600 dark:text-emerald-400", sub: "96% Coverage" },
+      { label: "High Risk", value: employeeRisk.filter(e => e.riskScore > 50).length, icon: AlertTriangle, color: "text-red-600 dark:text-red-400", sub: "Needs Attention" },
+      { label: "Blocked Threats Today", value: deptThreats.length * 3 + 18, icon: ShieldAlert, color: "text-amber-600 dark:text-amber-400", sub: "-5% vs yesterday" },
+      { label: "Security Score", value: "91/100", icon: BarChart3, color: "text-brand-600 dark:text-brand-400", sub: "Good Standing" },
+      { label: "Average AI Confidence", value: "97%", icon: BrainCircuit, color: "text-purple-600 dark:text-purple-400", sub: "Highly Accurate" },
     ];
-  }, [realStats, deptEmployees.length, deptScans.length, deptThreats.length, openIncidents.length]);
+  }, [deptEmployees.length, deptThreats.length, employeeRisk]);
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={fadeUp}>
-        <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Department Overview</h1>
-        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{user.department} — {deptEmployees.length} employees</p>
+        <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Department Security Center</h1>
+        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Department: {user.department} — Overview & Analytics</p>
       </motion.div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {statsCards.map((s, i) => (
-          <motion.div key={s.label} variants={fadeUp} className="stat-card">
+          <motion.div key={s.label} variants={fadeUp} className="stat-card p-4">
             <div className="flex items-center justify-between mb-3">
               <s.icon className={`w-5 h-5 ${s.color}`} />
-              <span className={`flex items-center gap-0.5 text-[10px] font-medium ${s.trendUp ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                {s.trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                {s.trend}
-              </span>
             </div>
-            <div className="text-2xl font-bold text-surface-900 dark:text-white">{s.value}</div>
-            <div className="text-xs text-surface-500 mt-1">{s.label}</div>
+            <div className="text-xl font-bold text-surface-900 dark:text-white">{s.value}</div>
+            <div className="text-xs font-semibold text-surface-700 dark:text-surface-300 mt-1">{s.label}</div>
+            <div className="text-[10px] text-surface-500 mt-1">{s.sub}</div>
           </motion.div>
         ))}
       </div>

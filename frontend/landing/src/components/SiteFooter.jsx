@@ -24,8 +24,8 @@ const footerLinks = {
 const socialLinks = [
     { icon: Twitter, href: "#", label: "Twitter" },
     { icon: Github, href: "https://github.com/AhmedRaza-2/AegisOne", label: "GitHub" },
-    { icon: Linkedin, href: "#", label: "LinkedIn" },
-    { icon: Mail, href: "mailto:support@aegisone.ai", label: "Email" },
+    { icon: Linkedin, href: "https://www.linkedin.com/in/ahmed-r-43b6a1266/", label: "LinkedIn" },
+    { icon: Mail, href: "mailto:araza2125012.pgc@gmail.com", label: "Email" },
 ];
 
 export default function Footer() {
