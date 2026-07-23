@@ -50,7 +50,7 @@ DATABASE_URL = os.environ.get(
 
 JWT_SECRET_KEY = os.environ.get("AEGIS_JWT_SECRET", secrets.token_hex(32))
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_MINUTES = 480  # 8 hours
+JWT_EXPIRY_MINUTES = 60 * 24 * 30  # 30 days
 
 # Default super admin (change on first login!)
 DEFAULT_ADMIN_EMAIL = "admin@aegisone.local"

@@ -1,8 +1,8 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-import { ShieldAlert, Activity, Users, MessageSquare, AlertTriangle, BookOpen, ShieldCheck, Download, Key, Shield, Info } from "lucide-react";
-import { motion } from "framer-motion";
-import { useState } from "react";
+import { ShieldAlert, Activity, Users, MessageSquare, AlertTriangle, BookOpen, ShieldCheck, Download, Key, Shield, Info, X, Send } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -16,17 +16,48 @@ const liveFeed = [
   { id: 5, user: "Fatima Noor", action: "Malware download blocked", time: "15m ago", type: "malware", icon: Shield, color: "text-red-500" },
 ];
 
-// Mock High Risk Employees (Phase 5)
-const highRiskEmployees = [
-  { id: "e1", name: "Ahmed Raza", riskScore: 82, reason: "Multiple phishing attempts in the last 48 hours." },
-  { id: "e2", name: "Ali Khan", riskScore: 79, reason: "Repeated visits to newly registered suspicious domains." },
-  { id: "e3", name: "Fatima Noor", riskScore: 76, reason: "Frequent risky downloads and credential warnings." },
-];
-
 export default function ThreatCenterPage() {
   const { user } = useAuth();
+  const [escalatingEmployee, setEscalatingEmployee] = useState<any>(null);
+  const [escalationReason, setEscalationReason] = useState("");
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
   
+  useEffect(() => {
+    const token = localStorage.getItem("aegis_token");
+    const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
+    fetch("http://localhost:8000/admin/users", { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.users) {
+          setDbUsers(data.users);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const highRiskEmployees = dbUsers.map(emp => {
+    // Generate mock risk scores based on DB users
+    const threats = (emp.id * 3) % 15;
+    const totalScans = threats + 20;
+    const riskScore = threats > 0 ? Math.round((threats / Math.max(totalScans, 1)) * 100) : (emp.id % 15);
+    
+    return {
+      id: emp.id,
+      name: emp.full_name || emp.fullName || "Unknown",
+      riskScore: riskScore,
+      reason: riskScore > 50 ? "Multiple suspicious activities flagged by AI." : "Recent credential warning.",
+    };
+  }).filter(emp => emp.riskScore > 30).sort((a, b) => b.riskScore - a.riskScore).slice(0, 5);
+
   if (!user) return null;
+
+  const handleEscalate = (e: React.FormEvent) => {
+    e.preventDefault();
+    alert(`Incident escalated to Global Admin!\n\nEmployee: ${escalatingEmployee.name}\nReason: ${escalationReason}`);
+    setEscalatingEmployee(null);
+    setEscalationReason("");
+  };
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -104,7 +135,7 @@ export default function ThreatCenterPage() {
                   <button onClick={() => alert("Open Direct Message to Employee")} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-200 dark:border-white/[0.08] hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors flex items-center justify-center gap-1.5 text-surface-700 dark:text-surface-300">
                     <MessageSquare className="w-3.5 h-3.5" /> Message
                   </button>
-                  <button onClick={() => alert("Escalate Incident to Admin")} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors flex items-center justify-center gap-1.5">
+                  <button onClick={() => setEscalatingEmployee(emp)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors flex items-center justify-center gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5" /> Escalate
                   </button>
                   <button onClick={() => alert("Assign Awareness Training")} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-200 dark:border-brand-900/50 hover:bg-brand-50 dark:hover:bg-brand-900/20 text-brand-600 dark:text-brand-400 transition-colors flex items-center justify-center gap-1.5">
@@ -117,6 +148,51 @@ export default function ThreatCenterPage() {
         </motion.div>
 
       </div>
+
+      {/* Phase 8: Incident Escalation Modal */}
+      <AnimatePresence>
+        {escalatingEmployee && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEscalatingEmployee(null)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-lg relative z-10 overflow-hidden">
+              <div className="p-6 border-b border-surface-200 dark:border-white/[0.06] bg-red-50/50 dark:bg-red-500/5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-red-900 dark:text-red-400 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" /> Escalate Incident
+                  </h3>
+                  <button onClick={() => setEscalatingEmployee(null)} className="text-surface-400 hover:text-surface-600"><X className="w-4 h-4" /></button>
+                </div>
+                <p className="text-xs text-red-700/70 dark:text-red-400/70 mt-1">
+                  Escalating high-risk behavior for {escalatingEmployee.name} to Global Admin.
+                </p>
+              </div>
+              <form onSubmit={handleEscalate} className="p-6 space-y-4">
+                <div className="p-3 bg-surface-50 dark:bg-surface-950 rounded-lg border border-surface-200 dark:border-white/[0.05] text-sm text-surface-600 dark:text-surface-400">
+                  <span className="block font-semibold text-surface-900 dark:text-white mb-1">AI Threat Summary</span>
+                  {escalatingEmployee.reason}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Priority Level</label>
+                  <select className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-red-500">
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Manager Notes</label>
+                  <textarea required value={escalationReason} onChange={e => setEscalationReason(e.target.value)} rows={3} placeholder="Add context for the security team..." className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-red-500 resize-none" />
+                </div>
+                <div className="flex gap-3 justify-end pt-2">
+                  <button type="button" onClick={() => setEscalatingEmployee(null)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
+                    <Send className="w-3.5 h-3.5" /> Submit Escalation
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

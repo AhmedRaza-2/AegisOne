@@ -1,4 +1,5 @@
-import { useState, useMemo, useDeferredValue } from "react";
+"use client";
+import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { users, scanHistory } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
 import { Users, Search, Activity, ShieldAlert, Download, Key, TrendingUp, Sparkles, X, Plus, ShieldCheck } from "lucide-react";
@@ -6,42 +7,51 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function EmployeesPage() {
   const { user } = useAuth();
-  const [userList, setUserList] = useState(() => users.getAll());
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
+  useEffect(() => {
+    const token = localStorage.getItem("aegis_token");
+    const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
+    fetch("http://localhost:8000/admin/users", { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.users) {
+          setDbUsers(data.users);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
   if (!user) return null;
 
-  // Filter users inside the supervisor's department and organization
-  const deptEmployees = useMemo(() => {
-    return userList.filter(u => 
-      u.organization === user.organization && 
-      u.department === user.department && 
-      u.id !== user.id
-    );
-  }, [userList, user.department, user.organization, user.id]);
+  // dbUsers already returns employees filtered to the manager's department.
+  const deptEmployees = dbUsers;
 
   const employeesWithStats = useMemo(() => {
     return deptEmployees.map(emp => {
-      const empScans = scanHistory.filter(s => s.userId === emp.id);
-      const threats = empScans.filter(s => s.prediction !== "legitimate");
-      const blocked = threats.filter(t => t.category === "phishing" || t.category === "malware");
+      const totalScans = emp.total_scans || 0;
+      const threats = emp.threats || 0;
+      const riskScore = emp.risk_score || 0;
       
-      const score = Math.max(0, 100 - threats.length * 2 - blocked.length * 5);
+      const score = Math.max(0, 100 - riskScore);
       let status = "Excellent";
       if (score < 60) status = "Warning";
       else if (score < 80) status = "Needs Attention";
 
       return {
         ...emp,
+        fullName: emp.full_name || emp.fullName || "Unknown User", // DB uses full_name
         score,
-        threatsCount: threats.length,
-        blockedCount: blocked.length,
+        threatsCount: threats,
+        blockedCount: threats, // Real API aggregates these together for now
         status,
-        downloadsScanned: empScans.filter(s => s.category === "malware").length * 5 + 12,
-        credentialEvents: threats.length * 2,
-        lastActivity: emp.isActive ? "Just now" : "2 hours ago"
+        downloadsScanned: Math.floor(totalScans * 0.1),
+        credentialEvents: Math.floor(threats * 0.2),
+        lastActivity: totalScans > 0 ? "Just now" : "2 hours ago"
       };
     });
   }, [deptEmployees]);

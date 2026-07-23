@@ -42,8 +42,48 @@ def _org_scope(query, model, user):
 
         # RBAC: Manager can only access their own department
         if user.role == Role.MANAGER.value:
-            if hasattr(model, "department_id"):
-                query = query.where(getattr(model, "department_id") == getattr(user, "department_id", None))
+            dept_id = getattr(user, "department_id", None)
+            dept_str = getattr(user, "department", None)
+            
+            # If the model has department directly (like User)
+            if hasattr(model, "department_id") or hasattr(model, "department"):
+                condition = None
+                if hasattr(model, "department") and dept_str is not None:
+                    condition = getattr(model, "department") == dept_str
+                elif hasattr(model, "department_id") and dept_id is not None:
+                    condition = getattr(model, "department_id") == dept_id
+                    
+                if condition is not None:
+                    query = query.where(condition)
+                    # Filter out higher privileged roles for managers
+                    if user.role == Role.MANAGER.value and hasattr(model, "role"):
+                        query = query.where(getattr(model, "role").in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
+                else:
+                    query = query.where(False)
+            
+            # If the model has user_id but no department, we must join the User table to filter!
+            elif hasattr(model, "user_id"):
+                from api.database.models import User
+                condition = None
+                if dept_str is not None:
+                    condition = User.department == dept_str
+                elif dept_id is not None:
+                    condition = User.department_id == dept_id
+                
+                if condition is not None:
+                    # Use a subquery or join depending on how the query was built.
+                    # A safer approach for existing simple select() queries is to filter on user_id IN (subquery)
+                    from sqlalchemy import select as sa_select
+                    from sqlalchemy import cast, String
+                    query = query.where(cast(getattr(model, "user_id"), String).in_(
+                        sa_select(cast(User.id, String)).where(condition)
+                    ))
+                else:
+                    query = query.where(False)
+            
+            # If a table has neither department nor user_id, a manager cannot access it at all
+            else:
+                query = query.where(False)
 
     return query
 
@@ -176,19 +216,23 @@ async def get_stats(
     """
     org_id   = getattr(current_user, "organization_id", None) or "org_default"
     is_super = current_user.role == Role.SUPER_ADMIN.value
+    is_manager = current_user.role == Role.MANAGER.value
 
     # ── 1. Today's stats — from pre-aggregated table if available ─────────────
-    today_row = await db.scalar(
-        select(DashboardStatistic)
-        .where(DashboardStatistic.organization_id == org_id)
-        .where(DashboardStatistic.date == date.today())
-    )
+    # Managers must compute live stats because DashboardStatistic is organization-wide.
+    today_row = None
+    if not is_manager:
+        today_row = await db.scalar(
+            select(DashboardStatistic)
+            .where(DashboardStatistic.organization_id == org_id)
+            .where(DashboardStatistic.date == date.today())
+        )
 
     if today_row:
         scans_today   = today_row.total_scans
         threats_today = today_row.threats_blocked + today_row.threats_warned
     else:
-        # Live fallback — first request of the day before background task runs
+        # Live fallback — first request of the day, or scoped queries for Managers
         scans_today = await db.scalar(
             _org_scope(
                 select(func.count(WebsiteScan.id))
@@ -655,10 +699,10 @@ class UserCreate(BaseModel):
 @router.get("/departments")
 async def get_departments(
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_role(Role.MANAGER))
+    manager: User = Depends(require_role(Role.MANAGER))
 ):
     """List departments. Admin sees all, Manager sees all (View only)."""
-    q = select(Department).where(Department.organization_id == admin.organization_id)
+    q = select(Department).where(Department.organization_id == manager.organization_id)
     rows = (await db.execute(q)).scalars().all()
     return {"departments": [{"id": r.id, "name": r.name, "manager_id": r.manager_id} for r in rows]}
 
@@ -681,15 +725,66 @@ async def create_department(
 @router.get("/users")
 async def get_users(
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_role(Role.MANAGER))
+    manager: User = Depends(require_role(Role.MANAGER))
 ):
     """List employees. Managers only see their own department."""
-    q = select(User).where(User.organization_id == admin.organization_id)
-    if admin.role == Role.MANAGER.value:
-        q = q.where(User.department_id == admin.department_id)
+    org_id = getattr(manager, "organization_id", None) or "org_default"
+    q = select(User).where(User.organization_id == org_id)
+    if manager.role == Role.MANAGER.value:
+        condition = None
+        if manager.department is not None:
+            condition = User.department == manager.department
+        elif manager.department_id is not None:
+            condition = User.department_id == manager.department_id
+        
+        if condition is not None:
+            q = q.where(condition)
+            q = q.where(User.role.in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
+        else:
+            q = q.where(False)
     
     rows = (await db.execute(q)).scalars().all()
-    return {"users": [{"id": r.id, "email": r.email, "full_name": r.full_name, "role": r.role, "department_id": r.department_id, "account_status": r.account_status} for r in rows]}
+    
+    # Fetch real stats for these users
+    user_ids = [r.id for r in rows]
+    scan_stats = {}
+    if user_ids:
+        from sqlalchemy import func, case
+        from api.database.models import WebsiteScan
+        stats_q = select(
+            WebsiteScan.user_id,
+            func.count(WebsiteScan.id).label('total_scans'),
+            func.sum(case((WebsiteScan.verdict != 'safe', 1), else_=0)).label('threats')
+        ).where(WebsiteScan.user_id.in_(user_ids)).group_by(WebsiteScan.user_id)
+        
+        stats_rows = (await db.execute(stats_q)).all()
+        for s in stats_rows:
+            scan_stats[s.user_id] = {
+                "total_scans": s.total_scans,
+                "threats": s.threats or 0
+            }
+
+    users_response = []
+    for r in rows:
+        stats = scan_stats.get(r.id, {"total_scans": 0, "threats": 0})
+        total_scans = stats["total_scans"]
+        threats = stats["threats"]
+        risk_score = int(round((threats / max(total_scans, 1)) * 100)) if threats > 0 else 0
+        
+        users_response.append({
+            "id": r.id, 
+            "email": r.email, 
+            "full_name": r.full_name, 
+            "role": r.role, 
+            "department_id": r.department_id, 
+            "department": r.department, 
+            "account_status": r.account_status,
+            "total_scans": total_scans,
+            "threats": threats,
+            "risk_score": risk_score
+        })
+        
+    return {"users": users_response}
 
 @router.post("/users")
 async def create_user(

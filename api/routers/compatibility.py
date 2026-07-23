@@ -1160,17 +1160,21 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     now_utc = datetime.utcnow()
     today_start = now_utc - timedelta(days=30)
     
-    # We ignore the specific user email for MVP and return all scans
-    
+    # 1. Fetch user by email to isolate stats
+    user_q = await db.execute(select(User).where(User.email == email))
+    user = user_q.scalar()
+    user_id = user.id if user else None
+
     # 1. Total Scans (All Time)
-    total_scans_q = await db.execute(select(func.count(WebsiteScan.id)))
+    q_base = select(func.count(WebsiteScan.id))
+    if user_id: q_base = q_base.where(WebsiteScan.user_id == user_id)
+    total_scans_q = await db.execute(q_base)
     total_scans = total_scans_q.scalar() or 0
     
     # 2. Total Scans (Today)
-    today_scans_q = await db.execute(
-        select(func.count(WebsiteScan.id))
-        .where(WebsiteScan.created_at >= today_start)
-    )
+    q_today = select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start)
+    if user_id: q_today = q_today.where(WebsiteScan.user_id == user_id)
+    today_scans_q = await db.execute(q_today)
     today_scans = today_scans_q.scalar() or 0
     
     # 3. Safe Scans (Today)
