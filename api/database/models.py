@@ -521,17 +521,3 @@ class Incident(Base):
     resolver = relationship("User", foreign_keys=[resolved_by_id], back_populates="resolved_incidents")
 
 
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    
-    action = Column(String(255), nullable=False)
-    target_type = Column(String(100), nullable=True)  # e.g., "User", "Scan", "Incident"
-    target_id = Column(String(100), nullable=True)
-    details = Column(JSON, nullable=True)
-    
-    timestamp = Column(DateTime, server_default=func.now(), index=True)
-
-    user = relationship("User", back_populates="audit_actions")
