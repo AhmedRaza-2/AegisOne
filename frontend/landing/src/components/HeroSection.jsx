@@ -22,10 +22,10 @@ const HeroSection = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.6 }}
                 >
-                    SECURE YOUR BROWSER WITH
+                    SECURE YOUR ENTERPRISE WITH
                     <br />
                     <span className="text-gradient bg-clip-text text-transparent">
-                        AEGISONE AI
+                        AEGISONE
                     </span>
                 </motion.h1>
 
