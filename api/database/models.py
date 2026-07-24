@@ -1,18 +1,11 @@
 """
-AegisOne API — ORM Models (v3 — Privacy-First Architecture)
+AegisOne API — ORM Models (Enterprise & Privacy-First Architecture)
 ============================================================
-
-Design principles:
-  - Store ONLY security events and metadata, never raw content.
-  - No HTML, images, cookies, emails, PDFs, or attachments.
-  - Every row answers "What happened?" not "What did the user browse?".
-  - 14 normalized tables. FK-linked. Indexed for dashboard queries.
-  - SQLite for dev, PostgreSQL for production — same ORM, same queries.
 """
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean,
-    DateTime, Text, Date, Index, func, ForeignKey
+    DateTime, Text, Date, Index, func, ForeignKey, JSON
 )
 from sqlalchemy.orm import relationship
 from api.database.db import Base
@@ -36,7 +29,9 @@ class Organization(Base):
     created_at      = Column(DateTime,    server_default=func.now())
 
     # Relationships
-    departments     = relationship("Department", back_populates="organization", cascade="all, delete")
+    departments     = relationship("Department", back_populates="organization", cascade="all, delete-orphan")
+    users           = relationship("User", back_populates="organization")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1.5 DEPARTMENTS
@@ -67,25 +62,30 @@ class User(Base):
     __tablename__ = "users"
 
     id              = Column(Integer,     primary_key=True, autoincrement=True)
-    organization_id = Column(String(64),  ForeignKey("organizations.id"), nullable=False, index=True, default="org_default")
+    organization_id = Column(String(64),  ForeignKey("organizations.id"), nullable=True, index=True, default="org_default")
     email           = Column(String(255), unique=True, nullable=False, index=True)
     password_hash   = Column(String(255), nullable=False)
     full_name       = Column(String(255), nullable=False)
     role            = Column(String(50),  nullable=False, default="employee")
-    # employee | manager | admin
     department_id   = Column(Integer,     ForeignKey("departments.id"), nullable=True)
     department      = Column(String(255), default="General") # Legacy field, keep for compatibility
     account_status  = Column(String(50),  default="pending") # pending, active, disabled, locked
     approved_by     = Column(Integer,     nullable=True)
     status_reason   = Column(Text,        nullable=True)
+    avatar_url      = Column(String(500), nullable=True)
     is_active       = Column(Boolean,     default=True)
     last_login      = Column(DateTime,    nullable=True)
+    last_active_at  = Column(DateTime,    nullable=True)
     created_at      = Column(DateTime,    server_default=func.now())
 
     # Relationships
+    organization    = relationship("Organization", back_populates="users")
     dept_rel        = relationship("Department", back_populates="users", foreign_keys=[department_id])
     devices         = relationship("Device", back_populates="user", cascade="all, delete")
     login_history   = relationship("LoginHistory", back_populates="user", cascade="all, delete")
+    scans           = relationship("ScanLog", back_populates="user")
+    reported_incidents = relationship("Incident", foreign_keys="Incident.reported_by_id", back_populates="reporter")
+    resolved_incidents = relationship("Incident", foreign_keys="Incident.resolved_by_id", back_populates="resolver")
 
     __table_args__ = (
         Index("ix_users_org_dept", "organization_id", "department_id"),
@@ -477,3 +477,46 @@ class HoverScan(Base):
     risk_score      = Column(Integer,     default=0)
     cached          = Column(Boolean,     default=False)
     created_at      = Column(DateTime,    server_default=func.now())
+
+
+class ScanLog(Base):
+    __tablename__ = "scans"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scan_id = Column(String(100), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_email = Column(String(255), nullable=True, default="anonymous")
+    
+    scan_type = Column(String(50), nullable=False)  # url, text, email, image, attachment
+    input_summary = Column(Text)
+    overall_risk_score = Column(Integer, default=0)
+    verdict = Column(String(50), default="safe")
+    is_threat = Column(Boolean, default=False)
+    models_used = Column(JSON, nullable=True)
+    processing_time_ms = Column(Float, default=0.0)
+    created_at = Column(DateTime, server_default=func.now())
+
+    user = relationship("User", back_populates="scans")
+    incidents = relationship("Incident", back_populates="scan")
+
+
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scan_id = Column(Integer, ForeignKey("scans.id", ondelete="SET NULL"), nullable=True)
+    reported_by_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    severity = Column(String(50), nullable=False)  # low, medium, high, critical
+    status = Column(String(50), default="open")    # open, investigating, resolved, false_positive
+    notes = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, server_default=func.now())
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    scan = relationship("ScanLog", back_populates="incidents")
+    reporter = relationship("User", foreign_keys=[reported_by_id], back_populates="reported_incidents")
+    resolver = relationship("User", foreign_keys=[resolved_by_id], back_populates="resolved_incidents")
+
+

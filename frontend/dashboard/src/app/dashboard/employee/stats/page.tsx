@@ -14,7 +14,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:9000/user/personal-stats?email=${encodeURIComponent(user.email)}`)
+      fetch(`http://localhost:8000/user/personal-stats?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });

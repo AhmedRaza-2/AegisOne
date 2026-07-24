@@ -30,7 +30,7 @@ const socialLinks = [
 
 export default function Footer() {
     return (
-        <footer className="px-4 py-10 border-t border-zinc-200">
+        <footer className="px-4 py-10 border-t border-zinc-200 dark:border-zinc-800">
             <div className="max-w-7xl m-auto">
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8 lg:gap-12 mb-10">
                     
@@ -50,7 +50,7 @@ export default function Footer() {
                                     href={social.href}
                                     aria-label={social.label}
                                     target="_blank"
-                                    className="h-10 w-10 rounded-lg bg-card border-2 border-zinc-200 flex items-center justify-center hover:border-gradient-border"
+                                    className="h-10 w-10 rounded-lg bg-card border-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-center hover:border-gradient-border"
                                 >
                                     <social.icon size={20} />
                                 </a>
@@ -74,7 +74,7 @@ export default function Footer() {
                     ))}
                 </div>
 
-                <div className="pt-10 border-t border-zinc-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="pt-10 border-t border-zinc-200 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4">
 
                     <p className="text-sm text-zinc-500 text-center md:text-left">
                         © {new Date().getFullYear()} AegisOne. All rights reserved.

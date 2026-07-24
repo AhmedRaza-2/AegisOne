@@ -1,29 +1,29 @@
 """
 AegisOne API — Scan Router
-===========================
-All AI scan endpoints. Stores results in website_scans (metadata only).
-No raw HTML, images, or page content ever persisted.
-
-Performance design:
-- All synchronous model inference is offloaded to threads via asyncio.to_thread()
-- This lets the event loop stay free to accept new requests while inference runs
-- Combined with a 32-thread pool in main.py, this enables 60+ RPS
+Unified scanning endpoints for URLs, Text, Emails, Images, and Documents.
+Stores metadata in website_scans and handles high-performance async logging.
 """
 import time
 import json
 import uuid
+import logging
 import asyncio
-from fastapi import APIRouter, Depends, File, UploadFile, Form, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
+import hashlib
+import tempfile
+import os
 from PIL import Image
 import io
 
-from api.database.db import get_db
+from fastapi import APIRouter, Depends, File, UploadFile, Form, BackgroundTasks, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.database.db import get_db, get_background_db
 from api.database.models import User, WebsiteScan
 from api.database.schemas import (
     URLScanRequest, TextScanRequest, ScanResponse, ModelResult, URLResult, ScanType
 )
 from api.dependencies import get_optional_user
+from api.config import MAX_FILE_SIZE_BYTES
 
 from api.services.model_orchestrator import (
     predict_url, predict_text, predict_email, process_attachment
@@ -31,16 +31,50 @@ from api.services.model_orchestrator import (
 from api.services.content_router import route_image_input, route_text_input
 from api.services.risk_aggregator import aggregate_model_results
 from api.services.cache_service import (
-    get_cached_url_result,
-    get_cached_text_result,
-    get_or_create_url_result,
-    get_or_create_text_result,
+    get_cached_url_result, set_cached_url_result,
+    get_cached_text_result, set_cached_text_result,
+    get_or_create_url_result, get_or_create_text_result,
 )
+
+logger = logging.getLogger("aegisone.scan")
 
 router = APIRouter(prefix="/scan", tags=["Scanning"])
 
+# In-flight request trackers to prevent Cache Stampedes
+_in_flight_url = {}
+_in_flight_text = {}
+_db_queue = asyncio.Queue()
 
-# ── Background logging ────────────────────────────────────────────────────────
+
+async def db_log_worker():
+    """Background worker that pulls logs from the queue and bulk-inserts them into SQLite."""
+    while True:
+        try:
+            log = await _db_queue.get()
+            batch = [log]
+            
+            while len(batch) < 100 and not _db_queue.empty():
+                try:
+                    batch.append(_db_queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+                    
+            db = await get_background_db()
+            try:
+                db.add_all(batch)
+                await db.commit()
+            except Exception as e:
+                logger.error(f"Bulk insert failed: {e}")
+                await db.rollback()
+            finally:
+                await db.close()
+                
+            for _ in range(len(batch)):
+                _db_queue.task_done()
+        except Exception as e:
+            logger.error(f"DB log worker error: {e}")
+            await asyncio.sleep(1)
+
 
 async def log_website_scan(
     scan_id: str,
@@ -49,11 +83,7 @@ async def log_website_scan(
     url_or_summary: str,
     results: dict,
 ):
-    """
-    Persist the scan result to website_scans (metadata only).
-    Called as a background task — never blocks the response.
-    Uses its own DB session to avoid SQLite concurrency conflicts.
-    """
+    """Persist scan metadata to website_scans in a background task."""
     from api.database.db import async_session
     async with async_session() as db:
         try:
@@ -61,7 +91,6 @@ async def log_website_scan(
             verdict_val = verdict_str.value if hasattr(verdict_str, "value") else str(verdict_str)
             score = results.get("overall_risk_score", 0)
 
-            # Map internal verdict labels to decision
             if score >= 76:
                 decision = "block"
             elif score >= 51:
@@ -69,7 +98,6 @@ async def log_website_scan(
             else:
                 decision = "allow"
 
-            # Extract top factors (labels only, no page content)
             models_used = results.get("models_used", [])
             top_factors = [
                 m.get("explanation", m.get("prediction", ""))
@@ -89,7 +117,7 @@ async def log_website_scan(
                 organization_id=getattr(user, "organization_id", "org_default") or "org_default",
                 user_id=getattr(user, "id", None),
                 scan_type=scan_type.value,
-                url=url_or_summary[:2048],       # URL stored; HTML is NOT
+                url=url_or_summary[:2048],
                 domain=domain[:255],
                 risk_score=score,
                 confidence=round(
@@ -108,10 +136,8 @@ async def log_website_scan(
             db.add(ws)
             await db.commit()
         except Exception as e:
-            print(f"[AegisOne:ScanLog] Error: {e}")
+            logger.error(f"[AegisOne:ScanLog] Error: {e}")
 
-
-# ── Response builder ──────────────────────────────────────────────────────────
 
 def format_response(
     scan_type: ScanType,
@@ -120,10 +146,13 @@ def format_response(
     extra_fields: dict = None,
 ) -> ScanResponse:
     """Standardize the response format across all scan endpoints."""
-    url_res   = []
+    url_res = []
     other_res = []
 
     for r in model_results:
+        if "error" in r:
+            logger.warning(f"Skipping error result from model '{r.get('model', 'unknown')}': {r['error']}")
+            continue
         if r.get("model") == "url":
             url_res.append(URLResult(
                 url=r.get("url", "unknown"),
@@ -166,7 +195,15 @@ def build_scan_log_payload(response: ScanResponse, model_results: list[dict]) ->
     }
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+def _check_file_size(content_length: int | None, data: bytes | None = None):
+    """Guard against oversized uploads."""
+    size = content_length or (len(data) if data else 0)
+    if size > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB"
+        )
+
 
 @router.post("/url", response_model=ScanResponse)
 async def scan_url(
@@ -179,10 +216,11 @@ async def scan_url(
     cached = get_cached_url_result(req.url)
     if cached:
         result = cached
+    elif req.url in _in_flight_url:
+        result = await _in_flight_url[req.url]
     else:
         async def _load_url():
-            # ── CRITICAL: offload synchronous PyTorch inference to thread pool ──
-            loaded = await asyncio.to_thread(predict_url, req.url)
+            loaded = await predict_url(req.url)
             loaded["url"] = req.url
             return loaded
 
@@ -209,13 +247,10 @@ async def scan_text(
         results = cached
     else:
         async def _load_text():
-            # ── CRITICAL: route_text_input calls predict_text/predict_url synchronously
-            #    We offload the entire routing + inference pipeline to a thread
             return await route_text_input(req.text)
 
         results = await get_or_create_text_result(req.text, _load_text)
-    response   = format_response(ScanType.TEXT, results, start_time)
-    # Summary: truncated first 80 chars of text — no full content stored
+    response = format_response(ScanType.TEXT, results, start_time)
     summary = req.text[:80].replace("\n", " ") + "…" if len(req.text) > 80 else req.text
     bg_tasks.add_task(
         log_website_scan, response.scan_id, user, ScanType.TEXT,
@@ -235,10 +270,8 @@ async def scan_email(
 ):
     start_time   = time.time()
     text_content = f"Subject: {subject}\n\n{body}"
-    # ── CRITICAL: offload to thread pool ──
     results      = await route_text_input(text_content)
     response     = format_response(ScanType.EMAIL, results, start_time)
-    # Store subject only — not the body
     bg_tasks.add_task(
         log_website_scan, response.scan_id, user, ScanType.EMAIL,
         f"email:{subject[:120]}", build_scan_log_payload(response, results),
@@ -255,9 +288,9 @@ async def scan_image(
 ):
     start_time = time.time()
     data       = await file.read()
+    _check_file_size(None, data)
     results    = await route_image_input(data)
     response   = format_response(ScanType.IMAGE, results, start_time)
-    # Store filename only — image bytes are not stored
     bg_tasks.add_task(
         log_website_scan, response.scan_id, user, ScanType.IMAGE,
         f"image:{file.filename}", build_scan_log_payload(response, results),
@@ -272,22 +305,17 @@ async def scan_document(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_optional_user),
 ):
-    """Handles PDF, DOCX, etc. via AttachmentOrchestrator."""
     start_time = time.time()
-    import tempfile
-    import os
-    import hashlib
+    file_data  = await file.read()
+    _check_file_size(None, file_data)
 
     suffix = os.path.splitext(file.filename)[1] if file.filename else ""
     fd, temp_path = tempfile.mkstemp(suffix=suffix)
-    file_hash = ""
+    file_hash = hashlib.sha256(file_data).hexdigest()
     try:
-        raw = await file.read()
-        file_hash = hashlib.sha256(raw).hexdigest()
         with os.fdopen(fd, "wb") as f:
-            f.write(raw)
-        # ── CRITICAL: offload synchronous attachment processing to thread pool ──
-        raw_result = await asyncio.to_thread(process_attachment, temp_path)
+            f.write(file_data)
+        raw_result = await process_attachment(temp_path)
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -305,7 +333,6 @@ async def scan_document(
     }
 
     response = format_response(ScanType.DOCUMENT, flat_results, start_time, extra)
-    # Store filename + hash only — file is deleted immediately above
     bg_tasks.add_task(
         log_website_scan, response.scan_id, user, ScanType.DOCUMENT,
         f"file:{file.filename}|sha256:{file_hash[:16]}…", build_scan_log_payload(response, flat_results),

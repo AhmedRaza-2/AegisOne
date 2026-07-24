@@ -84,10 +84,10 @@ const SectionReviews = () => {
                     {repeatedReviews.map((reviewer, index) => (
                         <div
                             key={index}
-                            className="w-[350px] md:w-[450px] shrink-0 whitespace-normal relative bg-zinc-50/50 border border-zinc-200/60 backdrop-blur-md rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between overflow-hidden group"
+                            className="w-[350px] md:w-[450px] shrink-0 whitespace-normal relative bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/80 backdrop-blur-md rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between overflow-hidden group"
                         >
                             {/* Decorative Quote Icon */}
-                            <Quote className="absolute top-4 right-4 text-zinc-200/50 w-12 h-12 pointer-events-none group-hover:scale-110 transition-transform duration-300" />
+                            <Quote className="absolute top-4 right-4 text-zinc-200/50 dark:text-zinc-800/40 w-12 h-12 pointer-events-none group-hover:scale-110 transition-transform duration-300" />
 
                             <div>
                                 {/* Rating Stars */}
@@ -98,7 +98,7 @@ const SectionReviews = () => {
                                 </div>
 
                                 {/* Review Content */}
-                                <p className="text-zinc-600 text-sm leading-relaxed mb-6 italic z-10 relative">
+                                <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed mb-6 italic z-10 relative">
                                     "{reviewer.comment}"
                                 </p>
                             </div>
@@ -109,8 +109,8 @@ const SectionReviews = () => {
                                     {reviewer.initials}
                                 </div>
                                 <div className="overflow-hidden">
-                                    <h4 className="font-semibold text-sm text-zinc-800 truncate">{reviewer.name}</h4>
-                                    <p className="text-xs text-zinc-500 truncate">{reviewer.role}</p>
+                                    <h4 className="font-semibold text-sm text-zinc-800 dark:text-zinc-100 truncate">{reviewer.name}</h4>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{reviewer.role}</p>
                                 </div>
                             </div>
                         </div>

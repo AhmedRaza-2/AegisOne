@@ -254,8 +254,16 @@ __marimo__/
 node_modules
 
 AIML/image_phishing_detection_model/dataset/
+<<<<<<< HEAD
 frontend/.next/
 *.db
 api/database/aegisone.db
 api/database/aegisone.db
 api/database/aegisone.db
+=======
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+>>>>>>> ff262510555dc5ea98c2935a24986f2270118617

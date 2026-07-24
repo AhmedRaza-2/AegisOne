@@ -22,10 +22,10 @@ const HeroSection = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.6 }}
                 >
-                    SECURE YOUR ENTERPRISE WITH
+                    SECURE YOUR BROWSER WITH
                     <br />
                     <span className="text-gradient bg-clip-text text-transparent">
-                        AEGISONE
+                        AEGISONE AI
                     </span>
                 </motion.h1>
 
@@ -44,11 +44,13 @@ const HeroSection = () => {
                     transition={{ duration: 0.8, delay: 1 }}
                     className="w-full flex flex-col sm:flex-row justify-center gap-4"
                 >
-                    <Button href="http://localhost:3000/register">
+                    <Button href="http://localhost:3002/register">
                         Get Started
                         <ArrowRight className="group-hover:translate-x-2 transition-transform" size={20} />
                     </Button>
-
+                    <Button type="secondary" href="http://localhost:8000/docs">
+                        View API Docs
+                    </Button>
                 </motion.div>
 
                 <motion.div
@@ -59,19 +61,19 @@ const HeroSection = () => {
                 >
                     <div className="text-center">
                         <h2 className="hero-counter">99.8%</h2>
-                        <p className="text-gray-600">Phishing Detection</p>
+                        <p className="text-gray-600 dark:text-gray-300">Phishing Detection</p>
                     </div>
                     <div className="text-center">
                         <h2 className="hero-counter primary-gradient">&lt; 50ms</h2>
-                        <p className="text-gray-600">Verdict Latency</p>
+                        <p className="text-gray-600 dark:text-gray-300">Verdict Latency</p>
                     </div>
                     <div className="text-center">
                         <h2 className="hero-counter primary-gradient">10k+</h2>
-                        <p className="text-gray-600">Blocked Threats</p>
+                        <p className="text-gray-600 dark:text-gray-300">Blocked Threats</p>
                     </div>
                     <div className="text-center">
                         <h2 className="hero-counter primary-gradient">100%</h2>
-                        <p className="text-gray-600">Privacy Focused</p>
+                        <p className="text-gray-600 dark:text-gray-300">Privacy Focused</p>
                     </div>
                 </motion.div>
 

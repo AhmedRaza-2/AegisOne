@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Code2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import SiteTheme from "./SiteTheme";
 
 const navLinks = [
     { href: "#services", label: "Security Vectors" },
@@ -29,7 +30,7 @@ export default function SiteHeader() {
             animate={{ y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             className={`p-4 fixed border-b border-transparent top-0 w-full left-0 right-0 z-50 transition-all duration-300 ${isScrolled
-                ? "bg-white/80 backdrop-blur-xl shadow-md border-zinc-200"
+                ? "bg-white/50 dark:bg-black/50 dark:border-zinc-800 backdrop-blur-xl shadow-md"
                 : "bg-transparent"
                 }`}>
 
@@ -48,13 +49,16 @@ export default function SiteHeader() {
                         ))}
                     </div>
 
-                    {/* Mobile Menu Button */}
+                    {/* Theme Toggle & Mobile Menu Button */}
                     <div className="flex items-center gap-4">
+                        <SiteTheme />
                         <button className="block lg:hidden" onClick={() => setIsOpen(!isOpen)}>
                             {isOpen ? <X /> : <Menu />}
                         </button>
                     </div>
                 </div>
+
+
 
             </div>
 
@@ -65,7 +69,7 @@ export default function SiteHeader() {
                         initial={{ opacity: 0, width: 0 }}
                         animate={{ opacity: 1, width: "100%" }}
                         exit={{ opacity: 0, width: 0 }}
-                        className="absolute right-0 mt-4 h-svh lg:hidden bg-zinc-200"
+                        className="absolute right-0 mt-4 h-svh lg:hidden bg-zinc-200 dark:bg-zinc-800"
                     >
                         <div className="p-4 flex flex-col items-end gap-4 text-xl">
                             {navLinks.map((link) => (

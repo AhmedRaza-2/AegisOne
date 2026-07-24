@@ -38,7 +38,7 @@ const SectionGallery = () => {
                             whileInView={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.5, delay: 0.4 }}
                             viewport={{ once: true }}
-                            className="absolute -top-6 -right-6 border-2 border-zinc-200 bg-zinc-100 p-4 rounded-lg flex flex-col items-start gap-2 group"
+                            className="absolute -top-6 -right-6 border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 p-4 rounded-lg flex flex-col items-start gap-2 group"
                         >
                             <h3 className="text-lg font-semibold group-hover:text-gradient group-hover:bg-clip-text group-hover:text-transparent">4+</h3>
                             <div>Model Engines</div>
@@ -49,7 +49,7 @@ const SectionGallery = () => {
                             whileInView={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.5, delay: 0.4 }}
                             viewport={{ once: true }}
-                            className="absolute -bottom-6 -left-6 border-2 border-zinc-200 bg-zinc-100 p-4 rounded-lg flex flex-col items-start gap-2 group"
+                            className="absolute -bottom-6 -left-6 border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 p-4 rounded-lg flex flex-col items-start gap-2 group"
                         >
                             <h3 className="text-lg font-semibold group-hover:text-gradient group-hover:bg-clip-text group-hover:text-transparent">&lt; 50ms</h3>
                             <div>Verdict Latency</div>

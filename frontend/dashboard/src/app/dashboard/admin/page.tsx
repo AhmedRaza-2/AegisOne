@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const token = localStorage.getItem("aegis_access_token");
+        const token = localStorage.getItem("access_token");
         const res = await fetch("http://localhost:8000/admin/stats", {
           headers: { Authorization: `Bearer ${token}` }
         });

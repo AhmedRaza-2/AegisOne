@@ -1,6 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-import { Network, ArrowRightLeft, ShieldAlert, FileText, AlertTriangle, CheckCircle, Search, MessageSquare, Plus, Activity } from "lucide-react";
+import { Network, ArrowRightLeft, ShieldAlert, FileText, AlertTriangle, CheckCircle, Search, MessageSquare, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
@@ -17,7 +17,7 @@ const activeRequests = [
 export default function InterDepartmentPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("requests");
-  
+
   if (!user) return null;
 
   return (

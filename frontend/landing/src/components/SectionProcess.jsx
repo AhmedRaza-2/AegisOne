@@ -44,7 +44,7 @@ const SectionProcess = () => {
 
                 <div className="relative flex flex-col gap-6">
 
-                    <div className="absolute left-0 md:left-1/2 transform -translate-x-1/2 w-1 bg-zinc-200/50 h-full rounded-full" />
+                    <div className="absolute left-0 md:left-1/2 transform -translate-x-1/2 w-1 bg-zinc-200/50 dark:bg-zinc-800/50 h-full rounded-full" />
 
                     {steps.map((step, index) => (
                         <motion.div
@@ -56,14 +56,14 @@ const SectionProcess = () => {
                             className={`relative flex items-center ${index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}
                         >
                             <div className={`w-full pl-6 md:w-1/2 ${index % 2 === 0 ? 'md:pr-6' : 'md:pl-6'}`}>
-                                <div className="border-2 border-zinc-200 bg-zinc-200/20 p-4 rounded-lg flex flex-col items-start gap-4 hover:border-gradient-border group">
+                                <div className="border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-200/20 dark:bg-zinc-800/30 p-4 rounded-lg flex flex-col items-start gap-4 hover:border-gradient-border group">
                                     <div className="flex items-center gap-2">
-                                        <div className="border border-zinc-200 p-2 rounded-full group-hover:text-gradient group-hover:text-white">
+                                        <div className="border border-zinc-200 dark:border-zinc-800 p-2 rounded-full group-hover:text-gradient group-hover:text-white">
                                             <step.icon />
                                         </div>
                                         <h3>{step.title}</h3>
                                     </div>
-                                    <p className="text-gray-600">{step.description}</p>
+                                    <p className="text-gray-600 dark:text-gray-300">{step.description}</p>
                                 </div>
                             </div>
 

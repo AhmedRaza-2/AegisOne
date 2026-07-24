@@ -1,20 +1,38 @@
 """
-AegisOne API — Result Cache
-LRU cache with TTL to avoid re-scanning the same content within a time frame.
+AegisOne API — URL & Text Result Cache
+Thread-safe LRU cache with TTL and hit/miss monitoring.
 """
-import asyncio
+import threading
+import logging
 from typing import Callable, Awaitable
 from cachetools import TTLCache
 from api.config import URL_CACHE_MAXSIZE, URL_CACHE_TTL_SECONDS
 
+logger = logging.getLogger("aegisone.cache")
+
 _url_cache = TTLCache(maxsize=URL_CACHE_MAXSIZE, ttl=URL_CACHE_TTL_SECONDS)
 _text_cache = TTLCache(maxsize=URL_CACHE_MAXSIZE, ttl=URL_CACHE_TTL_SECONDS)
+_lock = threading.Lock()
+
+# Monitoring counters (per-cache)
+_url_hits = 0
+_url_misses = 0
+_text_hits = 0
+_text_misses = 0
 
 def get_cached_url_result(url: str) -> dict | None:
-    return _url_cache.get(url)
+    global _url_hits, _url_misses
+    with _lock:
+        result = _url_cache.get(url)
+        if result is not None:
+            _url_hits += 1
+            return result
+        _url_misses += 1
+        return None
 
 def set_cached_url_result(url: str, result: dict):
-    _url_cache[url] = result
+    with _lock:
+        _url_cache[url] = result
 
 async def get_or_create_url_result(url: str, loader: Callable[[], Awaitable[dict]]) -> dict:
     cached = get_cached_url_result(url)
@@ -25,13 +43,20 @@ async def get_or_create_url_result(url: str, loader: Callable[[], Awaitable[dict
     return result
 
 def get_cached_text_result(text: str) -> list | dict | None:
-    # Hash the text since text can be large
+    global _text_hits, _text_misses
     key = hash(text)
-    return _text_cache.get(key)
+    with _lock:
+        result = _text_cache.get(key)
+        if result is not None:
+            _text_hits += 1
+            return result
+        _text_misses += 1
+        return None
 
 def set_cached_text_result(text: str, result: list | dict):
     key = hash(text)
-    _text_cache[key] = result
+    with _lock:
+        _text_cache[key] = result
 
 async def get_or_create_text_result(text: str, loader: Callable[[], Awaitable[list | dict]]) -> list | dict:
     cached = get_cached_text_result(text)
@@ -42,9 +67,28 @@ async def get_or_create_text_result(text: str, loader: Callable[[], Awaitable[li
     return result
 
 def cache_stats() -> dict:
-    return {
-        "url_cache_size": len(_url_cache),
-        "text_cache_size": len(_text_cache),
-        "maxsize": _url_cache.maxsize,
-        "ttl": _url_cache.ttl,
-    }
+    with _lock:
+        url_total = _url_hits + _url_misses
+        text_total = _text_hits + _text_misses
+        total = url_total + text_total
+        return {
+            "url_cache": {
+                "size": len(_url_cache),
+                "maxsize": _url_cache.maxsize,
+                "ttl": _url_cache.ttl,
+                "hits": _url_hits,
+                "misses": _url_misses,
+                "hit_rate": round(_url_hits / url_total, 4) if url_total > 0 else 0.0,
+            },
+            "text_cache": {
+                "size": len(_text_cache),
+                "maxsize": _text_cache.maxsize,
+                "ttl": _text_cache.ttl,
+                "hits": _text_hits,
+                "misses": _text_misses,
+                "hit_rate": round(_text_hits / text_total, 4) if text_total > 0 else 0.0,
+            },
+            "total_hits": _url_hits + _text_hits,
+            "total_misses": _url_misses + _text_misses,
+            "overall_hit_rate": round((_url_hits + _text_hits) / total, 4) if total > 0 else 0.0,
+        }
