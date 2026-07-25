@@ -5,7 +5,7 @@
 .next
 datasets/
 AIML/image_phishing_detection_model/dataset/
-models/
+
 *.zip
 !AIML/email/Dataset_10191.csv
 !AIML/email/final_phishing_dataset_email.csv
