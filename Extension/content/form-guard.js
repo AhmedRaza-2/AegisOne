@@ -1,3 +1,13 @@
+/**
+ * AegisOne — Content Script: Form Guard v2.1
+ * ============================================
+ * Detects and intercepts credential form submissions on risky pages.
+ *
+ * v2.1 new checks (before submit):
+ *  - HTTP form action (non-HTTPS submission) — always warn
+ *  - Form action domain mismatch vs. current domain
+ *  - Mismatched/hidden action URL scanning
+ */
 import { MSG } from "../../utils/constants.js";
 
 let _currentPageRisk = 0;
@@ -276,15 +286,48 @@ function _setupSubmitInterceptors() {
     }, { capture: true });
 
     form.addEventListener("submit", async (e) => {
-      // Only intercept on risky pages if not already allowed
+      // Run enhanced pre-submission checks regardless of page risk score
+      const formAction = (form.action || "").trim();
+      const currentHost = window.location.hostname.toLowerCase();
+
+      // ── Check 1: HTTP (non-HTTPS) form action ───────────────
+      // Submitting credentials over HTTP is always dangerous
+      const isHttpAction = formAction.startsWith("http://") && !formAction.startsWith("https://");
+
+      // ── Check 2: Form action domain mismatch ─────────────────
+      let actionDomainMismatch = false;
+      if (formAction && formAction.startsWith("http")) {
+        try {
+          const actionHost = new URL(formAction).hostname.toLowerCase();
+          // Allow subdomains of the same root domain
+          const actionRoot = actionHost.split(".").slice(-2).join(".");
+          const currentRoot = currentHost.split(".").slice(-2).join(".");
+          actionDomainMismatch = actionRoot !== currentRoot;
+        } catch (_) {}
+      }
+
+      // ── Warn on structural form issues ───────────────────────
+      if (isHttpAction || actionDomainMismatch) {
+        e.preventDefault();
+        const reasons = [];
+        if (isHttpAction) reasons.push("Form submits credentials over unencrypted HTTP");
+        if (actionDomainMismatch) reasons.push(`Form action sends data to a different domain: ${new URL(formAction).hostname}`);
+
+        _showCredentialWarning(form, Math.max(_currentPageRisk, 70), () => {
+          userAllowedTyping = true;
+          form.submit();
+        }, reasons);
+        return;
+      }
+
+      // ── Existing risk-score check ────────────────────────────
       if (userAllowedTyping || _currentPageRisk < 50) return;
-      
+
       const stored = await chrome.storage.local.get("enableFormGuard");
       if (stored.enableFormGuard === false) return;
 
       e.preventDefault();
 
-      // Double check with background
       const res = await chrome.runtime.sendMessage({
         type: MSG.FORM_INTERCEPT,
         url: window.location.href,
@@ -312,8 +355,12 @@ function _setupSubmitInterceptors() {
 
 /**
  * Show a credential submission warning modal.
+ * @param {HTMLFormElement} form
+ * @param {number} score
+ * @param {Function} onAllow
+ * @param {string[]} [extraReasons] - additional reason lines to display
  */
-function _showCredentialWarning(form, score, onAllow) {
+function _showCredentialWarning(form, score, onAllow, extraReasons = []) {
   const existing = document.getElementById("aegis-cred-warn");
   if (existing) return;
 
@@ -350,6 +397,7 @@ function _showCredentialWarning(form, score, onAllow) {
           This page has a <strong style="color: #f87171;">${score}% phishing risk</strong>. 
           AegisOne has frozen your keyboard to prevent accidental credential exposure.
         </p>
+        ${extraReasons.length > 0 ? `<div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; text-align: left; font-size: 11px; color: #f87171;">${extraReasons.map(r => `<div style="margin-bottom:3px;">⚠️ ${r}</div>`).join('')}</div>` : ''}
         <div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15); border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; text-align: left; font-size: 11px; color: #94a3b8;">
           <div style="margin-bottom: 4px;"><strong style="color: #f1f5f9;">Domain:</strong> ${location.hostname}</div>
           <div><strong style="color: #f1f5f9;">Risk Score:</strong> <span style="color: #f87171;">${score}%</span></div>

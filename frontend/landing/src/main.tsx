@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage.tsx';
 import PortalPage from './pages/PortalPage.tsx';
 import AdminDashboard from './pages/AdminDashboard.tsx';
 import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
+import DocsPage from './pages/DocsPage.tsx';
 import './index.css';
 
 console.log("main.tsx: Script started executing");
@@ -32,6 +33,7 @@ try {
           <Route path="/portal"   element={<PortalPage />} />
           <Route path="/admin"    element={<AdminDashboard />} />
           <Route path="/update-password" element={<UpdatePasswordPage />} />
+          <Route path="/docs" element={<DocsPage />} />
         </Routes>
       </BrowserRouter>
     </StrictMode>,

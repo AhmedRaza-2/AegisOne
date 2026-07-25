@@ -18,9 +18,9 @@ const SectionTechStack = () => {
     ];
 
     return (
-        <section id="stack" className="py-20 px-4">
+        <section id="stack" className="py-14 px-4">
             <div className='max-w-7xl m-auto'>
-                <SectionHeading heading="Technology Stack" content="State-of-the-art framework components powering AegisOne security" />
+                <SectionHeading heading="Enterprise-Grade Architecture" content="Built on secure, robust, and scalable technologies trusted by global enterprises" />
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {technologies.map((tech, index) => (

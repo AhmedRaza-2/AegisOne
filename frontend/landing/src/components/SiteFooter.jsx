@@ -1,93 +1,72 @@
 import { Github, Linkedin, Twitter, Mail } from "lucide-react";
 
-const footerLinks = {
-    company: [
-        { label: "About Us", href: "#about" },
-        { label: "Our Core Principles", href: "#about" },
-        { label: "Careers", href: "#" },
-        { label: "Blog", href: "#" },
-    ],
-    security: [
-        { label: "URL Scanner", href: "#services" },
-        { label: "Content Scanner", href: "#services" },
-        { label: "Attachment Scanner", href: "#services" },
-        { label: "Live Telemetry", href: "#contact" },
-    ],
-    resources: [
-        { label: "API Reference", href: "#" },
-        { label: "Threat Intelligence", href: "#projects" },
-        { label: "Status Page", href: "#" },
-        { label: "SOC Contact", href: "#contact" },
-    ],
-};
+const links = [
+    { label: "Overview",      href: "/docs#overview" },
+    { label: "Security",      href: "/docs#security" },
+    { label: "API Reference", href: "/docs#api" },
+    { label: "Deployment",    href: "/docs#deploy" },
+    { label: "GitHub",        href: "https://github.com/AhmedRaza-2/AegisOne" },
+    { label: "Contact",       href: "mailto:araza2125012.pgc@gmail.com" },
+];
 
-const socialLinks = [
-    { icon: Twitter, href: "#", label: "Twitter" },
-    { icon: Github, href: "https://github.com/AhmedRaza-2/AegisOne", label: "GitHub" },
-    { icon: Linkedin, href: "https://www.linkedin.com/in/ahmed-r-43b6a1266/", label: "LinkedIn" },
-    { icon: Mail, href: "mailto:araza2125012.pgc@gmail.com", label: "Email" },
+const socials = [
+    { icon: Twitter,  href: "#",                                                 label: "Twitter"  },
+    { icon: Github,   href: "https://github.com/AhmedRaza-2/AegisOne",          label: "GitHub"   },
+    { icon: Linkedin, href: "https://www.linkedin.com/in/ahmed-r-43b6a1266/",   label: "LinkedIn" },
+    { icon: Mail,     href: "mailto:araza2125012.pgc@gmail.com",                label: "Email"    },
 ];
 
 export default function Footer() {
     return (
-        <footer className="px-4 py-10 border-t border-zinc-200">
-            <div className="max-w-7xl m-auto">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8 lg:gap-12 mb-10">
-                    
-                    <div className="md:col-span-3 lg:col-span-2">
-                        <a href="#home" className="flex items-center mb-4">
-                            <span className="text-2xl font-bold">
-                                AegisOne
-                            </span>
+        <footer className="border-t border-zinc-100 bg-white">
+            <div className="max-w-7xl mx-auto px-6 py-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+
+                    {/* Logo + tagline */}
+                    <div className="flex flex-col gap-1">
+                        <a href="/" className="text-base font-bold text-zinc-900 tracking-tight">
+                            Aegis<span className="text-[#0A5ED6]">One</span>
                         </a>
-                        <p className="text-muted-foreground mb-6 max-w-sm">
-                            Enterprise browser security powered by multi-modal AI. Defending against phishing and credential theft in real-time.
-                        </p>
-                        <div className="flex gap-4">
-                            {socialLinks.map((social, index) => (
-                                <a
-                                    key={index}
-                                    href={social.href}
-                                    aria-label={social.label}
-                                    target="_blank"
-                                    className="h-10 w-10 rounded-lg bg-card border-2 border-zinc-200 flex items-center justify-center hover:border-gradient-border"
-                                >
-                                    <social.icon size={20} />
-                                </a>
-                            ))}
-                        </div>
+                        <p className="text-xs text-zinc-400">Sovereign phishing protection for local offices.</p>
                     </div>
 
-                    {Object.entries(footerLinks).map(([category, links]) => (
-                        <div key={category}>
-                            <h3 className="mb-4 capitalize">{category}</h3>
-                            <ul className="space-y-3">
-                                {links.map((link, index) => (
-                                    <li key={index}>
-                                        <a href={link.href} className="inline-block hover:underline underline-offset-4">
-                                            {link.label}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
-                </div>
+                    {/* Links */}
+                    <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                        {links.map(l => (
+                            <a
+                                key={l.label}
+                                href={l.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors"
+                            >
+                                {l.label}
+                            </a>
+                        ))}
+                    </nav>
 
-                <div className="pt-10 border-t border-zinc-200 flex flex-col md:flex-row justify-between items-center gap-4">
-
-                    <p className="text-sm text-zinc-500 text-center md:text-left">
-                        © {new Date().getFullYear()} AegisOne. All rights reserved.
-                    </p>
-
-                    <div className="text-sm text-zinc-500 flex gap-4">
-                        <a href="#">Privacy Policy</a>
-                        <a href="#">Terms of Service</a>
-                        <a href="#">Cookie Policy</a>
+                    {/* Socials */}
+                    <div className="flex items-center gap-3">
+                        {socials.map(s => (
+                            <a
+                                key={s.label}
+                                href={s.href}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={s.label}
+                                className="text-zinc-400 hover:text-zinc-700 transition-colors"
+                            >
+                                <s.icon size={16} />
+                            </a>
+                        ))}
                     </div>
-
                 </div>
+
+                {/* Bottom strip */}
+                <p className="mt-6 pt-6 border-t border-zinc-100 text-[11px] text-zinc-400 text-center">
+                    © {new Date().getFullYear()} AegisOne. All rights reserved.
+                </p>
             </div>
-        </footer >
+        </footer>
     );
 }
