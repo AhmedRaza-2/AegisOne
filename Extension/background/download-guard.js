@@ -9,12 +9,60 @@ import { VERDICT } from "../utils/constants.js";
 import { isInternalURL } from "../utils/trusted-domains.js";
 import { scanDownload } from "./scanner.js";
 
-// Tracks pending downloads awaiting user decision
-const _pending = new Map(); // downloadId -> { url, filename, scanResult }
-const _bypassOnce = new Map(); // url -> expiresAt
+const _pending = new Map();     // downloadId -> { url, filename, scanResult }
+const _bypassOnce = new Map();  // url -> expiresAt
+
+// Persisted record of already-processed downloads (URL|filename -> timestamp).
+// Survives service-worker restarts so downloads are never re-scanned
+// after a browser restart.
+const _processed = new Map();
+const PROCESSED_STORAGE_KEY = "processed_downloads";
+const PROCESSED_MAX = 500;
+const PROCESSED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function initDownloadGuard() {
-  chrome.downloads.onCreated.addListener(_onDownloadCreated);
+  chrome.storage.local.get(PROCESSED_STORAGE_KEY, (data) => {
+    const saved = data[PROCESSED_STORAGE_KEY] || {};
+    const now = Date.now();
+    for (const [key, ts] of Object.entries(saved)) {
+      if (now - ts < PROCESSED_TTL_MS) {
+        _processed.set(key, ts);
+      }
+    }
+    // Register AFTER storage is loaded — otherwise Chrome may replay
+    // onCreated events for existing downloads before _processed is
+    // populated, causing every download to be re-scanned on restart.
+    chrome.downloads.onCreated.addListener(_onDownloadCreated);
+  });
+}
+
+// ── Persisted processed-download helpers ──────────────────────
+// Keyed by URL only (not URL+filename) because re-downloads may
+// get a different filename suffix from Chrome.
+function _isProcessed(url) {
+  const ts = _processed.get(url);
+  if (!ts) return false;
+  if (Date.now() - ts > PROCESSED_TTL_MS) {
+    _processed.delete(url);
+    _persistProcessed();
+    return false;
+  }
+  return true;
+}
+
+function _markProcessed(url) {
+  _processed.set(url, Date.now());
+  if (_processed.size > PROCESSED_MAX) {
+    const first = _processed.entries().next().value;
+    if (first) _processed.delete(first[0]);
+  }
+  _persistProcessed();
+}
+
+function _persistProcessed() {
+  const obj = {};
+  _processed.forEach((ts, key) => { obj[key] = ts; });
+  chrome.storage.local.set({ [PROCESSED_STORAGE_KEY]: obj });
 }
 
 async function _onDownloadCreated(item) {
@@ -23,18 +71,22 @@ async function _onDownloadCreated(item) {
     if (!url.startsWith("http") && !url.startsWith("file")) return;
     if (isInternalURL(url)) return;
 
+    // Short-term bypass: re-download initiated by this extension
     if (_consumeBypass(url)) {
-      console.log(`[AegisOne:DownloadGuard] Bypassing re-scan for approved download: ${item.filename || url}`);
       return;
     }
 
+    // Long-term persistence: already scanned in a previous session
     const filename = item.filename || url.split("/").pop() || "unknown_file";
+    if (_isProcessed(url)) {
+      console.log(`[AegisOne:DownloadGuard] Already processed, letting through: ${filename}`);
+      return;
+    }
+
     console.log(`[AegisOne:DownloadGuard] Intercepting: ${filename}`);
 
-    // Cancel first so the file never fully lands before inspection.
     _cancelDownload(item.id);
 
-    // Deep attachment/content scan for every download.
     _pending.set(item.id, { url, filename, scanResult: null });
     const scanResult = await scanDownload(url, filename);
     _pending.set(item.id, { url, filename, scanResult });
@@ -42,16 +94,18 @@ async function _onDownloadCreated(item) {
     if (scanResult.verdict === VERDICT.DANGER || scanResult.verdict === VERDICT.WARNING) {
       await _promptUser(item.id, filename, scanResult);
     } else {
+      _markProcessed(url);
       _allowOnce(url);
       _reDownload(item.id, url);
       console.log(`[AegisOne:DownloadGuard] Safe file re-downloading: ${filename}`);
     }
   } catch (err) {
     console.error("[AegisOne:DownloadGuard] Error:", err);
-    const url = item.finalUrl || item.url;
-    if (url) {
-      _allowOnce(url);
-      chrome.downloads.download({ url }, () => chrome.runtime.lastError);
+    const fallbackUrl = item.finalUrl || item.url;
+    if (fallbackUrl) {
+      _markProcessed(fallbackUrl);
+      _allowOnce(fallbackUrl);
+      chrome.downloads.download({ url: fallbackUrl }, () => chrome.runtime.lastError);
     }
   }
 }
@@ -61,11 +115,13 @@ export function handleDownloadDecision(downloadId, action) {
   _pending.delete(downloadId);
 
   if (action === "allow" && pending?.url) {
+    _markProcessed(pending.url);
     _allowOnce(pending.url);
     _reDownload(downloadId, pending.url);
     console.log(`[AegisOne:DownloadGuard] User allowed download: ${pending.filename}`);
-  } else {
-    console.log(`[AegisOne:DownloadGuard] User blocked download: ${pending?.filename || downloadId}`);
+  } else if (pending?.url) {
+    _markProcessed(pending.url);
+    console.log(`[AegisOne:DownloadGuard] User blocked download: ${pending.filename}`);
   }
 }
 
@@ -133,6 +189,7 @@ async function _promptUser(downloadId, filename, scanResult) {
       priority: 2,
     });
   } else {
+    _markProcessed(scanResult.url);
     _pending.delete(downloadId);
     chrome.notifications.create({
       type: "basic",

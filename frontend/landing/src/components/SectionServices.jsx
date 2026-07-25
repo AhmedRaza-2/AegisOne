@@ -5,33 +5,33 @@ import SectionHeading from "../ui-elements/SectionHeading";
 const services = [
     {
         icon: Link,
-        title: "URL Intelligence",
-        description: "Evaluates typosquatting, redirect chains, domain age, and blacklist state in real-time.",
+        title: "Link Protection",
+        description: "Automatically blocks fraudulent links, preventing your employees from accidentally handing over corporate credentials.",
     },
     {
         icon: FileText,
-        title: "Page Content AI",
-        description: "Fast NLP models scan page body text, headers, and form inputs to prevent credential theft.",
+        title: "Social Engineering Defense",
+        description: "Analyzes language and context to stop targeted executive spoofing and invoice fraud attempts in their tracks.",
     },
     {
         icon: Eye,
-        title: "Image & OCR Scanner",
-        description: "EfficientNet-B3 models combined with Tesseract OCR identify brand impersonation and QR exploits.",
+        title: "Brand Impersonation Shield",
+        description: "Identifies fake login pages and QR code exploits disguised as the trusted enterprise tools your company uses daily.",
     },
     {
         icon: FileDown,
-        title: "Attachment Orchestrator",
-        description: "Inspects inside ZIP, PDF, and DOCX archives, detecting payloads before they hit local storage.",
+        title: "Safe File Gateway",
+        description: "Stops weaponized documents and ransomware from ever touching your employees' hard drives or company network.",
     },
     {
         icon: Brain,
-        title: "Explainable AI (XAI)",
-        description: "Provides descriptive, natural-language explanation of scan verdicts and key risk factors.",
+        title: "Instant Threat Visibility",
+        description: "Gives your SOC team clear, actionable reports on why a threat was blocked, drastically reducing investigation time.",
     },
     {
         icon: ShieldAlert,
-        title: "Privacy-First Sync",
-        description: "Synchronizes security events and metadata to dashboards. Raw user browsing history is never tracked.",
+        title: "Zero Liability Tracking",
+        description: "Protects your company from compliance risks. Security events are logged, but raw employee browsing history remains 100% private.",
     },
 ];
 
@@ -39,8 +39,8 @@ const SectionServices = () => {
 
     return (
         <section id="services" className="px-4">
-            <div className="max-w-7xl m-auto py-20">
-                <SectionHeading heading="Security Scanners & Modules" content="A cohesive multi-modal defense framework analyzing every browsing vector" />
+            <div className="max-w-7xl m-auto py-14">
+                <SectionHeading heading="Enterprise Risk Mitigation" content="A unified defense framework securing your organization across every vector of attack." />
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {services.map((service, index) => {
@@ -50,7 +50,7 @@ const SectionServices = () => {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.8, delay: 0.2 }}
                                 viewport={{ once: true }}
-                                key={index} className="border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-200/20 dark:bg-zinc-800/30 p-4 rounded-lg flex flex-col items-start gap-4 hover:border-gradient-border group">
+                                key={index} className="border-2 border-zinc-200 bg-zinc-200/20 p-4 rounded-lg flex flex-col items-start gap-4 hover:border-gradient-border group">
                                 <div className="inline-block p-4 rounded-xl text-gradient text-white group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-300">
                                     <service.icon />
                                 </div>

@@ -18,9 +18,9 @@ const SectionTechStack = () => {
     ];
 
     return (
-        <section id="stack" className="py-20 px-4">
+        <section id="stack" className="py-14 px-4">
             <div className='max-w-7xl m-auto'>
-                <SectionHeading heading="Technology Stack" content="State-of-the-art framework components powering AegisOne security" />
+                <SectionHeading heading="Enterprise-Grade Architecture" content="Built on secure, robust, and scalable technologies trusted by global enterprises" />
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {technologies.map((tech, index) => (
@@ -30,7 +30,7 @@ const SectionTechStack = () => {
                             whileInView={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: index * 0.1 }}
                             viewport={{ once: true }}
-                            className="border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-200/20 dark:bg-zinc-800/30 p-4 rounded-lg flex flex-col items-start gap-4 hover:border-gradient-border group"
+                            className="border-2 border-zinc-200 bg-zinc-200/20 p-4 rounded-lg flex flex-col items-start gap-4 hover:border-gradient-border group"
                         >
                             <h3 className="text-lg font-semibold group-hover:text-gradient group-hover:bg-clip-text group-hover:text-transparent">
                                 {tech.name}

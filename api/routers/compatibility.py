@@ -125,7 +125,7 @@ async def api_email(sender: str = Form(""), subject: str = Form(""), body: str =
 
 
 @router.post("/analyze/image")
-async def api_image(file: UploadFile = File(...)):
+async def api_image(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     start = time.time()
     data = await file.read()
     results = await route_image_input(data)
@@ -139,13 +139,30 @@ async def api_image(file: UploadFile = File(...)):
         
     is_phish = overall_prob >= 0.5
     
+    score = overall_prob * 100
+    decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
+    
+    scan = WebsiteScan(
+        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        organization_id="org_default",
+        scan_type="image",
+        url="Image Upload: " + (file.filename or "unknown")[:100],
+        domain="image_scan",
+        risk_score=score,
+        threat_type="phishing" if is_phish else "benign",
+        decision=decision,
+        scan_duration_ms=round((time.time() - start) * 1000, 1)
+    )
+    db.add(scan)
+    await db.commit()
+    
     return {
         "prediction": "phishing" if is_phish else "legitimate",
         "confidence": round(overall_prob if is_phish else 1.0 - overall_prob, 4),
         "phishing_probability": round(overall_prob, 4),
         "model": "image_ocr_composite",
         "sub_results": results,
-        "latency_ms": round((time.time() - start) * 1000, 1)
+        "latency_ms": scan.scan_duration_ms
     }
 
 

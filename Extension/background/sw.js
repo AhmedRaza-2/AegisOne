@@ -1,28 +1,33 @@
 /**
- * AegisOne — Service Worker v2.0
+ * AegisOne — Service Worker v2.1
  * ================================
  * Central message router and event orchestrator.
  *
- * Key design decisions:
- * - Never calls APIs directly — delegates to scanner.js
- * - Cache-first for all domain lookups
- * - XAI only on explicit user request
- * - Events stored only for high-risk situations
- * - Dashboard sync batched every 30s
+ * v2.1 improvements:
+ *  - Per-tab AbortController registry: stale requests cancelled on navigation
+ *  - Request deduplication via requestQueue.js
+ *  - Multi-level scan pipeline: deep scan only fires if L3 score ≥ WARNING
+ *  - Hover scan uses TTL-aware cache (no more always-bypassCache)
+ *  - Backend online state updated from health check responses
+ *  - No console.log in production (DEBUG_MODE guard)
  */
 
-import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES } from "../utils/constants.js";
+import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
-import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth } from "./scanner.js";
+import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline } from "./scanner.js";
 import { getCachedResult, getTabCache, setTabCache, clearTabCache } from "./cache.js";
 import { initDownloadGuard, handleDownloadDecision } from "./download-guard.js";
 import { explainWithAI, generateLocalExplanation } from "./xai.js";
 import { getEvents, storeEvent } from "./event-store.js";
 import { startSync, flushNow, fetchOrgPolicy, ensureDeviceId } from "./sync.js";
+import { enqueue, cancelKey } from "./requestQueue.js";
 
 // ── Global State ──────────────────────────────────────────
 let SHIELD_ENABLED = true;
 const _sessionAllowedUrls = new Set();
+
+// Per-tab AbortController registry — cancel stale requests on navigation
+const _tabControllers = new Map(); // tabId → AbortController
 
 // ── Startup ───────────────────────────────────────────────
 chrome.storage.local.get(STORE_KEYS.SHIELD_ENABLED, (d) => {
@@ -33,7 +38,6 @@ chrome.runtime.onInstalled.addListener(async () => {
   await ensureDeviceId();
   await fetchOrgPolicy();
   startSync();
-  // Setup right-click context menu
   _setupContextMenu();
 });
 
@@ -50,12 +54,23 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !tab.url) return;
   if (!SHIELD_ENABLED) return;
   if (isInternalURL(tab.url)) return;
+
+  // Cancel any previous in-flight scan for this tab
+  const prevController = _tabControllers.get(tabId);
+  if (prevController) {
+    prevController.abort();
+    cancelKey(tab.url);
+  }
+  const controller = new AbortController();
+  _tabControllers.set(tabId, controller);
+  const signal = controller.signal;
+
   if (_sessionAllowedUrls.has(tab.url)) {
     _updateBadge(tabId, 0);
     return;
   }
 
-  // Check tab cache — avoid re-scanning same URL
+  // Check tab cache — avoid re-scanning same URL on reload
   const cached = getTabCache(tabId);
   if (cached?.url === tab.url) {
     _updateBadge(tabId, cached.score);
@@ -65,15 +80,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Set scanning badge
   _setBadge(tabId, "scanning");
 
-  // Fast scan (URL model + cache check)
-  const result = await scanURL(tab.url);
+  // ── L3: URL AI scan (deduplicated) ─────────────────────
+  const result = await enqueue(tab.url, () => scanURL(tab.url, {}, { signal }));
+
+  if (signal.aborted) return; // Tab navigated again — discard result
 
   if (result) {
     setTabCache(tabId, { url: tab.url, ...result });
     _updateBadge(tabId, result.score);
 
     if (result.score >= THRESHOLD.WARNING * 100) {
-      // Send warning to content script
       chrome.tabs.sendMessage(tabId, {
         type: MSG.SHOW_WARNING,
         score: result.score,
@@ -93,8 +109,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       }
     }
 
-    // Skip deep scan for policy-approved sites to reduce churn.
-    if (result.policy_override !== "allow") {
+    // ── L4: Gate deep scan on risk level ─────────────────
+    // Only trigger deep scan if L3 score is at WARNING or above,
+    // OR if the page has not been scanned with DOM features yet.
+    // This prevents wasting resources on clearly safe pages.
+    const shouldDeepScan = result.score >= THRESHOLD.WARNING * 100 || !result.has_dom_features;
+    if (shouldDeepScan && result.policy_override !== "allow") {
       chrome.tabs.sendMessage(tabId, {
         type: "TRIGGER_DEEP_PAGE_SCAN",
         urlScore: result.score,
@@ -105,32 +125,21 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 });
 
-// Clear tab cache when tab closes
-chrome.tabs.onRemoved.addListener((tabId) => clearTabCache(tabId));
+// Clear tab cache and abort controller when tab closes
+chrome.tabs.onRemoved.addListener((tabId) => {
+  clearTabCache(tabId);
+  const ctrl = _tabControllers.get(tabId);
+  if (ctrl) ctrl.abort();
+  _tabControllers.delete(tabId);
+});
 
 // ── Context Menu ──────────────────────────────────────────
 function _setupContextMenu() {
   chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: "aegis-scan-link",
-      title: "🛡️ AegisOne: Scan This Link",
-      contexts: ["link"],
-    });
-    chrome.contextMenus.create({
-      id: "aegis-scan-page",
-      title: "🛡️ AegisOne: Scan This Page",
-      contexts: ["page"],
-    });
-    chrome.contextMenus.create({
-      id: "aegis-scan-image",
-      title: "🛡️ AegisOne: Scan This Image",
-      contexts: ["image"],
-    });
-    chrome.contextMenus.create({
-      id: "aegis-scan-text",
-      title: "🛡️ AegisOne: Scan This Text",
-      contexts: ["selection"],
-    });
+    chrome.contextMenus.create({ id: "aegis-scan-link",  title: "🛡️ AegisOne: Scan This Link",  contexts: ["link"] });
+    chrome.contextMenus.create({ id: "aegis-scan-page",  title: "🛡️ AegisOne: Scan This Page",  contexts: ["page"] });
+    chrome.contextMenus.create({ id: "aegis-scan-image", title: "🛡️ AegisOne: Scan This Image", contexts: ["image"] });
+    chrome.contextMenus.create({ id: "aegis-scan-text",  title: "🛡️ AegisOne: Scan This Text",  contexts: ["selection"] });
   });
 }
 
@@ -140,11 +149,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "aegis-scan-link" && info.linkUrl) {
     const result = await scanURL(info.linkUrl);
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
-        type: MSG.RIGHT_CLICK_SCAN,
-        url: info.linkUrl,
-        result,
-      }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, { type: MSG.RIGHT_CLICK_SCAN, url: info.linkUrl, result }).catch(() => {});
     }
   } else if (info.menuItemId === "aegis-scan-page" && tab?.url) {
     if (tabId) {
@@ -153,14 +158,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } else if (info.menuItemId === "aegis-scan-image" && info.srcUrl) {
     const result = await scanImage(info.srcUrl);
     if (tabId && result) {
-      chrome.tabs.sendMessage(tabId, {
-        type: "IMAGE_SCAN_RESULT",
-        url: info.srcUrl,
-        result,
-      }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, { type: "IMAGE_SCAN_RESULT", url: info.srcUrl, result }).catch(() => {});
     }
   } else if (info.menuItemId === "aegis-scan-text" && info.selectionText) {
-    // Scan selected text through the NLP text model
     const textResult = await scanPageText(info.selectionText);
     const score = textResult ? Math.round((textResult.phishing_probability ?? 0) * 100) : 0;
     const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : score >= 20 ? "low" : "safe";
@@ -186,9 +186,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
       switch (msg.type) {
 
-        // ── Navigation / Page Scan ────────────────────────
+        // ── Navigation / Page Scan ─────────────────────────
         case MSG.PAGE_FEATURES: {
-          // Content script sends DOM-extracted features for current page
           const { url, features } = msg;
           const tabId = sender.tab?.id;
 
@@ -199,8 +198,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             break;
           }
 
-          const result = await scanURL(url, features);
-          if (tabId) {
+          // Get the tab's current abort signal (may have been refreshed)
+          const signal = _tabControllers.get(tabId)?.signal;
+
+          const result = await enqueue(url, () => scanURL(url, features, { signal }));
+          if (tabId && result) {
             const current = getTabCache(tabId) || {};
             setTabCache(tabId, {
               ...current,
@@ -215,7 +217,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             });
             _updateBadge(tabId, result.score);
 
-            // Push updated result to content script
             chrome.tabs.sendMessage(tabId, {
               type: MSG.SCAN_RESULT,
               score: result.score,
@@ -237,14 +238,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // ── Hover URL Scan ────────────────────────────────
         case MSG.SCAN_HOVER_URL: {
-          // Prefer a fresh scan, but fall back to cache so hover always shows something useful.
-          let result = await scanURL(msg.url, {}, { bypassCache: true });
-          if (!result) {
-            const cached = await getCachedResult(msg.url);
-            if (cached) {
-              result = { ...cached, from_cache: true };
-            }
+          // Use cache if fresh (within HOVER_TTL). Only go to API if cache is missing/stale.
+          let result = await getCachedResult(msg.url);
+          if (result) {
+            sendResponse({ ok: true, result: { ...result, from_cache: true } });
+            break;
           }
+          // Cache miss — fetch fresh (deduplicated)
+          result = await enqueue(`hover:${msg.url}`, () => scanURL(msg.url, {}, { bypassCache: false }));
           sendResponse({ ok: true, result });
           break;
         }
@@ -267,10 +268,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case "DEEP_PAGE_SCAN": {
           const { pageText, allLinks = [] } = msg;
           const tabId = sender.tab?.id;
+          const signal = _tabControllers.get(tabId)?.signal;
 
           const [textRes, urlsRes] = await Promise.allSettled([
-            pageText ? scanPageText(pageText) : Promise.resolve(null),
-            scanURLBatch(allLinks.slice(0, 30), 5),
+            pageText ? scanPageText(pageText, signal) : Promise.resolve(null),
+            scanURLBatch(allLinks.slice(0, 30), 5, signal),
           ]);
 
           const textResult = textRes.status === "fulfilled" ? textRes.value : null;
@@ -289,7 +291,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             scanned_at: new Date().toISOString(),
           };
 
-          // Tell content script to highlight suspicious links and show dialog if needed
           if (tabId) {
             const current = getTabCache(tabId) || {};
             setTabCache(tabId, _mergeDeepScanData({ ...current, deepReport }));
@@ -301,7 +302,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               }).catch(() => {});
             }
 
-            // Send composite result back for widget + dialog decisions
             chrome.tabs.sendMessage(tabId, {
               type: "DEEP_PAGE_RESULT",
               composite,
@@ -316,21 +316,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
-        // ── Full Page Scan (manual button) ───────────────
+        // ── Full Page Scan (manual button) ────────────────
         case MSG.FULL_PAGE_SCAN: {
           const { pageUrl, pageText, allLinks = [], allImageSrcs = [], attachLinks = [] } = msg;
           const tabId = sender.tab?.id;
+          const signal = _tabControllers.get(tabId)?.signal;
 
           const [textRes, urlsRes] = await Promise.allSettled([
-            pageText ? scanPageText(pageText) : Promise.resolve(null),
-            scanURLBatch(allLinks.slice(0, 30), 5),
+            pageText ? scanPageText(pageText, signal) : Promise.resolve(null),
+            scanURLBatch(allLinks.slice(0, 30), 5, signal),
           ]);
 
           const textResult = textRes.status === "fulfilled" ? textRes.value : null;
           const urlResults = urlsRes.status === "fulfilled" ? urlsRes.value : [];
 
-          const worstUrl = urlResults.reduce((max, u) =>
-            Math.max(max, u.phishing_probability || u.score / 100 || 0), 0);
+          const worstUrl = urlResults.reduce((max, u) => Math.max(max, u.phishing_probability || u.score / 100 || 0), 0);
           const textProb = textResult?.phishing_probability ?? 0;
           const composite = Math.max(worstUrl, textProb);
 
@@ -341,7 +341,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             scanned_at: new Date().toISOString(),
           };
 
-          // Update tab cache with full scan data
           if (tabId) {
             const current = getTabCache(tabId) || {};
             setTabCache(tabId, _mergeDeepScanData({ ...current, fullReport: report }));
@@ -374,10 +373,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const tabData = _mergeDeepScanData(getTabCache(tabId));
           const url = msg.url || tabData?.url;
 
-          // Try LLM-based XAI first
           let xaiResult = await explainWithAI(tabData, url, msg.score);
 
-          // Fall back to local explanation if LLM unavailable
           if (xaiResult?.error || !xaiResult?.summary) {
             const local = generateLocalExplanation(tabData);
             if (local) xaiResult = local;
@@ -430,12 +427,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
-        // ── Attachment Risk (filename scan from Gmail/Outlook) ───
+        // ── Attachment Risk ───────────────────────────────
         case "ATTACHMENT_RISK": {
           const tabId = sender.tab?.id;
           if (!tabId) { sendResponse({ ok: true }); break; }
 
-          // Merge attachment score into the current tab cache
           const current = getTabCache(tabId) || {};
           const existingScore = current.score || 0;
           const attachScore = msg.score || 0;
@@ -461,7 +457,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
           _updateBadge(tabId, mergedScore);
 
-          // Push updated score to content script so widget updates immediately
           chrome.tabs.sendMessage(tabId, {
             type: MSG.SCAN_RESULT,
             score: mergedScore,
@@ -485,7 +480,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             action: "reported",
             user_note: msg.note || null,
           });
-          // Flush immediately so dashboard gets it fast
           await flushNow();
           sendResponse({ ok: true });
           break;
@@ -522,6 +516,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // ── Health Check ──────────────────────────────────
         case MSG.CHECK_HEALTH: {
           const health = await checkHealth();
+          // checkHealth() already calls setBackendOnline() internally
           sendResponse(health);
           break;
         }
@@ -530,7 +525,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: false, reason: "unknown_message_type" });
       }
     } catch (err) {
-      console.error("[AegisOne:SW] Message handler error:", err);
+      if (DEBUG_MODE) console.error("[AegisOne:SW] Message handler error:", err);
       sendResponse({ ok: false, error: err.message });
     }
   })();

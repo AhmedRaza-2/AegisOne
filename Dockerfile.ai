@@ -1,0 +1,27 @@
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies needed for AI models (like PyMuPDF or torch)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code
+COPY api/ /app/api/
+COPY AIML/ /app/AIML/
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV ENVIRONMENT=production
+ENV MODEL_MODE=production
+
+# Command to run the AI Inference Server
+CMD ["python", "AIML/unified_server.py"]

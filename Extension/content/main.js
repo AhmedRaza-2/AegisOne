@@ -1,5 +1,5 @@
 /**
- * AegisOne — Content Script Main Entry Point v2.1
+ * AegisOne — Content Script Main Entry Point v2.2
  * =================================================
  * Orchestrates all content-side modules.
  *
@@ -22,6 +22,8 @@
   if (location.protocol === "chrome-extension:") return;
   window.__AEGIS_INJECTED__ = true;
 
+  const _DEBUG = false; // mirrors background DEBUG_MODE — set false for production
+
   let _widget = null;
   let _currentScanData = null;
   let _deepScanTimer = null;
@@ -37,7 +39,7 @@
   async function init() {
     try {
       const [
-        { STORE_KEYS },
+        { STORE_KEYS, API_BASE },
         { createWidget, updateWidget, updateThreatCount },
         { initSearchBadges },
         { initLinkScanner, applyDangerBadges },
@@ -45,7 +47,7 @@
         { showWarningModal, showXAIModal, showDownloadModal, showRightClickResult, showTextScanResult },
         { getRootDomain },
       ] = await Promise.all([
-        import(chrome.runtime.getURL("utils/constants.js")),
+        import(chrome.runtime.getURL("utils/constants.js")),  // imports API_BASE, DEBUG_MODE, etc.
         import(chrome.runtime.getURL("content/widget.js")),
         import(chrome.runtime.getURL("content/search-badges.js")),
         import(chrome.runtime.getURL("content/link-scanner.js")),
@@ -230,32 +232,54 @@
         });
       });
 
-      // ── SPA Navigation Watcher ───────────────────────
+      // ── SPA Navigation Watcher (event-driven, zero CPU polling) ─────
+      // Replaces setInterval(1500ms) with native browser navigation events.
+      // Covers: back/forward, pushState, replaceState, hash changes.
       let _lastUrl = location.href;
-      setInterval(() => {
-        if (document.visibilityState !== "visible") return;
-        if (location.href !== _lastUrl) {
-          _lastUrl = location.href;
-          window.__AEGIS_WARNING_DISMISSED__ = false;
-          const updated = _extractPageFeatures();
-          chrome.runtime.sendMessage({
-            type: "PAGE_FEATURES",
-            url: location.href,
-            features: updated,
-          }).then(r => {
-            if (r?.result) {
-              _currentScanData = r.result;
-              setCurrentRisk(r.result.score);
-              updateWidget(r.result);
-            }
-          }).catch(() => {});
 
-          // Re-trigger deep page scan on SPA navigation
-          if (!_matchesDomainList(getRootDomain(location.href), allowlist)) {
-            _scheduleDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal, 3000);
+      function _onSpaNavigate() {
+        if (document.visibilityState !== "visible") return;
+        const currentUrl = location.href;
+        if (currentUrl === _lastUrl) return;
+        _lastUrl = currentUrl;
+        window.__AEGIS_WARNING_DISMISSED__ = false;
+
+        const updated = _extractPageFeatures();
+        chrome.runtime.sendMessage({
+          type: "PAGE_FEATURES",
+          url: currentUrl,
+          features: updated,
+        }).then(r => {
+          if (r?.result) {
+            _currentScanData = r.result;
+            setCurrentRisk(r.result.score);
+            updateWidget(r.result);
           }
+        }).catch(() => {});
+
+        // Re-trigger deep page scan on SPA navigation (only if not allowlisted)
+        if (!_matchesDomainList(getRootDomain(currentUrl), allowlist)) {
+          _scheduleDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal, 2000);
         }
-      }, 1500);
+      }
+
+      // Native browser events — covers hash changes and popstate
+      window.addEventListener("popstate", _onSpaNavigate, { passive: true });
+      window.addEventListener("hashchange", _onSpaNavigate, { passive: true });
+
+      // Intercept pushState/replaceState (used by React, Vue, Gmail, GitHub, etc.)
+      (function _interceptHistoryAPI() {
+        const _orig_push    = history.pushState.bind(history);
+        const _orig_replace = history.replaceState.bind(history);
+        history.pushState = function (...args) {
+          _orig_push(...args);
+          setTimeout(_onSpaNavigate, 50); // tiny delay lets the DOM update
+        };
+        history.replaceState = function (...args) {
+          _orig_replace(...args);
+          setTimeout(_onSpaNavigate, 50);
+        };
+      })();
 
       // ── Gmail / Outlook email detection ─────────────
       _watchForEmails();
@@ -263,8 +287,13 @@
       // ── Clipboard Protection ────────────────────────
       _initClipboardProtection();
 
+      // ── Dynamic DOM Phishing Observer ─────────────────
+      // Watches for late-injected login forms, iframes, and scripts
+      // that phishing kits inject after page load.
+      _initDOMObserver(updateWidget, showWarningModal, setCurrentRisk);
+
     } catch (err) {
-      console.warn("[AegisOne] Initialization error:", err);
+      if (_DEBUG) console.warn("[AegisOne] Initialization error:", err);
     }
   }
 
@@ -430,7 +459,7 @@
       score = Math.min(100, score);
 
       const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
-      await fetch(`http://localhost:8000/telemetry/scripts`, {
+      await fetch(`${API_BASE}/telemetry/scripts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -479,7 +508,7 @@
       score = Math.min(100, score);
 
       const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
-      await fetch(`http://localhost:8000/telemetry/cookies`, {
+      await fetch(`${API_BASE}/telemetry/cookies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -558,86 +587,183 @@
       return { score: Math.min(100, score), signals };
     }
 
-    const emailObserver = new MutationObserver(debounce(() => {
-      let sender = "", subject = "", body = "";
+    // Target the specific email content container rather than entire body
+    // for much better performance on Gmail/Outlook (heavy DOM)
+    const _emailRoot = isGmail
+      ? (document.querySelector('.AO') || document.body)
+      : (document.querySelector('#app') || document.body);
+
+    // FIX 3: Build a cache key that includes the sorted attachment list.
+    // The old key (subject+sender) caused new attachments on the same thread
+    // to be silently skipped. Now any change in attachments produces a new key.
+    function _emailCacheKey(subj, sndr, names) {
+      return subj + '\x00' + sndr + '\x00' + [...names].sort().join(',');
+    }
+
+    // FIX 4: Extract DOM-reading + sending logic so it can be called both from
+    // the MutationObserver AND from the delayed retry timer.
+    let _attachRetryTimer = null;
+
+    function _scanCurrentEmail() {
+      let sender = '', subject = '', body = '';
       let attachmentNames = [];
 
       if (isGmail) {
         const senderEl  = document.querySelector('[email], [data-hovercard-id]');
-        const subjectEl = document.querySelector("h2[data-thread-perm-id], .hP");
-        const bodyEl    = document.querySelector(".a3s.aiL");
-        sender  = senderEl?.getAttribute("email") || senderEl?.getAttribute("data-hovercard-id") || "";
-        subject = subjectEl?.textContent?.trim() || "";
-        body    = bodyEl?.innerText?.slice(0, 2000) || "";
+        const subjectEl = document.querySelector('h2[data-thread-perm-id], .hP');
+        const bodyEl    = document.querySelector('.a3s.aiL');
+        sender  = senderEl?.getAttribute('email') || senderEl?.getAttribute('data-hovercard-id') || '';
+        subject = subjectEl?.textContent?.trim() || '';
+        body    = bodyEl?.innerText?.slice(0, 2000) || '';
 
         // Scrape attachment filenames from Gmail DOM
         // Gmail shows attachment names in .aQA, .aV3 spans or data-tooltip attributes
         const attachEls = [
-          ...document.querySelectorAll(".aQA span"),          // attachment name span
-          ...document.querySelectorAll(".aV3"),               // alt format
-          ...document.querySelectorAll("[data-tooltip]"),     // tooltip has filename
-          ...document.querySelectorAll(".bAK span"),          // another Gmail selector
+          ...document.querySelectorAll('.aQA span'),
+          ...document.querySelectorAll('.aV3'),
+          ...document.querySelectorAll('[data-tooltip]'),
+          ...document.querySelectorAll('.bAK span'),
         ];
         attachmentNames = [...new Set(
           attachEls
-            .map(el => (el.textContent || el.getAttribute("data-tooltip") || "").trim())
-            .filter(n => n && n.includes(".") && n.length < 120)
+            .map(el => (el.textContent || el.getAttribute('data-tooltip') || '').trim())
+            .filter(n => n && n.includes('.') && n.length < 120)
         )];
       } else if (isOutlook) {
         const senderEl  = document.querySelector('[data-convid] .oG');
         const subjectEl = document.querySelector('.cN');
         const bodyEl    = document.querySelector('.rps');
-        sender  = senderEl?.textContent?.trim() || "";
-        subject = subjectEl?.textContent?.trim() || "";
-        body    = bodyEl?.innerText?.slice(0, 2000) || "";
+        sender  = senderEl?.textContent?.trim() || '';
+        subject = subjectEl?.textContent?.trim() || '';
+        body    = bodyEl?.innerText?.slice(0, 2000) || '';
 
-        // Outlook attachment names
         attachmentNames = [...document.querySelectorAll(".attachmentTitle, [data-app-section='Attachment'] span")]
           .map(el => el.textContent?.trim())
           .filter(Boolean);
       }
 
-      if (!subject || _emailCache.has(subject + sender)) return;
-      _emailCache.add(subject + sender);
+      if (!subject) return { foundAttachments: attachmentNames.length > 0 };
 
-      // ── Scan email body ──────────────────────────────
+      // FIX 3: key includes attachment list so same thread + new attachment rescans
+      const cacheKey = _emailCacheKey(subject, sender, attachmentNames);
+      if (_emailCache.has(cacheKey)) return { foundAttachments: attachmentNames.length > 0 };
+      _emailCache.add(cacheKey);
+
+      // -- Scan email body
       if (body.length > 50) {
-        chrome.runtime.sendMessage({ type: "EMAIL_DATA", sender, subject, body }).catch(() => {});
+        chrome.runtime.sendMessage({ type: 'EMAIL_DATA', sender, subject, body }).catch(() => {});
       }
 
-      // ── Scan attachment filenames ────────────────────
+      // -- Scan attachment filenames
       if (attachmentNames.length > 0) {
         let maxScore = 0;
         const allSignals = [];
-
         for (const name of attachmentNames) {
           const { score, signals } = _scoreFilename(name);
           if (score > maxScore) maxScore = score;
-          allSignals.push(...signals.map(s => ({ label: `📎 "${name}": ${s}` })));
+          allSignals.push(...signals.map(s => ({ label: '\u{1F4CE} "' + name + '": ' + s })));
         }
-
         if (maxScore >= 20) {
-          // Update widget immediately with attachment risk
           chrome.runtime.sendMessage({
-            type: "ATTACHMENT_RISK",
+            type: 'ATTACHMENT_RISK',
             score: maxScore,
             signals: allSignals,
             filenames: attachmentNames,
           }).catch(() => {});
-
-          // Also fire text scan on all filenames concatenated
-          const filenameText = attachmentNames.join(" ");
+          const filenameText = attachmentNames.join(' ');
           chrome.runtime.sendMessage({
-            type: "EMAIL_DATA",
+            type: 'EMAIL_DATA',
             sender,
-            subject: `${subject} [attachments: ${filenameText}]`,
+            subject: subject + ' [attachments: ' + filenameText + ']',
             body: filenameText,
           }).catch(() => {});
         }
       }
+
+      return { foundAttachments: attachmentNames.length > 0 };
+    }
+
+    // FIX 4: Call _scanCurrentEmail from the observer.
+    // If no attachments were visible on first pass, schedule a 3-second retry
+    // to catch Gmail attachments that render after the email body settles.
+    const emailObserver = new MutationObserver(debounce(() => {
+      const { foundAttachments } = _scanCurrentEmail();
+      if (!foundAttachments) {
+        clearTimeout(_attachRetryTimer);
+        _attachRetryTimer = setTimeout(() => _scanCurrentEmail(), 3000);
+      }
     }, 1500));
 
-    emailObserver.observe(document.body, { childList: true, subtree: true });
+    emailObserver.observe(_emailRoot, { childList: true, subtree: true });
+  }
+
+  // ── Dynamic DOM Observer ─────────────────────────────
+  // Detects phishing elements injected after page load:
+  //  - New login forms / password fields
+  //  - Hidden iframes
+  //  - Suspicious new <script> tags
+  // Uses throttled MutationObserver — only inspects specific node types.
+  function _initDOMObserver(updateWidget, showWarningModal, setCurrentRisk) {
+    if (window.__AEGIS_DOM_OBSERVER__) return;
+    window.__AEGIS_DOM_OBSERVER__ = true;
+
+    const hostname = location.hostname.toLowerCase();
+    // Known-safe hosts don't need DOM mutation scanning
+    const SAFE_HOSTS = ["google.", "bing.", "youtube.com", "facebook.com", "github.com", "microsoft.com"];
+    if (SAFE_HOSTS.some(h => hostname.includes(h))) return;
+
+    let _domScanTimer = null;
+    let _injectedFormCount = document.querySelectorAll('input[type="password"]').length;
+    let _injectedIframeCount = document.querySelectorAll('iframe').length;
+
+    const observer = new MutationObserver(debounce(() => {
+      const newPasswordFields = document.querySelectorAll('input[type="password"]').length;
+      const newIframes = document.querySelectorAll('iframe').length;
+
+      const newFormInjected = newPasswordFields > _injectedFormCount;
+      const newIframeInjected = newIframes > _injectedIframeCount;
+
+      _injectedFormCount = newPasswordFields;
+      _injectedIframeCount = newIframes;
+
+      // Only act if something new was injected
+      if (!newFormInjected && !newIframeInjected) return;
+
+      if (_DEBUG) console.log("[AegisOne] DOM mutation detected — new login/iframe injected");
+
+      // Re-extract features and re-scan if new credential form appears
+      clearTimeout(_domScanTimer);
+      _domScanTimer = setTimeout(() => {
+        const updated = _extractPageFeatures();
+        chrome.runtime.sendMessage({
+          type: "PAGE_FEATURES",
+          url: location.href,
+          features: updated,
+        }).then(r => {
+          if (r?.result && r.result.score > 0) {
+            _currentScanData = r.result;
+            setCurrentRisk(r.result.score);
+            updateWidget(r.result);
+            // If newly injected form on a suspicious page — warn immediately
+            if (newFormInjected && r.result.score >= 50) {
+              showWarningModal({
+                score: r.result.score,
+                verdict: r.result.verdict,
+                threat_type: "credential_harvesting",
+                top_factors: [{ label: "Login form injected dynamically after page load" }, ...(r.result.top_factors || [])],
+                url: location.href,
+              });
+            }
+          }
+        }).catch(() => {});
+      }, 800);
+    }, 500));
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      // Only watch for added nodes — not attribute changes (too frequent)
+    });
   }
 
   // ── Initialize ────────────────────────────────────────

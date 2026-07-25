@@ -75,7 +75,7 @@ services:
   # 5. React Dashboard (Frontend)
   dashboard:
     build:
-      context: ./frontend
+      context: ./frontend/dashboard
       dockerfile: Dockerfile
     container_name: aegisone-dashboard
     restart: unless-stopped
