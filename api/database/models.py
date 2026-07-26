@@ -86,7 +86,6 @@ class User(Base):
     scans           = relationship("ScanLog", back_populates="user")
     reported_incidents = relationship("Incident", foreign_keys="Incident.reported_by_id", back_populates="reporter")
     resolved_incidents = relationship("Incident", foreign_keys="Incident.resolved_by_id", back_populates="resolver")
-    audit_actions   = relationship("AuditLog", back_populates="user")
 
     __table_args__ = (
         Index("ix_users_org_dept", "organization_id", "department_id"),

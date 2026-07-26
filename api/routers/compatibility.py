@@ -62,9 +62,8 @@ DEFAULT_POLICY = {
 
 @router.post("/analyze/url")
 async def api_url(url: str = Form(...), scan_type: str = Form("url"), db: AsyncSession = Depends(get_db)):
-    import asyncio
     start = time.time()
-    result = await asyncio.to_thread(predict_url, url)
+    result = await predict_url(url)
     
     # Store the scan for dashboard analytics
     score = result.get("phishing_probability", 0) * 100
@@ -90,9 +89,8 @@ async def api_url(url: str = Form(...), scan_type: str = Form("url"), db: AsyncS
 
 @router.post("/analyze/text")
 async def api_text(text: str = Form(...), db: AsyncSession = Depends(get_db)):
-    import asyncio
     start = time.time()
-    result = await asyncio.to_thread(predict_text, text)
+    result = await predict_text(text)
     
     # Store the scan for dashboard analytics
     score = result.get("phishing_probability", 0) * 100
@@ -119,7 +117,7 @@ async def api_text(text: str = Form(...), db: AsyncSession = Depends(get_db)):
 @router.post("/analyze/email")
 async def api_email(sender: str = Form(""), subject: str = Form(""), body: str = Form("")):
     start = time.time()
-    result = predict_email(sender, subject, body)
+    result = await predict_email(sender, subject, body)
     result["latency_ms"] = round((time.time() - start) * 1000, 1)
     return result
 

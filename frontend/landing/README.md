@@ -1,15 +1,20 @@
-# ✨ MotionCraft - React and Framer Motion
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-### About this Project:
-MotionCraft is a React.js-based website built to explore and experiment with Framer Motion animations. The main goal behind creating this project was to understand how to bring life to different sections of a webpage through smooth and engaging motion effects.
+# Run and deploy your AI Studio app
 
-The content on the website was generated using ChatGPT — simply to fill the layout and visualize the design in context. The inspiration for MotionCraft came from a mix of modern company landing pages, blending minimal design with clean transitions.
+This contains everything you need to run your app locally.
 
-### Tech Stack used:
-[![My Skills](https://skillicons.dev/icons?i=react,vite,tailwindcss)](https://skillicons.dev)
+View your app in AI Studio: https://ai.studio/apps/7ea2d9a5-66a0-4cbb-9308-7b3f9f04c784
 
-### Live Demo Link:
-https://framer-motion-craft.netlify.app
+## Run Locally
 
-### Project Screenshot:
-![Project Screenshot](readme-assets/MotionCraft.png)
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

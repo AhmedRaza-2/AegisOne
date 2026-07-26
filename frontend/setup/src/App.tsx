@@ -134,7 +134,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const lines = text.split('\n').filter(l => l.trim() !== '');
+      const lines = text.split('\n');
       
       if (lines.length < 2) {
         setLoading(false);
@@ -143,10 +143,14 @@ export default function App() {
 
       const parsedEmployees: Employee[] = [];
       const seenEmails = new Set<string>();
+      let adminCount = 0;
 
       for (let i = 1; i < lines.length; i++) {
-        // Handle CSV split, ignoring commas inside quotes is hard with simple split, but this is a basic version
-        const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (!lines[i].trim()) continue;
+        
+        // Parse CSV handling potential quotes
+        const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || [];
+        
         if (cols.length < 6) continue;
         
         const [employeeId, firstName, lastName, email, phone, departmentCode, role, designation] = cols;
@@ -156,6 +160,10 @@ export default function App() {
 
         const allowedRoles = ['employee', 'manager', 'admin'];
         const normalizedRole = (role || '').toLowerCase().trim();
+
+        if (normalizedRole === 'admin') {
+          adminCount++;
+        }
 
         if (!email) {
           status = 'invalid';
@@ -172,6 +180,9 @@ export default function App() {
         } else if (!allowedRoles.includes(normalizedRole)) {
           status = 'invalid';
           error = `Invalid Role: Must be Employee, Manager, or Admin`;
+        } else if (normalizedRole === 'admin' && adminCount > 1) {
+          status = 'invalid';
+          error = `Only 1 Admin allowed in the organization`;
         }
 
         if (email) seenEmails.add(email);
@@ -303,14 +314,14 @@ export default function App() {
                       <div className="space-y-2 relative">
                         <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
                           Organization Name
-                          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">FROM_ENV</span>
+                          <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-mono border border-emerald-200">AUTO DETECTED</span>
                         </label>
                         <input type="text" value={orgName} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-semibold outline-none cursor-not-allowed" />
                       </div>
                       <div className="space-y-2 relative">
                         <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
                           Industry
-                          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">FROM_ENV</span>
+                          <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-mono border border-emerald-200">AUTO DETECTED</span>
                         </label>
                         <input type="text" value={industry} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-semibold outline-none cursor-not-allowed" />
                       </div>
@@ -321,12 +332,6 @@ export default function App() {
                           <option>UTC+05:00 (PKT)</option>
                           <option>UTC-05:00 (EST)</option>
                         </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-700 uppercase">Logo Upload</label>
-                        <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-xl px-4 py-3 text-sm text-center text-slate-500 cursor-pointer hover:bg-slate-100">
-                          Click to upload logo (optional)
-                        </div>
                       </div>
                     </div>
 
@@ -568,7 +573,8 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {departments.map(dept => {
                     const deptEmployees = validEmployees.filter(e => e.departmentCode === dept.code);
-                    const defaultManager = deptEmployees.find(e => e.role.toLowerCase() === 'manager') || deptEmployees.find(e => e.role.toLowerCase() === 'admin');
+                    const potentialManagers = deptEmployees.filter(e => e.role.toLowerCase() === 'manager');
+                    const defaultManager = potentialManagers[0];
                     
                     return (
                       <div key={dept.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
@@ -576,7 +582,7 @@ export default function App() {
                           <h4 className="font-bold text-[#0F172A]">{dept.name}</h4>
                           <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{dept.code}</span>
                         </div>
-                        {deptEmployees.length > 0 ? (
+                        {potentialManagers.length > 0 ? (
                            <select 
                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#0A5ED6] outline-none cursor-pointer"
                              defaultValue={dept.leadId || defaultManager?.id || ""}
@@ -585,12 +591,14 @@ export default function App() {
                              }}
                            >
                              <option value="">Select Manager...</option>
-                             {deptEmployees.map(e => (
-                               <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.role} - {e.designation})</option>
+                             {potentialManagers.map(e => (
+                               <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.designation})</option>
                              ))}
                            </select>
                         ) : (
-                          <p className="text-xs text-red-500 font-semibold italic">No valid employees imported for this department.</p>
+                          <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
+                            <p className="text-xs text-red-600 font-medium">No managers found in CSV for this department.</p>
+                          </div>
                         )}
                       </div>
                     )

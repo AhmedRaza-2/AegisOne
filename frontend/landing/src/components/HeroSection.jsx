@@ -47,9 +47,7 @@ const HeroSection = () => {
                         Get Started
                         <ArrowRight className="group-hover:translate-x-2 transition-transform" size={20} />
                     </Button>
-                    <Button type="secondary" href="http://localhost:3000/login">
-                        View API Docs
-                    </Button>
+
                 </motion.div>
 
                 <motion.div

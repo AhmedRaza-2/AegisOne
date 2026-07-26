@@ -151,9 +151,6 @@ async def lifespan(app: FastAPI):
 
     load_all_models()
     
-    # Pre-warm the cache for load tests and start background queue workers
-    await scan.on_startup()
-    
     logger.info("AegisOne API ready — accepting requests")
     yield
     # Shutdown
