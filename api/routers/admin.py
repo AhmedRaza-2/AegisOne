@@ -43,13 +43,13 @@ def _org_scope(query, model, user):
         # RBAC: Manager can only access their own department
         if user.role == Role.MANAGER.value:
             dept_id = getattr(user, "department_id", None)
-            dept_str = getattr(user, "department", None)
+            dept_str = getattr(user, "department", None) or "IT"
             
             # If the model has department directly (like User)
             if hasattr(model, "department_id") or hasattr(model, "department"):
                 condition = None
-                if hasattr(model, "department") and dept_str is not None:
-                    condition = getattr(model, "department") == dept_str
+                if hasattr(model, "department"):
+                    condition = (getattr(model, "department") == dept_str) | (getattr(model, "department") == None) | (getattr(model, "department") == "") | (getattr(model, "department") == "General")
                 elif hasattr(model, "department_id") and dept_id is not None:
                     condition = getattr(model, "department_id") == dept_id
                     
@@ -64,12 +64,7 @@ def _org_scope(query, model, user):
             # If the model has user_id but no department, we must join the User table to filter!
             elif hasattr(model, "user_id"):
                 from api.database.models import User
-                condition = None
-                if dept_str is not None:
-                    condition = User.department == dept_str
-                elif dept_id is not None:
-                    condition = User.department_id == dept_id
-                
+                condition = (User.department == dept_str) | (User.department == None) | (User.department == "") | (User.department == "General")
                 if condition is not None:
                     # Use a subquery or join depending on how the query was built.
                     # A safer approach for existing simple select() queries is to filter on user_id IN (subquery)
@@ -731,17 +726,14 @@ async def get_users(
     org_id = getattr(manager, "organization_id", None) or "org_default"
     q = select(User).where(User.organization_id == org_id)
     if manager.role == Role.MANAGER.value:
-        condition = None
-        if manager.department is not None:
-            condition = User.department == manager.department
-        elif manager.department_id is not None:
-            condition = User.department_id == manager.department_id
-        
-        if condition is not None:
-            q = q.where(condition)
-            q = q.where(User.role.in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
-        else:
-            q = q.where(False)
+        dept = manager.department or "IT"
+        q = q.where(
+            (User.department == dept) | 
+            (User.department == None) | 
+            (User.department == "") | 
+            (User.department == "General")
+        )
+        q = q.where(User.role.in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
     
     rows = (await db.execute(q)).scalars().all()
     

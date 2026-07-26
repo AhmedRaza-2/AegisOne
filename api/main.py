@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI):
             new_user = User(
                 email="pakistaniahmed627@gmail.com",
                 password_hash=hash_password("AegisOne2026!"),
-                full_name="Ahmed Raza",
+                full_name="Pakistani Employee",
                 role="employee",
                 department="IT",
                 account_status="approved",
@@ -103,6 +103,16 @@ async def lifespan(app: FastAPI):
             db.add(new_user)
             await db.commit()
             print("Added user pakistaniahmed627@gmail.com with password AegisOne2026!")
+
+        # Auto-assign any user with missing or 'General' department to 'IT' so Manager sees them
+        users_unassigned = (await db.execute(
+            select(User).where((User.department == None) | (User.department == "") | (User.department == "General"))
+        )).scalars().all()
+        for u in users_unassigned:
+            u.department = "IT"
+        if users_unassigned:
+            await db.commit()
+            print(f"Auto-assigned {len(users_unassigned)} users to IT department.")
 
         # Auto-seed scans for IT employees so the Manager UI works immediately
         from api.database.models import WebsiteScan, Device

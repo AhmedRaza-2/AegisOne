@@ -62,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       localStorage.setItem("aegis_access_token", data.access_token);
+      localStorage.setItem("aegis_token", data.access_token);
       localStorage.setItem("aegis_refresh_token", data.refresh_token);
       
       const userData = {

@@ -60,6 +60,17 @@
       const allowlist = Array.isArray(policy[STORE_KEYS.ALLOWLIST]) ? policy[STORE_KEYS.ALLOWLIST] : [];
       const isAllowlistedPage = _matchesDomainList(getRootDomain(location.href), allowlist);
 
+      // ── Sync Dashboard Logged-In User ───────────────
+      try {
+        const rawUser = localStorage.getItem("user");
+        if (rawUser) {
+          const userObj = JSON.parse(rawUser);
+          if (userObj && userObj.email) {
+            chrome.storage.local.set({ user_email: userObj.email });
+          }
+        }
+      } catch (e) {}
+
       // ── Widget ──────────────────────────────────────
       _widget = createWidget();
 

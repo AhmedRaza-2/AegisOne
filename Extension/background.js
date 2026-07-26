@@ -105,14 +105,22 @@ function _reDownload(url, label) {
 // ──────────────────────────────────────────────
 async function callAPI(endpoint, body, isFormData = false) {
   try {
+    const { user_email } = await chrome.storage.local.get("user_email");
     const opts = {
       method: "POST",
       signal: AbortSignal.timeout(CONFIG.URL_SCAN_TIMEOUT_MS),
+      headers: {}
     };
+    if (user_email) {
+      opts.headers["X-User-Email"] = user_email;
+      if (isFormData && body instanceof FormData) {
+        if (!body.has("user_email")) body.append("user_email", user_email);
+      }
+    }
     if (isFormData) {
       opts.body = body; // FormData
     } else {
-      opts.headers = { "Content-Type": "application/json" };
+      opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
     const res = await fetch(`${CONFIG.API_BASE}${endpoint}`, opts);

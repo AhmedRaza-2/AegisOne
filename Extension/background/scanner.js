@@ -52,6 +52,7 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
   if (!isBackendOnline()) return null;
 
   try {
+    const { user_email } = await chrome.storage.local.get("user_email");
     const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
     // Compose the caller's signal with the timeout signal if both provided
     const combinedSignal = signal
@@ -61,11 +62,20 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
     const opts = {
       method: "POST",
       signal: combinedSignal,
+      headers: {}
     };
+
+    if (user_email) {
+      opts.headers["X-User-Email"] = user_email;
+      if (isFormData && body instanceof FormData) {
+        if (!body.has("user_email")) body.append("user_email", user_email);
+      }
+    }
+
     if (isFormData) {
       opts.body = body;
     } else {
-      opts.headers = { "Content-Type": "application/json" };
+      opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
     const res = await fetch(`${API_BASE}${endpoint}`, opts);

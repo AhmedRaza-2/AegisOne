@@ -1,21 +1,13 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-<<<<<<< Updated upstream
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-=======
-import { useRouter, usePathname } from "next/navigation";
->>>>>>> Stashed changes
 import { useEffect, useState } from "react";
 import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
   UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
-<<<<<<< Updated upstream
   Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2, FileText, MessageSquare, Network
-=======
-  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2
->>>>>>> Stashed changes
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
@@ -28,7 +20,6 @@ interface NavItem {
 
 const navByRole: Record<string, NavItem[]> = {
   employee: [
-<<<<<<< Updated upstream
     { label: "Security Overview", href: "/dashboard/employee", icon: ShieldCheck },
     { label: "Threat Center", href: "/dashboard/employee/threats", icon: ShieldAlert },
     { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan },
@@ -44,18 +35,6 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Inter-Department", href: "/dashboard/supervisor/inter-department", icon: Network },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
     { label: "Settings", href: "/dashboard/supervisor/settings", icon: Settings },
-=======
-    { label: "Dashboard", href: "/dashboard/employee", icon: LayoutDashboard },
-    { label: "Scan", href: "/dashboard/employee/scan", icon: Scan },
-    { label: "History", href: "/dashboard/employee/history", icon: History },
-    { label: "Report Threat", href: "/dashboard/employee/report", icon: Flag },
-  ],
-  manager: [
-    { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Employees", href: "/dashboard/admin/users", icon: Users },
-    { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
-    { label: "Reports", href: "/dashboard/admin/reports", icon: FileBarChart },
->>>>>>> Stashed changes
   ],
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
@@ -74,10 +53,6 @@ const navByRole: Record<string, NavItem[]> = {
   ],
 };
 
-<<<<<<< Updated upstream
-=======
-// Extracted static component outside DashboardLayout to prevent mounting leaks
->>>>>>> Stashed changes
 function SidebarContent({
   collapsed,
   navItems,
@@ -88,7 +63,6 @@ function SidebarContent({
   roleBadge,
   handleLogout,
   setMobileOpen,
-<<<<<<< Updated upstream
   theme,
   toggleTheme,
 }: any) {
@@ -173,50 +147,10 @@ function SidebarContent({
               <item.icon className={`shrink-0 ${active ? 'w-4 h-4' : 'w-[15px] h-[15px]'}`} />
               {!collapsed && <span>{item.label}</span>}
             </Link>
-=======
-}: {
-  collapsed: boolean;
-  navItems: NavItem[];
-  pathname: string;
-  router: any;
-  initials: string;
-  user: any;
-  roleBadge: any;
-  handleLogout: () => void;
-  setMobileOpen: (open: boolean) => void;
-}) {
-  return (
-    <>
-      {/* Logo */}
-      <div className="h-16 flex items-center gap-2.5 px-4 border-b border-surface-200 dark:border-white/[0.06] shrink-0">
-        <ShieldCheck className="w-7 h-7 text-brand-600 dark:text-brand-500 shrink-0" />
-        {!collapsed && <span className="text-lg font-bold tracking-tight text-surface-900 dark:text-white">AegisOne</span>}
-      </div>
-
-      {/* Nav Items */}
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-        {navItems.map(item => {
-          const active = pathname === item.href;
-          return (
-            <button
-              key={item.href}
-              onClick={() => { router.push(item.href); setMobileOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                active
-                  ? "bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-500/20"
-                  : "text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent"
-              }`}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="w-[18px] h-[18px] shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </button>
->>>>>>> Stashed changes
           );
         })}
       </nav>
 
-<<<<<<< Updated upstream
       <div className="p-4 shrink-0 mt-auto border-t border-surface-200 dark:border-white/[0.04] relative">
         {/* OTP Modal */}
         {showOtpModal && (
@@ -320,39 +254,17 @@ function SidebarContent({
             <LogOut className="w-5 h-5" />
           </button>
         )}
-=======
-      {/* User section */}
-      <div className="border-t border-surface-200 dark:border-white/[0.06] p-3 shrink-0">
-        {!collapsed && (
-          <div className="flex items-center gap-3 px-2 py-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">{initials}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-surface-900 dark:text-white truncate">{user.fullName}</div>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${roleBadge.color}`}>{roleBadge.label}</span>
-            </div>
-          </div>
-        )}
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-surface-500 hover:text-red-600 hover:bg-red-600/5 dark:text-surface-400 dark:hover:text-red-400 dark:hover:bg-red-400/5 transition-all" title="Logout">
-          <LogOut className="w-[18px] h-[18px] shrink-0" />
-          {!collapsed && <span>Logout</span>}
-        </button>
->>>>>>> Stashed changes
       </div>
     </>
   );
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-<<<<<<< Updated upstream
   const { user, logout, theme, toggleTheme, isLoading } = useAuth();
-=======
-  const { user, logout, isLoading, theme, toggleTheme } = useAuth();
->>>>>>> Stashed changes
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-<<<<<<< Updated upstream
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(true);
@@ -386,16 +298,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isLoading || !user || isAuthorizing) {
     return (
       <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex items-center justify-center">
-=======
-
-  useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [user, isLoading, router]);
-
-  if (isLoading || !user) {
-    return (
-      <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center">
->>>>>>> Stashed changes
         <Shield className="w-8 h-8 text-brand-500 animate-pulse" />
       </div>
     );
@@ -403,24 +305,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = navByRole[user.role] || navByRole.employee;
   const roleBadge = getRoleBadge(user.role);
-<<<<<<< Updated upstream
   const userName = user?.fullName || user?.full_name || "Admin User";
   const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2);
-=======
-  const initials = user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2);
->>>>>>> Stashed changes
 
   const handleLogout = () => { logout(); router.replace("/login"); };
 
   return (
-<<<<<<< Updated upstream
     <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex transition-colors duration-300 font-sans">
       <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] transition-all duration-300 ${collapsed ? "w-[80px]" : "w-[260px]"} shrink-0 h-screen sticky top-0 z-50`}>
-=======
-    <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex transition-colors duration-300">
-      {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.06] bg-white dark:bg-surface-950 transition-all duration-300 ${collapsed ? "w-[68px]" : "w-[240px]"} shrink-0 h-screen sticky top-0`}>
->>>>>>> Stashed changes
         <SidebarContent
           collapsed={collapsed}
           navItems={navItems}
@@ -431,20 +323,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           roleBadge={roleBadge}
           handleLogout={handleLogout}
           setMobileOpen={setMobileOpen}
-<<<<<<< Updated upstream
           theme={theme}
           toggleTheme={toggleTheme}
         />
         <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#1A2133] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
-=======
-        />
-        <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
->>>>>>> Stashed changes
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </aside>
 
-<<<<<<< Updated upstream
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="h-16 border-b border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#0F1423] flex items-center justify-between px-6 sticky top-0 z-30 transition-colors duration-300">
           <div className="flex-1 flex items-center">
@@ -541,70 +427,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         <main className="flex-1 p-6 md:p-8 text-surface-900 dark:text-white overflow-hidden">
-=======
-      {/* Mobile sidebar overlay */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
-            <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="fixed left-0 top-0 h-full w-[260px] bg-white dark:bg-surface-950 border-r border-surface-200 dark:border-white/[0.06] z-50 flex flex-col md:hidden">
-              <SidebarContent
-                collapsed={false}
-                navItems={navItems}
-                pathname={pathname}
-                router={router}
-                initials={initials}
-                user={user}
-                roleBadge={roleBadge}
-                handleLogout={handleLogout}
-                setMobileOpen={setMobileOpen}
-              />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* Top bar */}
-        <header className="h-16 border-b border-surface-200 dark:border-white/[0.06] bg-white/85 dark:bg-surface-950/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 transition-colors duration-300">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04]">
-              <Menu className="w-5 h-5 text-surface-500 dark:text-surface-400" />
-            </button>
-            <div>
-              <h2 className="text-sm font-semibold text-surface-900 dark:text-white">
-                {user.role === "global_admin" 
-                  ? "AegisOne Platform Head" 
-                  : user.organization === "org-1" 
-                  ? "U Bank Limited" 
-                  : user.organization === "org-2" 
-                  ? "INARA Technologies" 
-                  : user.organization === "org-3" 
-                  ? "Apex Financial Corp" 
-                  : "Apex Financial Corp"}
-              </h2>
-              <p className="text-xs text-surface-500 dark:text-surface-400">
-                {user.role === "global_admin" ? "Systems Operations" : user.department}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Theme Toggle */}
-            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors" title="Toggle Theme">
-              {theme === "dark" ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-surface-600" />}
-            </button>
-            <button className="relative p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors">
-              <Bell className="w-5 h-5 text-surface-500 dark:text-surface-400" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
-            </button>
-            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400 md:hidden">{initials}</div>
-          </div>
-        </header>
-
-        {/* Page content */}
-        <main className="flex-1 p-4 md:p-6 text-surface-900 dark:text-white">
->>>>>>> Stashed changes
           {children}
         </main>
       </div>

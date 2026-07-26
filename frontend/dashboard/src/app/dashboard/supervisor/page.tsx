@@ -28,8 +28,8 @@ export default function SupervisorDashboard() {
   const [dbUsers, setDbUsers] = useState<any[]>([]);
 
   useEffect(() => {
-    const token = localStorage.getItem("aegis_token");
-    const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
 
     // Fetch Stats
     fetch("http://localhost:8000/admin/stats", { headers })

@@ -23,8 +23,8 @@ export default function ThreatCenterPage() {
   const [dbUsers, setDbUsers] = useState<any[]>([]);
 
   useEffect(() => {
-    const token = localStorage.getItem("aegis_token");
-    const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
 
     fetch("http://localhost:8000/admin/users", { headers })
       .then(res => res.json())

@@ -1,5 +1,4 @@
 "use client";
-<<<<<<< Updated upstream
 import { Users, Search, ShieldCheck, ShieldOff, Plus, Trash2, X, KeyRound, Ban, CheckCircle } from "lucide-react";
 import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -35,23 +34,6 @@ export default function UsersPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "manager" | "employee">("employee");
-=======
-import { Users, Plus, ShieldCheck, ShieldOff, Key, X, AlertCircle } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth-context";
-import { motion, AnimatePresence } from "framer-motion";
-
-export default function UsersPage() {
-  const { user } = useAuth();
-  const [users, setUsers] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("employee");
->>>>>>> Stashed changes
   const [departmentId, setDepartmentId] = useState("");
 
   const fetchData = async () => {
@@ -60,26 +42,17 @@ export default function UsersPage() {
       if (!token) return;
 
       const [usersRes, deptsRes] = await Promise.all([
-<<<<<<< Updated upstream
         fetch("http://localhost:8000/admin/users", {
           headers: { Authorization: `Bearer ${token}` }
         }),
         fetch("http://localhost:8000/admin/departments", {
           headers: { Authorization: `Bearer ${token}` }
         })
-=======
-        fetch("http://localhost:8000/admin/users", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("http://localhost:8000/admin/departments", { headers: { Authorization: `Bearer ${token}` } })
->>>>>>> Stashed changes
       ]);
 
       if (usersRes.ok) {
         const data = await usersRes.json();
-<<<<<<< Updated upstream
         setUserList(data.users || []);
-=======
-        setUsers(data.users || []);
->>>>>>> Stashed changes
       }
       if (deptsRes.ok) {
         const data = await deptsRes.json();
@@ -96,7 +69,6 @@ export default function UsersPage() {
     fetchData();
   }, []);
 
-<<<<<<< Updated upstream
   const filtered = useMemo(() => {
     return userList.filter(u => {
       const matchSearch = !deferredSearch || 
@@ -108,17 +80,12 @@ export default function UsersPage() {
     });
   }, [userList, deferredSearch, roleFilter]);
 
-=======
->>>>>>> Stashed changes
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email) return;
 
-<<<<<<< Updated upstream
     const generatedPassword = Math.random().toString(36).slice(-10) + 'X#';
 
-=======
->>>>>>> Stashed changes
     try {
       const token = localStorage.getItem("aegis_access_token");
       const res = await fetch("http://localhost:8000/admin/users", {
@@ -128,21 +95,15 @@ export default function UsersPage() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-<<<<<<< Updated upstream
           email,
           full_name: fullName,
           password: generatedPassword,
-=======
-          full_name: fullName,
-          email: email,
->>>>>>> Stashed changes
           role: role,
           department_id: departmentId ? parseInt(departmentId) : null
         })
       });
 
       if (res.ok) {
-<<<<<<< Updated upstream
         // Send email via setup logic in the background
         const names = fullName.split(' ');
         fetch("http://localhost:8000/setup/execute", {
@@ -161,8 +122,6 @@ export default function UsersPage() {
           })
         }).catch(console.error);
 
-=======
->>>>>>> Stashed changes
         await fetchData();
         setFullName("");
         setEmail("");
@@ -176,14 +135,10 @@ export default function UsersPage() {
     }
   };
 
-<<<<<<< Updated upstream
   const handleUpdateStatus = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === "disabled" ? "active" : "disabled";
     if (!confirm(`Are you sure you want to mark this user as ${newStatus}?`)) return;
 
-=======
-  const handleToggleStatus = async (id: number, currentStatus: boolean) => {
->>>>>>> Stashed changes
     try {
       const token = localStorage.getItem("aegis_access_token");
       const res = await fetch(`http://localhost:8000/admin/users/${id}/status`, {
@@ -192,27 +147,17 @@ export default function UsersPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-<<<<<<< Updated upstream
         body: JSON.stringify({ status: newStatus, reason: "Admin requested" })
-=======
-        body: JSON.stringify({ is_active: !currentStatus })
->>>>>>> Stashed changes
       });
       if (res.ok) {
         fetchData();
       }
-<<<<<<< Updated upstream
     } catch (error) {
       console.error(error);
-=======
-    } catch (e) {
-      console.error(e);
->>>>>>> Stashed changes
     }
   };
 
   const handleResetPassword = async (id: number) => {
-<<<<<<< Updated upstream
     if (!confirm("Are you sure you want to reset this user's password?")) return;
     const newPassword = prompt("Enter new password for the user:");
     if (!newPassword) return;
@@ -232,22 +177,6 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error(error);
-=======
-    if (!confirm("Are you sure you want to generate a new password and email it to this user?")) return;
-    try {
-      const token = localStorage.getItem("aegis_access_token");
-      const res = await fetch(`http://localhost:8000/admin/users/${id}/password`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        alert("Password reset successfully. An email has been sent.");
-      } else {
-        alert("Failed to reset password.");
-      }
-    } catch (e) {
-      console.error(e);
->>>>>>> Stashed changes
     }
   };
 
@@ -258,17 +187,10 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
-<<<<<<< Updated upstream
             <Users className="w-6 h-6 text-brand-650 dark:text-brand-400" /> User Management
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
             Manage employees, managers, and administrators for your organization
-=======
-            <Users className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Employee Directory
-          </h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Manage roles, passwords, and access control
->>>>>>> Stashed changes
           </p>
         </div>
         <button 
@@ -279,7 +201,6 @@ export default function UsersPage() {
         </button>
       </div>
 
-<<<<<<< Updated upstream
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="relative flex-1 w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
@@ -385,61 +306,13 @@ export default function UsersPage() {
                     </tr>
                   );
                 })
-=======
-      <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-surface-600 dark:text-surface-300">
-            <thead className="bg-surface-50 dark:bg-surface-800/50 text-xs uppercase text-surface-500 dark:text-surface-400 border-b border-surface-200 dark:border-white/[0.08]">
-              <tr>
-                <th className="px-6 py-4 font-semibold">User</th>
-                <th className="px-6 py-4 font-semibold">Role</th>
-                <th className="px-6 py-4 font-semibold">Department ID</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-200 dark:divide-white/[0.04]">
-              {loading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-surface-500">Loading...</td></tr>
-              ) : users.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-surface-500">No users found in your scope.</td></tr>
-              ) : (
-                users.map(u => (
-                  <tr key={u.id} className="hover:bg-surface-50 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-surface-900 dark:text-white">{u.full_name}</div>
-                      <div className="text-xs text-surface-500">{u.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap capitalize">{u.role}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{u.department_id || "Unassigned"}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${u.is_active ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
-                        {u.is_active ? "Active" : "Disabled"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => handleResetPassword(u.id)} className="p-1.5 text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 rounded transition-colors" title="Reset Password">
-                          <Key className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleToggleStatus(u.id, u.is_active)} className={`p-1.5 rounded transition-colors ${u.is_active ? "text-surface-400 hover:text-red-500" : "text-red-500 hover:text-emerald-500"}`} title={u.is_active ? "Disable Account" : "Enable Account"}>
-                          {u.is_active ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
->>>>>>> Stashed changes
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-<<<<<<< Updated upstream
       {/* Modal: Add User */}
-=======
->>>>>>> Stashed changes
       <AnimatePresence>
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -450,15 +323,11 @@ export default function UsersPage() {
                   <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Add User</h3>
                   <button onClick={() => setShowAddModal(false)} className="text-surface-400 hover:text-surface-600"><X className="w-4 h-4" /></button>
                 </div>
-<<<<<<< Updated upstream
                 <p className="text-xs text-surface-500 mt-1">Register an employee, manager, or admin profile</p>
-=======
->>>>>>> Stashed changes
               </div>
               <form onSubmit={handleAddUser} className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Full Name</label>
-<<<<<<< Updated upstream
                   <input
                     type="text"
                     required
@@ -510,38 +379,6 @@ export default function UsersPage() {
                 <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
                   <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
                   <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors">Create User</button>
-=======
-                  <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Email Address</label>
-                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white" />
-                </div>
-                {user.role !== "manager" && (
-                  <div>
-                    <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Role</label>
-                    <select value={role} onChange={e => setRole(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white">
-                      <option value="employee">Employee</option>
-                      <option value="manager">Manager</option>
-                      {user.role === "super_admin" && <option value="admin">Admin</option>}
-                    </select>
-                  </div>
-                )}
-                {user.role !== "manager" && (
-                  <div>
-                    <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Department</label>
-                    <select value={departmentId} onChange={e => setDepartmentId(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white">
-                      <option value="">Unassigned</option>
-                      {departments.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg">Create User</button>
->>>>>>> Stashed changes
                 </div>
               </form>
             </motion.div>

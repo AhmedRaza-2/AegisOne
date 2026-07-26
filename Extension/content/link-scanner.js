@@ -52,33 +52,23 @@ async function _onLinkClick(e) {
     if (isInternalURL(url)) return;
     if (a.id && a.id.startsWith("aegis-")) return;
 
-    e.preventDefault();
-    e.stopPropagation();
-
-    const originalCursor = document.body.style.cursor;
-    document.body.style.cursor = "wait";
-
-    const res = await chrome.runtime.sendMessage({
-      type: MSG.SCAN_HOVER_URL,
-      url,
-    }).catch(() => null);
-
-    document.body.style.cursor = originalCursor;
-
-    if (!res?.result || res.result.score < 50) {
-      // Safe — navigate normally
-      if (a.target === "_blank") {
-        window.open(url, "_blank");
-      } else {
-        location.href = url;
-      }
+    // Only intercept if link is explicitly flagged as dangerous
+    const isDangerous = a.dataset.aegisDanger === "true" || a.querySelector(".aegis-badge-danger");
+    if (!isDangerous) {
+      // Normal click — DO NOT intercept! Let native browser/SPA router handle navigation smoothly.
       return;
     }
 
-    const { score, verdict, threat_type, top_factors } = res.result;
+    e.preventDefault();
+    e.stopPropagation();
+
     const { showWarningModal } = await import(chrome.runtime.getURL("content/modals.js"));
     showWarningModal({
-      score, verdict, threat_type, top_factors, url,
+      score: 85,
+      verdict: "danger",
+      threat_type: "Phishing Link",
+      top_factors: [{ label: "High-risk URL detected" }],
+      url,
       onContinue: () => {
         if (a.target === "_blank") {
           window.open(url, "_blank");
@@ -97,7 +87,10 @@ export function applyDangerBadges(dangerUrls) {
   document.querySelectorAll("a[href]").forEach(a => {
     try {
       const href = new URL(a.href, location.href).href;
-      if (urlSet.has(href)) _attachBadge(a, "danger");
+      if (urlSet.has(href)) {
+        a.dataset.aegisDanger = "true";
+        _attachBadge(a, "danger");
+      }
     } catch (_) {}
   });
 }
@@ -133,6 +126,7 @@ function _scanVisibleLinks() {
         const href = new URL(a.href, location.href).href;
         const score = riskMap.get(href);
         if (score != null && score >= THRESHOLD.HIGHLIGHT * 100) {
+          a.dataset.aegisDanger = "true";
           _attachBadge(a, "danger");
         }
       } catch (_) {}
@@ -142,28 +136,15 @@ function _scanVisibleLinks() {
 
 // ── Hover handlers ────────────────────────────────────
 function _onHover(e) {
-  const img = e.target.closest("img[src]");
+  // Only trigger hover preview for links (<a>), NOT for images automatically
   const a = e.target.closest("a[href]");
-
-  if (img) {
-    try {
-      const src = new URL(img.src, location.href).href;
-      if (src.startsWith("http") && !isInternalURL(src)) {
-        clearTimeout(_hoverTimeout);
-        const token = ++_hoverToken;
-        _hoverTimeout = setTimeout(() => _showImageHoverPreview(img, src, token), 250);
-        return;
-      }
-    } catch (_) {}
-  }
-
   if (a) {
     try {
       const url = new URL(a.href, location.href).href;
       if (url.startsWith("http") && !isInternalURL(url)) {
         clearTimeout(_hoverTimeout);
         const token = ++_hoverToken;
-        _hoverTimeout = setTimeout(() => _showHoverPreview(a, url, token), 250);
+        _hoverTimeout = setTimeout(() => _showHoverPreview(a, url, token), 400);
       }
     } catch (_) {}
   }

@@ -1,21 +1,15 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-<<<<<<< Updated upstream
 import {
   ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2, Globe, FileText,
-  Lock, BrainCircuit, Activity, ChevronRight, Server, Clock, Download, Image as ImageIcon, Scan
+  Lock, BrainCircuit, Activity, ChevronRight, Server, Clock, Download, Image as ImageIcon, Scan,
+  BarChart3, TrendingUp, CheckCircle, XCircle
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, Brush
 } from "recharts";
-=======
-import { scanHistory, getUserStats, modelHealth } from "@/lib/mock-data";
-import { ShieldCheck, ShieldAlert, Scan, BarChart3, Clock, TrendingUp, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
-import { motion } from "framer-motion";
-import { useMemo } from "react";
->>>>>>> Stashed changes
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -23,7 +17,7 @@ const fadeUp = {
 };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
-<<<<<<< Updated upstream
+
 const fallbackTrendData = [
   { name: 'Jul 01', scans: 120 }, { name: 'Jul 02', scans: 140 }, { name: 'Jul 03', scans: 110 }, { name: 'Jul 04', scans: 90 },
   { name: 'Jul 05', scans: 180 }, { name: 'Jul 06', scans: 250 }, { name: 'Jul 07', scans: 290 }, { name: 'Jul 08', scans: 310 },
@@ -82,7 +76,7 @@ export default function EmployeeDashboard() {
     return (now - scanTime) <= 24 * 60 * 60 * 1000;
   });
 
-  const securityScore = Math.max(0, 100 - (last24HoursScans.filter((s:any) => s.decision === 'block').length * 2));
+  const securityScore = Math.max(0, 100 - (last24HoursScans.filter((s: any) => s.decision === 'block').length * 2));
 
   const chartData = timeFilter === "7d" ? fallbackTrendData.slice(-7) : timeFilter === "14d" ? fallbackTrendData.slice(-14) : timeFilter === "30d" ? fallbackTrendData : fallbackTrendData;
 
@@ -94,19 +88,19 @@ export default function EmployeeDashboard() {
   const stats = {
     urls: {
       total: analyticsTime === 'today' ? urlScansToday.length : (data?.urlStats?.scanned || 0),
-      blocked: analyticsTime === 'today' ? urlScansToday.filter((s:any) => s.decision === 'block').length : (data?.urlStats?.blocked || 0)
+      blocked: analyticsTime === 'today' ? urlScansToday.filter((s: any) => s.decision === 'block').length : (data?.urlStats?.blocked || 0)
     },
     websites: {
       total: analyticsTime === 'today' ? webScansToday.length : (data?.webStats?.scanned || 0),
-      blocked: analyticsTime === 'today' ? webScansToday.filter((s:any) => s.decision === 'block').length : (data?.webStats?.blocked || 0)
+      blocked: analyticsTime === 'today' ? webScansToday.filter((s: any) => s.decision === 'block').length : (data?.webStats?.blocked || 0)
     },
     files: {
       total: analyticsTime === 'today' ? fileScansToday.length : (data?.fileStats?.downloaded || 0),
-      blocked: analyticsTime === 'today' ? fileScansToday.filter((s:any) => s.decision === 'block').length : (data?.fileStats?.phishing || 0)
+      blocked: analyticsTime === 'today' ? fileScansToday.filter((s: any) => s.decision === 'block').length : (data?.fileStats?.phishing || 0)
     },
     images: {
       total: analyticsTime === 'today' ? imageScansToday.length : (data?.scanBreakdown?.image || 0),
-      blocked: analyticsTime === 'today' ? imageScansToday.filter((s:any) => s.decision === 'block').length : 0
+      blocked: analyticsTime === 'today' ? imageScansToday.filter((s: any) => s.decision === 'block').length : 0
     }
   };
 
@@ -172,7 +166,7 @@ export default function EmployeeDashboard() {
                 {securityScore}/100
               </h3>
               <div className="flex-1 h-1.5 bg-surface-200 dark:bg-white/[0.05] rounded-full overflow-hidden">
-                 <div className="h-full bg-purple-500" style={{ width: `${securityScore}%` }}></div>
+                <div className="h-full bg-purple-500" style={{ width: `${securityScore}%` }}></div>
               </div>
             </div>
           </div>
@@ -183,67 +177,67 @@ export default function EmployeeDashboard() {
       {/* Detailed Scan Analytics (Moved Up) */}
       <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-           <h3 className="text-lg font-bold text-surface-900 dark:text-white">Detailed Scan Analytics</h3>
-           <div className="flex items-center gap-1 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
-             <button onClick={() => setAnalyticsTime("today")} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${analyticsTime === "today" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500 hover:text-surface-900 dark:hover:text-white"}`}>Today</button>
-             <button onClick={() => setAnalyticsTime("all")} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${analyticsTime === "all" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500 hover:text-surface-900 dark:hover:text-white"}`}>All Time</button>
-           </div>
+          <h3 className="text-lg font-bold text-surface-900 dark:text-white">Detailed Scan Analytics</h3>
+          <div className="flex items-center gap-1 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
+            <button onClick={() => setAnalyticsTime("today")} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${analyticsTime === "today" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500 hover:text-surface-900 dark:hover:text-white"}`}>Today</button>
+            <button onClick={() => setAnalyticsTime("all")} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${analyticsTime === "all" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500 hover:text-surface-900 dark:hover:text-white"}`}>All Time</button>
+          </div>
         </div>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
-               <div className="w-6 h-6 rounded bg-[#4F84F8]/10 text-[#4F84F8] flex items-center justify-center shrink-0"><Globe className="w-3 h-3" /></div>
-               <span className="text-sm font-bold text-surface-900 dark:text-white">URLs</span>
+              <div className="w-6 h-6 rounded bg-[#4F84F8]/10 text-[#4F84F8] flex items-center justify-center shrink-0"><Globe className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">URLs</span>
             </div>
             <div>
-               <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.urls.total}</div>
-               <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
-                  <span className="text-emerald-500">{stats.urls.total - stats.urls.blocked} Safe</span>
-                  <span className="text-red-500">{stats.urls.blocked} Blocked</span>
-               </div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.urls.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.urls.total - stats.urls.blocked} Safe</span>
+                <span className="text-red-500">{stats.urls.blocked} Blocked</span>
+              </div>
             </div>
           </div>
 
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
-               <div className="w-6 h-6 rounded bg-[#8B5CF6]/10 text-[#8B5CF6] flex items-center justify-center shrink-0"><ShieldCheck className="w-3 h-3" /></div>
-               <span className="text-sm font-bold text-surface-900 dark:text-white">Websites</span>
+              <div className="w-6 h-6 rounded bg-[#8B5CF6]/10 text-[#8B5CF6] flex items-center justify-center shrink-0"><ShieldCheck className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">Websites</span>
             </div>
             <div>
-               <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.websites.total}</div>
-               <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
-                  <span className="text-emerald-500">{stats.websites.total - stats.websites.blocked} Safe</span>
-                  <span className="text-red-500">{stats.websites.blocked} Blocked</span>
-               </div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.websites.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.websites.total - stats.websites.blocked} Safe</span>
+                <span className="text-red-500">{stats.websites.blocked} Blocked</span>
+              </div>
             </div>
           </div>
 
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
-               <div className="w-6 h-6 rounded bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center shrink-0"><FileText className="w-3 h-3" /></div>
-               <span className="text-sm font-bold text-surface-900 dark:text-white">Downloads</span>
+              <div className="w-6 h-6 rounded bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center shrink-0"><FileText className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">Downloads</span>
             </div>
             <div>
-               <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.files.total}</div>
-               <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
-                  <span className="text-emerald-500">{stats.files.total - stats.files.blocked} Safe</span>
-                  <span className="text-red-500">{stats.files.blocked} Blocked</span>
-               </div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.files.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.files.total - stats.files.blocked} Safe</span>
+                <span className="text-red-500">{stats.files.blocked} Blocked</span>
+              </div>
             </div>
           </div>
 
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
-               <div className="w-6 h-6 rounded bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center shrink-0"><ImageIcon className="w-3 h-3" /></div>
-               <span className="text-sm font-bold text-surface-900 dark:text-white">Images</span>
+              <div className="w-6 h-6 rounded bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center shrink-0"><ImageIcon className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">Images</span>
             </div>
             <div>
-               <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.images.total}</div>
-               <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
-                  <span className="text-emerald-500">{stats.images.total - stats.images.blocked} Safe</span>
-                  <span className="text-red-500">{stats.images.blocked} Blocked</span>
-               </div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.images.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.images.total - stats.images.blocked} Safe</span>
+                <span className="text-red-500">{stats.images.blocked} Blocked</span>
+              </div>
             </div>
           </div>
         </div>
@@ -340,7 +334,7 @@ export default function EmployeeDashboard() {
                         <span className="text-[10px] font-mono text-surface-400">{timeStr}</span>
                       </div>
                       <div className="text-xs text-surface-600 dark:text-surface-400 truncate w-full">
-                        {scan.inputPreview ? scan.inputPreview.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : scan.domain || 'Local event'}
+                        {scan.inputPreview ? scan.inputPreview.trim() : scan.domain || 'Local event'}
                       </div>
                       <div className="text-[10px] text-surface-500 mt-1 font-mono">
                         Risk {scan.riskScore}% • {isBlock ? 'Blocked' : 'Allowed'} • AI Conf {100 - (scan.riskScore || 0)}%
@@ -353,125 +347,6 @@ export default function EmployeeDashboard() {
           </div>
         </motion.div>
       </div>
-=======
-function RiskBadge({ level }: { level: string }) {
-  if (level === "safe") return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><CheckCircle className="w-3 h-3" />Safe</span>;
-  if (level === "suspicious") return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400"><AlertTriangle className="w-3 h-3" />Suspicious</span>;
-  return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-650 dark:text-red-400"><XCircle className="w-3 h-3" />Danger</span>;
-}
-
-function ScanTypeBadge({ type }: { type: string }) {
-  const colors: Record<string, string> = { 
-    email: "bg-blue-500/10 text-blue-600 dark:text-blue-400", 
-    url: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400", 
-    text: "bg-purple-500/10 text-purple-600 dark:text-purple-400", 
-    image: "bg-pink-500/10 text-pink-650 dark:text-pink-400", 
-    attachment: "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
-  };
-  return <span className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${colors[type] || "bg-surface-200 text-surface-700 dark:bg-surface-700 dark:text-surface-300"}`}>{type}</span>;
-}
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-export default function EmployeeDashboard() {
-  const { user } = useAuth();
-  if (!user) return null;
-
-  const stats = useMemo(() => getUserStats(user.id), [user.id]);
-  const myScans = useMemo(() => scanHistory.filter(s => s.userId === user.id).slice(0, 8), [user.id]);
-  const shieldScore = stats.safeRate;
-
-  const statsCards = useMemo(() => {
-    return [
-      { label: "Total Scans", value: stats.totalScans.toLocaleString(), icon: Scan, color: "text-brand-600 dark:text-brand-400" },
-      { label: "Threats Blocked", value: stats.threatsBlocked.toString(), icon: ShieldAlert, color: "text-red-650 dark:text-red-400" },
-      { label: "Safe Rate", value: `${stats.safeRate}%`, icon: TrendingUp, color: "text-emerald-650 dark:text-emerald-400" },
-      { label: "Last Scan", value: stats.lastScan ? timeAgo(stats.lastScan) : "N/A", icon: Clock, color: "text-amber-650 dark:text-amber-400" },
-    ];
-  }, [stats]);
-
-  return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
-      {/* Page header */}
-      <motion.div variants={fadeUp}>
-        <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Welcome back, {user.fullName.split(" ")[0]}</h1>
-        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Your personal security overview</p>
-      </motion.div>
-
-      {/* Shield + Stats row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Shield gauge card */}
-        <motion.div variants={fadeUp} className="lg:col-span-1 stat-card flex flex-col items-center justify-center py-8">
-          <div className="relative w-32 h-32 mb-4">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(0,0,0,0.04)" className="dark:stroke-white/[0.04]" strokeWidth="8" />
-              <circle cx="60" cy="60" r="52" fill="none" stroke={shieldScore >= 80 ? "#22c55e" : shieldScore >= 50 ? "#f59e0b" : "#ef4444"} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${shieldScore * 3.27} 327`} className="transition-all duration-1000" />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mb-1" />
-              <span className="text-2xl font-bold text-surface-900 dark:text-white">{shieldScore}%</span>
-              <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-wider">Protected</span>
-            </div>
-          </div>
-          <p className="text-sm text-surface-600 dark:text-surface-400">Your Shield Status</p>
-        </motion.div>
-
-        {/* Stats cards */}
-        <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-          {statsCards.map((s, i) => (
-            <motion.div key={s.label} variants={fadeUp} className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <s.icon className={`w-5 h-5 ${s.color}`} />
-              </div>
-              <div className="text-2xl font-bold text-surface-900 dark:text-white">{s.value}</div>
-              <div className="text-xs text-surface-500 mt-1">{s.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* AI Models Status (compact) */}
-      <motion.div variants={fadeUp} className="stat-card">
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-surface-900 dark:text-white"><BarChart3 className="w-4 h-4 text-brand-650 dark:text-brand-400" /> AI Engine Status</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {modelHealth.map(m => (
-            <div key={m.key} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-100/50 dark:bg-white/[0.02]">
-              <span className={`w-2 h-2 rounded-full ${m.status === "online" ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse" : "bg-red-500"}`} />
-              <span className="text-xs text-surface-700 dark:text-surface-300">{m.name}</span>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Recent Activity */}
-      <motion.div variants={fadeUp} className="stat-card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold flex items-center gap-2 text-surface-900 dark:text-white"><Clock className="w-4 h-4 text-brand-650 dark:text-brand-400" /> Recent Scans</h3>
-          <button onClick={() => window.location.href = "/dashboard/employee/history"} className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors">History →</button>
-        </div>
-        <div className="space-y-3">
-          {myScans.map(scan => (
-            <div key={scan.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-100/50 dark:bg-white/[0.01] border border-surface-200/50 dark:border-white/[0.03]">
-              <div className="flex items-center gap-3">
-                <ScanTypeBadge type={scan.scanType} />
-                <div>
-                  <div className="text-sm font-medium text-surface-800 dark:text-surface-200 max-w-[200px] md:max-w-md truncate">{scan.inputPreview}</div>
-                  <div className="text-[10px] text-surface-500">{new Date(scan.timestamp).toLocaleString()}</div>
-                </div>
-              </div>
-              <RiskBadge level={scan.riskLevel} />
-            </div>
-          ))}
-        </div>
-      </motion.div>
->>>>>>> Stashed changes
     </motion.div>
   );
 }
