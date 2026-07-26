@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from api.database.db import get_db
-from api.database.models import User
+from api.database.models import User, Organization
 from api.auth.password import hash_password
 
 router = APIRouter(
@@ -26,6 +26,7 @@ class Employee(BaseModel):
     generatedPassword: str
 
 class SetupExecuteRequest(BaseModel):
+    orgName: Optional[str] = None
     employees: List[Employee]
 
 def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
@@ -145,6 +146,15 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
     
     # 1. Save employees to DB
     try:
+        org_id = request.orgName if request.orgName else "org_default"
+        
+        # Ensure the organization exists in the DB to avoid foreign key errors
+        org_result = await db.execute(select(Organization).where(Organization.id == org_id))
+        if not org_result.scalars().first():
+            new_org = Organization(id=org_id, name=org_id)
+            db.add(new_org)
+            await db.commit() # Commit the organization so users can reference it
+
         for emp in request.employees:
             # Check if user already exists
             stmt = select(User).where(User.email == emp.email)
@@ -158,7 +168,7 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                     role=emp.role.lower(),
                     department=emp.departmentCode,
                     account_status="approved",
-                    organization_id="org_default" # Temporary default organization
+                    organization_id=org_id
                 )
                 db.add(db_user)
             else:
@@ -168,6 +178,11 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 existing.role = emp.role.lower()
                 existing.department = emp.departmentCode
                 existing.account_status = "approved"
+                existing.organization_id = org_id
+            
+            # Print to console for local testing since emails won't actually send
+            print(f"✅ Setup created user: {emp.email} | Password: {emp.generatedPassword}")
+            
         await db.commit()
     except Exception as e:
         await db.rollback()

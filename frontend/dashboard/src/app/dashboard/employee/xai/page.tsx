@@ -15,7 +15,7 @@ export default function XAIPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://localhost:9000/user/xai?email=${encodeURIComponent(user.email)}`)
+        fetch(`http://localhost:8000/user/xai?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => { setData(res); setLoading(false); })
           .catch(err => { console.error(err); setLoading(false); });

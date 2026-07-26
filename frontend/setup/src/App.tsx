@@ -631,7 +631,7 @@ export default function App() {
                         const response = await fetch('http://localhost:8000/setup/execute', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ employees: validEmployees })
+                          body: JSON.stringify({ orgName: orgName, employees: validEmployees })
                         });
                         
                         if (response.ok) {

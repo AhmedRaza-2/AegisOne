@@ -16,7 +16,7 @@ export default function DepartmentsPage() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem("aegis_access_token");
+      const token = localStorage.getItem("access_token");
       if (!token) return;
 
       const res = await fetch("http://localhost:8000/admin/departments", {
@@ -42,7 +42,7 @@ export default function DepartmentsPage() {
     if (!name) return;
 
     try {
-      const token = localStorage.getItem("aegis_access_token");
+      const token = localStorage.getItem("access_token");
       const res = await fetch("http://localhost:8000/admin/departments", {
         method: "POST",
         headers: { 

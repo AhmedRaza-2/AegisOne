@@ -44,11 +44,11 @@ const HeroSection = () => {
                     transition={{ duration: 0.8, delay: 1 }}
                     className="w-full flex flex-col sm:flex-row justify-center gap-4"
                 >
-                    <Button href="http://localhost:3000/register">
+                    <Button href="http://localhost:3002/register">
                         Get Started
                         <ArrowRight className="group-hover:translate-x-2 transition-transform" size={20} />
                     </Button>
-                    <Button type="secondary" href="http://localhost:3000/login">
+                    <Button type="secondary" href="http://localhost:8000/docs">
                         View API Docs
                     </Button>
                 </motion.div>

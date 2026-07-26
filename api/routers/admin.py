@@ -236,7 +236,7 @@ async def get_stats(
         scans_today = await db.scalar(
             _org_scope(
                 select(func.count(WebsiteScan.id))
-                .where(cast(WebsiteScan.created_at, Date) == date.today()),
+                .where(today_filter(WebsiteScan.created_at)),
                 WebsiteScan, current_user,
             )
         ) or 0
@@ -244,7 +244,7 @@ async def get_stats(
         ev_today = await db.scalar(
             _org_scope(
                 select(func.count(SecurityEvent.id))
-                .where(cast(SecurityEvent.timestamp, Date) == date.today()),
+                .where(today_filter(SecurityEvent.timestamp)),
                 SecurityEvent, current_user,
             )
         ) or 0
@@ -254,7 +254,7 @@ async def get_stats(
             _org_scope(
                 select(func.count(WebsiteScan.id))
                 .where(WebsiteScan.decision.in_(["warn", "block"]))
-                .where(cast(WebsiteScan.created_at, Date) == date.today()),
+                .where(today_filter(WebsiteScan.created_at)),
                 WebsiteScan, current_user,
             )
         ) or 0

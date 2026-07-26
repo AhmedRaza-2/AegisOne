@@ -106,8 +106,19 @@ def load_all_models():
 
     # Configure torch threading for CPU workloads
     if TORCH_NUM_THREADS > 0:
+<<<<<<< HEAD
         torch.set_num_threads(TORCH_NUM_THREADS)
         torch.set_num_interop_threads(max(1, TORCH_NUM_THREADS // 2))
+=======
+        try:
+            torch.set_num_threads(TORCH_NUM_THREADS)
+        except RuntimeError:
+            pass
+        try:
+            torch.set_num_interop_threads(max(1, TORCH_NUM_THREADS // 2))
+        except RuntimeError:
+            pass
+>>>>>>> 008a3a574fdd87f2b2418733bc0c8c063b4ffe36
         try:
             torch.set_flush_denormal(True)
         except Exception:
