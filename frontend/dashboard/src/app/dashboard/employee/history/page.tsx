@@ -1,8 +1,13 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { scanHistory } from "@/lib/mock-data";
+<<<<<<< Updated upstream
 import { History, CheckCircle, AlertTriangle, XCircle, Download, Calendar } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
+=======
+import { History, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { useState, useMemo } from "react";
+>>>>>>> Stashed changes
 
 function RiskBadge({ level }: { level: string }) {
   if (level === "safe") return <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-650 dark:text-emerald-400"><CheckCircle className="w-3 h-3" />Safe</span>;
@@ -10,6 +15,7 @@ function RiskBadge({ level }: { level: string }) {
   return <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-650 dark:text-red-400"><XCircle className="w-3 h-3" />Danger</span>;
 }
 
+<<<<<<< Updated upstream
 // Parse UTC string correctly to local date
 function parseLocalDate(dateStr: string) {
   if (!dateStr) return new Date();
@@ -102,6 +108,25 @@ export default function HistoryPage() {
   };
 
   const isDateChanged = startDate !== defaultDates.start || endDate !== defaultDates.end;
+=======
+export default function HistoryPage() {
+  const { user } = useAuth();
+  const [filter, setFilter] = useState<string>("all");
+  
+  if (!user) return null;
+
+  const myScans = useMemo(() => {
+    return scanHistory.filter(s => s.userId === user.id);
+  }, [user.id]);
+
+  const filtered = useMemo(() => {
+    return filter === "all" 
+      ? myScans 
+      : filter === "threats" 
+      ? myScans.filter(s => s.prediction !== "legitimate") 
+      : myScans.filter(s => s.scanType === filter);
+  }, [myScans, filter]);
+>>>>>>> Stashed changes
 
   return (
     <div className="space-y-6">
@@ -110,6 +135,7 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
             <History className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Scan History
           </h1>
+<<<<<<< Updated upstream
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{dbScans.length} total scans recorded</p>
         </div>
       </div>
@@ -117,12 +143,22 @@ export default function HistoryPage() {
       <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 rounded-xl">
         <div className="flex flex-wrap gap-1.5 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
           {["all", "threats", "url", "document", "image", "email", "text"].map(f => (
+=======
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{myScans.length} total scans recorded</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
+          {["all", "threats", "url", "email", "text"].map(f => (
+>>>>>>> Stashed changes
             <button 
               key={f} 
               onClick={() => setFilter(f)} 
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all capitalize ${
                 filter === f 
+<<<<<<< Updated upstream
                   ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" 
+=======
+                  ? "bg-white dark:bg-surface-800 text-brand-650 dark:text-brand-400 shadow-sm border border-surface-200/50 dark:border-white/[0.08]" 
+>>>>>>> Stashed changes
                   : "text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white"
               }`}
             >
@@ -130,6 +166,7 @@ export default function HistoryPage() {
             </button>
           ))}
         </div>
+<<<<<<< Updated upstream
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full xl:w-auto">
           <div className="flex items-center gap-2">
@@ -160,6 +197,11 @@ export default function HistoryPage() {
       </div>
 
       <div className="rounded-xl border border-surface-200 dark:border-white/[0.04] overflow-hidden bg-white dark:bg-[#141A29]">
+=======
+      </div>
+
+      <div className="glass-card overflow-hidden">
+>>>>>>> Stashed changes
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -168,12 +210,20 @@ export default function HistoryPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Content Preview</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Verdict</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Risk Level</th>
+<<<<<<< Updated upstream
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Action Taken</th>
+=======
+                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Vector</th>
+>>>>>>> Stashed changes
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Timestamp</th>
               </tr>
             </thead>
             <tbody>
+<<<<<<< Updated upstream
               {paginatedData.map(s => (
+=======
+              {filtered.map(s => (
+>>>>>>> Stashed changes
                 <tr key={s.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-3.5">
                     <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-700 dark:bg-white/[0.05] dark:text-surface-300">
@@ -181,6 +231,7 @@ export default function HistoryPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5 max-w-[300px] min-w-[200px]">
+<<<<<<< Updated upstream
                     <p className="text-surface-850 dark:text-surface-200 truncate font-medium" title={s.inputPreview}>{s.inputPreview ? s.inputPreview.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : ''}</p>
                     {s.threatType && <p className="text-[11px] text-surface-500 truncate mt-0.5">{s.threatType.replace(/_/g, " ")}</p>}
                   </td>
@@ -209,6 +260,24 @@ export default function HistoryPage() {
                 </tr>
               ))}
               {paginatedData.length === 0 && (
+=======
+                    <p className="text-surface-850 dark:text-surface-200 truncate font-medium">{s.inputPreview}</p>
+                    {s.xaiExplanation && <p className="text-[11px] text-surface-500 truncate mt-0.5">{s.xaiExplanation}</p>}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className={`text-xs font-semibold capitalize ${
+                      s.prediction === "legitimate" ? "text-emerald-650 dark:text-emerald-450" : "text-red-650 dark:text-red-400"
+                    }`}>
+                      {s.prediction}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5"><RiskBadge level={s.riskLevel} /></td>
+                  <td className="px-4 py-3.5"><span className="text-xs text-surface-500 dark:text-surface-450">{s.source}</span></td>
+                  <td className="px-4 py-3.5 text-xs text-surface-500 whitespace-nowrap">{new Date(s.scannedAt).toLocaleDateString()}</td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+>>>>>>> Stashed changes
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-sm text-surface-500">
                     No matching scan history logs found.
@@ -218,6 +287,7 @@ export default function HistoryPage() {
             </tbody>
           </table>
         </div>
+<<<<<<< Updated upstream
         
         {/* Pagination Controls */}
         <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-surface-200 dark:border-white/[0.06] bg-surface-50/30 dark:bg-white/[0.01] gap-4">
@@ -260,6 +330,8 @@ export default function HistoryPage() {
             </div>
           </div>
         </div>
+=======
+>>>>>>> Stashed changes
       </div>
     </div>
   );
