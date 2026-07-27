@@ -31,7 +31,7 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
 
-  # 3. Backend API (FastAPI - replaces Flask in our current stack)
+  # 3. Backend API (FastAPI + AI Engine)
   backend:
     build: 
       context: .
@@ -39,40 +39,42 @@ services:
     container_name: aegisone-backend
     restart: unless-stopped
     ports:
+      - "8000:9000"
       - "9000:9000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://aegis:password@postgres:5432/aegisone
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:////app/api/database/aegisone.db
       - ENVIRONMENT=production
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
     volumes:
       - ./api:/app/api
       - ./AIML:/app/AIML
 
-  # 4. AI Inference Service (Optional isolation for heavy ML models)
-  ai-service:
+  # 4. Landing Page (Frontend - Port 3000)
+  landing:
     build:
-      context: .
-      dockerfile: Dockerfile.ai
-    container_name: aegisone-ai
+      context: ./frontend/landing
+      dockerfile: Dockerfile
+    container_name: aegisone-landing
     restart: unless-stopped
-    environment:
-      - MODEL_MODE=production
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    profiles:
-      - split-ai
+    tty: true
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
-  # 5. React Dashboard (Frontend)
+  # 5. Setup Wizard (Frontend - Port 3001)
+  setup:
+    build:
+      context: ./frontend/setup
+      dockerfile: Dockerfile
+    container_name: aegisone-setup
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+
+  # 6. Dashboard Portal (Frontend - Port 3002)
   dashboard:
     build:
       context: ./frontend/dashboard
@@ -80,7 +82,10 @@ services:
     container_name: aegisone-dashboard
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3002:3000"
+    environment:
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend
 
