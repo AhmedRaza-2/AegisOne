@@ -39,6 +39,7 @@ export default function PortalPage() {
   const navigate = useNavigate();
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
+  const [osTab, setOsTab] = useState<'linux' | 'windows'>('linux');
 
   useEffect(() => {
     (async () => {
@@ -72,8 +73,11 @@ export default function PortalPage() {
 
   const isApproved = org.status === 'active';
 
-  // Single-line Docker command compatible with Windows PowerShell, CMD, and Linux Bash
-  const dockerCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
+  const linuxCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
+  
+  const windowsCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml\n\n$env:ORG_ID="${org.org_id}"\n$env:LICENSE_KEY="${org.license_key}"\n$env:DEPLOYMENT_TOKEN="${org.deployment_token}"\n$env:ADMIN_EMAIL="${org.admin_email}"\n\ndocker compose up -d`;
+
+  const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
@@ -200,22 +204,38 @@ export default function PortalPage() {
                   </p>
                   
                   {/* Premium Terminal Block */}
-                  <div className="bg-[#0F172A] rounded-2xl p-6 md:p-8 shadow-2xl relative group overflow-hidden border border-slate-800 text-left">
+                  <div className="bg-[#0F172A] rounded-2xl shadow-2xl relative group overflow-hidden border border-slate-800 text-left">
                     {/* Decorative glow */}
                     <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#0A5ED6]/30 rounded-full blur-[80px] pointer-events-none" />
                     
-                    <div className="flex items-center justify-between mb-6 relative z-10">
-                      <div className="flex gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500" />
-                        <div className="w-3 h-3 rounded-full bg-amber-500" />
-                        <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                    <div className="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex items-center justify-between relative z-10 overflow-x-auto">
+                      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                        <div className="hidden sm:flex gap-2 mr-2">
+                          <div className="w-3 h-3 rounded-full bg-red-500" />
+                          <div className="w-3 h-3 rounded-full bg-amber-500" />
+                          <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                        </div>
+                        <button 
+                          onClick={() => setOsTab('linux')} 
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${osTab === 'linux' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                        >
+                          Linux / macOS (Bash)
+                        </button>
+                        <button 
+                          onClick={() => setOsTab('windows')} 
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${osTab === 'windows' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                        >
+                          Windows (PowerShell)
+                        </button>
                       </div>
-                      <CopyButton value={dockerCommand} label="Copy Script" />
+                      <div className="pl-4 border-l border-slate-700 ml-2">
+                        <CopyButton value={activeCommand} label="Copy Script" />
+                      </div>
                     </div>
                     
-                    <div className="overflow-x-auto relative z-10 pb-2">
-                      <pre className="text-emerald-400 font-mono text-sm sm:text-base leading-relaxed">
-                        {dockerCommand}
+                    <div className="p-6 md:p-8 overflow-x-auto relative z-10">
+                      <pre className="text-emerald-400 font-mono text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
+                        {activeCommand}
                       </pre>
                     </div>
                   </div>
