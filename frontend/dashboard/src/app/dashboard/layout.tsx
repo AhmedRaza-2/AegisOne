@@ -7,7 +7,7 @@ import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
   UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
-  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2, FileText, MessageSquare, Network
+  Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2, FileText, MessageSquare, Network, Puzzle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
@@ -21,6 +21,7 @@ interface NavItem {
 const navByRole: Record<string, NavItem[]> = {
   employee: [
     { label: "Security Overview", href: "/dashboard/employee", icon: ShieldCheck },
+    { label: "Browser Protection", href: "/dashboard/employee/browser", icon: Puzzle },
     { label: "Threat Center", href: "/dashboard/employee/threats", icon: ShieldAlert },
     { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan },
     { label: "History", href: "/dashboard/employee/history", icon: History },

@@ -65,3 +65,31 @@ Message:
     except Exception as e:
         logger.error(f"SMTP Error: {e}")
         return {"status": "success", "message": "Contact request received"}
+
+import io
+import zipfile
+from fastapi.responses import StreamingResponse
+
+@router.get("/download/extension")
+async def download_extension():
+    # Path to Extension folder in root directory
+    extension_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Extension"))
+    
+    if not os.path.exists(extension_dir):
+        raise HTTPException(status_code=404, detail="Extension folder not found")
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for root, dirs, files in os.walk(extension_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, extension_dir)
+                zip_file.write(file_path, arcname)
+
+    zip_buffer.seek(0)
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=aegisone-extension.zip"}
+    )
+

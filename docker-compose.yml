@@ -44,6 +44,8 @@ services:
     environment:
       - DATABASE_URL=sqlite+aiosqlite:////app/api/database/aegisone.db
       - ENVIRONMENT=production
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
     volumes:
       - ./api:/app/api
       - ./AIML:/app/AIML
