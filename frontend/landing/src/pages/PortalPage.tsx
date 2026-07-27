@@ -73,7 +73,7 @@ export default function PortalPage() {
   const isApproved = org.status === 'active';
 
   // Single-line Docker command compatible with Windows PowerShell, CMD, and Linux Bash
-  const dockerCommand = `docker run -d --name aegisone-shield -p 8000:9000 -p 3001:3001 -p 3002:3000 -p 5432:5432 -e ORG_ID="${org.org_id}" -e ORG_NAME="${org.name}" -e ORG_INDUSTRY="${org.industry || 'Technology'}" -e LICENSE_KEY="${org.license_key}" -e DEPLOYMENT_TOKEN="${org.deployment_token}" -e ADMIN_EMAIL="${org.admin_email}" --restart unless-stopped aegisone/enterprise-shield:latest`;
+  const dockerCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
