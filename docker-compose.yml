@@ -48,19 +48,6 @@ services:
       - ./api:/app/api
       - ./AIML:/app/AIML
 
-  # 4. Landing Page (Frontend - Port 3000)
-  landing:
-    build:
-      context: ./frontend/landing
-      dockerfile: Dockerfile
-    container_name: aegisone-landing
-    restart: unless-stopped
-    tty: true
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-
   # 5. Setup Wizard (Frontend - Port 3001)
   setup:
     build:
