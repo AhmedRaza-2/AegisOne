@@ -29,7 +29,6 @@ const navByRole: Record<string, NavItem[]> = {
   ],
   manager: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
-    { label: "Department Analytics", href: "/dashboard/supervisor/analytics", icon: BarChart3 },
     { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
     { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert },
     { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare },

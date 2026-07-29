@@ -6,7 +6,7 @@ Uses DashboardStatistic for fast today-view; falls back to live queries.
 """
 import json
 from datetime import date, datetime, timezone
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, cast, Date
 
@@ -43,20 +43,20 @@ def _org_scope(query, model, user):
         # RBAC: Manager can only access their own department
         if user.role == Role.MANAGER.value:
             dept_id = getattr(user, "department_id", None)
-            dept_str = getattr(user, "department", None) or "IT"
+            dept_str = getattr(user, "department", None)
             
             # If the model has department directly (like User)
             if hasattr(model, "department_id") or hasattr(model, "department"):
                 condition = None
-                if hasattr(model, "department"):
-                    condition = (getattr(model, "department") == dept_str) | (getattr(model, "department") == None) | (getattr(model, "department") == "") | (getattr(model, "department") == "General")
+                if hasattr(model, "department") and dept_str:
+                    condition = getattr(model, "department") == dept_str
                 elif hasattr(model, "department_id") and dept_id is not None:
                     condition = getattr(model, "department_id") == dept_id
                     
                 if condition is not None:
                     query = query.where(condition)
                     # Filter out higher privileged roles for managers
-                    if user.role == Role.MANAGER.value and hasattr(model, "role"):
+                    if hasattr(model, "role"):
                         query = query.where(getattr(model, "role").in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
                 else:
                     query = query.where(False)
@@ -64,14 +64,18 @@ def _org_scope(query, model, user):
             # If the model has user_id but no department, we must join the User table to filter!
             elif hasattr(model, "user_id"):
                 from api.database.models import User
-                condition = (User.department == dept_str) | (User.department == None) | (User.department == "") | (User.department == "General")
-                if condition is not None:
-                    # Use a subquery or join depending on how the query was built.
-                    # A safer approach for existing simple select() queries is to filter on user_id IN (subquery)
-                    from sqlalchemy import select as sa_select
-                    from sqlalchemy import cast, String
+                from sqlalchemy import select as sa_select
+                from sqlalchemy import cast, String
+                
+                user_condition = None
+                if dept_str:
+                    user_condition = User.department == dept_str
+                elif dept_id is not None:
+                    user_condition = User.department_id == dept_id
+                
+                if user_condition is not None:
                     query = query.where(cast(getattr(model, "user_id"), String).in_(
-                        sa_select(cast(User.id, String)).where(condition)
+                        sa_select(cast(User.id, String)).where(user_condition)
                     ))
                 else:
                     query = query.where(False)
@@ -201,6 +205,7 @@ async def _compute_and_store_daily_stats(db: AsyncSession, org_id: str, target_d
 
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_stats(
+    time_range: str = Query("24h"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(Role.MANAGER)),
 ):
@@ -213,48 +218,37 @@ async def get_stats(
     is_super = current_user.role == Role.SUPER_ADMIN.value
     is_manager = current_user.role == Role.MANAGER.value
 
-    # ── 1. Today's stats — from pre-aggregated table if available ─────────────
-    # Managers must compute live stats because DashboardStatistic is organization-wide.
-    today_row = None
-    if not is_manager:
-        today_row = await db.scalar(
-            select(DashboardStatistic)
-            .where(DashboardStatistic.organization_id == org_id)
-            .where(DashboardStatistic.date == date.today())
-        )
-
-    if today_row:
-        scans_today   = today_row.total_scans
-        threats_today = today_row.threats_blocked + today_row.threats_warned
+    from datetime import datetime, timedelta, date
+    now = datetime.utcnow()
+    
+    if time_range == "24h":
+        start_time = now - timedelta(hours=24)
+    elif time_range == "7d":
+        start_time = now - timedelta(days=7)
+    elif time_range == "30d":
+        start_time = now - timedelta(days=30)
     else:
-        # Live fallback — first request of the day, or scoped queries for Managers
-        scans_today = await db.scalar(
-            _org_scope(
-                select(func.count(WebsiteScan.id))
-                .where(cast(WebsiteScan.created_at, Date) == date.today()),
-                WebsiteScan, current_user,
-            )
-        ) or 0
+        start_time = None
 
-        ev_today = await db.scalar(
-            _org_scope(
-                select(func.count(SecurityEvent.id))
-                .where(cast(SecurityEvent.timestamp, Date) == date.today()),
-                SecurityEvent, current_user,
-            )
-        ) or 0
+    # ── 1. Scans in the selected window ─────────────
+    scans_q = select(func.count(WebsiteScan.id))
+    if start_time:
+        scans_q = scans_q.where(WebsiteScan.created_at >= start_time)
+    scans_today = await db.scalar(_org_scope(scans_q, WebsiteScan, current_user)) or 0
 
-        scans_today   = scans_today + ev_today
-        threats_today = await db.scalar(
-            _org_scope(
-                select(func.count(WebsiteScan.id))
-                .where(WebsiteScan.decision.in_(["warn", "block"]))
-                .where(cast(WebsiteScan.created_at, Date) == date.today()),
-                WebsiteScan, current_user,
-            )
-        ) or 0
+    ev_q = select(func.count(SecurityEvent.id))
+    if start_time:
+        ev_q = ev_q.where(SecurityEvent.timestamp >= start_time)
+    ev_today = await db.scalar(_org_scope(ev_q, SecurityEvent, current_user)) or 0
 
-    # ── 2. All-time totals ────────────────────────────────────────────────────
+    scans_today   = scans_today + ev_today
+
+    threats_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"]))
+    if start_time:
+        threats_q = threats_q.where(WebsiteScan.created_at >= start_time)
+    threats_today = await db.scalar(_org_scope(threats_q, WebsiteScan, current_user)) or 0
+
+    # ── 2. Totals ────────────────────────────────────────────────────
     total_users = await db.scalar(
         _org_scope(select(func.count(User.id)), User, current_user)
     ) or 0
@@ -286,62 +280,114 @@ async def get_stats(
         )
     ) or 0
 
-    # ── 3. Top threat types ───────────────────────────────────────────────────
-    ev_type_q = _org_scope(
-        select(SecurityEvent.event_type, func.count(SecurityEvent.id).label("cnt"))
-        .where(SecurityEvent.severity.in_(["medium", "high"]))
-        .group_by(SecurityEvent.event_type)
-        .order_by(func.count(SecurityEvent.id).desc())
-        .limit(8),
-        SecurityEvent, current_user,
+    # ── 3. Simplified Threat distribution categories ──────────────────────────
+    from sqlalchemy import case
+    threat_dist_q = select(
+        func.sum(case(((WebsiteScan.decision == "safe") | (WebsiteScan.decision == "allow"), 1), else_=0)).label("safe"),
+        func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type == "phishing"), 1), else_=0)).label("phishing"),
+        func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type.in_(["malware", "defacement", "malicious"])), 1), else_=0)).label("malware")
     )
-    ev_rows = (await db.execute(ev_type_q)).all()
+    if start_time:
+        threat_dist_q = threat_dist_q.where(WebsiteScan.created_at >= start_time)
+        
+    threat_row = (await db.execute(_org_scope(threat_dist_q, WebsiteScan, current_user))).first()
+    top_threat_types = {
+        "Safe Scans": 0,
+        "Phishing": 0,
+        "Malware": 0
+    }
+    if threat_row:
+        top_threat_types["Safe Scans"] = getattr(threat_row, "safe", 0) or 0
+        top_threat_types["Phishing"] = getattr(threat_row, "phishing", 0) or 0
+        top_threat_types["Malware"] = getattr(threat_row, "malware", 0) or 0
 
-    scan_type_q = (
-        select(WebsiteScan.threat_type, func.count(WebsiteScan.id).label("cnt"))
-        .where(WebsiteScan.decision.in_(["warn", "block"]))
-        .where(WebsiteScan.threat_type.isnot(None))
-        .group_by(WebsiteScan.threat_type)
-        .order_by(func.count(WebsiteScan.id).desc())
-        .limit(8)
-    )
-    if not is_super:
-        scan_type_q = scan_type_q.where(WebsiteScan.organization_id == org_id)
-    scan_rows = (await db.execute(scan_type_q)).all()
-
-    top_threat_types: dict[str, int] = {}
-    for event_type, cnt in ev_rows:
-        if event_type:
-            top_threat_types[event_type] = top_threat_types.get(event_type, 0) + cnt
-    for threat_type, cnt in scan_rows:
-        if threat_type:
-            top_threat_types[threat_type] = top_threat_types.get(threat_type, 0) + cnt
-
-    top_threat_types = dict(
-        sorted(top_threat_types.items(), key=lambda x: x[1], reverse=True)[:10]
-    ) or {"no_threats_recorded": 0}
-
-    # ── 4. Events by severity ─────────────────────────────────────────────────
+    # ── 4. Severity Distribution ──────────────────────────────────────────────
     sev_q = _org_scope(
         select(SecurityEvent.severity, func.count(SecurityEvent.id).label("cnt"))
         .group_by(SecurityEvent.severity),
         SecurityEvent, current_user,
     )
+    if start_time:
+        sev_q = sev_q.where(SecurityEvent.timestamp >= start_time)
     sev_rows = (await db.execute(sev_q)).all()
     events_by_severity: dict[str, int] = {row[0]: row[1] for row in sev_rows if row[0]}
 
     # ── 5. Supplementary counters ─────────────────────────────────────────────
-    cred_total = await db.scalar(
-        _org_scope(select(func.count(CredentialEvent.id)), CredentialEvent, current_user)
-    ) or 0
+    cred_q = select(func.count(CredentialEvent.id))
+    if start_time:
+        cred_q = cred_q.where(CredentialEvent.created_at >= start_time)
+    cred_total = await db.scalar(_org_scope(cred_q, CredentialEvent, current_user)) or 0
 
-    dl_total = await db.scalar(
-        _org_scope(select(func.count(DownloadEvent.id)), DownloadEvent, current_user)
-    ) or 0
+    dl_q = select(func.count(DownloadEvent.id))
+    if start_time:
+        dl_q = dl_q.where(DownloadEvent.created_at >= start_time)
+    dl_total = await db.scalar(_org_scope(dl_q, DownloadEvent, current_user)) or 0
 
     # ── 6. Model status ───────────────────────────────────────────────────────
     statuses     = get_model_status()
     model_status = {k: v["loaded"] for k, v in statuses.items()}
+
+    # ── 7. Daily Trend (Dynamic based on time_range) ──────────────────────────
+    daily_trend = []
+    if time_range == "24h":
+        start_time = datetime.utcnow() - timedelta(hours=24)
+        trend_q = select(
+            WebsiteScan.created_at,
+            WebsiteScan.decision
+        ).where(WebsiteScan.created_at >= start_time)
+        trend_q = _org_scope(trend_q, WebsiteScan, current_user)
+        scans_list = (await db.execute(trend_q)).all()
+
+        # Pre-populate 24 hourly buckets
+        hourly_buckets = {}
+        for i in range(23, -1, -1):
+            t = datetime.utcnow() - timedelta(hours=i)
+            key = t.replace(minute=0, second=0, microsecond=0)
+            hourly_buckets[key] = {"scans": 0, "threats": 0}
+
+        for scan in scans_list:
+            dt = scan.created_at.replace(minute=0, second=0, microsecond=0)
+            if dt in hourly_buckets:
+                hourly_buckets[dt]["scans"] += 1
+                if scan.decision in ["warn", "block"]:
+                    hourly_buckets[dt]["threats"] += 1
+
+        for dt, bucket in sorted(hourly_buckets.items()):
+            daily_trend.append({
+                "date": dt.strftime("%I %p"),
+                "scans": bucket["scans"],
+                "safe": max(0, bucket["scans"] - bucket["threats"]),
+                "threats": bucket["threats"],
+                "phishing": bucket["threats"],
+                "malware": 0
+            })
+    else:
+        days_count = 7 if time_range == "7d" else 30
+        start_date = date.today() - timedelta(days=days_count)
+        from sqlalchemy import case
+
+        trend_q = select(
+            cast(WebsiteScan.created_at, Date).label("day"),
+            func.count(WebsiteScan.id).label("scans"),
+            func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label("threats")
+        ).where(cast(WebsiteScan.created_at, Date) >= start_date).group_by(cast(WebsiteScan.created_at, Date))
+        
+        trend_q = _org_scope(trend_q, WebsiteScan, current_user)
+        trend_rows = (await db.execute(trend_q)).all()
+        trend_map = {row.day: (row.scans, int(row.threats or 0)) for row in trend_rows}
+
+        for i in range(days_count - 1, -1, -1):
+            target_d = date.today() - timedelta(days=i)
+            scans_count, threats_count = trend_map.get(target_d, (0, 0))
+            
+            daily_trend.append({
+                "date": target_d.strftime("%b %d") if time_range == "30d" else target_d.strftime("%a"),
+                "scans": scans_count,
+                "safe": max(0, scans_count - threats_count),
+                "threats": threats_count,
+                "phishing": threats_count,
+                "malware": 0
+            })
 
     return AdminStatsResponse(
         total_users=total_users,
@@ -357,6 +403,7 @@ async def get_stats(
         credential_events_total=cred_total,
         download_events_total=dl_total,
         hover_scans_total=0,  # queried separately via /admin/events
+        daily_trend=daily_trend,
     )
 
 
@@ -719,6 +766,7 @@ async def create_department(
 
 @router.get("/users")
 async def get_users(
+    time_range: str = Query("24h"),
     db: AsyncSession = Depends(get_db),
     manager: User = Depends(require_role(Role.MANAGER))
 ):
@@ -726,13 +774,20 @@ async def get_users(
     org_id = getattr(manager, "organization_id", None) or "org_default"
     q = select(User).where(User.organization_id == org_id)
     if manager.role == Role.MANAGER.value:
-        dept = manager.department or "IT"
-        q = q.where(
-            (User.department == dept) | 
-            (User.department == None) | 
-            (User.department == "") | 
-            (User.department == "General")
-        )
+        dept_id = manager.department_id
+        dept_str = manager.department
+        
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
+            
         q = q.where(User.role.in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
     
     rows = (await db.execute(q)).scalars().all()
@@ -740,28 +795,76 @@ async def get_users(
     # Fetch real stats for these users
     user_ids = [r.id for r in rows]
     scan_stats = {}
+    creds_map = {}
     if user_ids:
         from sqlalchemy import func, case
-        from api.database.models import WebsiteScan
+        from api.database.models import WebsiteScan, SecurityEvent
+        from datetime import datetime, timezone, timedelta
+        
+        now = datetime.utcnow()
+        if time_range == "24h":
+            start_time = now - timedelta(hours=24)
+        elif time_range == "7d":
+            start_time = now - timedelta(days=7)
+        elif time_range == "30d":
+            start_time = now - timedelta(days=30)
+        else:
+            start_time = None
+            
+        today_start = start_time if start_time else (now - timedelta(days=30))
+        
         stats_q = select(
             WebsiteScan.user_id,
             func.count(WebsiteScan.id).label('total_scans'),
-            func.sum(case((WebsiteScan.verdict != 'safe', 1), else_=0)).label('threats')
-        ).where(WebsiteScan.user_id.in_(user_ids)).group_by(WebsiteScan.user_id)
+            func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label('threats'),
+            func.sum(case((WebsiteScan.risk_score >= 75, 1), else_=0)).label('critical_count'),
+            func.sum(case(((WebsiteScan.created_at >= today_start) & (WebsiteScan.decision == "warn"), 1), else_=0)).label('today_warns')
+        ).where(WebsiteScan.user_id.in_(user_ids))
+        
+        if start_time:
+            stats_q = stats_q.where(WebsiteScan.created_at >= start_time)
+            
+        stats_q = stats_q.group_by(WebsiteScan.user_id)
         
         stats_rows = (await db.execute(stats_q)).all()
         for s in stats_rows:
             scan_stats[s.user_id] = {
                 "total_scans": s.total_scans,
-                "threats": s.threats or 0
+                "threats": s.threats or 0,
+                "critical_count": s.critical_count or 0,
+                "today_warns": s.today_warns or 0
             }
+            
+        creds_q = select(
+            SecurityEvent.user_id,
+            func.count(SecurityEvent.id).label('today_creds')
+        ).where(
+            SecurityEvent.timestamp >= today_start,
+            SecurityEvent.event_type == "credential_intercept",
+            SecurityEvent.user_id.in_([str(uid) for uid in user_ids])
+        ).group_by(SecurityEvent.user_id)
+        
+        creds_rows = (await db.execute(creds_q)).all()
+        creds_map = {int(row.user_id): row.today_creds for row in creds_rows if row.user_id and row.user_id.isdigit()}
 
     users_response = []
     for r in rows:
-        stats = scan_stats.get(r.id, {"total_scans": 0, "threats": 0})
+        stats = scan_stats.get(r.id, {"total_scans": 0, "threats": 0, "critical_count": 0, "today_warns": 0})
         total_scans = stats["total_scans"]
         threats = stats["threats"]
-        risk_score = int(round((threats / max(total_scans, 1)) * 100)) if threats > 0 else 0
+        critical_count = stats["critical_count"]
+        today_warns = stats["today_warns"]
+        today_creds = creds_map.get(r.id, 0)
+        
+        # Match employee dashboard health score logic
+        health_score = 100
+        if critical_count > 0: health_score -= min(30, critical_count * 2)
+        if today_warns > 0: health_score -= min(15, today_warns * 1)
+        if today_creds > 0: health_score -= 10
+        if health_score < 0: health_score = 0
+        
+        # Risk score is the inverse of health score for UI mapping (100 - risk_score = health_score)
+        risk_score = 100 - health_score
         
         users_response.append({
             "id": r.id, 
@@ -824,3 +927,96 @@ async def reset_user_password(
     user.password_hash = hash_password(new_password)
     await db.commit()
     return {"status": "success"}
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Delete a user. Managers can only delete in their own department."""
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+        
+    await db.delete(user)
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/users/{user_id}/promote")
+async def promote_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Promote an employee to manager. Managers can only promote in their own department."""
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    user.role = Role.MANAGER.value
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/users/{user_id}/status")
+async def update_user_status(
+    user_id: int,
+    status: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Enable/disable a user account. Managers can only modify their own department."""
+    if status not in ["active", "suspended", "disabled"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+        
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot disable your own account")
+        
+    user.account_status = status
+    await db.commit()
+    return {"status": "success", "account_status": status}
+
+@router.put("/users/{user_id}/role")
+async def update_user_role(
+    user_id: int,
+    role: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Update user role. Managers can only modify their own department."""
+    if role not in ["employee", "manager"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+        
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    if admin.role == Role.MANAGER.value:
+        q = q.where(User.department_id == admin.department_id)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot modify your own role")
+        
+    user.role = role
+    await db.commit()
+    return {"status": "success", "role": role}

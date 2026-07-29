@@ -271,3 +271,4 @@ class AdminStatsResponse(BaseModel):
     credential_events_total: int = 0
     download_events_total: int = 0
     hover_scans_total: int = 0
+    daily_trend: List[Dict[str, Any]] = []
