@@ -218,6 +218,21 @@ async def lifespan(app: FastAPI):
             await db.commit()
             print("Seeded IT employees successfully!")
 
+        # Ensure AuditLog records exist for org_default
+        from api.database.models import AuditLog
+        audit_count = await db.scalar(select(func.count(AuditLog.id)).where(AuditLog.organization_id == "org_default"))
+        if not audit_count or audit_count == 0:
+            sample_logs = [
+                AuditLog(organization_id="org_default", actor_email="admin@amdevwork.com", action="policy.updated", module="Settings", target="Detection Threshold", result="success", timestamp=datetime.utcnow() - timedelta(minutes=15)),
+                AuditLog(organization_id="org_default", actor_email="admin@amdevwork.com", action="user.role_changed", module="User Management", target="ahmed Raza (Manager)", result="success", timestamp=datetime.utcnow() - timedelta(hours=2)),
+                AuditLog(organization_id="org_default", actor_email="system@aegisone.local", action="incident.resolved", module="Threat Center", target="Phishing Attempt #1042", result="success", timestamp=datetime.utcnow() - timedelta(hours=5)),
+                AuditLog(organization_id="org_default", actor_email="admin@amdevwork.com", action="user.created", module="Organization", target="pakistani employee", result="success", timestamp=datetime.utcnow() - timedelta(days=1)),
+            ]
+            for al in sample_logs:
+                db.add(al)
+            await db.commit()
+            print("Seeded initial Audit Logs successfully!")
+
     load_all_models()
     
     logger.info("AegisOne API ready — accepting requests")

@@ -636,9 +636,9 @@ async def get_audit_logs(
     page:      int = 1,
     page_size: int = 100,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.SUPER_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
-    """Immutable audit log. Super admin only (Module 19)."""
+    """Immutable audit log for company admins and managers."""
     org_id = getattr(current_user, "organization_id", None) or "org_default"
 
     rows = (await db.execute(
@@ -761,24 +761,51 @@ async def get_departments(
     q = select(Department).where(Department.organization_id == org_id)
     rows = (await db.execute(q)).scalars().all()
     
+    # Department code alias map
+    code_map = {"Human Resources": "HR", "Finance": "FIN", "IT": "IT", "HR": "Human Resources", "FIN": "Finance"}
+
     depts_data = []
     for r in rows:
         mgr_name = "Unassigned"
         mgr_email = ""
+        
+        # 1. Try to find assigned manager or auto-discover department manager
+        mgr = None
         if r.manager_id:
             m_res = await db.execute(select(User).where(User.id == r.manager_id))
             mgr = m_res.scalars().first()
-            if mgr:
-                mgr_name = mgr.full_name
-                mgr_email = mgr.email
+            
+        if not mgr:
+            # Auto-discover manager assigned to this department
+            m_res = await db.execute(
+                select(User).where(
+                    User.organization_id == org_id,
+                    User.role.in_(["manager", "department_admin", "office_admin"]),
+                    or_(
+                        User.department_id == r.id,
+                        User.department == r.name,
+                        User.department == code_map.get(r.name, r.name)
+                    )
+                )
+            )
+            mgr = m_res.scalars().first()
+            if mgr and not r.manager_id:
+                r.manager_id = mgr.id
+                await db.commit()
+
+        if mgr:
+            mgr_name = mgr.full_name
+            mgr_email = mgr.email
                 
-        # Count members in department
+        # 2. Count members in department (checking full name and code alias)
+        alias_code = code_map.get(r.name, r.name)
         emp_count = await db.scalar(
             select(func.count(User.id)).where(
                 User.organization_id == org_id,
                 or_(
                     User.department_id == r.id,
-                    User.department == r.name
+                    User.department == r.name,
+                    User.department == alias_code
                 )
             )
         ) or 0
@@ -1233,6 +1260,21 @@ async def promote_user(
         raise HTTPException(status_code=404, detail="User not found or access denied")
         
     user.role = Role.MANAGER.value
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/users/{user_id}/demote")
+async def demote_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Demote a manager/admin to employee."""
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+    user.role = Role.EMPLOYEE.value
     await db.commit()
     return {"status": "success"}
 

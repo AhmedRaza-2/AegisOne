@@ -394,11 +394,57 @@ export default function DepartmentsPage() {
                     </td>
                     <td className="py-3 px-2 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Status Toggle Button */}
+                        <button
+                          onClick={() => handleToggleStatus(u)}
+                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${
+                            u.account_status === "disabled" || u.account_status === "suspended"
+                              ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-100"
+                              : "bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 border-surface-200 dark:border-white/[0.08] hover:bg-surface-200"
+                          }`}
+                        >
+                          {u.account_status === "disabled" || u.account_status === "suspended" ? "Enable" : "Disable"}
+                        </button>
+
+                        {/* Role Selector Dropdown */}
+                        <select
+                          value={u.role}
+                          onChange={async (e) => {
+                            const newRole = e.target.value;
+                            try {
+                              const endpoint = newRole === "manager" || newRole === "department_admin" ? `http://localhost:8000/admin/users/${u.id}/promote` : `http://localhost:8000/admin/users/${u.id}/demote`;
+                              const res = await fetch(endpoint, { method: "PUT", headers: getHeaders() });
+                              if (res.ok) {
+                                showToast(`Role updated to ${newRole}`, "success");
+                                fetchData();
+                              }
+                            } catch {
+                              showToast("Failed to update role", "error");
+                            }
+                          }}
+                          className="px-2 py-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-surface-900 dark:text-white focus:outline-none"
+                        >
+                          <option value="employee">Employee</option>
+                          <option value="manager">Manager</option>
+                          <option value="admin">Admin</option>
+                        </select>
+
+                        {/* Password Reset Icon */}
                         <button
                           onClick={() => setSelectedUser(u)}
-                          className="px-2.5 py-1 bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 rounded-lg hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors text-[11px] font-medium flex items-center gap-1"
+                          title="Reset Password"
+                          className="p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                         >
-                          <Key className="w-3 h-3 text-amber-500" /> Options
+                          <Key className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete User Icon */}
+                        <button
+                          onClick={() => handleDeleteUser(u.id)}
+                          title="Delete Account"
+                          className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

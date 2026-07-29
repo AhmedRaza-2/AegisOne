@@ -242,7 +242,7 @@ function SidebarContent({
             <div className="flex flex-col min-w-0 flex-1">
                <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || user?.name || "User"}</span>
                <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium">
-                 {roleBadge?.label || user?.role || "Role"}{user?.department ? ` • ${user.department}` : ""}
+                 {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department}` : "")}
                </span>
             </div>
             <div className="shrink-0 text-surface-400">
