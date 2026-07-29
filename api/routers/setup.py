@@ -72,7 +72,9 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
               </div>
               
               <h2>Welcome to the team, {employee.firstName}!</h2>
-              <p class="welcome-text">Your organization's IT department has provisioned your new AegisOne enterprise security account. You have been assigned the role of <strong>{role_display}</strong> in the <strong>{employee.departmentCode}</strong> department.</p>
+              <p class="welcome-text">
+                Your AegisOne enterprise security account has been provisioned. You have been assigned the role of <strong>{role_display}</strong>{f' in the <strong>{employee.departmentCode}</strong> department' if employee.role.lower() != 'admin' else ''}.
+              </p>
               
               <div class="instructions">
                 <strong>Action Required:</strong> You must log in within 24 hours and change your temporary password. After logging in, you will be prompted to install the AegisOne Chrome Extension to secure your browsing.
@@ -143,32 +145,62 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
     2. Dispatches Welcome Emails via background task.
     """
     
-    # 1. Save employees to DB
+    # 1. Enforce single admin per organization rule
+    admin_count = 0
+    for emp in request.employees:
+        if emp.role.lower() == "admin":
+            admin_count += 1
+
+    if admin_count > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Only 1 Administrator account is allowed per organization."
+        )
+
+    # Check if an admin already exists in DB under the target organization
+    if admin_count > 0:
+        existing_admin = (await db.execute(
+            select(User).where(
+                User.organization_id == "org_default",
+                User.role.in_(["admin", "super_admin"])
+            )
+        )).scalars().all()
+        # Filter out existing users being updated in the current request batch
+        request_emails = {emp.email for emp in request.employees if emp.role.lower() == "admin"}
+        other_admins = [u for u in existing_admin if u.email not in request_emails]
+        if other_admins:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Organization already has an Administrator account ({other_admins[0].email}). Only 1 Administrator is allowed."
+            )
+
+    # Save employees/admins to DB
     try:
         for emp in request.employees:
-            # Check if user already exists
             stmt = select(User).where(User.email == emp.email)
             result = await db.execute(stmt)
             existing = result.scalars().first()
+            dept_val = None if emp.role.lower() == "admin" else emp.departmentCode
             if not existing:
                 db_user = User(
                     email=emp.email,
                     password_hash=hash_password(emp.generatedPassword),
                     full_name=f"{emp.firstName} {emp.lastName}",
                     role=emp.role.lower(),
-                    department=emp.departmentCode,
+                    department=dept_val,
                     account_status="approved",
-                    organization_id="org_default" # Temporary default organization
+                    organization_id="org_default"
                 )
                 db.add(db_user)
             else:
-                # If user exists, update their password so they can log in
                 existing.password_hash = hash_password(emp.generatedPassword)
                 existing.full_name = f"{emp.firstName} {emp.lastName}"
                 existing.role = emp.role.lower()
-                existing.department = emp.departmentCode
+                existing.department = dept_val
                 existing.account_status = "approved"
         await db.commit()
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         print(f"Error saving users to database: {str(e)}")

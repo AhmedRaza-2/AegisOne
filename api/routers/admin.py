@@ -6,9 +6,13 @@ Uses DashboardStatistic for fast today-view; falls back to live queries.
 """
 import json
 from datetime import date, datetime, timezone
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, cast, Date
+from sqlalchemy import select, func, update, cast, Date, or_, and_
 
 from api.database.db import get_db
 from api.database.models import (
@@ -447,6 +451,14 @@ async def get_events(
 
     rows = (await db.execute(q.offset((page - 1) * page_size).limit(page_size))).scalars().all()
 
+    # Map user_id to user names
+    user_ids = list(set([int(r.user_id) for r in rows if r.user_id and r.user_id.isdigit()]))
+    user_map = {}
+    if user_ids:
+        users_q = select(User).where(User.id.in_(user_ids))
+        users_rows = (await db.execute(users_q)).scalars().all()
+        user_map = {u.id: u.full_name for u in users_rows}
+
     return {
         "page": page,
         "page_size": page_size,
@@ -463,6 +475,7 @@ async def get_events(
                 "threat_type": r.threat_type,
                 "timestamp":  str(r.timestamp),
                 "device_id":  r.device_id,
+                "user_name":  user_map.get(int(r.user_id)) if r.user_id and r.user_id.isdigit() else "System"
             }
             for r in rows
         ],
@@ -743,10 +756,43 @@ async def get_departments(
     db: AsyncSession = Depends(get_db),
     manager: User = Depends(require_role(Role.MANAGER))
 ):
-    """List departments. Admin sees all, Manager sees all (View only)."""
-    q = select(Department).where(Department.organization_id == manager.organization_id)
+    """List departments with manager details and member counts."""
+    org_id = getattr(manager, "organization_id", None) or "org_default"
+    q = select(Department).where(Department.organization_id == org_id)
     rows = (await db.execute(q)).scalars().all()
-    return {"departments": [{"id": r.id, "name": r.name, "manager_id": r.manager_id} for r in rows]}
+    
+    depts_data = []
+    for r in rows:
+        mgr_name = "Unassigned"
+        mgr_email = ""
+        if r.manager_id:
+            m_res = await db.execute(select(User).where(User.id == r.manager_id))
+            mgr = m_res.scalars().first()
+            if mgr:
+                mgr_name = mgr.full_name
+                mgr_email = mgr.email
+                
+        # Count members in department
+        emp_count = await db.scalar(
+            select(func.count(User.id)).where(
+                User.organization_id == org_id,
+                or_(
+                    User.department_id == r.id,
+                    User.department == r.name
+                )
+            )
+        ) or 0
+        
+        depts_data.append({
+            "id": r.id,
+            "name": r.name,
+            "manager_id": r.manager_id,
+            "manager_name": mgr_name,
+            "manager_email": mgr_email,
+            "employee_count": emp_count
+        })
+        
+    return {"departments": depts_data}
 
 @router.post("/departments")
 async def create_department(
@@ -856,14 +902,10 @@ async def get_users(
         today_warns = stats["today_warns"]
         today_creds = creds_map.get(r.id, 0)
         
-        # Match employee dashboard health score logic
-        health_score = 100
-        if critical_count > 0: health_score -= min(30, critical_count * 2)
-        if today_warns > 0: health_score -= min(15, today_warns * 1)
-        if today_creds > 0: health_score -= 10
-        if health_score < 0: health_score = 0
+        # Match employee dashboard health score logic exactly
+        health_score = max(0, 100 - (threats * 2))
         
-        # Risk score is the inverse of health score for UI mapping (100 - risk_score = health_score)
+        # Risk score is the inverse of health score for UI mapping (100 - health_score)
         risk_score = 100 - health_score
         
         users_response.append({
@@ -881,31 +923,256 @@ async def get_users(
         
     return {"users": users_response}
 
+def send_welcome_email(email: str, name: str, password: str, department: str, role: str):
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    if not smtp_user or not smtp_pass:
+        print("SMTP credentials missing. Cannot send welcome email.")
+        return
+    
+    # Map long department names to abbreviations
+    display_dept = "IT" if department == "Information Technology" else department
+    display_role = role.capitalize()
+    
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Welcome to AegisOne Enterprise Security"
+        msg["From"] = f"AegisOne Security <{smtp_user}>"
+        msg["To"] = email
+        html = f"""
+        <html>
+          <head>
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+              body {{
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background-color: #F8FAFC;
+                color: #0F172A;
+                line-height: 1.6;
+                padding: 20px;
+                margin: 0;
+              }}
+              .container {{
+                max-width: 560px;
+                margin: 0 auto;
+                background-color: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-radius: 16px;
+                padding: 40px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+              }}
+              .header {{
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 1px solid #F1F5F9;
+                padding-bottom: 20px;
+              }}
+              .logo-icon {{
+                display: inline-block;
+                background-color: #4F84F8;
+                color: white;
+                width: 44px;
+                height: 44px;
+                line-height: 44px;
+                border-radius: 10px;
+                font-weight: bold;
+                font-size: 22px;
+                margin-bottom: 12px;
+                text-align: center;
+              }}
+              .logo-text {{
+                font-size: 22px;
+                font-weight: 700;
+                color: #0F172A;
+                letter-spacing: -0.5px;
+              }}
+              h2 {{
+                color: #0F172A;
+                font-size: 20px;
+                font-weight: 700;
+                margin-bottom: 10px;
+              }}
+              .welcome-text {{
+                color: #475569;
+                font-size: 15px;
+                margin-bottom: 25px;
+              }}
+              .credentials-box {{
+                background-color: #F8FAFC;
+                border: 1px solid #E2E8F0;
+                border-left: 4px solid #4F84F8;
+                padding: 24px;
+                margin: 25px 0;
+                border-radius: 8px;
+              }}
+              .credentials-box h3 {{
+                margin-top: 0;
+                font-size: 13px;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                color: #64748B;
+                margin-bottom: 15px;
+              }}
+              .cred-row {{
+                margin-bottom: 12px;
+                font-size: 14px;
+              }}
+              .cred-label {{
+                font-weight: 600;
+                color: #475569;
+                width: 140px;
+                display: inline-block;
+              }}
+              .code {{
+                font-family: Consolas, 'Liberation Mono', Menlo, monospace;
+                font-weight: 600;
+                color: #0F172A;
+                background-color: #E2E8F0;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 13.5px;
+              }}
+              .btn-container {{
+                text-align: center;
+                margin: 30px 0;
+              }}
+              .btn {{
+                display: inline-block;
+                background-color: #4F84F8;
+                color: #FFFFFF !important;
+                text-decoration: none;
+                font-weight: 600;
+                padding: 12px 26px;
+                border-radius: 8px;
+                font-size: 15px;
+                box-shadow: 0 4px 6px -1px rgba(79, 132, 248, 0.2);
+              }}
+              .footer {{
+                margin-top: 40px;
+                text-align: center;
+                font-size: 12px;
+                color: #94A3B8;
+                border-top: 1px solid #F1F5F9;
+                padding-top: 20px;
+              }}
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="logo-icon">Æ</div>
+                <div class="logo-text">AegisOne Unified Security</div>
+              </div>
+              
+              <h2>Welcome to the team, {name}!</h2>
+              <p class="welcome-text">Your administrator has created a new account for you. Below are your account details and temporary credentials:</p>
+              
+              <div class="credentials-box">
+                <h3>Account Details</h3>
+                <div class="cred-row">
+                  <span class="cred-label">Allocated Role:</span>
+                  <span class="code">{display_role}</span>
+                </div>
+                <div class="cred-row">
+                  <span class="cred-label">Department:</span>
+                  <span class="code">{display_dept}</span>
+                </div>
+                <div class="cred-row">
+                  <span class="cred-label">Temporary Password:</span>
+                  <span class="code">{password}</span>
+                </div>
+              </div>
+              
+              <div class="btn-container">
+                <a href="http://localhost:3002/login" class="btn">Log In to AegisOne Portal</a>
+              </div>
+              
+              <p style="font-size: 13px; color: #64748B;">For security reasons, you will be prompted to change this temporary password upon your first login.</p>
+
+              <div class="footer">
+                <p>&copy; 2026 AegisOne UTM. All rights reserved.</p>
+                <p>This is an automated system email. Please do not reply directly.</p>
+              </div>
+            </div>
+          </body>
+        </html>
+        """
+        msg.attach(MIMEText(html, "html"))
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, email, msg.as_string())
+        server.quit()
+        print(f"Welcome email successfully sent to {email}")
+    except Exception as e:
+        print(f"Failed to send welcome email: {e}")
+
 @router.post("/users")
 async def create_user(
     req: UserCreate,
+    force_transfer: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Create a user. Managers can only create in their own department."""
-    target_dept = req.department_id
+    target_dept_id = req.department_id
     
     if admin.role == Role.MANAGER.value:
-        target_dept = admin.department_id
+        target_dept_id = admin.department_id
         if req.role in [Role.ADMIN.value, Role.SUPER_ADMIN.value]:
             raise HTTPException(status_code=403, detail="Managers cannot create admin accounts.")
             
+    # Resolve target department name
+    target_dept_name = "General"
+    if target_dept_id:
+        dept_q = select(Department).where(Department.id == target_dept_id)
+        dept = (await db.execute(dept_q)).scalar_one_or_none()
+        if dept:
+            target_dept_name = dept.name
+
+    # Check duplicates
+    q = select(User).where(User.email == req.email)
+    existing_user = (await db.execute(q)).scalar_one_or_none()
+    if existing_user:
+        if existing_user.role in [Role.ADMIN.value, Role.SUPER_ADMIN.value]:
+            raise HTTPException(status_code=403, detail="This email belongs to a system administrator. Access denied.")
+            
+        if existing_user.organization_id != admin.organization_id:
+            raise HTTPException(status_code=400, detail="This email is registered under a different organization.")
+            
+        if existing_user.department_id == target_dept_id:
+            raise HTTPException(status_code=400, detail="User is already registered in this department.")
+            
+        if not force_transfer:
+            return {
+                "status": "exists_elsewhere",
+                "department": "IT" if existing_user.department == "Information Technology" else (existing_user.department or "Another Department"),
+                "message": f"This employee is already registered in the '{existing_user.department or 'another'}' department."
+            }
+        else:
+            # Transfer existing user to target department
+            existing_user.department_id = target_dept_id
+            existing_user.department = target_dept_name
+            # If the user is suspended or disabled, reactivate them on transfer
+            existing_user.account_status = "active"
+            await db.commit()
+            return {"status": "success", "user_id": existing_user.id, "transferred": True}
+
     new_user = User(
         organization_id=admin.organization_id,
         email=req.email,
         full_name=req.full_name,
         password_hash=hash_password(req.password),
         role=req.role,
-        department_id=target_dept,
+        department_id=target_dept_id,
+        department=target_dept_name,
         account_status="active"
     )
     db.add(new_user)
     await db.commit()
+    
+    # Send email notifications
+    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role)
+    
     return {"status": "success", "user_id": new_user.id}
 
 @router.put("/users/{user_id}/password")

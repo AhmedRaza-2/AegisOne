@@ -18,16 +18,24 @@ export default function AdminDashboard() {
 
   const isGlobalAdmin = user?.role === "global_admin" || user?.role === "super_admin";
 
+  const [departments, setDepartments] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem("aegis_access_token");
-        const res = await fetch("http://localhost:8000/admin/stats", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
+        const headers = { Authorization: `Bearer ${token}` };
+        const [statsRes, deptsRes] = await Promise.all([
+          fetch("http://localhost:8000/admin/stats", { headers }),
+          fetch("http://localhost:8000/admin/departments", { headers })
+        ]);
+        if (statsRes.ok) {
+          const data = await statsRes.json();
           setStats(data);
+        }
+        if (deptsRes.ok) {
+          const dData = await deptsRes.json();
+          setDepartments(dData.departments || []);
         }
       } catch (e) {
         console.error("Failed to fetch stats", e);
@@ -50,16 +58,18 @@ export default function AdminDashboard() {
 
   const modelIcons: Record<string, typeof Mail> = { email: Mail, url: Globe, text: FileText, image: Image, document: FileText, attachment: Cpu };
 
-  // Generate placeholder trend data since backend doesn't provide historical timeseries yet
-  const trendData = [
-    { date: "Mon", safe: Math.floor((stats?.total_scans || 10) * 0.1), threats: Math.floor((stats?.threats_detected || 2) * 0.05) },
-    { date: "Tue", safe: Math.floor((stats?.total_scans || 10) * 0.15), threats: Math.floor((stats?.threats_detected || 2) * 0.1) },
-    { date: "Wed", safe: Math.floor((stats?.total_scans || 10) * 0.2), threats: Math.floor((stats?.threats_detected || 2) * 0.15) },
-    { date: "Thu", safe: Math.floor((stats?.total_scans || 10) * 0.12), threats: Math.floor((stats?.threats_detected || 2) * 0.2) },
-    { date: "Fri", safe: Math.floor((stats?.total_scans || 10) * 0.18), threats: Math.floor((stats?.threats_detected || 2) * 0.1) },
-    { date: "Sat", safe: Math.floor((stats?.total_scans || 10) * 0.05), threats: Math.floor((stats?.threats_detected || 2) * 0.05) },
-    { date: "Sun", safe: stats?.scans_today || 0, threats: stats?.threats_today || 0 },
-  ];
+  // Dynamic Trend Data from Backend API
+  const trendData = (stats?.daily_trend && stats.daily_trend.length > 0)
+    ? stats.daily_trend
+    : [
+        { date: "Mon", safe: 0, threats: 0 },
+        { date: "Tue", safe: 0, threats: 0 },
+        { date: "Wed", safe: 0, threats: 0 },
+        { date: "Thu", safe: 0, threats: 0 },
+        { date: "Fri", safe: 0, threats: 0 },
+        { date: "Sat", safe: 0, threats: 0 },
+        { date: "Sun", safe: 0, threats: 0 },
+      ];
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -71,7 +81,7 @@ export default function AdminDashboard() {
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
             {isGlobalAdmin 
               ? "Global multi-tenant system statistics and model health metrics" 
-              : `Security policies, threat feeds, and employee directory for ${user.department || "your organization"}`}
+              : `Security policies, threat feeds, and enterprise employee directory`}
           </p>
         </div>
       </motion.div>
@@ -168,6 +178,44 @@ export default function AdminDashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Department Snapshots Row */}
+      <motion.div variants={fadeUp} className="stat-card space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2 text-surface-900 dark:text-white">
+            <Building2 className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Department Breakdown & Member Distribution
+          </h3>
+          <button
+            onClick={() => window.location.href = "/dashboard/admin/departments"}
+            className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors font-medium"
+          >
+            Manage Departments →
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {departments.length === 0 ? (
+            <div className="col-span-4 text-center py-6 text-xs text-surface-400">Loading department snapshots...</div>
+          ) : (
+            departments.map((dept) => (
+              <div
+                key={dept.id}
+                onClick={() => window.location.href = "/dashboard/admin/departments"}
+                className="p-3.5 rounded-xl bg-surface-50 dark:bg-white/[0.02] border border-surface-100 dark:border-white/[0.04] hover:border-brand-500/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-surface-900 dark:text-white truncate">{dept.name}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
+                    {dept.employee_count} members
+                  </span>
+                </div>
+                <p className="text-[11px] text-surface-500 truncate">
+                  Lead: <span className="font-medium text-surface-700 dark:text-surface-300">{dept.manager_name || "Unassigned"}</span>
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </motion.div>
     </motion.div>
   );
 }

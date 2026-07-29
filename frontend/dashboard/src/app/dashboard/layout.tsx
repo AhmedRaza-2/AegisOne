@@ -23,6 +23,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Security Overview", href: "/dashboard/employee", icon: ShieldCheck },
     { label: "Browser Protection", href: "/dashboard/employee/browser", icon: Puzzle },
     { label: "Threat Center", href: "/dashboard/employee/threats", icon: ShieldAlert },
+    { label: "Communication", href: "/dashboard/employee/communication", icon: MessageSquare },
     { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan },
     { label: "History", href: "/dashboard/employee/history", icon: History },
     { label: "Account Settings", href: "/dashboard/employee/settings", icon: Settings },
@@ -32,22 +33,22 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
     { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert },
     { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare },
-    { label: "Inter-Department", href: "/dashboard/supervisor/inter-department", icon: Network },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
     { label: "Settings", href: "/dashboard/supervisor/settings", icon: Settings },
   ],
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Users", href: "/dashboard/admin/users", icon: Users },
-    { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
+    { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
     { label: "Devices", href: "/dashboard/admin/devices", icon: Monitor },
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
+    { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
     { label: "Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
   super_admin: [
     { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
+    { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
     { label: "Global Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
@@ -241,7 +242,7 @@ function SidebarContent({
             <div className="flex flex-col min-w-0 flex-1">
                <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || user?.name || "User"}</span>
                <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium">
-                 {roleBadge?.label || user?.role || "Role"} {user?.department ? `• ${user.department}` : ""}
+                 {roleBadge?.label || user?.role || "Role"}{user?.department ? ` • ${user.department}` : ""}
                </span>
             </div>
             <div className="shrink-0 text-surface-400">
@@ -268,6 +269,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(true);
+  const [inboxMessages, setInboxMessages] = useState<any[]>([]);
+  const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (isLoading) return;
@@ -277,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     const role = user.role;
-    if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin") {
+    if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin" && role !== "admin") {
       // Allow department_admin to access approvals page
       if ((role === "department_admin" || role === "manager") && pathname === "/dashboard/admin/approvals") {
         setIsAuthorizing(false);
@@ -285,8 +288,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace((role === "department_admin" || role === "manager" || role === "office_admin") ? "/dashboard/supervisor" : "/dashboard/employee");
       }
     } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin" && role !== "manager") {
-      router.replace(role === "super_admin" ? "/dashboard/admin" : "/dashboard/employee");
-    } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin")) {
+      router.replace(role === "super_admin" || role === "admin" ? "/dashboard/admin" : "/dashboard/employee");
+    } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin" || role === "admin")) {
       router.replace("/dashboard/admin");
     } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin" || role === "manager")) {
       router.replace("/dashboard/supervisor");
@@ -294,6 +297,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setIsAuthorizing(false);
     }
   }, [user, isLoading, router, pathname]);
+
+  // Poll for new inbox messages every 15 seconds
+  useEffect(() => {
+    if (!user) return;
+    const fetchInbox = () => {
+      const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+      if (!token) return;
+      fetch("http://localhost:8000/communication/inbox", {
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setInboxMessages(data);
+        })
+        .catch(() => {});
+    };
+    fetchInbox();
+    const interval = setInterval(fetchInbox, 15000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const unreadCount = inboxMessages.filter(m => !seenIds.has(m.id)).length;
+  const commPath = user?.role === "department_admin" || user?.role === "manager" || user?.role === "office_admin"
+    ? "/dashboard/supervisor/communication"
+    : "/dashboard/employee/communication";
 
   if (isLoading || !user || isAuthorizing) {
     return (
@@ -351,36 +379,84 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {theme === "dark" ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-surface-600" />}
             </button>
             <div className="relative">
-              <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center">
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center"
+              >
                 <Bell className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white dark:bg-[#0F1423] flex items-center justify-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand-500 dark:bg-[#4F84F8]"></span>
-                </span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
               
               {notificationsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden z-50">
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-xl rounded-xl overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
-                    <span className="text-sm font-semibold text-surface-900 dark:text-white">Notifications</span>
-                    <span className="text-[10px] bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400 px-2 py-0.5 rounded-full font-medium">1 New</span>
+                    <span className="text-sm font-semibold text-surface-900 dark:text-white">Messages</span>
+                    {unreadCount > 0 && (
+                      <span className="text-[10px] bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400 px-2 py-0.5 rounded-full font-medium">
+                        {unreadCount} New
+                      </span>
+                    )}
                   </div>
-                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                    <div className="p-4 border-b border-surface-100 dark:border-white/[0.04] hover:bg-surface-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer">
-                      <div className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
-                          <User className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-surface-900 dark:text-white font-medium">IT Manager Replied</p>
-                          <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-2">"Thanks for letting us know, we are looking into it now."</p>
-                          <p className="text-[10px] text-surface-400 mt-1">Just now</p>
-                        </div>
+                  <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                    {inboxMessages.length === 0 ? (
+                      <div className="py-8 text-center text-surface-500 text-sm">
+                        <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                        No new messages
                       </div>
-                    </div>
+                    ) : (
+                      inboxMessages.slice(0, 8).map(msg => (
+                        <button
+                          key={msg.id}
+                          onClick={() => {
+                            setSeenIds(prev => new Set([...prev, msg.id]));
+                            setNotificationsOpen(false);
+                            router.push(commPath);
+                          }}
+                          className="w-full p-4 border-b border-surface-100 dark:border-white/[0.04] hover:bg-surface-50 dark:hover:bg-white/[0.02] transition-colors text-left flex gap-3 items-start"
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                            !seenIds.has(msg.id) ? 'bg-brand-100 dark:bg-brand-900/30' : 'bg-surface-100 dark:bg-surface-800'
+                          }`}>
+                            <MessageSquare className={`w-4 h-4 ${
+                              !seenIds.has(msg.id) ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400'
+                            }`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-medium truncate ${
+                              !seenIds.has(msg.id) ? 'text-surface-900 dark:text-white' : 'text-surface-500'
+                            }`}>
+                              {msg.title || (msg.msg_type === 'broadcast' ? 'Department Broadcast' : 'Direct Message')}
+                            </p>
+                            <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-2">{msg.content}</p>
+                            <p className="text-[10px] text-surface-400 mt-1">
+                              {new Date(msg.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          {!seenIds.has(msg.id) && (
+                            <span className="w-2 h-2 rounded-full bg-brand-500 mt-1 shrink-0"></span>
+                          )}
+                        </button>
+                      ))
+                    )}
                   </div>
-                  <div className="p-2 border-t border-surface-100 dark:border-white/[0.04]">
-                    <button onClick={() => setNotificationsOpen(false)} className="w-full py-1.5 text-xs text-center font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/10 rounded-lg transition-colors">
-                      Mark all as read
+                  <div className="p-2 border-t border-surface-100 dark:border-white/[0.04] flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSeenIds(new Set(inboxMessages.map((m: any) => m.id)));
+                      }}
+                      className="flex-1 py-1.5 text-xs text-center font-medium text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 hover:bg-surface-100 dark:hover:bg-white/[0.04] rounded-lg transition-colors"
+                    >
+                      Mark all read
+                    </button>
+                    <button
+                      onClick={() => { setNotificationsOpen(false); router.push(commPath); }}
+                      className="flex-1 py-1.5 text-xs text-center font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/10 rounded-lg transition-colors"
+                    >
+                      Open Inbox
                     </button>
                   </div>
                 </div>

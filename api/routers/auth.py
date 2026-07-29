@@ -19,6 +19,7 @@ import string
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pydantic import BaseModel
+from typing import Optional
 import time
 
 class ForgotPasswordRequest(BaseModel):
@@ -56,10 +57,10 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is awaiting admin approval",
         )
-    elif user.account_status in ("rejected", "disabled"):
+    elif user.account_status in ("rejected", "disabled", "suspended"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account access denied",
+            detail="Your account has been disabled. Please contact your administrator.",
         )
         
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
@@ -235,3 +236,37 @@ async def verify_reset_otp(req: VerifyResetRequest, db: AsyncSession = Depends(g
     del otp_store[req.email]
     
     return {"status": "ok", "message": "Password reset successfully"}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = None
+
+@router.post("/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_password(req.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    current_user.password_hash = hash_password(req.new_password)
+    await db.commit()
+    return {"status": "ok", "message": "Password changed successfully"}
+
+@router.put("/profile")
+async def update_profile(
+    req: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if req.full_name:
+        current_user.full_name = req.full_name
+    await db.commit()
+    return {"status": "ok", "full_name": current_user.full_name}
+

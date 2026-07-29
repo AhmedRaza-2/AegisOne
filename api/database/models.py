@@ -520,3 +520,27 @@ class Incident(Base):
     resolver = relationship("User", foreign_keys=[resolved_by_id], back_populates="resolved_incidents")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 15. COMMUNICATIONS (MESSAGES)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Message(Base):
+    """Internal messaging system for broadcasts and direct messages."""
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=True, index=True)
+    
+    msg_type = Column(String(50), nullable=False) # 'broadcast', 'direct'
+    title = Column(String(255), nullable=True)
+    content = Column(Text, nullable=False)
+    priority = Column(String(50), default="Normal")
+    
+    created_at = Column(DateTime, server_default=func.now())
+    is_read = Column(Boolean, default=False)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
+    department = relationship("Department", foreign_keys=[department_id])

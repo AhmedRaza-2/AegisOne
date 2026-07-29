@@ -16,7 +16,7 @@ function Toast({ toast }: { toast: { message: string; type: "success" | "error" 
   );
 }
 
-export default function ManagerCommunicationPage() {
+export default function AdminCommunicationPage() {
   const { user } = useAuth();
   const [contacts, setContacts]           = useState<ChatContact[]>([]);
   const [activeContact, setActiveContact] = useState<ChatContact | null>(null);
@@ -25,7 +25,7 @@ export default function ManagerCommunicationPage() {
   const [tab, setTab]                     = useState<"chat" | "announce">("chat");
   const [toast, setToast]                 = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showBroadcast, setShowBroadcast] = useState(false);
-  const [bTitle, setBTitle]               = useState("Security Update");
+  const [bTitle, setBTitle]               = useState("Organization Notice");
   const [bContent, setBContent]           = useState("");
   const [bSending, setBSending]           = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -82,20 +82,19 @@ export default function ManagerCommunicationPage() {
       ).then(r => r.json());
       if (Array.isArray(data)) setThread(data);
     } else {
-      const err = await res.json();
-      showToast(err.detail || "Failed to send", "error");
+      const err = await res.json(); showToast(err.detail || "Failed to send", "error");
     }
   };
 
-  const handleBroadcast = async () => {
-    if (!bContent.trim() || !user?.department_id) return;
+  const handleOrgBroadcast = async () => {
+    if (!bContent.trim()) return;
     setBSending(true);
     const res = await fetch("http://localhost:8000/communication/send", {
       method: "POST", headers: getHeaders(),
-      body: JSON.stringify({ msg_type: "broadcast", department_id: user.department_id, title: bTitle, content: bContent })
+      body: JSON.stringify({ msg_type: "org_broadcast", title: bTitle, content: bContent })
     });
     if (res.ok) {
-      showToast("Broadcast sent to your department!", "success");
+      showToast("Organization-wide broadcast sent!", "success");
       setBContent(""); setShowBroadcast(false);
       fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); });
@@ -104,14 +103,12 @@ export default function ManagerCommunicationPage() {
   };
 
   if (!user) return null;
-  const employees = contacts.filter(c => c.role === "employee");
-  const admins    = contacts.filter(c => c.role === "admin" || c.role === "super_admin" || c.role === "global_admin");
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] max-w-6xl mx-auto">
       <AnimatePresence><Toast toast={toast} /></AnimatePresence>
 
-      {/* Broadcast Modal */}
+      {/* Org Broadcast Modal */}
       <AnimatePresence>
         {showBroadcast && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -120,30 +117,34 @@ export default function ManagerCommunicationPage() {
               className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2">
-                  <Megaphone className="w-5 h-5 text-brand-500" /> Department Broadcast
+                  <Globe className="w-5 h-5 text-amber-500" /> Organization-Wide Broadcast
                 </h3>
                 <button onClick={() => setShowBroadcast(false)} className="text-surface-400 hover:text-surface-700"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/40 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+                ⚠️ This will be visible to <strong>everyone</strong> in the organization.
               </div>
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-surface-500 mb-1.5">Type</label>
                   <select value={bTitle} onChange={e => setBTitle(e.target.value)}
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
-                    <option>Security Update</option><option>Policy Notice</option>
-                    <option>Department Notice</option><option>Awareness Reminder</option><option>Incident Notification</option>
+                    <option>Organization Notice</option><option>Security Policy Update</option>
+                    <option>System Maintenance</option><option>Emergency Security Alert</option>
+                    <option>Compliance Reminder</option><option>General Announcement</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-surface-500 mb-1.5">Message</label>
                   <textarea value={bContent} onChange={e => setBContent(e.target.value)} rows={4}
-                    placeholder="Write broadcast…"
+                    placeholder="Write your organization-wide message…"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500 resize-none" />
                 </div>
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setShowBroadcast(false)} className="px-4 py-2 text-sm text-surface-500">Cancel</button>
-                  <button onClick={handleBroadcast} disabled={!bContent.trim() || bSending}
-                    className="px-5 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg flex items-center gap-2">
-                    <Send className="w-4 h-4" />{bSending ? "Sending…" : "Send Broadcast"}
+                  <button onClick={handleOrgBroadcast} disabled={!bContent.trim() || bSending}
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg flex items-center gap-2">
+                    <Globe className="w-4 h-4" />{bSending ? "Sending…" : "Send to Organization"}
                   </button>
                 </div>
               </div>
@@ -154,20 +155,20 @@ export default function ManagerCommunicationPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <MessageSquare className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+        <MessageSquare className="w-6 h-6 text-amber-600 dark:text-amber-400" />
         <div>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Communication Center</h1>
-          <p className="text-xs text-surface-500 dark:text-surface-400">Chat with your team and organization admins</p>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Admin Communication</h1>
+          <p className="text-xs text-surface-500 dark:text-surface-400">Message managers and broadcast to the entire organization</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <button onClick={() => setShowBroadcast(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors">
-            <Megaphone className="w-4 h-4" /> Broadcast
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium rounded-lg transition-colors">
+            <Globe className="w-4 h-4" /> Org Broadcast
           </button>
           <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-900 rounded-lg">
             <button onClick={() => setTab("chat")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${tab === "chat" ? "bg-white dark:bg-[#1A2133] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>Chat</button>
             <button onClick={() => setTab("announce")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${tab === "announce" ? "bg-white dark:bg-[#1A2133] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>
-              Announcements {announcements.length > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-brand-500 text-white rounded-full">{announcements.length}</span>}
+              Announcements {announcements.length > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-500 text-white rounded-full">{announcements.length}</span>}
             </button>
           </div>
         </div>
@@ -177,30 +178,22 @@ export default function ManagerCommunicationPage() {
         <div className="flex flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#141A29] shadow-sm min-h-0">
           {/* Sidebar */}
           <div className="w-64 shrink-0 border-r border-surface-200 dark:border-white/[0.06] flex flex-col overflow-y-auto custom-scrollbar">
-            {employees.length > 0 && (
-              <>
-                <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] sticky top-0 bg-white dark:bg-[#141A29] z-10">
-                  <span className="text-[10px] font-bold text-surface-400 uppercase tracking-widest">Team Members</span>
-                </div>
-                {employees.map(c => <ContactItem key={c.id} contact={c} isActive={activeContact?.id === c.id} onClick={() => setActiveContact(c)} />)}
-              </>
-            )}
-            {admins.length > 0 && (
-              <>
-                <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] border-t mt-1 sticky top-0 bg-white dark:bg-[#141A29] z-10">
-                  <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Organization Admins</span>
-                </div>
-                {admins.map(c => <ContactItem key={c.id} contact={c} isActive={activeContact?.id === c.id} onClick={() => setActiveContact(c)} accentColor="amber" />)}
-              </>
-            )}
-            {contacts.length === 0 && <div className="text-center py-12 text-surface-400 text-sm px-4">No contacts</div>}
+            <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] sticky top-0 bg-white dark:bg-[#141A29] z-10">
+              <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Department Managers</span>
+            </div>
+            {contacts.length === 0
+              ? <div className="text-center py-12 text-surface-400 text-sm px-4">No managers found</div>
+              : contacts.map(c => (
+                <ContactItem key={c.id} contact={c} isActive={activeContact?.id === c.id} onClick={() => setActiveContact(c)} accentColor="amber" />
+              ))
+            }
           </div>
 
           {activeContact ? (
-            <ChatView currentUserId={user.id} activeContact={activeContact} thread={thread} accentColor="brand" onSend={handleSend} />
+            <ChatView currentUserId={user.id} activeContact={activeContact} thread={thread} accentColor="amber" onSend={handleSend} />
           ) : (
             <div className="flex-1 flex items-center justify-center text-surface-400">
-              <div className="text-center"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p className="text-sm">Select a contact</p></div>
+              <div className="text-center"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p className="text-sm">Select a manager to start chatting</p></div>
             </div>
           )}
         </div>
@@ -208,16 +201,16 @@ export default function ManagerCommunicationPage() {
         <div className="flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#141A29] shadow-sm">
           <div className="p-5 border-b border-surface-200 dark:border-white/[0.06] flex items-center justify-between bg-surface-50/50 dark:bg-white/[0.01]">
             <div>
-              <h2 className="text-base font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Megaphone className="w-5 h-5 text-brand-500" />Announcements</h2>
-              <p className="text-xs text-surface-500 mt-0.5">Department broadcasts sent and received</p>
+              <h2 className="text-base font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Megaphone className="w-5 h-5 text-amber-500" />Organization Announcements</h2>
+              <p className="text-xs text-surface-500 mt-0.5">Org-wide broadcasts and department announcements</p>
             </div>
-            <button onClick={() => setShowBroadcast(true)} className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg">
-              <Plus className="w-4 h-4" />New Broadcast
+            <button onClick={() => setShowBroadcast(true)} className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium rounded-lg">
+              <Plus className="w-4 h-4" />New Org Broadcast
             </button>
           </div>
           <div className="overflow-y-auto p-4 space-y-3 custom-scrollbar" style={{ maxHeight: "calc(100% - 80px)" }}>
             {announcements.length === 0 ? (
-              <div className="text-center py-16 text-surface-400"><Megaphone className="w-10 h-10 mx-auto mb-3 opacity-20" /><p className="text-sm">No announcements yet</p></div>
+              <div className="text-center py-16 text-surface-400"><Globe className="w-10 h-10 mx-auto mb-3 opacity-20" /><p className="text-sm">No announcements yet</p></div>
             ) : announcements.map(a => (
               <div key={a.id} className="p-4 rounded-xl border border-surface-200 dark:border-white/[0.05] bg-surface-50 dark:bg-surface-950">
                 <div className="flex items-start justify-between mb-2">

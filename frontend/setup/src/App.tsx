@@ -47,28 +47,6 @@ export default function App() {
   const [timezone, setTimezone] = useState('UTC+00:00');
   const [configLoaded, setConfigLoaded] = useState(false);
 
-  // Simulate backend fetching the Docker Environment variables
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const orgNameParam = searchParams.get('orgName');
-    const industryParam = searchParams.get('industry');
-
-    if (orgNameParam && industryParam) {
-      setOrgName(orgNameParam);
-      setIndustry(industryParam);
-      setConfigLoaded(true);
-    } else {
-      const fetchDockerConfig = async () => {
-        // Simulating GET /api/system/config fallback
-        await new Promise(r => setTimeout(r, 1000));
-        setOrgName('Acme Corp'); 
-        setIndustry('Technology'); 
-        setConfigLoaded(true);
-      };
-      fetchDockerConfig();
-    }
-  }, []);
-
   // Step 2: Departments
   const [departments, setDepartments] = useState<Department[]>([
     { id: '1', name: 'Information Technology', code: 'IT' },
@@ -82,6 +60,43 @@ export default function App() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+
+  // Read URL parameters from Onboarding Landing Portal
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const orgNameParam = searchParams.get('orgName');
+    const industryParam = searchParams.get('industry');
+    const adminEmailParam = searchParams.get('adminEmail');
+    const adminNameParam = searchParams.get('adminName') || 'Administrator';
+
+    if (orgNameParam) setOrgName(orgNameParam);
+    if (industryParam) setIndustry(industryParam);
+    setConfigLoaded(true);
+
+    if (adminEmailParam) {
+      const nameParts = adminNameParam.split(' ');
+      const fName = nameParts[0] || 'Admin';
+      const lName = nameParts.slice(1).join(' ') || 'User';
+      const pass = Math.random().toString(36).slice(-8) + 'X#1';
+
+      setEmployees([
+        {
+          id: 'admin_initial',
+          employeeId: 'ADM001',
+          firstName: fName,
+          lastName: lName,
+          email: adminEmailParam,
+          phone: '03000000000',
+          departmentCode: 'IT',
+          role: 'Admin',
+          designation: 'System Administrator',
+          status: 'valid',
+          generatedPassword: pass,
+        }
+      ]);
+      setFileUploaded(true);
+    }
+  }, []);
 
   // Step 7: Rollout Status
   const [rolloutActive, setRolloutActive] = useState(false);

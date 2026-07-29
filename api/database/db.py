@@ -97,6 +97,7 @@ async def init_db():
             DashboardStatistic,
             AuditLog,
             HoverScan,
+            Message,
         )
         await conn.run_sync(Base.metadata.create_all)
 

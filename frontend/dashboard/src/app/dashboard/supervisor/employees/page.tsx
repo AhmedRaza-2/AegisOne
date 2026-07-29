@@ -40,11 +40,22 @@ export default function EmployeesPage() {
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [pwModal, setPwModal] = useState<{ userId: number; userName: string } | null>(null);
   const [pwInput, setPwInput] = useState("");
+  const [departments, setDepartments] = useState<any[]>([]);
 
   const fetchData = () => {
     if (!user) return;
     const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
     const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
+
+    // Fetch Departments
+    fetch("http://localhost:8000/admin/departments", { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.departments) {
+          setDepartments(data.departments);
+        }
+      })
+      .catch(err => console.error("[Employees Page] Departments fetch error:", err));
 
     console.log(`[Employees & Analytics] Fetching data (range: ${timeRange})`);
 
@@ -174,9 +185,8 @@ export default function EmployeesPage() {
     return employeesWithStats.filter(u => u.fullName.toLowerCase().includes(s) || u.email.toLowerCase().includes(s));
   }, [employeesWithStats, deferredSearch]);
 
-  // CRUD Actions
-  const handleAddEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddEmployee = async (e: React.FormEvent, force: boolean = false) => {
+    if (e) e.preventDefault();
     setAddError("");
     setAddSuccess(false);
 
@@ -187,7 +197,7 @@ export default function EmployeesPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch("http://localhost:8000/admin/users", {
+      const res = await fetch(`http://localhost:8000/admin/users?force_transfer=${force}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -203,6 +213,17 @@ export default function EmployeesPage() {
 
       const data = await res.json();
       if (res.ok) {
+        if (data.status === "exists_elsewhere") {
+          setConfirmModal({
+            title: "Transfer Employee?",
+            message: `${addName} (${addEmail}) is already registered in the '${data.department}' department. Would you like to transfer them to your department?`,
+            onConfirm: () => {
+              handleAddEmployee(null as any, true);
+            }
+          });
+          return;
+        }
+
         setAddSuccess(true);
         setAddName("");
         setAddEmail("");
@@ -579,6 +600,37 @@ export default function EmployeesPage() {
                     placeholder="••••••••"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-surface-650 dark:text-surface-400">Target Department</label>
+                  <div className="space-y-1.5 p-3 border border-surface-200 dark:border-white/[0.08] bg-surface-50 dark:bg-surface-900 rounded-lg max-h-[120px] overflow-y-auto">
+                    {departments.map((dept) => {
+                      const isManagerDept = 
+                        dept.id === user?.department_id ||
+                        dept.name.toLowerCase() === user?.department?.toLowerCase() ||
+                        (dept.name === "IT" && user?.department === "Information Technology") ||
+                        (dept.name === "Information Technology" && user?.department === "IT");
+                      return (
+                        <div key={dept.id} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`dept-${dept.id}`}
+                            checked={isManagerDept}
+                            disabled
+                            className="w-3.5 h-3.5 rounded border-surface-200 dark:border-white/[0.08] text-[#4F84F8] cursor-not-allowed focus:ring-0"
+                          />
+                          <label
+                            htmlFor={`dept-${dept.id}`}
+                            className={`text-xs font-semibold select-none cursor-not-allowed ${
+                              isManagerDept ? "text-surface-900 dark:text-white" : "text-surface-400 dark:text-surface-500 opacity-60"
+                            }`}
+                          >
+                            {dept.name === "Information Technology" ? "IT" : dept.name}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 <button
                   type="submit"

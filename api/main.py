@@ -39,7 +39,7 @@ from api.config import (
 from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
 
-from api.routers import auth, scan, admin, health, compatibility, setup, public, xai
+from api.routers import auth, scan, admin, health, compatibility, setup, public, xai, communication
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
@@ -104,15 +104,74 @@ async def lifespan(app: FastAPI):
             await db.commit()
             print("Added user pakistaniahmed627@gmail.com with password AegisOne2026!")
 
+        # Ensure org admin account exists for amdevwork
+        admin_stmt = select(User).where(User.email == "admin@amdevwork.com")
+        admin_res = await db.execute(admin_stmt)
+        existing_admin = admin_res.scalars().first()
+        if not existing_admin:
+            admin_user = User(
+                email="admin@amdevwork.com",
+                password_hash=hash_password("admin123"),
+                full_name="AMDevWork Admin",
+                role="admin",
+                department=None,
+                account_status="approved",
+                organization_id="org_default"
+            )
+            db.add(admin_user)
+            await db.commit()
+            print("Added org admin admin@amdevwork.com with password admin123")
+        else:
+            existing_admin.role = "admin"
+            existing_admin.department = None
+            existing_admin.account_status = "approved"
+            existing_admin.password_hash = hash_password("admin123")
+            await db.commit()
+
+        # 1. Delete test user
+        from sqlalchemy import delete, update
+        await db.execute(delete(User).where(User.email == "nfatima2433006@gmail.com"))
+        
+        # 2. Update users department name "Information Technology" to "IT"
+        await db.execute(update(User).where(User.department == "Information Technology").values(department="IT"))
+        
+        # 3. Update Department table name "Information Technology" to "IT"
+        from api.database.models import Department
+        await db.execute(update(Department).where(Department.name == "Information Technology").values(name="IT"))
+        await db.commit()
+
+        # Ensure IT, HR, and Finance departments exist in DB
+        for dname in ["IT", "Human Resources", "Finance"]:
+            d_exists = (await db.execute(select(Department).where(Department.name == dname))).scalars().first()
+            if not d_exists:
+                db.add(Department(name=dname, organization_id="org_default"))
+        await db.commit()
+        print("Database cleanup completed: deleted noor test email, updated Information Technology names to IT.")
+
         # Auto-assign any user with missing or 'General' department to 'IT' so Manager sees them
         users_unassigned = (await db.execute(
-            select(User).where((User.department == None) | (User.department == "") | (User.department == "General"))
+            select(User).where(
+                ((User.department == None) | (User.department == "") | (User.department == "General")),
+                ~User.role.in_(["admin", "super_admin", "global_admin"])
+            )
         )).scalars().all()
+        # Link department_id for all users based on department name
+        it_dept = (await db.execute(select(Department).where(Department.name == "IT"))).scalars().first()
         for u in users_unassigned:
             u.department = "IT"
-        if users_unassigned:
-            await db.commit()
-            print(f"Auto-assigned {len(users_unassigned)} users to IT department.")
+            if it_dept:
+                u.department_id = it_dept.id
+        await db.commit()
+
+        # Link any other users who have department name string but no department_id
+        all_users = (await db.execute(select(User).where(User.department_id == None, User.department != None))).scalars().all()
+        for u in all_users:
+            if u.role in ["admin", "super_admin", "global_admin"]:
+                continue
+            dept_record = (await db.execute(select(Department).where(Department.name == u.department))).scalars().first()
+            if dept_record:
+                u.department_id = dept_record.id
+        await db.commit()
 
         # Auto-seed scans for IT employees so the Manager UI works immediately
         from api.database.models import WebsiteScan, Device
@@ -190,7 +249,14 @@ app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_SIZE)
 # 3. CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -242,6 +308,7 @@ app.include_router(compatibility.router)
 app.include_router(setup.router)
 app.include_router(public.router)
 app.include_router(xai.router)
+app.include_router(communication.router)
 
 
 @app.get("/")       
