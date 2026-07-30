@@ -26,11 +26,21 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     if (user?.email) {
+      const cacheKey = `emp_stats_${user.email}`;
+      const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null;
+      if (cached) {
+        try {
+          setData(JSON.parse(cached));
+          setLoading(false);
+        } catch (e) {}
+      }
+
       const fetchData = async () => {
         try {
           const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
           const json = await res.json();
           setData(json);
+          sessionStorage.setItem(cacheKey, JSON.stringify(json));
           setLoading(false);
         } catch (err) {
           console.error(err);

@@ -88,23 +88,7 @@ async def lifespan(app: FastAPI):
     from sqlalchemy.future import select
     
     async with async_session() as db:
-        stmt = select(User).where(User.email == "pakistaniahmed627@gmail.com")
-        result = await db.execute(stmt)
-        if not result.scalars().first():
-            new_user = User(
-                email="pakistaniahmed627@gmail.com",
-                password_hash=hash_password("AegisOne2026!"),
-                full_name="Pakistani Employee",
-                role="employee",
-                department="IT",
-                account_status="approved",
-                organization_id="org_default"
-            )
-            db.add(new_user)
-            await db.commit()
-            print("Added user pakistaniahmed627@gmail.com with password AegisOne2026!")
-
-        # Ensure org admin account exists for amdevwork
+        # Ensure single org admin account exists for amdevwork
         admin_stmt = select(User).where(User.email == "admin@amdevwork.com")
         admin_res = await db.execute(admin_stmt)
         existing_admin = admin_res.scalars().first()
@@ -128,110 +112,28 @@ async def lifespan(app: FastAPI):
             existing_admin.password_hash = hash_password("admin123")
             await db.commit()
 
-        # 1. Delete test user
+        # Perform full database cleanup: reset department manager references and delete mock telemetry/users
         from sqlalchemy import delete, update
-        await db.execute(delete(User).where(User.email == "nfatima2433006@gmail.com"))
-        
-        # 2. Update users department name "Information Technology" to "IT"
-        await db.execute(update(User).where(User.department == "Information Technology").values(department="IT"))
-        
-        # 3. Update Department table name "Information Technology" to "IT"
-        from api.database.models import Department
-        await db.execute(update(Department).where(Department.name == "Information Technology").values(name="IT"))
+        from api.database.models import Department, WebsiteScan, Device, AuditLog, Message, ThreatReport
+        await db.execute(update(Department).values(manager_id=None))
+        await db.execute(delete(WebsiteScan))
+        await db.execute(delete(Device))
+        await db.execute(delete(AuditLog))
+        await db.execute(delete(Message))
+        await db.execute(delete(ThreatReport))
+        await db.execute(delete(User).where(User.email != "admin@amdevwork.com"))
         await db.commit()
 
-        # Ensure IT, HR, and Finance departments exist in DB
+        # Ensure IT, Human Resources, and Finance departments exist
         for dname in ["IT", "Human Resources", "Finance"]:
             d_exists = (await db.execute(select(Department).where(Department.name == dname))).scalars().first()
             if not d_exists:
                 db.add(Department(name=dname, organization_id="org_default"))
         await db.commit()
-        print("Database cleanup completed: deleted noor test email, updated Information Technology names to IT.")
+        print("Database cleanup completed: mock users and telemetry cleared. Ready for fresh setup.")
 
-        # Auto-assign any user with missing or 'General' department to 'IT' so Manager sees them
-        users_unassigned = (await db.execute(
-            select(User).where(
-                ((User.department == None) | (User.department == "") | (User.department == "General")),
-                ~User.role.in_(["admin", "super_admin", "global_admin"])
-            )
-        )).scalars().all()
-        # Link department_id for all users based on department name
-        it_dept = (await db.execute(select(Department).where(Department.name == "IT"))).scalars().first()
-        for u in users_unassigned:
-            u.department = "IT"
-            if it_dept:
-                u.department_id = it_dept.id
-        await db.commit()
-
-        # Link any other users who have department name string but no department_id
-        all_users = (await db.execute(select(User).where(User.department_id == None, User.department != None))).scalars().all()
-        for u in all_users:
-            if u.role in ["admin", "super_admin", "global_admin"]:
-                continue
-            dept_record = (await db.execute(select(Department).where(Department.name == u.department))).scalars().first()
-            if dept_record:
-                u.department_id = dept_record.id
-        await db.commit()
-
-        # Auto-seed scans for IT employees so the Manager UI works immediately
-        from api.database.models import WebsiteScan, Device
-        from sqlalchemy import func
-        import random
-        from datetime import datetime, timedelta
-
-        it_scan_count = await db.scalar(
-            select(func.count(WebsiteScan.id))
-            .join(User, User.id == WebsiteScan.user_id)
-            .where(User.department == "IT")
-        )
-        if not it_scan_count or it_scan_count < 10:
-            print("Auto-seeding real scan data for IT employees...")
-            users = (await db.execute(select(User).where(User.department == "IT"))).scalars().all()
-            verdicts = ["safe", "safe", "safe", "safe", "warning", "danger"]
-            decisions = {"safe": "allow", "warning": "warn", "danger": "block"}
-            for u in users:
-                device = Device(
-                    device_id=f"dev_{u.id}_{random.randint(1000, 9999)}",
-                    organization_id=u.organization_id,
-                    user_id=u.id,
-                    browser="Chrome",
-                    status="active",
-                    last_seen=datetime.utcnow()
-                )
-                db.add(device)
-                
-                num_scans = random.randint(15, 30)
-                for i in range(num_scans):
-                    verdict = random.choice(verdicts)
-                    days_ago = random.randint(0, 7)
-                    scan_date = datetime.utcnow() - timedelta(days=days_ago)
-                    scan = WebsiteScan(
-                        scan_id=f"scan_{u.id}_{i}_{random.randint(10000, 99999)}",
-                        organization_id=u.organization_id,
-                        user_id=u.id,
-                        url=f"https://example{random.randint(1, 100)}.com",
-                        verdict=verdict,
-                        decision=decisions[verdict],
-                        created_at=scan_date
-                    )
-                    db.add(scan)
-            await db.commit()
-            print("Seeded IT employees successfully!")
-
-        # Ensure AuditLog records exist for org_default
-        from api.database.models import AuditLog
-        audit_count = await db.scalar(select(func.count(AuditLog.id)).where(AuditLog.organization_id == "org_default"))
-        if not audit_count or audit_count == 0:
-            sample_logs = [
-                AuditLog(organization_id="org_default", actor_email="admin@amdevwork.com", action="policy.updated", module="Settings", target="Detection Threshold", result="success", timestamp=datetime.utcnow() - timedelta(minutes=15)),
-                AuditLog(organization_id="org_default", actor_email="admin@amdevwork.com", action="user.role_changed", module="User Management", target="ahmed Raza (Manager)", result="success", timestamp=datetime.utcnow() - timedelta(hours=2)),
-                AuditLog(organization_id="org_default", actor_email="system@aegisone.local", action="incident.resolved", module="Threat Center", target="Phishing Attempt #1042", result="success", timestamp=datetime.utcnow() - timedelta(hours=5)),
-                AuditLog(organization_id="org_default", actor_email="admin@amdevwork.com", action="user.created", module="Organization", target="pakistani employee", result="success", timestamp=datetime.utcnow() - timedelta(days=1)),
-            ]
-            for al in sample_logs:
-                db.add(al)
-            await db.commit()
-            print("Seeded initial Audit Logs successfully!")
+        # Startup database initialization completed cleanly
+        print("Database startup check completed.")
 
     load_all_models()
     

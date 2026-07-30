@@ -14,7 +14,7 @@ export default function BrowserStatusPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:9000/user/browser`)
+      fetch(`http://localhost:8000/user/browser`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });

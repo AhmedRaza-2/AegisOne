@@ -1,7 +1,7 @@
 """
 AegisOne API — Auth Router
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -33,6 +33,16 @@ class VerifyResetRequest(BaseModel):
 otp_store = {}
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+@router.get("/check-role")
+async def check_role(email: str = Query(...), db: AsyncSession = Depends(get_db)):
+    """Auto-detect assigned user role based on email."""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        return {"exists": False, "role": "employee"}
+    return {"exists": True, "role": user.role}
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -171,6 +181,74 @@ def send_password_reset_email(email: str, new_password: str):
     except Exception as e:
         print(f"Failed to send reset email: {e}")
 
+def send_admin_credentials_email(email: str, full_name: str, password: str, org_name: str = "Enterprise"):
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    if not smtp_user or not smtp_pass:
+        print("SMTP credentials missing.")
+        return
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"AegisOne Admin Credentials - {org_name}"
+        msg["From"] = f"AegisOne Security <{smtp_user}>"
+        msg["To"] = email
+        html = f"""
+        <html>
+          <body style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; color: #0f172a;">
+            <div style="max-width: 550px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px;">
+              <h2 style="color: #0a5ed6; margin-top: 0;">Welcome Administrator</h2>
+              <p>Hello <strong>{full_name}</strong>,</p>
+              <p>Your organization account (<strong>{org_name}</strong>) has been registered. Below are your Administrator account credentials for the AegisOne Security Dashboard:</p>
+              <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; font-family: monospace; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Login URL:</strong> <a href="http://localhost:3002/login">http://localhost:3002/login</a></p>
+                <p style="margin: 5px 0;"><strong>Admin Email:</strong> {email}</p>
+                <p style="margin: 5px 0;"><strong>Password:</strong> {password}</p>
+                <p style="margin: 5px 0;"><strong>Role:</strong> Administrator</p>
+              </div>
+              <p>Log in to access your security portal and manage your organization's endpoints.</p>
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
+              <p style="font-size: 12px; color: #64748b;">AegisOne Unified Threat Management</p>
+            </div>
+          </body>
+        </html>
+        """
+        msg.attach(MIMEText(html, "html"))
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, email, msg.as_string())
+        server.quit()
+        print(f"Successfully sent admin credentials email to {email}")
+    except Exception as e:
+        print(f"Failed to send admin credentials email to {email}: {e}")
+
+class AdminCredentialsNotifyRequest(BaseModel):
+    email: str
+    full_name: str
+    password: str
+    org_name: Optional[str] = "Enterprise"
+
+@router.post("/send-admin-credentials")
+async def send_admin_credentials_notify(req: AdminCredentialsNotifyRequest, db: AsyncSession = Depends(get_db)):
+    """API endpoint to dispatch welcome/credentials email to organization admin upon registration or setup."""
+    # Ensure admin user exists in local DB or create/update them
+    stmt = select(User).where(User.email == req.email)
+    existing = (await db.execute(stmt)).scalars().first()
+    if not existing:
+        db_user = User(
+            email=req.email,
+            password_hash=hash_password(req.password),
+            full_name=req.full_name,
+            role="admin",
+            department=None,
+            account_status="approved",
+            organization_id="org_default"
+        )
+        db.add(db_user)
+        await db.commit()
+    
+    send_admin_credentials_email(req.email, req.full_name, req.password, req.org_name or "Enterprise")
+    return {"status": "ok", "message": f"Admin credentials email dispatched to {req.email}"}
+
 def send_otp_email(email: str, otp: str):
     smtp_user = os.getenv("SMTP_USER")
     smtp_pass = os.getenv("SMTP_PASS")
@@ -213,29 +291,49 @@ async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends
         "expires_at": time.time() + 600 # 10 mins expiry
     }
     
+    print(f"\n==========================================")
+    print(f"[SECURITY OTP CODE] Email: {user.email} -> OTP Code: {otp}")
+    print(f"==========================================\n")
+    
     send_otp_email(user.email, otp)
     return {"status": "ok", "message": "OTP sent"}
+
+class ResetWithNewPasswordRequest(BaseModel):
+    email: str
+    otp: str
+    new_password: str
 
 @router.post("/verify-reset-otp")
 async def verify_reset_otp(req: VerifyResetRequest, db: AsyncSession = Depends(get_db)):
     record = otp_store.get(req.email)
     if not record or record["otp"] != req.otp or time.time() > record["expires_at"]:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
+        raise HTTPException(status_code=400, detail="Invalid or expired 6-digit verification code.")
         
     result = await db.execute(select(User).where(User.email == req.email))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
         
-    temp_password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10)) + "X#"
-    user.password_hash = hash_password(temp_password)
+    return {"status": "ok", "message": "Code verified. Please set your new password."}
+
+@router.post("/reset-password")
+async def reset_password(req: ResetWithNewPasswordRequest, db: AsyncSession = Depends(get_db)):
+    record = otp_store.get(req.email)
+    if not record or record["otp"] != req.otp or time.time() > record["expires_at"]:
+        raise HTTPException(status_code=400, detail="Invalid or expired session. Please request a new code.")
+
+    result = await db.execute(select(User).where(User.email == req.email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    user.password_hash = hash_password(req.new_password)
     await db.commit()
-    
-    send_password_reset_email(user.email, temp_password)
-    
-    del otp_store[req.email]
-    
-    return {"status": "ok", "message": "Password reset successfully"}
+
+    if req.email in otp_store:
+        del otp_store[req.email]
+
+    return {"status": "ok", "message": "Password updated successfully! You can now log in with your new password."}
 
 
 class ChangePasswordRequest(BaseModel):

@@ -234,98 +234,88 @@ async def get_stats(
     else:
         start_time = None
 
-    # ── 1. Scans in the selected window ─────────────
+    import asyncio
+    
+    # Execute independent queries concurrently
     scans_q = select(func.count(WebsiteScan.id))
+    ev_q = select(func.count(SecurityEvent.id))
+    threats_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"]))
+    total_users_q = select(func.count(User.id))
+    total_scans_q = select(func.count(WebsiteScan.id))
+    threats_det_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"]))
+    active_dev_q = select(func.count(Device.id)).where(Device.status == "active")
+    reports_pend_q = select(func.count(ThreatReport.id)).where(ThreatReport.status == "submitted")
+    cred_q = select(func.count(CredentialEvent.id))
+    dl_q = select(func.count(DownloadEvent.id))
+
     if start_time:
         scans_q = scans_q.where(WebsiteScan.created_at >= start_time)
-    scans_today = await db.scalar(_org_scope(scans_q, WebsiteScan, current_user)) or 0
-
-    ev_q = select(func.count(SecurityEvent.id))
-    if start_time:
         ev_q = ev_q.where(SecurityEvent.timestamp >= start_time)
-    ev_today = await db.scalar(_org_scope(ev_q, SecurityEvent, current_user)) or 0
-
-    scans_today   = scans_today + ev_today
-
-    threats_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"]))
-    if start_time:
         threats_q = threats_q.where(WebsiteScan.created_at >= start_time)
-    threats_today = await db.scalar(_org_scope(threats_q, WebsiteScan, current_user)) or 0
+        cred_q = cred_q.where(CredentialEvent.created_at >= start_time)
+        dl_q = dl_q.where(DownloadEvent.created_at >= start_time)
 
-    # ── 2. Totals ────────────────────────────────────────────────────
-    total_users = await db.scalar(
-        _org_scope(select(func.count(User.id)), User, current_user)
-    ) or 0
+    (
+        scans_count_res,
+        ev_today_res,
+        threats_today_res,
+        total_users_res,
+        total_scans_res,
+        threats_detected_res,
+        active_devices_res,
+        threat_reports_pending_res,
+        cred_total_res,
+        dl_total_res
+    ) = await asyncio.gather(
+        db.scalar(_org_scope(scans_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(ev_q, SecurityEvent, current_user)),
+        db.scalar(_org_scope(threats_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(total_users_q, User, current_user)),
+        db.scalar(_org_scope(total_scans_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(threats_det_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(active_dev_q, Device, current_user)),
+        db.scalar(_org_scope(reports_pend_q, ThreatReport, current_user)),
+        db.scalar(_org_scope(cred_q, CredentialEvent, current_user)),
+        db.scalar(_org_scope(dl_q, DownloadEvent, current_user))
+    )
 
-    total_scans = await db.scalar(
-        _org_scope(select(func.count(WebsiteScan.id)), WebsiteScan, current_user)
-    ) or 0
+    scans_today = (scans_count_res or 0) + (ev_today_res or 0)
+    threats_today = threats_today_res or 0
+    total_users = total_users_res or 0
+    total_scans = total_scans_res or 0
+    threats_detected = threats_detected_res or 0
+    active_devices = active_devices_res or 0
+    threat_reports_pending = threat_reports_pending_res or 0
+    cred_total = cred_total_res or 0
+    dl_total = dl_total_res or 0
 
-    threats_detected = await db.scalar(
-        _org_scope(
-            select(func.count(WebsiteScan.id))
-            .where(WebsiteScan.decision.in_(["warn", "block"])),
-            WebsiteScan, current_user,
-        )
-    ) or 0
-
-    active_devices = await db.scalar(
-        _org_scope(
-            select(func.count(Device.id)).where(Device.status == "active"),
-            Device, current_user,
-        )
-    ) or 0
-
-    threat_reports_pending = await db.scalar(
-        _org_scope(
-            select(func.count(ThreatReport.id))
-            .where(ThreatReport.status == "submitted"),
-            ThreatReport, current_user,
-        )
-    ) or 0
-
-    # ── 3. Simplified Threat distribution categories ──────────────────────────
+    # ── Threat Distribution & Severity Distribution ──────────────────────────
     from sqlalchemy import case
     threat_dist_q = select(
         func.sum(case(((WebsiteScan.decision == "safe") | (WebsiteScan.decision == "allow"), 1), else_=0)).label("safe"),
         func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type == "phishing"), 1), else_=0)).label("phishing"),
         func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type.in_(["malware", "defacement", "malicious"])), 1), else_=0)).label("malware")
     )
+    sev_q = select(SecurityEvent.severity, func.count(SecurityEvent.id).label("cnt")).group_by(SecurityEvent.severity)
+
     if start_time:
         threat_dist_q = threat_dist_q.where(WebsiteScan.created_at >= start_time)
-        
-    threat_row = (await db.execute(_org_scope(threat_dist_q, WebsiteScan, current_user))).first()
-    top_threat_types = {
-        "Safe Scans": 0,
-        "Phishing": 0,
-        "Malware": 0
-    }
-    if threat_row:
-        top_threat_types["Safe Scans"] = getattr(threat_row, "safe", 0) or 0
-        top_threat_types["Phishing"] = getattr(threat_row, "phishing", 0) or 0
-        top_threat_types["Malware"] = getattr(threat_row, "malware", 0) or 0
-
-    # ── 4. Severity Distribution ──────────────────────────────────────────────
-    sev_q = _org_scope(
-        select(SecurityEvent.severity, func.count(SecurityEvent.id).label("cnt"))
-        .group_by(SecurityEvent.severity),
-        SecurityEvent, current_user,
-    )
-    if start_time:
         sev_q = sev_q.where(SecurityEvent.timestamp >= start_time)
-    sev_rows = (await db.execute(sev_q)).all()
+
+    threat_res, sev_rows_res = await asyncio.gather(
+        db.execute(_org_scope(threat_dist_q, WebsiteScan, current_user)),
+        db.execute(_org_scope(sev_q, SecurityEvent, current_user))
+    )
+
+    threat_row = threat_res.first()
+    top_threat_types = {
+        "Safe Scans": getattr(threat_row, "safe", 0) or 0 if threat_row else 0,
+        "Phishing": getattr(threat_row, "phishing", 0) or 0 if threat_row else 0,
+        "Malware": getattr(threat_row, "malware", 0) or 0 if threat_row else 0
+    }
+
+    sev_rows = sev_rows_res.all()
     events_by_severity: dict[str, int] = {row[0]: row[1] for row in sev_rows if row[0]}
-
-    # ── 5. Supplementary counters ─────────────────────────────────────────────
-    cred_q = select(func.count(CredentialEvent.id))
-    if start_time:
-        cred_q = cred_q.where(CredentialEvent.created_at >= start_time)
-    cred_total = await db.scalar(_org_scope(cred_q, CredentialEvent, current_user)) or 0
-
-    dl_q = select(func.count(DownloadEvent.id))
-    if start_time:
-        dl_q = dl_q.where(DownloadEvent.created_at >= start_time)
-    dl_total = await db.scalar(_org_scope(dl_q, DownloadEvent, current_user)) or 0
 
     # ── 6. Model status ───────────────────────────────────────────────────────
     statuses     = get_model_status()
@@ -1329,3 +1319,63 @@ async def update_user_role(
     user.role = role
     await db.commit()
     return {"status": "success", "role": role}
+
+@router.get("/organizations")
+async def get_all_organizations(db: AsyncSession = Depends(get_db)):
+    """Fetch all tenant organizations in the database."""
+    from api.database.models import Organization
+    res = await db.execute(select(Organization).order_by(Organization.created_at.desc()))
+    orgs = res.scalars().all()
+    return [
+        {
+            "id": getattr(o, "id", ""),
+            "org_id": getattr(o, "id", ""),
+            "name": getattr(o, "name", "Unnamed Organization"),
+            "industry": getattr(o, "plan", "Enterprise"),
+            "employee_count": 50,
+            "country": "Pakistan",
+            "admin_name": "Admin",
+            "admin_email": f"admin@{getattr(o, 'domain', 'aegisone.com') or 'aegisone.com'}",
+            "phone": "+923000000000",
+            "status": "active" if getattr(o, "is_active", True) else "suspended",
+            "license_key": f"AEGIS-{getattr(o, 'id', 'KEY')}",
+            "deployment_token": f"TOKEN-{getattr(o, 'id', 'TKN')}",
+            "allowed_users": 100,
+            "product_version": "1.0.0",
+            "created_at": o.created_at.isoformat() if getattr(o, "created_at", None) else None
+        }
+        for o in orgs
+    ]
+
+@router.put("/organizations/{org_id}/status")
+async def update_organization_status(
+    org_id: str,
+    status: str = Query(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update organization status in local PostgreSQL database."""
+    from api.database.models import Organization
+    res = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = res.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    org.is_active = (status == "active")
+    await db.commit()
+    return {"status": "success", "org_status": status}
+
+@router.delete("/organizations/{org_id}")
+async def delete_organization(
+    org_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete organization in local PostgreSQL database."""
+    from api.database.models import Organization
+    res = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = res.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    await db.delete(org)
+    await db.commit()
+    return {"status": "success"}

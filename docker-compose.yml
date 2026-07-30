@@ -1,83 +1,14 @@
-version: '3.8'
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AegisOne | Sovereign Phishing Protection</title>
+    <script type="module" crossorigin src="/assets/index-BkYXC-ZX.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CDCxU0VN.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
 
-services:
-  # 1. PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: aegisone-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: aegis
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: aegisone
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aegis -d aegisone"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # 2. Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: aegisone-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-
-  # 3. Backend API (FastAPI + AI Engine)
-  backend:
-    build: 
-      context: .
-      dockerfile: Dockerfile.backend
-    container_name: aegisone-backend
-    restart: unless-stopped
-    ports:
-      - "8000:9000"
-      - "9000:9000"
-    environment:
-      - DATABASE_URL=sqlite+aiosqlite:////app/api/database/aegisone.db
-      - ENVIRONMENT=production
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-    volumes:
-      - ./api:/app/api
-      - ./AIML:/app/AIML
-
-  # 5. Setup Wizard (Frontend - Port 3001)
-  setup:
-    build:
-      context: ./frontend/setup
-      dockerfile: Dockerfile
-    container_name: aegisone-setup
-    restart: unless-stopped
-    tty: true
-    ports:
-      - "3001:3001"
-    depends_on:
-      - backend
-
-  # 6. Dashboard Portal (Frontend - Port 3002)
-  dashboard:
-    build:
-      context: ./frontend/dashboard
-      dockerfile: Dockerfile
-    container_name: aegisone-dashboard
-    restart: unless-stopped
-    ports:
-      - "3002:3000"
-    environment:
-      - PORT=3000
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    depends_on:
-      - backend
-
-volumes:
-  postgres_data:
-  redis_data:

@@ -14,7 +14,7 @@ export default function ModelsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:9000/user/models`)
+      fetch(`http://localhost:8000/user/models`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });

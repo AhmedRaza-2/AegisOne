@@ -33,7 +33,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://localhost:9000/user/analytics?email=${encodeURIComponent(user.email)}`)
+        fetch(`http://localhost:8000/user/analytics?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => {
             setData(res);

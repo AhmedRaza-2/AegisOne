@@ -44,7 +44,12 @@ export default function AuditPage() {
   };
 
   useEffect(() => {
-    if (user) fetchLogs();
+    if (user) {
+      fetchLogs();
+      // Real-time polling every 15 seconds
+      const interval = setInterval(fetchLogs, 15000);
+      return () => clearInterval(interval);
+    }
   }, [user]);
 
   const filteredLogs = useMemo(() => {
@@ -83,6 +88,10 @@ export default function AuditPage() {
               placeholder="Filter logs by actor, action..."
               className="w-full bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-xl pl-9 pr-4 py-2 text-xs text-surface-900 dark:text-white placeholder:text-surface-400 focus:outline-none focus:border-brand-500"
             />
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Live</span>
           </div>
           <button
             onClick={fetchLogs}

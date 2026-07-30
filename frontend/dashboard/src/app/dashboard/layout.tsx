@@ -34,6 +34,8 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert },
     { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
+    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
+    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
     { label: "Settings", href: "/dashboard/supervisor/settings", icon: Settings },
   ],
   admin: [
@@ -268,7 +270,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  const [isAuthorizing, setIsAuthorizing] = useState(true);
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
 
@@ -283,7 +284,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin" && role !== "admin") {
       // Allow department_admin to access approvals page
       if ((role === "department_admin" || role === "manager") && pathname === "/dashboard/admin/approvals") {
-        setIsAuthorizing(false);
+        // allowed
       } else {
         router.replace((role === "department_admin" || role === "manager" || role === "office_admin") ? "/dashboard/supervisor" : "/dashboard/employee");
       }
@@ -293,8 +294,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/dashboard/admin");
     } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin" || role === "manager")) {
       router.replace("/dashboard/supervisor");
-    } else {
-      setIsAuthorizing(false);
     }
   }, [user, isLoading, router, pathname]);
 
@@ -323,12 +322,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ? "/dashboard/supervisor/communication"
     : "/dashboard/employee/communication";
 
-  if (isLoading || !user || isAuthorizing) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex items-center justify-center">
         <Shield className="w-8 h-8 text-brand-500 animate-pulse" />
       </div>
     );
+  }
+
+  if (!user) {
+    return null; // router.replace will handle redirect
   }
 
   const navItems = navByRole[user.role] || navByRole.employee;

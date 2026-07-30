@@ -150,25 +150,113 @@ export async function getCurrentAuthUser() {
 // ─── Admin Functions ─────────────────────────────────────────────────────────
 
 export async function getOrganizations(): Promise<Organization[]> {
-  const { data, error } = await supabase
-    .from('organizations')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // 1. Fetch from Supabase cloud database
+  let supabaseOrgs: Organization[] = [];
+  try {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  if (error) throw new Error(error.message);
-  return data as Organization[];
+    if (!error && data) {
+      supabaseOrgs = data as Organization[];
+    }
+  } catch (e) {
+    console.warn("[org-service] Could not fetch Supabase orgs:", e);
+  }
+
+  // 2. Fetch from local backend API
+  let localOrgs: Organization[] = [];
+  try {
+    const res = await fetch("http://localhost:8000/admin/organizations");
+    if (res.ok) {
+      const data = await res.json();
+      localOrgs = data as Organization[];
+    }
+  } catch (e) {
+    console.warn("[org-service] Could not fetch local backend orgs:", e);
+  }
+
+  // 3. Deduplicate by lowercased name or email so all unique orgs show up cleanly
+  const map = new Map<string, Organization>();
+
+  // Add local orgs first
+  for (const org of localOrgs) {
+    const key = org.name.toLowerCase().trim();
+    map.set(key, org);
+  }
+
+  // Layer Supabase orgs on top
+  for (const org of supabaseOrgs) {
+    const key = org.name.toLowerCase().trim();
+    map.set(key, org);
+  }
+
+  return Array.from(map.values());
 }
 
 export async function updateOrganizationStatus(orgId: string, status: 'active' | 'pending' | 'suspended', reason?: string): Promise<void> {
-  const updates: any = { status };
-  if (reason) {
-    updates.product_version = reason; // reusing product_version to store rejection reason without DB migration
+  let updated = false;
+
+  // 1. Try Supabase cloud update
+  try {
+    const updates: any = { status };
+    if (reason) {
+      updates.product_version = reason;
+    }
+
+    const { error } = await supabase
+      .from('organizations')
+      .update(updates)
+      .eq('id', orgId);
+
+    if (!error) updated = true;
+  } catch (e) {
+    console.warn("[org-service] Supabase status update skipped/failed:", e);
   }
 
-  const { error } = await supabase
-    .from('organizations')
-    .update(updates)
-    .eq('id', orgId);
+  // 2. Try Local backend API update
+  try {
+    const res = await fetch(`http://localhost:8000/admin/organizations/${encodeURIComponent(orgId)}/status?status=${status}`, {
+      method: "PUT"
+    });
+    if (res.ok) updated = true;
+  } catch (e) {
+    console.warn("[org-service] Local backend status update skipped/failed:", e);
+  }
 
-  if (error) throw new Error(error.message);
+  if (!updated) {
+    throw new Error("Failed to update organization status in both cloud and local DB.");
+  }
 }
+
+export async function deleteOrganization(orgId: string): Promise<void> {
+  let deleted = false;
+
+  // 1. Try Supabase cloud delete
+  try {
+    const { error } = await supabase
+      .from('organizations')
+      .delete()
+      .eq('id', orgId);
+
+    if (!error) deleted = true;
+  } catch (e) {
+    console.warn("[org-service] Supabase delete skipped/failed:", e);
+  }
+
+  // 2. Try Local backend API delete
+  try {
+    const res = await fetch(`http://localhost:8000/admin/organizations/${encodeURIComponent(orgId)}`, {
+      method: "DELETE"
+    });
+    if (res.ok) deleted = true;
+  } catch (e) {
+    console.warn("[org-service] Local backend delete skipped/failed:", e);
+  }
+
+  if (!deleted) {
+    throw new Error("Failed to delete organization from both cloud and local DB.");
+  }
+}
+

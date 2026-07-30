@@ -137,7 +137,7 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
     try {
-      await registerOrganization({
+      const org = await registerOrganization({
         name: form.name,
         industry: form.industry,
         employee_count: form.employee_count,
@@ -147,6 +147,26 @@ export default function RegisterPage() {
         phone: form.phone,
         password: form.password,
       });
+
+      // Send Admin Welcome & Credentials email via public auth API
+      try {
+        await fetch("http://localhost:8000/auth/send-admin-credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: form.admin_email,
+            full_name: form.admin_name,
+            password: form.password,
+            org_name: form.name
+          })
+        });
+      } catch (e) {
+        console.warn("[RegisterPage] Admin credentials email dispatch notify skipped/logged:", e);
+      }
+
+      // Temporarily store the password in sessionStorage so PortalPage can pass it to the local setup wizard
+      sessionStorage.setItem('tempAdminPassword', form.password);
+
       navigate('/portal');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');

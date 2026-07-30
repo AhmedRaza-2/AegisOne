@@ -169,11 +169,11 @@ export default function DepartmentAnalyticsPage() {
               <AreaChart data={securityTrendData}>
                 <defs>
                   <linearGradient id="colorScans" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#4F84F8" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorBlocked" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
                     <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                   </linearGradient>
                 </defs>
@@ -181,7 +181,7 @@ export default function DepartmentAnalyticsPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, fontSize: 12, color: tooltipColor }} labelStyle={{ color: tooltipColor }} />
-                <Area type="monotone" dataKey="scans" name="Total Scans" stroke="#4F84F8" fillOpacity={1} fill="url(#colorScans)" strokeWidth={2} />
+                <Area type="monotone" dataKey="safe" name="Safe Scans" stroke="#22c55e" fillOpacity={1} fill="url(#colorScans)" strokeWidth={2} />
                 <Area type="monotone" dataKey="threats" name="Blocked Threats" stroke="#ef4444" fillOpacity={1} fill="url(#colorBlocked)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>

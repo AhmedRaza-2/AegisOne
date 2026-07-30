@@ -77,7 +77,8 @@ export default function App() {
       const nameParts = adminNameParam.split(' ');
       const fName = nameParts[0] || 'Admin';
       const lName = nameParts.slice(1).join(' ') || 'User';
-      const pass = Math.random().toString(36).slice(-8) + 'X#1';
+      const adminPasswordParam = searchParams.get('adminPassword');
+      const pass = adminPasswordParam || Math.random().toString(36).slice(-8) + 'X#1';
 
       setEmployees([
         {
@@ -126,7 +127,7 @@ export default function App() {
         const id = `EMP00${idx + 1}`;
         const fName = `Sample`;
         const lName = `User${idx + 1}`;
-        const role = idx === 0 ? 'Admin' : (idx === 1 ? 'Manager' : 'Employee');
+        const role = idx === 0 ? 'Manager' : 'Employee';
         return `${id},${fName},${lName},user${idx+1}@company.local,0300123456${idx},${dept.code},${role},Staff Member`;
       }).join('\n');
     } else {
@@ -218,7 +219,13 @@ export default function App() {
       }
 
       setTimeout(() => {
-        setEmployees(parsedEmployees);
+        setEmployees(prev => {
+          const existingAdmin = prev.find(e => e.id === 'admin_initial');
+          if (existingAdmin && !parsedEmployees.some(e => e.role.toLowerCase() === 'admin')) {
+            return [existingAdmin, ...parsedEmployees];
+          }
+          return parsedEmployees;
+        });
         setFileUploaded(true);
         setPreviewMode(true);
         setStep(4);
@@ -236,9 +243,9 @@ export default function App() {
   const generatePasswordsAndMails = () => {
     setLoading(true);
     setTimeout(() => {
-      setEmployees(employees.map(e => ({
+      setEmployees(prev => prev.map(e => ({
         ...e,
-        generatedPassword: e.status === 'valid' ? Math.random().toString(36).slice(-10) + 'X#' : undefined
+        generatedPassword: e.generatedPassword || (e.status === 'valid' ? Math.random().toString(36).slice(-10) + 'X#' : undefined)
       })));
       setStep(6);
       setLoading(false);

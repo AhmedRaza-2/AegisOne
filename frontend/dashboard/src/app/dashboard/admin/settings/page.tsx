@@ -2,7 +2,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { Settings, Shield, User, Lock, LogOut, CheckCircle2, XCircle, Globe, Sliders } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -21,10 +21,30 @@ export default function AdminSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // Detection Settings
   const [threshold, setThreshold] = useState(85);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [urlEnabled, setUrlEnabled] = useState(true);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+
+  // Load policies from backend on mount
+  useEffect(() => {
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    if (!token) return;
+    fetch("http://localhost:8000/admin/policies", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        const policies = data.policies || [];
+        const thresholdPol = policies.find((p: any) => p.policy_type === "risk_threshold");
+        const emailPol = policies.find((p: any) => p.policy_type === "email_detection");
+        const urlPol = policies.find((p: any) => p.policy_type === "url_detection");
+        if (thresholdPol) setThreshold(parseInt(thresholdPol.value) || 85);
+        if (emailPol) setEmailEnabled(emailPol.action !== "disabled");
+        if (urlPol) setUrlEnabled(urlPol.action !== "disabled");
+      })
+      .catch(() => {});
+  }, []);
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -289,7 +309,35 @@ export default function AdminSettingsPage() {
                   </div>
                   <Toggle on={urlEnabled} toggle={() => setUrlEnabled(!urlEnabled)} />
                 </div>
+              <div className="pt-4">
+                <button
+                  onClick={async () => {
+                    setSavingPolicy(true);
+                    try {
+                      const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+                      await fetch("http://localhost:8000/admin/policies", {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                        body: JSON.stringify([
+                          { policy_type: "risk_threshold", value: String(threshold), action: "alert" },
+                          { policy_type: "email_detection", value: "enabled", action: emailEnabled ? "scan" : "disabled" },
+                          { policy_type: "url_detection", value: "enabled", action: urlEnabled ? "scan" : "disabled" },
+                        ])
+                      });
+                      showToast("Detection policy saved", "success");
+                    } catch {
+                      showToast("Failed to save policy", "error");
+                    } finally {
+                      setSavingPolicy(false);
+                    }
+                  }}
+                  disabled={savingPolicy}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {savingPolicy ? "Saving..." : "Save Detection Policy"}
+                </button>
               </div>
+            </div>
             </div>
           ) : (
             <div className="space-y-6">

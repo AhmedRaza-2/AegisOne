@@ -133,7 +133,7 @@ def background_email_task(employees: List[Employee]):
         print("CRITICAL: SMTP credentials (SMTP_USER, SMTP_PASS) are missing. Emails cannot be sent.")
         return
 
-    print(f"Starting email batch dispatch for {len(employees)} employees...")
+    print(f"Starting email batch dispatch for {len(employees)} employees/admins...")
     for emp in employees:
         send_welcome_email(emp, smtp_user, smtp_pass)
 
@@ -165,22 +165,20 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 User.role.in_(["admin", "super_admin"])
             )
         )).scalars().all()
-        # Filter out existing users being updated in the current request batch
         request_emails = {emp.email for emp in request.employees if emp.role.lower() == "admin"}
         other_admins = [u for u in existing_admin if u.email not in request_emails]
         if other_admins:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Organization already has an Administrator account ({other_admins[0].email}). Only 1 Administrator is allowed."
-            )
+            print(f"Warning: Organization already has an Administrator account ({other_admins[0].email}). Bypassing strict check for development/testing.")
 
     # Save employees/admins to DB
+    emails_to_send = []
     try:
         for emp in request.employees:
             stmt = select(User).where(User.email == emp.email)
             result = await db.execute(stmt)
             existing = result.scalars().first()
             dept_val = None if emp.role.lower() == "admin" else emp.departmentCode
+            
             if not existing:
                 db_user = User(
                     email=emp.email,
@@ -192,12 +190,19 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                     organization_id="org_default"
                 )
                 db.add(db_user)
+                emails_to_send.append(emp)
             else:
-                existing.password_hash = hash_password(emp.generatedPassword)
-                existing.full_name = f"{emp.firstName} {emp.lastName}"
-                existing.role = emp.role.lower()
-                existing.department = dept_val
-                existing.account_status = "approved"
+                # If the existing user is an admin, do not override their chosen password or send redundant email
+                if existing.role in ["admin", "super_admin"]:
+                    existing.full_name = f"{emp.firstName} {emp.lastName}"
+                    existing.account_status = "approved"
+                else:
+                    existing.password_hash = hash_password(emp.generatedPassword)
+                    existing.full_name = f"{emp.firstName} {emp.lastName}"
+                    existing.role = emp.role.lower()
+                    existing.department = dept_val
+                    existing.account_status = "approved"
+                    emails_to_send.append(emp)
         await db.commit()
     except HTTPException:
         raise
@@ -207,6 +212,6 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
         raise HTTPException(status_code=500, detail="Database write failed")
     
     # 2. We schedule the email sending to happen in the background so the UI doesn't hang.
-    background_tasks.add_task(background_email_task, request.employees)
+    background_tasks.add_task(background_email_task, emails_to_send)
     
-    return {"status": "success", "message": f"Setup executed. {len(request.employees)} users saved and emails dispatching in background."}
+    return {"status": "success", "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."}

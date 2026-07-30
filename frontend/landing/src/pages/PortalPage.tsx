@@ -258,7 +258,7 @@ export default function PortalPage() {
                   
                   <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                     <a
-                      href={`http://localhost:3001?orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.contact_person || 'Administrator')}`}
+                      href={`http://localhost:3001?orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-4 rounded-xl text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
