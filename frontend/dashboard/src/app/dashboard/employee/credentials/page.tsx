@@ -20,7 +20,7 @@ export default function CredentialsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/credentials?email=${encodeURIComponent(user.email)}`)
+      fetch(`http://100.104.105.20:8000/user/credentials?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });
@@ -51,7 +51,7 @@ export default function CredentialsPage() {
           </div>
           <div className="text-3xl font-bold text-emerald-800 dark:text-emerald-300">{stats.protected}</div>
         </motion.div>
-        
+
         <motion.div variants={fadeUp} className="stat-card bg-surface-50 dark:bg-white/[0.02]">
           <div className="flex items-center gap-3 mb-2">
             <EyeOff className="w-5 h-5 text-surface-500" />
@@ -96,9 +96,8 @@ export default function CredentialsPage() {
                   </div>
                 </div>
                 <div>
-                  <span className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-md ${
-                    event.action === 'Blocked' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                  }`}>
+                  <span className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-md ${event.action === 'Blocked' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                    }`}>
                     {event.action}
                   </span>
                 </div>

@@ -17,7 +17,7 @@ const _badged = new WeakSet();
 
 // Hover preview state
 let _hoverTimeout = null;
-let _tooltipEl    = null;
+let _tooltipEl = null;
 let _scanVisibleTimeout = null;
 let _hoverToken = 0;
 
@@ -31,10 +31,10 @@ export function initLinkScanner() {
 
   // Attach hover and click listeners
   document.addEventListener("mouseover", _onHover);
-  document.addEventListener("mouseout",  _onOut);
+  document.addEventListener("mouseout", _onOut);
   document.addEventListener("focusin", _onHover);
   document.addEventListener("focusout", _onOut);
-  document.addEventListener("click",     _onLinkClick, { capture: true });
+  document.addEventListener("click", _onLinkClick, { capture: true });
 
   // Watch for new links (SPAs)
   const observer = new MutationObserver(() => _scanVisibleLinks());
@@ -77,7 +77,7 @@ async function _onLinkClick(e) {
         }
       }
     });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // ── Danger badges (called from background) ─────────────
@@ -91,7 +91,7 @@ export function applyDangerBadges(dangerUrls) {
         a.dataset.aegisDanger = "true";
         _attachBadge(a, "danger");
       }
-    } catch (_) {}
+    } catch (_) { }
   });
 }
 
@@ -129,7 +129,7 @@ function _scanVisibleLinks() {
           a.dataset.aegisDanger = "true";
           _attachBadge(a, "danger");
         }
-      } catch (_) {}
+      } catch (_) { }
     });
   }, 600);
 }
@@ -146,7 +146,7 @@ function _onHover(e) {
         const token = ++_hoverToken;
         _hoverTimeout = setTimeout(() => _showHoverPreview(a, url, token), 400);
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 }
 
@@ -162,7 +162,7 @@ async function _showImageHoverPreview(img, src, token) {
   let res = null;
   try {
     res = await chrome.runtime.sendMessage({ type: MSG.SCAN_HOVER_IMAGE, src });
-  } catch (_) {}
+  } catch (_) { }
 
   if (token !== _hoverToken) return;
 
@@ -174,7 +174,7 @@ async function _showImageHoverPreview(img, src, token) {
     const prob = res.result.phishing_probability ?? 0;
     score = Math.round(prob * 100);
     verdict = res.result.prediction === "phishing" ? "danger" : "safe";
-    
+
     // Extract factors if available
     if (res.result.sub_results && res.result.sub_results.length > 0) {
       top_factors = res.result.sub_results.map(sub => ({
@@ -187,7 +187,7 @@ async function _showImageHoverPreview(img, src, token) {
     // If background fetch failed (e.g. CORS or network error), fallback gracefully instead of hiding
     top_factors = [{ label: "Could not fetch image for analysis" }];
   }
-  
+
   _showTooltip(img, { url: src, score, verdict, top_factors });
 
   if (score >= THRESHOLD.HIGHLIGHT * 100) {
@@ -197,18 +197,18 @@ async function _showImageHoverPreview(img, src, token) {
 
   if (score >= 20) {
     chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
-      fetch("http://localhost:8000/telemetry/hover", {
+      fetch("http://100.104.105.20:8000/telemetry/hover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           destination: src,
-          risk_score:  score,
-          cached:      false,
-          type:        "image"
+          risk_score: score,
+          cached: false,
+          type: "image"
         }),
         signal: AbortSignal.timeout(4000),
-      }).catch(() => {});
-    }).catch(() => {});
+      }).catch(() => { });
+    }).catch(() => { });
   }
 }
 
@@ -220,7 +220,7 @@ async function _showHoverPreview(anchor, url, token) {
   let res = null;
   try {
     res = await chrome.runtime.sendMessage({ type: MSG.SCAN_HOVER_URL, url });
-  } catch (_) {}
+  } catch (_) { }
 
   if (token !== _hoverToken) return;
 
@@ -240,17 +240,17 @@ async function _showHoverPreview(anchor, url, token) {
   // Module 11 — persist hover scan (best-effort, only if notable)
   if (score >= 20) {
     chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
-      fetch("http://localhost:8000/telemetry/hover", {
+      fetch("http://100.104.105.20:8000/telemetry/hover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           destination: url,
-          risk_score:  score,
-          cached:      res.result.from_cache || false,
+          risk_score: score,
+          cached: res.result.from_cache || false,
         }),
         signal: AbortSignal.timeout(4000),
-      }).catch(() => {});
-    }).catch(() => {});
+      }).catch(() => { });
+    }).catch(() => { });
   }
 }
 
@@ -264,9 +264,9 @@ function _showTooltip(anchor, { loading, url, score, verdict, top_factors }) {
       <div class="aegis-tip-scanning">🔍 Checking with AegisOne AI...</div>
     `;
   } else {
-    const scoreColor  = score >= 80 ? "#ef4444" : score >= 50 ? "#f97316" : score >= 20 ? "#f59e0b" : "#10b981";
+    const scoreColor = score >= 80 ? "#ef4444" : score >= 50 ? "#f97316" : score >= 20 ? "#f59e0b" : "#10b981";
     const verdictText = score >= 80 ? "🚨 High Risk" : score >= 50 ? "⚠️ Suspicious" : score >= 20 ? "🔶 Low Risk" : "✅ Safe";
-    const reason      = top_factors?.[0]?.label || "";
+    const reason = top_factors?.[0]?.label || "";
 
     _tooltipEl.innerHTML = `
       <div class="aegis-tip-url">${_shortURL(url, 48)}</div>
@@ -284,19 +284,19 @@ function _showTooltip(anchor, { loading, url, score, verdict, top_factors }) {
   const TIP_H = _tooltipEl.offsetHeight || 72;
 
   let left = Math.max(8, Math.min(rect.left, window.innerWidth - TIP_W - 8));
-  let top  = rect.top - TIP_H - 10;
+  let top = rect.top - TIP_H - 10;
   if (top < 8) top = rect.bottom + 8; // flip below if no space above
 
-  _tooltipEl.style.setProperty("left",    `${left}px`, "important");
-  _tooltipEl.style.setProperty("top",     `${top}px`,  "important");
-  _tooltipEl.style.setProperty("display", "block",     "important");
-  _tooltipEl.style.setProperty("opacity", "1",          "important");
+  _tooltipEl.style.setProperty("left", `${left}px`, "important");
+  _tooltipEl.style.setProperty("top", `${top}px`, "important");
+  _tooltipEl.style.setProperty("display", "block", "important");
+  _tooltipEl.style.setProperty("opacity", "1", "important");
 }
 
 function _hideTooltip() {
   if (_tooltipEl) {
-    _tooltipEl.style.setProperty("display", "none",  "important");
-    _tooltipEl.style.setProperty("opacity", "0",     "important");
+    _tooltipEl.style.setProperty("display", "none", "important");
+    _tooltipEl.style.setProperty("opacity", "0", "important");
   }
 }
 
@@ -309,7 +309,7 @@ function _attachBadge(a, verdict) {
   badge.textContent = verdict === "danger" ? "⚠ Risk" : "🔶";
   badge.title = "AegisOne: This link appears suspicious";
   a.insertAdjacentElement("afterend", badge);
-  
+
   // Directly highlight the text link as requested
   if (verdict === "danger") {
     a.style.setProperty("background-color", "rgba(239, 68, 68, 0.15)", "important");

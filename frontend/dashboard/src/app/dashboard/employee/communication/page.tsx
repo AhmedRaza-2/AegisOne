@@ -18,12 +18,12 @@ function Toast({ toast }: { toast: { message: string; type: "success" | "error" 
 
 export default function EmployeeCommunicationPage() {
   const { user } = useAuth();
-  const [contacts, setContacts]           = useState<ChatContact[]>([]);
+  const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [activeContact, setActiveContact] = useState<ChatContact | null>(null);
-  const [thread, setThread]               = useState<ChatMessage[]>([]);
+  const [thread, setThread] = useState<ChatMessage[]>([]);
   const [announcements, setAnnouncements] = useState<ChatMessage[]>([]);
-  const [tab, setTab]                     = useState<"chat" | "announce">("chat");
-  const [toast, setToast]                 = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [tab, setTab] = useState<"chat" | "announce">("chat");
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getHeaders = useCallback(() => {
@@ -39,7 +39,7 @@ export default function EmployeeCommunicationPage() {
   // Load contacts once
   useEffect(() => {
     if (!user) return;
-    fetch("http://localhost:8000/communication/contacts", { headers: getHeaders() })
+    fetch("http://100.104.105.20:8000/communication/contacts", { headers: getHeaders() })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -53,8 +53,8 @@ export default function EmployeeCommunicationPage() {
   useEffect(() => {
     if (!user) return;
     const load = () =>
-      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
-        .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => {});
+      fetch("http://100.104.105.20:8000/communication/announcements", { headers: getHeaders() })
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
     load();
     const id = setInterval(load, 10000);
     return () => clearInterval(id);
@@ -65,8 +65,8 @@ export default function EmployeeCommunicationPage() {
     if (!activeContact) return;
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
-      fetch(`http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
-        .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => {});
+      fetch(`http://100.104.105.20:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => { });
     load();
     pollRef.current = setInterval(load, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -75,13 +75,13 @@ export default function EmployeeCommunicationPage() {
   const handleSend = async (text: string) => {
     if (!activeContact) return;
     try {
-      const res = await fetch("http://localhost:8000/communication/send", {
+      const res = await fetch("http://100.104.105.20:8000/communication/send", {
         method: "POST", headers: getHeaders(),
         body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: text })
       });
       if (res.ok) {
         const data = await fetch(
-          `http://localhost:8000/communication/conversation/${activeContact.id}`,
+          `http://100.104.105.20:8000/communication/conversation/${activeContact.id}`,
           { headers: getHeaders() }
         ).then(r => r.json());
         if (Array.isArray(data)) setThread(data);

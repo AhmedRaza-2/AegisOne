@@ -22,7 +22,7 @@ chrome.storage.local.get("shield_enabled", (d) => {
 // ──────────────────────────────────────────────
 const CONFIG = {
   // LOCAL (default): run unified_server.py on your machine
-  API_BASE: "http://localhost:8000",
+  API_BASE: "http://100.104.105.20:8000",
   // NGROK (free cloud): replace with your ngrok URL when running remotely
   // API_BASE: "https://xxxx-xx-xx.ngrok-free.app",
 
@@ -306,7 +306,7 @@ function _initDownloadIntercept() {
         if (isPhishing) {
           const signals = contentResult?.phishing_signals ||
             (quickRisk > CONFIG.PHISHING_THRESHOLD ? ["URL flagged as malicious"] : ["Attachment contents flagged"]);
-            
+
           // User MUST decide. We CANCEL the current download stream instantly.
           chrome.downloads.cancel(downloadItem.id, () => { const e = chrome.runtime.lastError; });
           suggest(); // Release Chrome's hold on the UI
@@ -557,10 +557,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           })(),
         ]);
 
-        const textResult    = textRes.status === "fulfilled"   ? textRes.value    : null;
-        const urlResults    = urlsRes.status === "fulfilled"   ? urlsRes.value    : [];
-        const imageResults  = imgsRes.status === "fulfilled"   ? imgsRes.value    : [];
-        const attachResults = attachRes.status === "fulfilled" ? attachRes.value  : [];
+        const textResult = textRes.status === "fulfilled" ? textRes.value : null;
+        const urlResults = urlsRes.status === "fulfilled" ? urlsRes.value : [];
+        const imageResults = imgsRes.status === "fulfilled" ? imgsRes.value : [];
+        const attachResults = attachRes.status === "fulfilled" ? attachRes.value : [];
 
         // Composite risk calculation:
         // Only count URL/image scores ≥ 0.85 to suppress model false positives.

@@ -37,7 +37,7 @@ export default function SupervisorDashboard() {
       console.log(`[Supervisor Dashboard] Fetching stats and users (range: ${timeRange}) with token:`, token ? "Present" : "Missing");
 
       // Fetch Stats
-      fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers })
+      fetch(`http://100.104.105.20:8000/admin/stats?time_range=${timeRange}`, { headers })
         .then(res => {
           console.log("[Supervisor Dashboard] Stats status:", res.status);
           if (res.status === 401) {
@@ -59,7 +59,7 @@ export default function SupervisorDashboard() {
         .catch(err => console.error("[Supervisor Dashboard] Stats fetch error:", err));
 
       // Fetch Users
-      fetch(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
+      fetch(`http://100.104.105.20:8000/admin/users?time_range=${timeRange}`, { headers })
         .then(res => {
           console.log("[Supervisor Dashboard] Users status:", res.status);
           if (res.status === 401) {
@@ -330,12 +330,12 @@ export default function SupervisorDashboard() {
                         <span className="text-xs text-surface-500 dark:text-surface-400">{securityScore}%</span>
                       </div>
                     </td>
-                  <td className="px-3 py-2.5">
-                    <span className={`w-2 h-2 rounded-full inline-block ${emp.extensionInstalled ? "bg-emerald-500 dark:bg-emerald-400" : "bg-surface-300 dark:bg-surface-650"}`} />
-                  </td>
-                </tr>
-              );
-            })}
+                    <td className="px-3 py-2.5">
+                      <span className={`w-2 h-2 rounded-full inline-block ${emp.extensionInstalled ? "bg-emerald-500 dark:bg-emerald-400" : "bg-surface-300 dark:bg-surface-650"}`} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

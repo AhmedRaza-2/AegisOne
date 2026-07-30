@@ -22,7 +22,7 @@ export default function DepartmentAnalyticsPage() {
 
       console.log(`[Supervisor Analytics] Fetching stats (range: ${timeRange})`);
 
-      fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers })
+      fetch(`http://100.104.105.20:8000/admin/stats?time_range=${timeRange}`, { headers })
         .then(res => {
           if (res.status === 401) {
             logout();
@@ -61,17 +61,17 @@ export default function DepartmentAnalyticsPage() {
         { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-purple-500" },
       ];
     }
-    
+
     const scans = realStats.scans_today || 0;
     const threats = realStats.threats_today || 0;
     const creds = realStats.credential_events_total || 0;
     const downloads = realStats.download_events_total || 0;
-    
+
     const urlScore = scans > 0 ? Math.max(50, 100 - Math.round((threats / scans) * 100)) : 100;
-    const credScore = 100; 
+    const credScore = 100;
     const dlScore = 100;
     const imgScore = 100;
-    
+
     return [
       { label: "URL Protection", value: `${urlScore}%`, icon: Globe, color: "text-blue-500" },
       { label: "Credential Protection", value: `${credScore}%`, icon: Key, color: "text-emerald-500" },

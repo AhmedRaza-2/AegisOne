@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [resetMode, setResetMode] = useState(false);
   const [otp, setOtp] = useState("");
   const [requestedRole, setRequestedRole] = useState("employee");
@@ -35,7 +35,7 @@ export default function LoginPage() {
   const handleEmailBlur = async () => {
     if (!email || !email.includes("@")) return;
     try {
-      const res = await fetch(`http://localhost:8000/auth/check-role?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`http://100.104.105.20:8000/auth/check-role?email=${encodeURIComponent(email)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.exists && data.role) {
@@ -52,17 +52,17 @@ export default function LoginPage() {
     setError("");
     setSuccessMsg("");
     setLoading(true);
-    
+
     const result = await login(email, password);
     setLoading(false);
-    
+
     if (result.success) {
       const dbRole = result.role?.toLowerCase() || detectedRole || "employee";
       const dest = (dbRole === "admin" || dbRole === "super_admin")
-        ? "/dashboard/admin" 
+        ? "/dashboard/admin"
         : (dbRole === "manager" || dbRole === "department_admin")
-        ? "/dashboard/supervisor" 
-        : "/dashboard/employee";
+          ? "/dashboard/supervisor"
+          : "/dashboard/employee";
       router.push(dest);
     } else {
       setError(result.error || "Invalid credentials.");
@@ -248,7 +248,7 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
               {successMsg && <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 dark:text-green-400 text-center">{successMsg}</div>}
-              
+
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Email</label>
                 <div className="relative">
@@ -287,7 +287,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                error.includes("awaiting admin approval") 
+                error.includes("awaiting admin approval")
                   ? <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-600 dark:text-yellow-400 text-center">{error}</div>
                   : <p className="text-sm text-red-500 dark:text-red-400 text-center">{error}</p>
               )}

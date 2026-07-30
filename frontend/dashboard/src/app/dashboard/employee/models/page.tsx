@@ -14,7 +14,7 @@ export default function ModelsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/models`)
+      fetch(`http://100.104.105.20:8000/user/models`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });
@@ -61,7 +61,7 @@ export default function ModelsPage() {
                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">{m.status}</span>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4 bg-surface-50 dark:bg-white/[0.02] rounded-xl p-3 border border-surface-100 dark:border-white/[0.02]">
               <div className="flex flex-col">
                 <span className="text-xs text-surface-500 flex items-center gap-1 mb-0.5"><Clock className="w-3 h-3" /> Latency</span>

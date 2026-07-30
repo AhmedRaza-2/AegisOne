@@ -42,10 +42,10 @@ export default function UsersPage() {
       if (!token) return;
 
       const [usersRes, deptsRes] = await Promise.all([
-        fetch("http://localhost:8000/admin/users", {
+        fetch("http://100.104.105.20:8000/admin/users", {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch("http://localhost:8000/admin/departments", {
+        fetch("http://100.104.105.20:8000/admin/departments", {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -71,10 +71,10 @@ export default function UsersPage() {
 
   const filtered = useMemo(() => {
     return userList.filter(u => {
-      const matchSearch = !deferredSearch || 
-        u.full_name?.toLowerCase().includes(deferredSearch.toLowerCase()) || 
+      const matchSearch = !deferredSearch ||
+        u.full_name?.toLowerCase().includes(deferredSearch.toLowerCase()) ||
         u.email?.toLowerCase().includes(deferredSearch.toLowerCase());
-      
+
       const matchRole = roleFilter === "all" || u.role === roleFilter;
       return matchSearch && matchRole;
     });
@@ -88,9 +88,9 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token");
-      const res = await fetch("http://localhost:8000/admin/users", {
+      const res = await fetch("http://100.104.105.20:8000/admin/users", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
@@ -106,7 +106,7 @@ export default function UsersPage() {
       if (res.ok) {
         // Send email via setup logic in the background
         const names = fullName.split(' ');
-        fetch("http://localhost:8000/setup/execute", {
+        fetch("http://100.104.105.20:8000/setup/execute", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -141,9 +141,9 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token");
-      const res = await fetch(`http://localhost:8000/admin/users/${id}/status`, {
+      const res = await fetch(`http://100.104.105.20:8000/admin/users/${id}/status`, {
         method: "PATCH",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
@@ -164,9 +164,9 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token");
-      const res = await fetch(`http://localhost:8000/admin/users/${id}/password?new_password=${encodeURIComponent(newPassword)}`, {
+      const res = await fetch(`http://100.104.105.20:8000/admin/users/${id}/password?new_password=${encodeURIComponent(newPassword)}`, {
         method: "PUT",
-        headers: { 
+        headers: {
           "Authorization": `Bearer ${token}`
         }
       });
@@ -193,7 +193,7 @@ export default function UsersPage() {
             Manage employees, managers, and administrators for your organization
           </p>
         </div>
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
         >
@@ -204,24 +204,23 @@ export default function UsersPage() {
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="relative flex-1 w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input 
-            type="text" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            placeholder="Search users..." 
-            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 transition-all" 
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search users..."
+            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 transition-all"
           />
         </div>
         <div className="flex gap-2">
           {["all", "admin", "manager", "employee"].map(r => (
-            <button 
-              key={r} 
-              onClick={() => setRoleFilter(r)} 
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                roleFilter === r 
-                  ? "bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-500/20" 
+            <button
+              key={r}
+              onClick={() => setRoleFilter(r)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${roleFilter === r
+                  ? "bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-500/20"
                   : "text-surface-500 hover:text-surface-900 border border-transparent hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.04]"
-              }`}
+                }`}
             >
               {r === "all" ? "All Roles" : r === "admin" ? "Admin" : r === "manager" ? "Manager" : "Employee"}
             </button>
@@ -255,7 +254,7 @@ export default function UsersPage() {
                   const badge = getRoleBadge(u.role);
                   const initials = (u.full_name || "U").split(" ").map((n: string) => n[0]).join("").slice(0, 2);
                   const deptName = departments.find(d => d.id === u.department_id)?.name || "General";
-                  
+
                   return (
                     <tr key={u.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3.5">
@@ -278,23 +277,22 @@ export default function UsersPage() {
                         {deptName}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className={`inline-flex items-center gap-1 text-xs ${
-                          u.account_status === "active" ? "text-emerald-650 dark:text-emerald-450" : "text-surface-400"
-                        }`}>
+                        <span className={`inline-flex items-center gap-1 text-xs ${u.account_status === "active" ? "text-emerald-650 dark:text-emerald-450" : "text-surface-400"
+                          }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${u.account_status === "active" ? "bg-emerald-500 animate-pulse" : "bg-surface-400"}`} />
                           {u.account_status === "active" ? "Active" : u.account_status}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex justify-end gap-2">
-                          <button 
+                          <button
                             onClick={() => handleUpdateStatus(u.id, u.account_status)}
                             className="p-1 rounded text-surface-400 hover:text-brand-500 hover:bg-brand-500/10 transition-colors"
                             title={u.account_status === "disabled" ? "Enable User" : "Disable User"}
                           >
                             {u.account_status === "disabled" ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleResetPassword(u.id)}
                             className="p-1 rounded text-surface-400 hover:text-brand-500 hover:bg-brand-500/10 transition-colors"
                             title="Reset Password"

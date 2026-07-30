@@ -18,7 +18,7 @@ export default function ManagerSelfPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://localhost:8000/user/analytics?email=${encodeURIComponent(user.email)}`)
+        fetch(`http://100.104.105.20:8000/user/analytics?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => { setData(res); setLoading(false); })
           .catch(() => setLoading(false));
@@ -116,8 +116,8 @@ export default function ManagerSelfPage() {
               <AreaChart data={chartTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="mgSelfScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#4F84F8" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#4F84F8" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} dy={10} />

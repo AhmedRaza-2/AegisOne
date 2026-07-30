@@ -18,16 +18,16 @@ function Toast({ toast }: { toast: { message: string; type: "success" | "error" 
 
 export default function ManagerCommunicationPage() {
   const { user } = useAuth();
-  const [contacts, setContacts]           = useState<ChatContact[]>([]);
+  const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [activeContact, setActiveContact] = useState<ChatContact | null>(null);
-  const [thread, setThread]               = useState<ChatMessage[]>([]);
+  const [thread, setThread] = useState<ChatMessage[]>([]);
   const [announcements, setAnnouncements] = useState<ChatMessage[]>([]);
-  const [tab, setTab]                     = useState<"chat" | "announce">("chat");
-  const [toast, setToast]                 = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [tab, setTab] = useState<"chat" | "announce">("chat");
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showBroadcast, setShowBroadcast] = useState(false);
-  const [bTitle, setBTitle]               = useState("Security Update");
-  const [bContent, setBContent]           = useState("");
-  const [bSending, setBSending]           = useState(false);
+  const [bTitle, setBTitle] = useState("Security Update");
+  const [bContent, setBContent] = useState("");
+  const [bSending, setBSending] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getHeaders = useCallback(() => {
@@ -42,7 +42,7 @@ export default function ManagerCommunicationPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch("http://localhost:8000/communication/contacts", { headers: getHeaders() })
+    fetch("http://100.104.105.20:8000/communication/contacts", { headers: getHeaders() })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) { setContacts(data); if (data.length > 0) setActiveContact(data[0]); }
@@ -52,8 +52,8 @@ export default function ManagerCommunicationPage() {
   useEffect(() => {
     if (!user) return;
     const load = () =>
-      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
-        .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => {});
+      fetch("http://100.104.105.20:8000/communication/announcements", { headers: getHeaders() })
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
     load();
     const id = setInterval(load, 10000);
     return () => clearInterval(id);
@@ -63,8 +63,8 @@ export default function ManagerCommunicationPage() {
     if (!activeContact) return;
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
-      fetch(`http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
-        .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => {});
+      fetch(`http://100.104.105.20:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => { });
     load();
     pollRef.current = setInterval(load, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -72,13 +72,13 @@ export default function ManagerCommunicationPage() {
 
   const handleSend = async (text: string) => {
     if (!activeContact) return;
-    const res = await fetch("http://localhost:8000/communication/send", {
+    const res = await fetch("http://100.104.105.20:8000/communication/send", {
       method: "POST", headers: getHeaders(),
       body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: text })
     });
     if (res.ok) {
       const data = await fetch(
-        `http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
+        `http://100.104.105.20:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
       ).then(r => r.json());
       if (Array.isArray(data)) setThread(data);
     } else {
@@ -90,14 +90,14 @@ export default function ManagerCommunicationPage() {
   const handleBroadcast = async () => {
     if (!bContent.trim() || !user?.department_id) return;
     setBSending(true);
-    const res = await fetch("http://localhost:8000/communication/send", {
+    const res = await fetch("http://100.104.105.20:8000/communication/send", {
       method: "POST", headers: getHeaders(),
       body: JSON.stringify({ msg_type: "broadcast", department_id: user.department_id, title: bTitle, content: bContent })
     });
     if (res.ok) {
       showToast("Broadcast sent to your department!", "success");
       setBContent(""); setShowBroadcast(false);
-      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
+      fetch("http://100.104.105.20:8000/communication/announcements", { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); });
     } else { const e = await res.json(); showToast(e.detail || "Failed", "error"); }
     setBSending(false);
@@ -105,7 +105,7 @@ export default function ManagerCommunicationPage() {
 
   if (!user) return null;
   const employees = contacts.filter(c => c.role === "employee");
-  const admins    = contacts.filter(c => c.role === "admin" || c.role === "super_admin" || c.role === "global_admin");
+  const admins = contacts.filter(c => c.role === "admin" || c.role === "super_admin" || c.role === "global_admin");
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] max-w-6xl mx-auto">

@@ -14,7 +14,7 @@ export default function BrowserStatusPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/browser`)
+      fetch(`http://100.104.105.20:8000/user/browser`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });
@@ -60,7 +60,7 @@ export default function BrowserStatusPage() {
           <div className="text-xs text-surface-500 uppercase tracking-wider font-bold mb-1">Local Database</div>
           <div className="text-xl font-bold text-surface-900 dark:text-white">{status.database || 'Synced'}</div>
         </div>
-        
+
         <div className="stat-card flex flex-col items-center justify-center text-center p-6 bg-surface-50 dark:bg-white/[0.02] md:col-span-2">
           <Activity className="w-8 h-8 text-blue-500 mb-3" />
           <div className="text-xs text-surface-500 uppercase tracking-wider font-bold mb-1">Last Telemetry Sync</div>
@@ -83,7 +83,7 @@ export default function BrowserStatusPage() {
 
           {/* Steps Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            
+
             {/* Step 1 */}
             <div className="flex flex-col bg-white dark:bg-surface-900/50 border border-surface-150 dark:border-surface-850 p-5 rounded-xl shadow-xs space-y-3">
               <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-500 text-white font-bold text-xs shrink-0">1</div>
@@ -125,7 +125,7 @@ export default function BrowserStatusPage() {
           {/* Action Bar */}
           <div className="pt-4 flex flex-wrap gap-4 border-t border-surface-200 dark:border-surface-800 mt-2">
             <a
-              href="http://localhost:8000/public/download/extension"
+              href="http://100.104.105.20:8000/public/download/extension"
               className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors shadow-md hover:shadow-lg"
             >
               <Download className="w-4 h-4" /> Download Extension ZIP

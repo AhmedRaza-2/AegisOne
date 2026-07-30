@@ -12,14 +12,14 @@ const ContactForm = () => {
         e.preventDefault()
         setLoading(true)
         setError('')
-        
+
         try {
-            const res = await fetch('http://localhost:8000/public/contact', {
+            const res = await fetch('http://100.104.105.20:8000/public/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             })
-            
+
             if (res.ok) {
                 setSuccess(true)
                 setFormData({ name: '', email: '', location: '', message: '' })
@@ -51,11 +51,11 @@ const ContactForm = () => {
             ) : (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {error && <div className="text-sm text-red-500">{error}</div>}
-                    <input required type="text" placeholder='Enter Name' value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                    <input required type="email" placeholder='Your Email' value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                    <input required type="text" placeholder='Your Location' value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
-                    <textarea required rows={3} placeholder='Tell us about your Project...' value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})}></textarea>
-                    
+                    <input required type="text" placeholder='Enter Name' value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    <input required type="email" placeholder='Your Email' value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    <input required type="text" placeholder='Your Location' value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
+                    <textarea required rows={3} placeholder='Tell us about your Project...' value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })}></textarea>
+
                     <div onClick={handleSubmit}>
                         <Button disabled={loading}>
                             {loading ? 'Sending...' : 'Submit Form'}

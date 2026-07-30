@@ -25,7 +25,7 @@ export default function UrlIntelligencePage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/url-intelligence?email=${encodeURIComponent(user.email)}`)
+      fetch(`http://100.104.105.20:8000/user/url-intelligence?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => {
           setData(res);
@@ -39,7 +39,7 @@ export default function UrlIntelligencePage() {
   }, [user]);
 
   if (!user) return null;
-  
+
   if (loading) {
     return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-brand-500 animate-spin" /></div>;
   }
@@ -73,19 +73,18 @@ export default function UrlIntelligencePage() {
                 <tr key={scan.id} className="hover:bg-surface-50 dark:hover:bg-white/[0.01] transition-colors group">
                   <td className="py-4 pl-4 max-w-[250px]">
                     <div className="flex flex-col">
-                       <span className="font-mono text-xs font-medium text-surface-900 dark:text-surface-200 truncate" title={scan.url}>{scan.url}</span>
-                       <span className="text-[10px] text-surface-500 mt-1">
-                         {parseLocalDate(scan.timestamp).toLocaleString()}
-                       </span>
+                      <span className="font-mono text-xs font-medium text-surface-900 dark:text-surface-200 truncate" title={scan.url}>{scan.url}</span>
+                      <span className="text-[10px] text-surface-500 mt-1">
+                        {parseLocalDate(scan.timestamp).toLocaleString()}
+                      </span>
                     </div>
                   </td>
                   <td className="py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold ${
-                      scan.reputation === 'Malicious' ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
-                      scan.reputation === 'Suspicious' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
-                      scan.reputation === 'Excellent' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-                      'bg-surface-200 text-surface-600 dark:bg-surface-700 dark:text-surface-400'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold ${scan.reputation === 'Malicious' ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+                        scan.reputation === 'Suspicious' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+                          scan.reputation === 'Excellent' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                            'bg-surface-200 text-surface-600 dark:bg-surface-700 dark:text-surface-400'
+                      }`}>
                       <Globe className="w-3 h-3" /> {scan.reputation}
                     </span>
                   </td>
@@ -101,11 +100,10 @@ export default function UrlIntelligencePage() {
                     </span>
                   </td>
                   <td className="py-4 text-right pr-4">
-                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${
-                      scan.result === 'Blocked' ? 'bg-red-500/10 text-red-500' : 
-                      scan.result === 'Warned' ? 'bg-amber-500/10 text-amber-500' : 
-                      'bg-emerald-500/10 text-emerald-500'
-                    }`}>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${scan.result === 'Blocked' ? 'bg-red-500/10 text-red-500' :
+                        scan.result === 'Warned' ? 'bg-amber-500/10 text-amber-500' :
+                          'bg-emerald-500/10 text-emerald-500'
+                      }`}>
                       {scan.result}
                     </span>
                   </td>

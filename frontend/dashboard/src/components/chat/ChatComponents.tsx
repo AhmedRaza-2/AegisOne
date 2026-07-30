@@ -160,13 +160,12 @@ export function ChatView({ currentUserId, activeContact, thread, accentColor = "
                   </span>
                 </div>
               )}
-              <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[68%] px-4 py-2.5 rounded-2xl text-sm shadow-sm
-                  ${isMine
-                    ? `${bgSent} text-white rounded-br-[4px]`
-                    : "bg-white dark:bg-white/[0.08] text-surface-900 dark:text-white rounded-bl-[4px] border border-surface-100 dark:border-white/[0.06]"
-                  }`}
-                >
+              <div className={`flex flex-col max-w-[75%] ${isMine ? "items-end ml-auto" : "items-start mr-auto"}`}>
+                <div className={`px-4 py-2.5 rounded-2xl text-[13px] shadow-sm whitespace-pre-wrap
+                  ${isMine 
+                    ? "bg-emerald-600 text-white rounded-br-sm" 
+                    : "bg-surface-200 dark:bg-surface-800 text-surface-900 dark:text-white rounded-bl-sm border border-surface-300 dark:border-white/[0.05]"
+                  }`}>
                   <p className="break-words leading-relaxed">{m.content}</p>
                   <div className={`flex items-center gap-0.5 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
                     <span className={`text-[10px] ${isMine ? "text-white/60" : "text-surface-400"}`}>

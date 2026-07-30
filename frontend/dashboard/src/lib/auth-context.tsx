@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, pass: string, requestedRole?: string) => {
     try {
-      const response = await fetch("http://localhost:8000/auth/login", {
+      const response = await fetch("http://100.104.105.20:8000/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: pass }),
@@ -106,9 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      
+
       if (requestedRole && data.role !== requestedRole) {
-         return { success: false, role: data.role, error: `Unauthorized. You are assigned as ${data.role}, but tried to access ${requestedRole}.` };
+        return { success: false, role: data.role, error: `Unauthorized. You are assigned as ${data.role}, but tried to access ${requestedRole}.` };
       }
 
       const userData = {
@@ -124,13 +124,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("aegis_token", data.access_token);
       localStorage.setItem("aegis_refresh_token", data.refresh_token);
       localStorage.setItem("user", JSON.stringify(userData));
-      
+
       // Store in Cookies for persistent session across tabs and reloads
       setCookie("aegis_access_token", data.access_token);
       setCookie("aegis_user", JSON.stringify(userData));
 
       setUser(userData);
-      
+
       return { success: true, role: data.role };
     } catch (err: any) {
       return { success: false, error: err.message || "Failed to connect to server" };

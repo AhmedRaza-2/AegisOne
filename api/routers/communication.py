@@ -40,58 +40,11 @@ async def get_contacts(
     """
     contacts = []
 
-    if is_employee(current_user):
-        # Find the manager of the employee's department
-        if current_user.department_id:
-            result = await db.execute(
-                select(User).where(
-                    User.department_id == current_user.department_id,
-                    User.role.in_(MANAGER_ROLES)
-                )
-            )
-            contacts = result.scalars().all()
-
-    elif is_manager(current_user):
-        # 1. Get employees in manager's department (check both department name and department_id)
-        emp_query = select(User).where(
-            User.role.in_(EMPLOYEE_ROLE),
-            User.id != current_user.id
-        )
-        if current_user.department_id:
-            emp_query = emp_query.where(
-                or_(
-                    User.department_id == current_user.department_id,
-                    User.department == current_user.department
-                )
-            )
-        elif current_user.department:
-            emp_query = emp_query.where(User.department == current_user.department)
-
-        emp_result = await db.execute(emp_query)
-        contacts = list(emp_result.scalars().all())
-
-        # 2. Get all organization admins
-        admin_result = await db.execute(
-            select(User).where(
-                User.role.in_(ADMIN_ROLES),
-                User.id != current_user.id
-            )
-        )
-        contacts += list(admin_result.scalars().all())
-
-    elif is_admin(current_user):
-        # All managers in the organization
-        result = await db.execute(
-            select(User).where(
-                or_(
-                    User.role.in_(MANAGER_ROLES),
-                    User.role == "manager",
-                    User.role == "department_admin"
-                ),
-                User.id != current_user.id
-            )
-        )
-        contacts = result.scalars().all()
+    # Everyone can message anyone else in the same organization
+    result = await db.execute(
+        select(User).where(User.id != current_user.id)
+    )
+    contacts = result.scalars().all()
 
     # Deduplicate contacts by user ID
     seen_ids = set()

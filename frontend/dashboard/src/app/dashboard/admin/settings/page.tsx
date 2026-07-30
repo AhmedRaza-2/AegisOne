@@ -30,7 +30,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
     if (!token) return;
-    fetch("http://localhost:8000/admin/policies", {
+    fetch("http://100.104.105.20:8000/admin/policies", {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())
@@ -43,7 +43,7 @@ export default function AdminSettingsPage() {
         if (emailPol) setEmailEnabled(emailPol.action !== "disabled");
         if (urlPol) setUrlEnabled(urlPol.action !== "disabled");
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -63,7 +63,7 @@ export default function AdminSettingsPage() {
     if (!fullName.trim()) return;
     setUpdatingProfile(true);
     try {
-      const res = await fetch("http://localhost:8000/auth/profile", {
+      const res = await fetch("http://100.104.105.20:8000/auth/profile", {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify({ full_name: fullName.trim() }),
@@ -93,7 +93,7 @@ export default function AdminSettingsPage() {
     }
     setChangingPassword(true);
     try {
-      const res = await fetch("http://localhost:8000/auth/change-password", {
+      const res = await fetch("http://100.104.105.20:8000/auth/change-password", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
@@ -135,9 +135,8 @@ export default function AdminSettingsPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
-            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${
-              toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
-            }`}
+            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
+              }`}
           >
             {toast.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
             {toast.message}
@@ -159,31 +158,28 @@ export default function AdminSettingsPage() {
         <motion.div variants={fadeUp} className="w-full sm:w-56 space-y-1">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "profile"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === "profile"
                 ? "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400"
                 : "text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-white/[0.02]"
-            }`}
+              }`}
           >
             <User className="w-4 h-4" /> Profile & Password
           </button>
           <button
             onClick={() => setActiveTab("detection")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "detection"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === "detection"
                 ? "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400"
                 : "text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-white/[0.02]"
-            }`}
+              }`}
           >
             <Sliders className="w-4 h-4" /> Detection Policy
           </button>
           <button
             onClick={() => setActiveTab("account")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "account"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === "account"
                 ? "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400"
                 : "text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-white/[0.02]"
-            }`}
+              }`}
           >
             <LogOut className="w-4 h-4" /> Account Session
           </button>
@@ -309,35 +305,35 @@ export default function AdminSettingsPage() {
                   </div>
                   <Toggle on={urlEnabled} toggle={() => setUrlEnabled(!urlEnabled)} />
                 </div>
-              <div className="pt-4">
-                <button
-                  onClick={async () => {
-                    setSavingPolicy(true);
-                    try {
-                      const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-                      await fetch("http://localhost:8000/admin/policies", {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                        body: JSON.stringify([
-                          { policy_type: "risk_threshold", value: String(threshold), action: "alert" },
-                          { policy_type: "email_detection", value: "enabled", action: emailEnabled ? "scan" : "disabled" },
-                          { policy_type: "url_detection", value: "enabled", action: urlEnabled ? "scan" : "disabled" },
-                        ])
-                      });
-                      showToast("Detection policy saved", "success");
-                    } catch {
-                      showToast("Failed to save policy", "error");
-                    } finally {
-                      setSavingPolicy(false);
-                    }
-                  }}
-                  disabled={savingPolicy}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
-                >
-                  {savingPolicy ? "Saving..." : "Save Detection Policy"}
-                </button>
+                <div className="pt-4">
+                  <button
+                    onClick={async () => {
+                      setSavingPolicy(true);
+                      try {
+                        const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+                        await fetch("http://100.104.105.20:8000/admin/policies", {
+                          method: "POST",
+                          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                          body: JSON.stringify([
+                            { policy_type: "risk_threshold", value: String(threshold), action: "alert" },
+                            { policy_type: "email_detection", value: "enabled", action: emailEnabled ? "scan" : "disabled" },
+                            { policy_type: "url_detection", value: "enabled", action: urlEnabled ? "scan" : "disabled" },
+                          ])
+                        });
+                        showToast("Detection policy saved", "success");
+                      } catch {
+                        showToast("Failed to save policy", "error");
+                      } finally {
+                        setSavingPolicy(false);
+                      }
+                    }}
+                    disabled={savingPolicy}
+                    className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {savingPolicy ? "Saving..." : "Save Detection Policy"}
+                  </button>
+                </div>
               </div>
-            </div>
             </div>
           ) : (
             <div className="space-y-6">
