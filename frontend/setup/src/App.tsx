@@ -61,8 +61,8 @@ export default function App() {
       const fetchDockerConfig = async () => {
         // Simulating GET /api/system/config fallback
         await new Promise(r => setTimeout(r, 1000));
-        setOrgName('Acme Corp'); 
-        setIndustry('Technology'); 
+        setOrgName('Acme Corp');
+        setIndustry('Technology');
         setConfigLoaded(true);
       };
       fetchDockerConfig();
@@ -105,17 +105,17 @@ export default function App() {
 
   const handleDownloadTemplate = () => {
     let csvContent = "Employee ID,First Name,Last Name,Email,Phone Number,Department Code,Role,Designation\n";
-    
+
     if (departments.length > 0) {
       csvContent += departments.map((dept, idx) => {
         const id = `EMP00${idx + 1}`;
         const fName = `Sample`;
         const lName = `User${idx + 1}`;
-        const role = idx === 0 ? 'Admin' : (idx === 1 ? 'Manager' : 'Employee');
-        return `${id},${fName},${lName},user${idx+1}@company.local,0300123456${idx},${dept.code},${role},Staff Member`;
+        const role = idx === 0 ? 'Manager' : 'Employee';
+        return `${id},${fName},${lName},user${idx + 1}@company.local,0300123456${idx},${dept.code},${role},Staff Member`;
       }).join('\n');
     } else {
-      csvContent += "EMP001,Ahmed,Raza,ahmed@company.local,03001234567,IT,Employee,Software Engineer\nEMP002,Ali,Khan,ali@company.local,03001234568,HR,Manager,HR Lead";
+      csvContent += "EMP001,Ahmed,Raza,ahmed@company.local,03001234567,IT,Manager,Software Lead\nEMP002,Ali,Khan,ali@company.local,03001234568,HR,Employee,HR Specialist";
     }
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -135,7 +135,7 @@ export default function App() {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       const lines = text.split('\n');
-      
+
       if (lines.length < 2) {
         setLoading(false);
         return; // Empty or just headers
@@ -143,27 +143,22 @@ export default function App() {
 
       const parsedEmployees: Employee[] = [];
       const seenEmails = new Set<string>();
-      let adminCount = 0;
 
       for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
-        
+
         // Parse CSV handling potential quotes
         const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || [];
-        
+
         if (cols.length < 6) continue;
-        
+
         const [employeeId, firstName, lastName, email, phone, departmentCode, role, designation] = cols;
-        
+
         let status: 'valid' | 'invalid' = 'valid';
         let error = '';
 
-        const allowedRoles = ['employee', 'manager', 'admin'];
+        const allowedRoles = ['employee', 'manager'];
         const normalizedRole = (role || '').toLowerCase().trim();
-
-        if (normalizedRole === 'admin') {
-          adminCount++;
-        }
 
         if (!email) {
           status = 'invalid';
@@ -177,12 +172,12 @@ export default function App() {
         } else if (!departments.find(d => d.code === departmentCode)) {
           status = 'invalid';
           error = `Invalid Dept: ${departmentCode}`;
+        } else if (normalizedRole === 'admin') {
+          status = 'invalid';
+          error = `Role 'Admin' not allowed in CSV. Primary Admin is created during registration. Use Employee or Manager.`;
         } else if (!allowedRoles.includes(normalizedRole)) {
           status = 'invalid';
-          error = `Invalid Role: Must be Employee, Manager, or Admin`;
-        } else if (normalizedRole === 'admin' && adminCount > 1) {
-          status = 'invalid';
-          error = `Only 1 Admin allowed in the organization`;
+          error = `Invalid Role '${role}': Must be Employee or Manager`;
         }
 
         if (email) seenEmails.add(email);
@@ -242,7 +237,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans selection:bg-blue-100 selection:text-blue-900">
-      
+
       {/* Top Navbar */}
       <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-3">
@@ -260,7 +255,7 @@ export default function App() {
       </nav>
 
       <div className="max-w-6xl mx-auto w-full px-4 py-8 flex flex-col lg:flex-row gap-8">
-        
+
         {/* Left Sidebar Stepper */}
         <div className="w-full lg:w-64 shrink-0">
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm sticky top-24">
@@ -272,16 +267,14 @@ export default function App() {
                 const isPast = step > s.num;
                 return (
                   <div key={s.num} className="flex items-center gap-4 relative z-10">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                      isPast ? 'bg-emerald-500 text-white border-2 border-emerald-500' :
-                      isActive ? 'bg-white text-[#0A5ED6] border-2 border-[#0A5ED6] shadow-[0_0_0_4px_rgba(10,94,214,0.1)]' :
-                      'bg-white text-slate-400 border-2 border-slate-200'
-                    }`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isPast ? 'bg-emerald-500 text-white border-2 border-emerald-500' :
+                        isActive ? 'bg-white text-[#0A5ED6] border-2 border-[#0A5ED6] shadow-[0_0_0_4px_rgba(10,94,214,0.1)]' :
+                          'bg-white text-slate-400 border-2 border-slate-200'
+                      }`}>
                       {isPast ? <Check className="w-4 h-4" /> : s.num}
                     </div>
-                    <span className={`font-semibold text-sm ${
-                      isActive ? 'text-[#0F172A]' : isPast ? 'text-slate-600' : 'text-slate-400'
-                    }`}>
+                    <span className={`font-semibold text-sm ${isActive ? 'text-[#0F172A]' : isPast ? 'text-slate-600' : 'text-slate-400'
+                      }`}>
                       {s.title}
                     </span>
                   </div>
@@ -294,7 +287,7 @@ export default function App() {
         {/* Main Content Area */}
         <div className="flex-1 min-w-0">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-lg p-8 md:p-12">
-            
+
             {/* STEP 1: ORGANIZATION INFO */}
             {step === 1 && (
               <div className="animate-fadeIn space-y-8">
@@ -302,7 +295,7 @@ export default function App() {
                   <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Organization Information</h2>
                   <p className="text-slate-500 text-sm">Let's verify your company's core identity imported from your Docker deployment command.</p>
                 </div>
-                
+
                 {!configLoaded ? (
                   <div className="flex flex-col items-center justify-center py-12 space-y-4">
                     <Loader2 className="w-8 h-8 text-[#0A5ED6] animate-spin" />
@@ -417,25 +410,25 @@ export default function App() {
                     </div>
                     <h3 className="font-bold text-[#0F172A] mb-2">1. Download Template</h3>
                     <p className="text-sm text-blue-800 mb-6">Download this ready-to-use file to easily add your team members.</p>
-                    
+
                     <button onClick={handleDownloadTemplate} className="flex items-center justify-center gap-2 bg-white border border-blue-200 text-blue-700 font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-blue-100 transition-colors text-sm w-full max-w-[240px] cursor-pointer shadow-sm hover:shadow mb-6">
                       <Download className="w-4 h-4" /> Employee_Template.csv
                     </button>
 
                     <ul className="text-[11px] text-blue-800/80 space-y-1.5 text-left mx-auto max-w-[240px]">
-                      <li className="flex items-start gap-1.5 leading-snug"><span className="text-blue-400 font-bold">•</span> <span>Only type <strong>Employee</strong>, <strong>Manager</strong>, or <strong>Admin</strong> in the Role column.</span></li>
+                      <li className="flex items-start gap-1.5 leading-snug"><span className="text-blue-400 font-bold">•</span> <span>Only type <strong>Employee</strong> or <strong>Manager</strong> in the Role column.</span></li>
                       <li className="flex items-start gap-1.5 leading-snug"><span className="text-blue-400 font-bold">•</span> <span>Use the exact <strong>Department Codes</strong> you created earlier.</span></li>
                     </ul>
                   </div>
 
                   {/* Upload Card */}
                   <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-slate-100 transition-colors cursor-pointer flex flex-col justify-center h-full min-h-[340px]" onClick={() => fileInputRef.current?.click()}>
-                    <input 
-                      type="file" 
-                      accept=".csv" 
-                      ref={fileInputRef} 
-                      onChange={handleFileUpload} 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      accept=".csv"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="hidden"
                     />
                     {loading ? (
                       <div className="flex flex-col items-center justify-center h-full space-y-4">
@@ -448,7 +441,7 @@ export default function App() {
                           <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                         </div>
                         <h3 className="font-bold text-[#0F172A] mb-2">CSV Uploaded</h3>
-                        <p className="text-sm text-slate-500 mb-6"><strong>{employees.length} employees</strong> loaded in memory. Upload a new file to overwrite.</p>
+                        <p className="text-sm text-[#45464D] mb-6"><strong>{employees.length} employees</strong> loaded in memory. Upload a new file to overwrite.</p>
                         <button className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 border border-slate-300 font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-slate-200 transition-colors text-sm w-full max-w-[240px]">
                           Replace CSV File
                         </button>
@@ -459,7 +452,7 @@ export default function App() {
                           <Upload className="w-8 h-8 text-slate-500" />
                         </div>
                         <h3 className="font-bold text-[#0F172A] mb-2">2. Upload Data</h3>
-                        <p className="text-sm text-slate-500 mb-6">Click to upload your filled CSV file here to validate and import.</p>
+                        <p className="text-sm text-[#45464D] mb-6">Click to upload your filled CSV file here to validate and import.</p>
                         <button className="flex items-center justify-center gap-2 bg-slate-900 text-white font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-black transition-colors text-sm w-full max-w-[240px]">
                           Select CSV File
                         </button>
@@ -487,7 +480,7 @@ export default function App() {
                 <div className="flex items-center justify-between bg-white border border-blue-200 rounded-2xl p-6 shadow-sm">
                   <div>
                     <h3 className="text-lg font-bold text-[#0F172A]">Preview Import</h3>
-                    <p className="text-sm text-slate-500">Review data integrity before writing to PostgreSQL.</p>
+                    <p className="text-sm text-[#45464D]">Review data integrity before writing to PostgreSQL.</p>
                   </div>
                   <div className="flex gap-6 text-center">
                     <div>
@@ -510,9 +503,9 @@ export default function App() {
                     <h4 className="text-sm font-bold text-red-800 flex items-center gap-2 mb-3"><AlertCircle className="w-4 h-4" /> Validation Errors Found</h4>
                     <ul className="space-y-2">
                       {invalidEmployees.map(emp => (
-                        <li key={emp.id} className="text-xs text-red-700 bg-white px-3 py-2 rounded border border-red-100 flex justify-between">
-                          <span><strong>{emp.firstName} {emp.lastName}</strong> ({emp.email})</span>
-                          <span className="font-bold uppercase tracking-wider">{emp.error}</span>
+                        <li key={emp.id} className="text-xs text-red-700 bg-white px-3 py-2 rounded border border-red-100 flex justify-between items-center">
+                          <span><strong>{emp.firstName} {emp.lastName}</strong> ({emp.email}) — <span className="font-mono text-purple-700 font-semibold">Role: {emp.role || 'Unspecified'}</span></span>
+                          <span className="font-bold uppercase tracking-wider text-red-600">{emp.error}</span>
                         </li>
                       ))}
                     </ul>
@@ -522,38 +515,40 @@ export default function App() {
 
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="max-h-[300px] overflow-y-auto">
-                   <table className="w-full text-left text-sm relative">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 sticky top-0 z-10 shadow-sm">
-                      <tr>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">ID</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Name</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Email</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Dept</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {validEmployees.map(emp => (
-                        <tr key={emp.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 font-mono text-slate-500 text-xs">{emp.employeeId}</td>
-                          <td className="px-4 py-3 font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</td>
-                          <td className="px-4 py-3 text-slate-600">{emp.email}</td>
-                          <td className="px-4 py-3 font-mono text-blue-600 font-bold">{emp.departmentCode}</td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase"><CheckCircle2 className="w-3 h-3"/> Valid</span>
-                          </td>
+                    <table className="w-full text-left text-sm relative">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                          <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">ID</th>
+                          <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Name</th>
+                          <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Email</th>
+                          <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Dept</th>
+                          <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Role</th>
+                          <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                   </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {validEmployees.map(emp => (
+                          <tr key={emp.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 font-mono text-slate-500 text-xs">{emp.employeeId}</td>
+                            <td className="px-4 py-3 font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</td>
+                            <td className="px-4 py-3 text-slate-600">{emp.email}</td>
+                            <td className="px-4 py-3 font-mono text-blue-600 font-bold">{emp.departmentCode}</td>
+                            <td className="px-4 py-3 font-medium text-slate-700 capitalize">{emp.role}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase"><CheckCircle2 className="w-3 h-3" /> Valid</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
                   <button onClick={() => { setPreviewMode(false); setStep(3); }} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
-                  <button 
-                    onClick={handleNextStep} 
-                    disabled={invalidEmployees.length > 0 || validEmployees.length === 0 || loading} 
+                  <button
+                    onClick={handleNextStep}
+                    disabled={invalidEmployees.length > 0 || validEmployees.length === 0 || loading}
                     className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Import {validEmployees.length} Valid Employees <ArrowRight className="w-4 h-4" /></>}
@@ -575,7 +570,7 @@ export default function App() {
                     const deptEmployees = validEmployees.filter(e => e.departmentCode === dept.code);
                     const potentialManagers = deptEmployees.filter(e => e.role.toLowerCase() === 'manager');
                     const defaultManager = potentialManagers[0];
-                    
+
                     return (
                       <div key={dept.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
@@ -583,18 +578,18 @@ export default function App() {
                           <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{dept.code}</span>
                         </div>
                         {potentialManagers.length > 0 ? (
-                           <select 
-                             className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#0A5ED6] outline-none cursor-pointer"
-                             defaultValue={dept.leadId || defaultManager?.id || ""}
-                             onChange={(e) => {
-                               setDepartments(departments.map(d => d.id === dept.id ? {...d, leadId: e.target.value} : d));
-                             }}
-                           >
-                             <option value="">Select Manager...</option>
-                             {potentialManagers.map(e => (
-                               <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.designation})</option>
-                             ))}
-                           </select>
+                          <select
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#0A5ED6] outline-none cursor-pointer"
+                            defaultValue={dept.leadId || defaultManager?.id || ""}
+                            onChange={(e) => {
+                              setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: e.target.value } : d));
+                            }}
+                          >
+                            <option value="">Select Manager...</option>
+                            {potentialManagers.map(e => (
+                              <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.designation})</option>
+                            ))}
+                          </select>
                         ) : (
                           <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
                             <p className="text-xs text-red-600 font-medium">No managers found in CSV for this department.</p>
@@ -624,15 +619,15 @@ export default function App() {
 
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 max-w-lg mx-auto text-left space-y-3">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Automated Actions Queue</h4>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Hash & Store secure passwords to local DB</div>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Generate Temporary Login Tokens</div>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Dispatch {validEmployees.length} Email Invitations</div>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500"/> Enable Force-Password-Change policy</div>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Hash & Store secure passwords to local DB</div>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Generate Temporary Login Tokens</div>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Dispatch {validEmployees.length} Email Invitations</div>
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Enable Force-Password-Change policy</div>
                 </div>
 
                 <div className="pt-8 border-t border-slate-100 flex justify-between items-center">
                   <button onClick={() => setStep(5)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
-                  <button 
+                  <button
                     onClick={async () => {
                       setLoading(true);
                       try {
@@ -641,7 +636,7 @@ export default function App() {
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ employees: validEmployees })
                         });
-                        
+
                         if (response.ok) {
                           setRolloutActive(true);
                           setStep(7);
@@ -654,8 +649,8 @@ export default function App() {
                       } finally {
                         setLoading(false);
                       }
-                    }} 
-                    disabled={loading} 
+                    }}
+                    disabled={loading}
                     className="inline-flex items-center gap-2 bg-[#0F172A] hover:bg-black text-white font-bold px-10 py-4 rounded-xl transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5 disabled:opacity-50"
                   >
                     {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Executing Security Protocol...</> : <><ShieldCheck className="w-5 h-5" /> Execute & Send Welcome Emails</>}
@@ -703,32 +698,32 @@ export default function App() {
                 {/* Status Table */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                   <div className="max-h-[300px] overflow-y-auto">
-                   <table className="w-full text-left text-sm relative">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 sticky top-0 z-10 shadow-sm">
-                      <tr>
-                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px]">Employee</th>
-                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-center">Email Sent</th>
-                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {validEmployees.map(emp => (
-                        <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <p className="font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</p>
-                            <p className="text-xs text-slate-500">{emp.email}</p>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className="inline-flex bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Dispatched</span>
-                          </td>
+                    <table className="w-full text-left text-sm relative">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                          <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px]">Employee</th>
+                          <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-center">Email Sent</th>
+                          <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-right">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                 </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {validEmployees.map(emp => (
+                          <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <p className="font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</p>
+                              <p className="text-xs text-slate-500">{emp.email}</p>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <span className="inline-flex bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Dispatched</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
 
