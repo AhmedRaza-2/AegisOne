@@ -159,6 +159,7 @@ export default function App() {
 
       const parsedEmployees: Employee[] = [];
       const seenEmails = new Set<string>();
+      const seenEmployeeIds = new Set<string>();
       let adminCount = 0;
 
       for (let i = 1; i < lines.length; i++) {
@@ -190,7 +191,10 @@ export default function App() {
         } else if (seenEmails.has(email)) {
           status = 'invalid';
           error = 'Duplicate Email';
-        } else if (!departments.find(d => d.code === departmentCode)) {
+        } else if (employeeId && seenEmployeeIds.has(employeeId)) {
+          status = 'invalid';
+          error = 'Duplicate Employee ID';
+        } else if (!departments.find(d => d.code === departmentCode) && normalizedRole !== 'admin') {
           status = 'invalid';
           error = `Invalid Dept: ${departmentCode}`;
         } else if (!allowedRoles.includes(normalizedRole)) {
@@ -202,6 +206,7 @@ export default function App() {
         }
 
         if (email) seenEmails.add(email);
+        if (employeeId) seenEmployeeIds.add(employeeId);
 
         parsedEmployees.push({
           id: Math.random().toString(),
@@ -551,6 +556,7 @@ export default function App() {
                         <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Name</th>
                         <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Email</th>
                         <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Dept</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Role</th>
                         <th className="px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Status</th>
                       </tr>
                     </thead>
@@ -560,7 +566,14 @@ export default function App() {
                           <td className="px-4 py-3 font-mono text-slate-500 text-xs">{emp.employeeId}</td>
                           <td className="px-4 py-3 font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</td>
                           <td className="px-4 py-3 text-slate-600">{emp.email}</td>
-                          <td className="px-4 py-3 font-mono text-blue-600 font-bold">{emp.departmentCode}</td>
+                          <td className="px-4 py-3 font-mono text-blue-600 font-bold">
+                            {emp.role.toLowerCase() === 'admin' ? (
+                              <span className="uppercase">GLOBAL</span>
+                            ) : (
+                              emp.departmentCode
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-slate-600 capitalize">{emp.role}</td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase"><CheckCircle2 className="w-3 h-3"/> Valid</span>
                           </td>

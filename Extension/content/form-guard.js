@@ -276,13 +276,9 @@ function _setupSubmitInterceptors() {
       const stored = await chrome.storage.local.get("enableFormGuard");
       if (stored.enableFormGuard === false) return; // User disabled it
 
-      // Prevent typing
-      e.target.blur();
-      
-      _showCredentialWarning(form, _currentPageRisk, () => {
-        userAllowedTyping = true;
-        e.target.focus();
-      });
+      // Trigger warning on focus, but don't steal focus
+      _showCredentialWarning(form, _currentPageRisk);
+      userAllowedTyping = true;
     }, { capture: true });
 
     form.addEventListener("submit", async (e) => {
@@ -308,15 +304,11 @@ function _setupSubmitInterceptors() {
 
       // ── Warn on structural form issues ───────────────────────
       if (isHttpAction || actionDomainMismatch) {
-        e.preventDefault();
         const reasons = [];
         if (isHttpAction) reasons.push("Form submits credentials over unencrypted HTTP");
         if (actionDomainMismatch) reasons.push(`Form action sends data to a different domain: ${new URL(formAction).hostname}`);
 
-        _showCredentialWarning(form, Math.max(_currentPageRisk, 70), () => {
-          userAllowedTyping = true;
-          form.submit();
-        }, reasons);
+        _showCredentialWarning(form, Math.max(_currentPageRisk, 70), reasons);
         return;
       }
 
@@ -326,20 +318,13 @@ function _setupSubmitInterceptors() {
       const stored = await chrome.storage.local.get("enableFormGuard");
       if (stored.enableFormGuard === false) return;
 
-      e.preventDefault();
-
       const res = await chrome.runtime.sendMessage({
         type: MSG.FORM_INTERCEPT,
         url: window.location.href,
       }).catch(() => null);
 
       if (res?.block) {
-        _showCredentialWarning(form, res.score, () => {
-          userAllowedTyping = true;
-          form.submit();
-        });
-      } else {
-        form.submit();
+        _showCredentialWarning(form, res.score);
       }
     }, { capture: true });
   }
@@ -354,90 +339,60 @@ function _setupSubmitInterceptors() {
 }
 
 /**
- * Show a credential submission warning modal.
+ * Show a non-blocking credential submission warning toast.
  * @param {HTMLFormElement} form
  * @param {number} score
- * @param {Function} onAllow
  * @param {string[]} [extraReasons] - additional reason lines to display
  */
-function _showCredentialWarning(form, score, onAllow, extraReasons = []) {
-  const existing = document.getElementById("aegis-cred-warn");
+function _showCredentialWarning(form, score, extraReasons = []) {
+  const existing = document.getElementById("aegis-cred-warn-toast");
   if (existing) return;
 
-  const overlay = document.createElement("div");
-  overlay.id = "aegis-cred-warn";
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 2147483646;
-    background: rgba(10,5,5,0.85); backdrop-filter: blur(14px);
-    display: flex; align-items: center; justify-content: center;
+  const toast = document.createElement("div");
+  toast.id = "aegis-cred-warn-toast";
+  toast.style.cssText = `
+    position: fixed; bottom: 24px; right: 24px; z-index: 2147483647;
+    width: 380px; max-width: calc(100vw - 48px);
+    background: #110808; border: 1px solid rgba(239,68,68,0.4);
+    border-radius: 12px; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     font-family: 'Inter', -apple-system, sans-serif;
+    animation: aegisToastSlideIn 0.4s cubic-bezier(0.16,1,0.3,1);
+    pointer-events: auto;
   `;
 
-  overlay.innerHTML = `
-    <div style="
-      width: 420px; max-width: 92%;
-      background: #0f0a0a; border: 1px solid rgba(239,68,68,0.35);
-      border-radius: 16px; overflow: hidden; text-align: center;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.9);
-      animation: aegisSlideUp 0.3s cubic-bezier(0.16,1,0.3,1);
-    ">
-      <div style="padding: 14px 20px; background: rgba(239,68,68,0.12); border-bottom: 1px solid rgba(239,68,68,0.2);">
-        <span style="font-weight: 800; font-size: 12px; color: #f87171; text-transform: uppercase; letter-spacing: 1px;">⚠️ AegisOne Data Loss Prevention</span>
-      </div>
-      <div style="padding: 24px 28px;">
-        <div style="
-          width: 60px; height: 60px; margin: 0 auto 16px;
-          background: rgba(239,68,68,0.1); border: 2px solid #ef4444;
-          border-radius: 50%; display: flex; align-items: center; justify-content: center;
-          font-size: 28px;
-          animation: aegisPulse 2s infinite;
-        ">🔐</div>
-        <h2 style="font-size: 18px; font-weight: 800; color: #ef4444; margin: 0 0 10px;">Password Input Frozen</h2>
-        <p style="font-size: 12px; color: #94a3b8; line-height: 1.6; margin: 0 0 18px;">
-          This page has a <strong style="color: #f87171;">${score}% phishing risk</strong>. 
-          AegisOne has frozen your keyboard to prevent accidental credential exposure.
-        </p>
-        ${extraReasons.length > 0 ? `<div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; text-align: left; font-size: 11px; color: #f87171;">${extraReasons.map(r => `<div style="margin-bottom:3px;">⚠️ ${r}</div>`).join('')}</div>` : ''}
-        <div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15); border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; text-align: left; font-size: 11px; color: #94a3b8;">
-          <div style="margin-bottom: 4px;"><strong style="color: #f1f5f9;">Domain:</strong> ${location.hostname}</div>
-          <div><strong style="color: #f1f5f9;">Risk Score:</strong> <span style="color: #f87171;">${score}%</span></div>
-        </div>
-        <p style="font-size: 10px; color: #f87171; font-style: italic; margin: 0;">If this is a legitimate portal, you may proceed at your own risk.</p>
-      </div>
-      <div style="display: flex; gap: 10px; padding: 14px 20px; background: rgba(15,10,10,0.5); border-top: 1px solid rgba(239,68,68,0.12);">
-        <button id="aegis-cred-block" style="
-          flex: 1.5; background: #ef4444; color: #fff; border: none;
-          padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
-          cursor: pointer; font-family: inherit;
-        ">🛡️ Keep Protected (Close)</button>
-        <button id="aegis-cred-allow" style="
-          flex: 1; background: transparent; color: #64748b;
-          border: 1px solid rgba(255,255,255,0.08); padding: 10px;
-          border-radius: 8px; font-size: 11px; font-weight: 600;
-          cursor: pointer; font-family: inherit;
-        ">Unfreeze & Proceed</button>
+  toast.innerHTML = `
+    <div style="padding: 10px 16px; background: rgba(239,68,68,0.15); border-bottom: 1px solid rgba(239,68,68,0.2); display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-weight: 800; font-size: 11px; color: #f87171; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ AegisOne Alert</span>
+      <button id="aegis-toast-close" style="background:transparent;border:none;color:#f87171;cursor:pointer;padding:4px;line-height:1;border-radius:4px;">✕</button>
+    </div>
+    <div style="padding: 16px;">
+      <h2 style="font-size: 15px; font-weight: 700; color: #ef4444; margin: 0 0 8px;">Unsafe Login Form Detected</h2>
+      <p style="font-size: 12px; color: #cbd5e1; line-height: 1.5; margin: 0 0 12px;">
+        This page has a <strong style="color: #f87171;">${score}% phishing risk</strong>. Please double-check the URL before submitting your credentials.
+      </p>
+      ${extraReasons.length > 0 ? `<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px; color: #f87171; line-height: 1.4;">${extraReasons.map(r => `<div>• ${r}</div>`).join('')}</div>` : ''}
+      <div style="font-size: 11px; color: #94a3b8;">
+        <strong style="color: #e2e8f0;">Domain:</strong> ${location.hostname}
       </div>
     </div>
     <style>
-      @keyframes aegisSlideUp {
-        from { opacity: 0; transform: scale(0.93) translateY(20px); }
-        to   { opacity: 1; transform: scale(1) translateY(0); }
+      @keyframes aegisToastSlideIn {
+        from { opacity: 0; transform: translateX(40px) scale(0.95); }
+        to   { opacity: 1; transform: translateX(0) scale(1); }
       }
-      @keyframes aegisPulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
-      }
+      #aegis-toast-close:hover { background: rgba(239,68,68,0.2); }
     </style>
   `;
 
-  document.body.appendChild(overlay);
+  document.body.appendChild(toast);
 
-  document.getElementById("aegis-cred-block")?.addEventListener("click", () => {
-    overlay.remove();
+  document.getElementById("aegis-toast-close")?.addEventListener("click", () => {
+    toast.remove();
   });
-
-  document.getElementById("aegis-cred-allow")?.addEventListener("click", () => {
-    overlay.remove();
-    if (onAllow) onAllow();
-  });
+  
+  // Auto-dismiss after 15 seconds
+  setTimeout(() => {
+    if (document.body.contains(toast)) toast.remove();
+  }, 15000);
 }

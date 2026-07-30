@@ -151,54 +151,25 @@ export async function getCurrentAuthUser() {
 
 export async function getOrganizations(): Promise<Organization[]> {
   // 1. Fetch from Supabase cloud database
-  let supabaseOrgs: Organization[] = [];
   try {
     const { data, error } = await supabase
       .from('organizations')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      supabaseOrgs = data as Organization[];
+    if (error) {
+      console.warn("[org-service] Supabase select error:", error);
+      return [];
     }
+    
+    return (data || []) as Organization[];
   } catch (e) {
-    console.warn("[org-service] Could not fetch Supabase orgs:", e);
+    console.error("[org-service] Could not fetch Supabase orgs:", e);
+    return [];
   }
-
-  // 2. Fetch from local backend API
-  let localOrgs: Organization[] = [];
-  try {
-    const res = await fetch("http://localhost:8000/admin/organizations");
-    if (res.ok) {
-      const data = await res.json();
-      localOrgs = data as Organization[];
-    }
-  } catch (e) {
-    console.warn("[org-service] Could not fetch local backend orgs:", e);
-  }
-
-  // 3. Deduplicate by lowercased name or email so all unique orgs show up cleanly
-  const map = new Map<string, Organization>();
-
-  // Add local orgs first
-  for (const org of localOrgs) {
-    const key = org.name.toLowerCase().trim();
-    map.set(key, org);
-  }
-
-  // Layer Supabase orgs on top
-  for (const org of supabaseOrgs) {
-    const key = org.name.toLowerCase().trim();
-    map.set(key, org);
-  }
-
-  return Array.from(map.values());
 }
 
 export async function updateOrganizationStatus(orgId: string, status: 'active' | 'pending' | 'suspended', reason?: string): Promise<void> {
-  let updated = false;
-
-  // 1. Try Supabase cloud update
   try {
     const updates: any = { status };
     if (reason) {
@@ -210,53 +181,32 @@ export async function updateOrganizationStatus(orgId: string, status: 'active' |
       .update(updates)
       .eq('id', orgId);
 
-    if (!error) updated = true;
-  } catch (e) {
-    console.warn("[org-service] Supabase status update skipped/failed:", e);
-  }
-
-  // 2. Try Local backend API update
-  try {
-    const res = await fetch(`http://localhost:8000/admin/organizations/${encodeURIComponent(orgId)}/status?status=${status}`, {
-      method: "PUT"
-    });
-    if (res.ok) updated = true;
-  } catch (e) {
-    console.warn("[org-service] Local backend status update skipped/failed:", e);
-  }
-
-  if (!updated) {
-    throw new Error("Failed to update organization status in both cloud and local DB.");
+    if (error) {
+      throw new Error(`Supabase update error: ${error.message}`);
+    }
+  } catch (e: any) {
+    console.error("[org-service] Supabase status update failed:", e);
+    throw new Error(e.message || "Failed to update organization status in cloud DB.");
   }
 }
 
 export async function deleteOrganization(orgId: string): Promise<void> {
-  let deleted = false;
-
-  // 1. Try Supabase cloud delete
   try {
-    const { error } = await supabase
-      .from('organizations')
-      .delete()
-      .eq('id', orgId);
-
-    if (!error) deleted = true;
-  } catch (e) {
-    console.warn("[org-service] Supabase delete skipped/failed:", e);
-  }
-
-  // 2. Try Local backend API delete
-  try {
-    const res = await fetch(`http://localhost:8000/admin/organizations/${encodeURIComponent(orgId)}`, {
-      method: "DELETE"
+    // We call a secure RPC function on Supabase to delete both the org and the auth user.
+    // This bypasses the frontend restriction on deleting auth users.
+    const { error } = await supabase.rpc('delete_organization_and_user', {
+      org_id_param: orgId
     });
-    if (res.ok) deleted = true;
-  } catch (e) {
-    console.warn("[org-service] Local backend delete skipped/failed:", e);
-  }
 
-  if (!deleted) {
-    throw new Error("Failed to delete organization from both cloud and local DB.");
+    if (error) {
+      // Fallback to normal delete if RPC doesn't exist yet
+      console.warn("[org-service] RPC failed (maybe not created yet), falling back to normal delete:", error);
+      const fallback = await supabase.from('organizations').delete().eq('id', orgId);
+      if (fallback.error) throw new Error(`Supabase delete error: ${fallback.error.message}`);
+    }
+  } catch (e: any) {
+    console.error("[org-service] Supabase delete failed:", e);
+    throw new Error(e.message || "Failed to delete organization from cloud DB.");
   }
 }
 

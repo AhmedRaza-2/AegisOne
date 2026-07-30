@@ -3,6 +3,7 @@ import { Shield, Check, X, Loader2, LogOut, Lock, Trash2, Search, AlertCircle, R
 import { getOrganizations, updateOrganizationStatus, deleteOrganization, logoutOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
