@@ -278,3 +278,32 @@ class AdminStatsResponse(BaseModel):
     credential_events_total: int = 0
     download_events_total: int = 0
     hover_scans_total: int = 0
+    daily_trend: List[Dict[str, Any]] = []
+
+# ═══════════════════════════════════════════════════════════════
+# COMMUNICATION SCHEMAS
+# ═══════════════════════════════════════════════════════════════
+
+class MessageCreate(BaseModel):
+    receiver_id: Optional[int] = None
+    department_id: Optional[int] = None
+    msg_type: str
+    title: Optional[str] = None
+    content: str
+    priority: str = "Normal"
+
+class MessageOut(BaseModel):
+    id: int
+    sender_id: int
+    receiver_id: Optional[int] = None
+    department_id: Optional[int] = None
+    msg_type: str
+    title: Optional[str] = None
+    content: str
+    priority: str
+    created_at: datetime
+    is_read: bool
+
+    class Config:
+        orm_mode = True
+        from_attributes = True

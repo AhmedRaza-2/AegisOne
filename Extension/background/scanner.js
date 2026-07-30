@@ -1,17 +1,18 @@
 /**
- * AegisOne — Core Scanner
- * ========================
+ * AegisOne — Core Scanner v2.1
+ * ==============================
  * Orchestrates all scanning operations.
  * This is the single entry point for all API calls.
  *
- * Responsibilities:
- *  - Call API endpoints with timeout + retry
- *  - Run risk engine on returned signals
- *  - Check/write cache
- *  - Return normalized ScanResult objects
+ * v2.1 improvements:
+ *  - AbortController signal support (cancel stale in-flight requests)
+ *  - _validateScanResponse() guard — never trusts raw API data
+ *  - Offline detection: returns cached result instead of timing out
+ *  - Hover scan uses TTL-based cache (not always-bypass)
+ *  - Graceful degradation: falls back to cache on API failure
  */
 
-import { API_BASE, API_TIMEOUT_MS, THRESHOLD, VERDICT, EVENT_TYPES } from "../utils/constants.js";
+import { API_BASE, API_TIMEOUT_MS, THRESHOLD, VERDICT, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
 import { isInternalURL, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
 import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
@@ -21,37 +22,106 @@ let _policyCache = null;
 let _policyCacheAt = 0;
 const POLICY_TTL_MS = 60_000;
 
+// ── Backend Availability ──────────────────────────────────
+// Updated by health checks — prevents 6s timeouts on every scan when offline
+let _backendOnline = true;
+let _backendCheckedAt = 0;
+const BACKEND_ASSUMED_DOWN_AFTER_MS = 90_000; // 1.5 min without successful health check
+
+export function setBackendOnline(online) {
+  _backendOnline = online;
+  _backendCheckedAt = Date.now();
+  if (DEBUG_MODE) console.log("[AegisOne:Scanner] Backend status:", online ? "online" : "offline");
+}
+
+export function isBackendOnline() {
+  // If we haven't checked recently, assume online to avoid blocking first scan
+  if (Date.now() - _backendCheckedAt > BACKEND_ASSUMED_DOWN_AFTER_MS) return true;
+  return _backendOnline;
+}
+
 // ── API Helper ────────────────────────────────────────────
-async function callAPI(endpoint, body, isFormData = false) {
+/**
+ * @param {string} endpoint
+ * @param {FormData|object} body
+ * @param {boolean} isFormData
+ * @param {AbortSignal} [signal] - optional per-request cancellation signal
+ */
+async function callAPI(endpoint, body, isFormData = false, signal = null) {
+  // Skip if backend is known to be offline — return null immediately
+  if (!isBackendOnline()) return null;
+
   try {
+    const { user_email } = await chrome.storage.local.get("user_email");
+    const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
+    // Compose the caller's signal with the timeout signal if both provided
+    const combinedSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
+
     const opts = {
       method: "POST",
-      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+      signal: combinedSignal,
+      headers: {}
     };
+
+    if (user_email) {
+      opts.headers["X-User-Email"] = user_email;
+      if (isFormData && body instanceof FormData) {
+        if (!body.has("user_email")) body.append("user_email", user_email);
+      }
+    }
+
     if (isFormData) {
       opts.body = body;
     } else {
-      opts.headers = { "Content-Type": "application/json" };
+      opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
     const res = await fetch(`${API_BASE}${endpoint}`, opts);
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    // Mark backend as reachable on successful response
+    setBackendOnline(true);
+    return data;
   } catch (e) {
-    console.warn(`[AegisOne:Scanner] API call failed (${endpoint}):`, e.message);
+    // AbortError from navigation = normal; timeout = likely offline
+    if (e.name === "AbortError") return null;
+    if (e.name === "TimeoutError" || e.message?.includes("fetch")) {
+      setBackendOnline(false);
+    }
+    if (DEBUG_MODE) console.warn(`[AegisOne:Scanner] API call failed (${endpoint}):`, e.message);
     return null;
   }
+}
+
+// ── Response Validator ────────────────────────────────────
+/**
+ * Validates raw API response from /analyze/url.
+ * Returns null if the response is malformed/unexpected.
+ */
+function _validateScanResponse(data) {
+  if (!data || typeof data !== "object") return null;
+  const prob = data.phishing_probability;
+  if (prob !== null && prob !== undefined) {
+    if (typeof prob !== "number" || prob < 0 || prob > 1) return null;
+  }
+  return data;
 }
 
 /**
  * Scan a URL for phishing risk.
  * Cache-first: returns cached result if fresh.
+ * Falls back to cached result if API is down.
  *
  * @param {string} url
  * @param {object} [pageFeatures] - optional DOM features from content script
- * @returns {Promise<ScanResult>}
+ * @param {object} [opts]
+ * @param {boolean} [opts.bypassCache] - force fresh scan (only if cache is stale)
+ * @param {AbortSignal} [opts.signal]  - optional cancellation signal
+ * @returns {Promise<ScanResult|null>}
  */
-export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = {}) {
+export async function scanURL(url, pageFeatures = {}, { bypassCache = false, signal = null } = {}) {
   if (!url || isInternalURL(url)) return _skippedResult(url);
   const policy = await _getPolicySnapshot();
   const domain = getRootDomain(url);
@@ -60,11 +130,10 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = 
   const warningMatch = _matchesAny(domain, policy.warninglist);
 
   const hasDOMFeatures = Object.keys(pageFeatures).length > 0;
-  let cached = null;
 
-  // Check cache unless bypassed — hover scans bypass to avoid stale batch results
+  // Check cache — bypass only if explicitly requested AND result is older than HOVER TTL
   if (!bypassCache) {
-    cached = await getCachedResult(url);
+    const cached = await getCachedResult(url);
     if (cached) {
       if (!hasDOMFeatures || cached.has_dom_features) {
         const cachedResult = { ...cached, from_cache: true };
@@ -79,23 +148,30 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = 
     }
   }
 
-  // ── Step 1: URL AI Model ──────────────────────────────
+  // ── L3: URL AI Model ────────────────────────────────────
   // Reuse the URL model prediction from cache if it exists, to avoid redundant network calls
+  let cached = await getCachedResult(url);
   let urlModel = cached?.raw_url_model;
   if (!urlModel) {
     const form = new FormData();
     form.append("url", url);
-    const scanType = hasDOMFeatures ? "website" : "url";
-    form.append("scan_type", scanType);
-    urlModel = await callAPI("/analyze/url", form, true);
+    form.append("scan_type", hasDOMFeatures ? "website" : "url");
+    const raw = await callAPI("/analyze/url", form, true, signal);
+    urlModel = _validateScanResponse(raw);
   }
 
-  // ── Step 2: Build signals for risk engine ─────────────
+  // If API failed, fall back to stale cache if available (graceful degradation)
+  if (!urlModel && cached) {
+    if (DEBUG_MODE) console.log("[AegisOne:Scanner] API unavailable — using stale cache for:", domain);
+    return { ...cached, from_cache: true, stale: true };
+  }
+  if (!urlModel) return null;
+
+  // ── Build signals for risk engine ───────────────────────
   const signals = {
     url_model: urlModel?.phishing_probability ?? null,
     threat_type: urlModel?.category || urlModel?.prediction || null,
     top_words: urlModel?.top_words || [],
-    // DOM features from content script
     domain_age_days: pageFeatures.domain_age_days ?? null,
     ssl_invalid: pageFeatures.ssl_invalid ?? null,
     login_form_found: pageFeatures.login_form_found ?? null,
@@ -108,7 +184,7 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = 
     js_obfuscated: pageFeatures.js_obfuscated ?? null,
   };
 
-  // ── Step 3: Compute weighted risk ─────────────────────
+  // ── Compute weighted risk ────────────────────────────────
   const risk = computeRisk(signals);
 
   const result = {
@@ -132,10 +208,10 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = 
     result.policy_reason = "Matched organization warninglist";
   }
 
-  // ── Step 4: Cache result ───────────────────────────────
+  // ── Cache result ────────────────────────────────────────
   await setCachedResult(url, result);
 
-  // ── Step 5: Store event only if risky ─────────────────
+  // ── Store event only if risky ────────────────────────────
   if (risk.score >= THRESHOLD.WARNING * 100) {
     await storeEvent({
       type: EVENT_TYPES.WEBSITE_THREAT,
@@ -155,36 +231,38 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false } = 
 /**
  * Scan page text content.
  * @param {string} text - page body text (first 3000 chars)
+ * @param {AbortSignal} [signal]
  * @returns {Promise<object|null>}
  */
-export async function scanPageText(text) {
+export async function scanPageText(text, signal = null) {
   if (!text || text.trim().length < 30) return null;
   const form = new FormData();
   form.append("text", text.slice(0, 3000));
-  return callAPI("/analyze/text", form, true);
+  return callAPI("/analyze/text", form, true, signal);
 }
 
 /**
- * Scan an image URL by downloading it and posting it to /analyze/image.
+ * Scan an image URL by downloading it and posting to /analyze/image.
  * @param {string} imageUrl
+ * @param {AbortSignal} [signal]
  * @returns {Promise<object|null>}
  */
-export async function scanImage(imageUrl) {
+export async function scanImage(imageUrl, signal = null) {
   if (!imageUrl) return null;
   try {
-    const res = await fetch(imageUrl);
+    const res = await fetch(imageUrl, { signal: signal || AbortSignal.timeout(API_TIMEOUT_MS) });
     if (!res.ok) return null;
     const blob = await res.blob();
     const form = new FormData();
     form.append("file", blob, "image.png");
-    return callAPI("/analyze/image", form, true);
+    return callAPI("/analyze/image", form, true, signal);
   } catch (err) {
-    console.warn("[AegisOne:Scanner] Image scan failed:", err.message);
+    if (DEBUG_MODE) console.warn("[AegisOne:Scanner] Image scan failed:", err.message);
     return null;
   }
 }
 
-export async function scanURLBatch(urls, batchSize = 5) {
+export async function scanURLBatch(urls, batchSize = 5, signal = null) {
   const policy = await _getPolicySnapshot();
   const filtered = [];
   const preResolved = [];
@@ -204,6 +282,9 @@ export async function scanURLBatch(urls, batchSize = 5) {
   const results = [];
 
   for (let i = 0; i < filtered.length; i += batchSize) {
+    // Abort mid-batch if signal fires
+    if (signal?.aborted) break;
+
     const batch = filtered.slice(i, i + batchSize);
     const settled = await Promise.allSettled(
       batch.map(async (url) => {
@@ -219,19 +300,19 @@ export async function scanURLBatch(urls, batchSize = 5) {
           }
           return cachedResult;
         }
-        
+
         const form = new FormData();
         form.append("url", url);
-        const r = await callAPI("/analyze/url", form, true);
+        const raw = await callAPI("/analyze/url", form, true, signal);
+        const r = _validateScanResponse(raw);
         if (!r) return null;
 
-        // Run the exact same Weighted Risk Engine as single scans
         const risk = computeRisk({
           url_model: r.phishing_probability ?? null,
           threat_type: r.category || r.prediction || null,
           top_words: r.top_words || []
         });
-        
+
         const result = {
           url,
           domain,
@@ -250,7 +331,6 @@ export async function scanURLBatch(urls, batchSize = 5) {
           result.policy_reason = "Matched organization warninglist";
         }
 
-        // Save batch scan to cache so hover instantly resolves
         await setCachedResult(url, result);
         return result;
       })
@@ -263,62 +343,46 @@ export async function scanURLBatch(urls, batchSize = 5) {
 
 /**
  * Scan a download URL before allowing the file to land on disk.
- * @param {string} url
- * @param {string} filename
- * @returns {Promise<object>} - { risk_score, verdict, signals, ... }
  */
-export async function scanDownload(url, filename) {
+// File types the attachment processor does NOT support — skip heavy content scan
+const _SKIP_CONTENT_SCAN = new Set([
+  "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "tiff", "avif",
+  "mp4", "mp3", "wav", "flac", "ogg", "webm", "avi", "mov", "mkv",
+  "woff", "woff2", "ttf", "otf", "eot",
+]);
+
+export async function scanDownload(url, filename, signal = null) {
   if (!url) return { risk_score: 0, verdict: VERDICT.UNKNOWN };
   const policy = await _getPolicySnapshot();
   const domain = getRootDomain(url);
   if (_matchesAny(domain, policy.allowlist)) {
-    return {
-      url,
-      filename,
-      risk_score: 0,
-      verdict: VERDICT.SAFE,
-      policy_override: "allow",
-      signals: [],
-    };
+    return { url, filename, risk_score: 0, verdict: VERDICT.SAFE, policy_override: "allow", signals: [] };
   }
   if (_matchesAny(domain, policy.blocklist)) {
-    return {
-      url,
-      filename,
-      risk_score: 100,
-      verdict: VERDICT.DANGER,
-      policy_override: "block",
-      signals: ["Matched organization blocklist"],
-    };
+    return { url, filename, risk_score: 100, verdict: VERDICT.DANGER, policy_override: "block", signals: ["Matched organization blocklist"] };
   }
 
-  // 1. Quick URL scan
   const form = new FormData();
   form.append("url", url);
-  const urlResult = await callAPI("/analyze/url", form, true);
+  const urlResultRaw = await callAPI("/analyze/url", form, true, signal);
+  const urlResult = _validateScanResponse(urlResultRaw);
   const urlRisk = urlResult?.phishing_probability ?? 0;
 
-  // 2. Deep attachment/content scan for every download
-  // The backend fetches the file, inspects structure, extracts text, and routes it
-  // through the attachment/text/url models when possible.
   let contentResult = null;
-  const contentForm = new FormData();
-  contentForm.append("url", url);
-  contentResult = await callAPI("/analyze/download_url", contentForm, true);
+  const ext = (filename.split(".").pop() || "").toLowerCase();
+  if (!_SKIP_CONTENT_SCAN.has(ext)) {
+    const contentForm = new FormData();
+    contentForm.append("url", url);
+    const contentRaw = await callAPI("/analyze/download_url", contentForm, true, signal);
+    contentResult = _validateScanResponse(contentRaw);
+  }
 
-  const finalRisk = Math.max(
-    urlRisk,
-    contentResult?.phishing_probability ?? 0,
-    contentResult?.heuristic_risk ?? 0
-  );
+  const finalRisk = Math.max(urlRisk, contentResult?.phishing_probability ?? 0, contentResult?.heuristic_risk ?? 0);
   const score = Math.round(finalRisk * 100);
   const verdict = score >= 50 ? VERDICT.DANGER : score >= 20 ? VERDICT.WARNING : VERDICT.SAFE;
 
   const result = {
-    url,
-    filename,
-    risk_score: score,
-    verdict,
+    url, filename, risk_score: score, verdict,
     url_result: urlResult,
     content_result: contentResult,
     signals: contentResult?.phishing_signals || [],
@@ -328,7 +392,6 @@ export async function scanDownload(url, filename) {
     vba_analysis: contentResult?.vba_analysis ?? null,
   };
 
-  // Store event only for warnings/blocks
   if (score >= 50) {
     await storeEvent({
       type: EVENT_TYPES.DOWNLOAD_BLOCKED,
@@ -347,27 +410,24 @@ export async function scanDownload(url, filename) {
 /**
  * Scan an email for phishing.
  */
-export async function scanEmail(sender, subject, body) {
+export async function scanEmail(sender, subject, body, signal = null) {
   const form = new FormData();
   form.append("sender", sender || "");
   form.append("subject", subject || "");
   form.append("body", body || "");
-  return callAPI("/analyze/email", form, true);
+  return callAPI("/analyze/email", form, true, signal);
 }
 
 /**
  * Request an XAI explanation from the LLM service.
  * Only called when user explicitly clicks "Explain with AI".
- *
- * @param {object} evidence - compact evidence payload (NOT full HTML)
- * @returns {Promise<object|null>}
  */
 export async function requestXAI(evidence) {
   return callAPI("/xai/explain", evidence, false);
 }
 
 /**
- * Check backend health.
+ * Check backend health and update online status.
  */
 export async function checkHealth() {
   try {
@@ -375,8 +435,10 @@ export async function checkHealth() {
       signal: AbortSignal.timeout(3000),
     });
     const data = await res.json();
+    setBackendOnline(true);
     return { online: true, data };
   } catch {
+    setBackendOnline(false);
     return { online: false };
   }
 }
@@ -420,4 +482,3 @@ async function _getPolicySnapshot() {
   }
   return _policyCache;
 }
-

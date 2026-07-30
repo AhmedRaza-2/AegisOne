@@ -1,9 +1,12 @@
 /**
- * AegisOne Extension v2.0 — Shared Constants
+ * AegisOne Extension v2.1 — Shared Constants
  * ============================================
  * Single source of truth for all config values,
  * thresholds, risk weights, and message types.
  */
+
+// ── Debug Mode (set false for production) ────────────────
+export const DEBUG_MODE = false;
 
 // ── API Configuration ────────────────────────────────────
 export const API_BASE = "http://localhost:8000";
@@ -11,13 +14,16 @@ export const API_TIMEOUT_MS = 6000;
 export const HEALTH_CHECK_INTERVAL_MS = 30_000;
 export const EVENT_SYNC_INTERVAL_MS = 30_000;
 
+// ── Sync Backoff Steps (exponential retry intervals in ms) ──
+export const SYNC_BACKOFF_STEPS = [30_000, 60_000, 120_000, 300_000];
+
 // ── Risk Thresholds ──────────────────────────────────────
 export const THRESHOLD = {
-  SAFE:    0.20,   // 0–20%   → safe
-  WARNING: 0.50,   // 20–50%  → suspicious
-  DANGER:  0.80,   // ≥50%    → phishing detected
-  HIGHLIGHT: 0.85, // Highlight links on page at this level
-  GOOGLE_BADGE: 0.80,  // Show warning badge in search results
+  SAFE:      0.20,  // 0–20%  → safe (green)
+  WARNING:   0.50,  // 20–50% → suspicious (amber)
+  DANGER:    0.80,  // ≥80%   → phishing detected (red)
+  HIGHLIGHT: 0.85,  // Highlight links on page at this threshold
+  GOOGLE_BADGE: 0.80, // Show warning badge in search results
 };
 
 // ── Risk Engine Weights (must sum to 1.0) ────────────────
@@ -35,13 +41,13 @@ export const RISK_WEIGHTS = {
 
 // ── Cache Config ─────────────────────────────────────────
 export const CACHE = {
-  DOMAIN_TTL_MS: 15 * 60 * 1000,   // 15 minutes
+  DOMAIN_TTL_MS:  15 * 60 * 1000,  // 15 minutes
   DOMAIN_MAX_SIZE: 500,
-  TAB_MAX_SIZE: 50,
-  HOVER_TTL_MS: 5 * 60 * 1000,     // 5 minutes
+  TAB_MAX_SIZE:    50,
+  HOVER_TTL_MS:   5 * 60 * 1000,   // 5 minutes — reuse cached result within this window
 };
 
-// ── Event Types (stored in local DB) ────────────────────
+// ── Event Types (stored in local DB) ─────────────────────
 export const EVENT_TYPES = {
   WEBSITE_THREAT:   "website_threat",
   DOWNLOAD_BLOCKED: "download_blocked",
@@ -51,7 +57,7 @@ export const EVENT_TYPES = {
   XAI_SESSION:      "xai_session",
 };
 
-// ── Message Types (content ↔ background) ────────────────
+// ── Message Types (content ↔ background) ─────────────────
 export const MSG = {
   // Navigation
   NAVIGATE_SCAN:    "NAVIGATE_SCAN",
@@ -83,13 +89,13 @@ export const MSG = {
   RIGHT_CLICK_SCAN:  "RIGHT_CLICK_SCAN",
 
   // Control
-  GET_TAB_DATA:     "GET_TAB_DATA",
-  GET_SHIELD_STATE: "GET_SHIELD_STATE",
-  TOGGLE_SHIELD:    "TOGGLE_SHIELD",
-  CHECK_HEALTH:     "CHECK_HEALTH",
-  GET_EVENTS:       "GET_EVENTS",
-  REPORT_THREAT:    "REPORT_THREAT",
-  FULL_PAGE_SCAN:   "FULL_PAGE_SCAN",
+  GET_TAB_DATA:      "GET_TAB_DATA",
+  GET_SHIELD_STATE:  "GET_SHIELD_STATE",
+  TOGGLE_SHIELD:     "TOGGLE_SHIELD",
+  CHECK_HEALTH:      "CHECK_HEALTH",
+  GET_EVENTS:        "GET_EVENTS",
+  REPORT_THREAT:     "REPORT_THREAT",
+  FULL_PAGE_SCAN:    "FULL_PAGE_SCAN",
 
   // Push to content
   HIGHLIGHT_THREATS: "HIGHLIGHT_THREATS",
@@ -98,10 +104,10 @@ export const MSG = {
 
 // ── Verdict Labels ───────────────────────────────────────
 export const VERDICT = {
-  SAFE:    "safe",
-  WARNING: "warning",
-  DANGER:  "danger",
-  UNKNOWN: "unknown",
+  SAFE:     "safe",
+  WARNING:  "warning",
+  DANGER:   "danger",
+  UNKNOWN:  "unknown",
   SCANNING: "scanning",
 };
 

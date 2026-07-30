@@ -13,8 +13,7 @@ const HeroSection = () => {
                     transition={{ duration: 0.8, delay: 0.2 }}
                     className="mt-10 inline-flex items-center gap-2 px-4 py-2 text-xs rounded-full border border-gradient-border"
                 >
-                    <Sparkles size={16} className="text-orange-500" />
-                    <span>Enterprise-Grade Phishing Protection</span>
+                    <span>Protect Your Workforce. Secure Your Data.</span>
                 </motion.div>
 
                 <motion.h1
@@ -22,7 +21,7 @@ const HeroSection = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.6 }}
                 >
-                    SECURE YOUR BROWSER WITH
+                    STOP PHISHING AT THE SOURCE WITH
                     <br />
                     <span className="text-gradient bg-clip-text text-transparent">
                         AEGISONE AI
@@ -35,7 +34,7 @@ const HeroSection = () => {
                     transition={{ duration: 0.8, delay: 0.8 }}
                     className="text sm:text-xl max-w-3xl text-zinc-500"
                 >
-                    A comprehensive multi-modal AI browser security system that intercepts phishing, credential theft, and malicious downloads. Lightweight client-side agent with robust server-side machine learning inference.
+                    Empower your employees to browse securely. AegisOne delivers real-time, AI-driven protection against credential theft and targeted phishing—without compromising data privacy or slowing down your team's productivity.
                 </motion.p>
 
                 <motion.div
@@ -44,13 +43,11 @@ const HeroSection = () => {
                     transition={{ duration: 0.8, delay: 1 }}
                     className="w-full flex flex-col sm:flex-row justify-center gap-4"
                 >
-                    <Button href="http://localhost:3002/register">
+                    <Button href="/register">
                         Get Started
                         <ArrowRight className="group-hover:translate-x-2 transition-transform" size={20} />
                     </Button>
-                    <Button type="secondary" href="http://localhost:8000/docs">
-                        View API Docs
-                    </Button>
+
                 </motion.div>
 
                 <motion.div
@@ -61,19 +58,19 @@ const HeroSection = () => {
                 >
                     <div className="text-center">
                         <h2 className="hero-counter">99.8%</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Phishing Detection</p>
+                        <p className="text-gray-600">Threat Prevention</p>
                     </div>
                     <div className="text-center">
-                        <h2 className="hero-counter primary-gradient">&lt; 50ms</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Verdict Latency</p>
+                        <h2 className="hero-counter primary-gradient">Zero</h2>
+                        <p className="text-gray-600">Productivity Loss</p>
                     </div>
                     <div className="text-center">
-                        <h2 className="hero-counter primary-gradient">10k+</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Blocked Threats</p>
+                        <h2 className="hero-counter primary-gradient">&lt; 15m</h2>
+                        <p className="text-gray-600">To Deploy Company-Wide</p>
                     </div>
                     <div className="text-center">
                         <h2 className="hero-counter primary-gradient">100%</h2>
-                        <p className="text-gray-600 dark:text-gray-300">Privacy Focused</p>
+                        <p className="text-gray-600">Data Sovereignty</p>
                     </div>
                 </motion.div>
 

@@ -86,10 +86,6 @@ class User(Base):
     scans           = relationship("ScanLog", back_populates="user")
     reported_incidents = relationship("Incident", foreign_keys="Incident.reported_by_id", back_populates="reporter")
     resolved_incidents = relationship("Incident", foreign_keys="Incident.resolved_by_id", back_populates="resolver")
-<<<<<<< HEAD
-    audit_actions   = relationship("AuditLog", back_populates="user")
-=======
->>>>>>> 008a3a574fdd87f2b2418733bc0c8c063b4ffe36
 
     __table_args__ = (
         Index("ix_users_org_dept", "organization_id", "department_id"),
@@ -524,3 +520,27 @@ class Incident(Base):
     resolver = relationship("User", foreign_keys=[resolved_by_id], back_populates="resolved_incidents")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 15. COMMUNICATIONS (MESSAGES)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Message(Base):
+    """Internal messaging system for broadcasts and direct messages."""
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=True, index=True)
+    
+    msg_type = Column(String(50), nullable=False) # 'broadcast', 'direct'
+    title = Column(String(255), nullable=True)
+    content = Column(Text, nullable=False)
+    priority = Column(String(50), default="Normal")
+    
+    created_at = Column(DateTime, server_default=func.now())
+    is_read = Column(Boolean, default=False)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
+    department = relationship("Department", foreign_keys=[department_id])

@@ -1,12 +1,18 @@
 /**
- * AegisOne — Popup v2.0
+ * AegisOne — Popup v2.1
  * ======================
  * Shows: current page risk, top factors, events log,
  *        model status, shield toggle.
+ *
+ * v2.1 fixes:
+ *  - device_id used for stats (no hardcoded email)
+ *  - _sanitize() helper prevents XSS from domain names
+ *  - Live scan age countdown while popup is open
  */
 
-const THRESHOLD_WARN = 50;
+const THRESHOLD_WARN   = 50;
 const THRESHOLD_DANGER = 80;
+let _ageCountdownTimer = null;
 
 async function init() {
   await loadShieldState();
@@ -60,16 +66,19 @@ async function loadControlToggles() {
 // ── Popup Stats ────────────────────────────────────────────
 async function loadPopupStats() {
   try {
-    const res = await fetch("http://localhost:8000/user/stats?email=employee");
+    // Use device_id from storage — no hardcoded email
+    const { device_id: deviceId } = await chrome.storage.local.get("device_id");
+    if (!deviceId) return;
+    const res = await fetch(`http://localhost:8000/user/stats?device_id=${encodeURIComponent(deviceId)}`);
     if (res.ok) {
       const data = await res.json();
-      const elScans = document.getElementById("statsScans");
+      const elScans   = document.getElementById("statsScans");
       const elBlocked = document.getElementById("statsBlocked");
-      if (elScans) elScans.textContent = data.totalScans || 0;
+      if (elScans)   elScans.textContent   = data.totalScans || 0;
       if (elBlocked) elBlocked.textContent = data.threatsBlocked || 0;
     }
   } catch (err) {
-    console.warn("Could not load stats for popup:", err);
+    // Stats are non-critical — silent fail
   }
 }
 
@@ -186,10 +195,10 @@ function _renderSummary(data) {
   `;
 }
 
-// ── Recent Events ──────────────────────────────────────────
+// ── Recent Events ────────────────────────────────────────────
 async function loadRecentEvents() {
-  const res = await sendMsg({ type: "GET_EVENTS", limit: 15 });
-  const list = document.getElementById("eventsList");
+  const res  = await sendMsg({ type: "GET_EVENTS", limit: 15 });
+  const list  = document.getElementById("eventsList");
   const empty = document.getElementById("eventsEmpty");
 
   if (!res?.events?.length) {
@@ -199,15 +208,18 @@ async function loadRecentEvents() {
 
   if (empty) empty.style.display = "none";
   list.innerHTML = res.events.map(e => {
-    const time = new Date(e.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const icon = e.type === "download_blocked" ? "📥" : e.type === "threat_report" ? "🚨" : e.type === "credential_warning" ? "🔐" : "⚠️";
+    const time  = new Date(e.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const icon  = e.type === "download_blocked" ? "📥" : e.type === "threat_report" ? "🚨" : e.type === "credential_warning" ? "🔐" : "⚠️";
     const color = (e.risk_score || 0) >= 80 ? "var(--red)" : "var(--amber)";
+    // Sanitize user-derived strings to prevent XSS
+    const domain = _sanitize(e.domain || "unknown");
+    const type   = _sanitize(e.type.replace(/_/g, " "));
     return `
       <div class="event-item">
         <span class="event-icon">${icon}</span>
         <div class="event-info">
-          <div class="event-domain">${e.domain || "unknown"}</div>
-          <div class="event-meta">${e.type.replace(/_/g, " ")} · ${time}</div>
+          <div class="event-domain">${domain}</div>
+          <div class="event-meta">${type} · ${time}</div>
         </div>
         <div class="event-score" style="color:${color};">${e.risk_score || 0}%</div>
       </div>
@@ -277,9 +289,23 @@ async function _requestFreshScan(force = false) {
   }, 3000);
 }
 
-// ── Helpers ────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────
 async function sendMsg(msg) {
   return chrome.runtime.sendMessage(msg).catch(() => null);
+}
+
+/**
+ * Escape HTML to prevent XSS from domain names or threat types
+ * reflected into the popup innerHTML.
+ */
+function _sanitize(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function _featureLabel(key) {
@@ -334,6 +360,12 @@ function _mergeDisplayData(data) {
 
 
 function _updateScanMeta(scannedAt) {
+  // Clear any existing countdown
+  if (_ageCountdownTimer) {
+    clearInterval(_ageCountdownTimer);
+    _ageCountdownTimer = null;
+  }
+
   const meta = document.getElementById("scanMeta");
   if (!meta) return;
   if (!scannedAt) {
@@ -341,15 +373,20 @@ function _updateScanMeta(scannedAt) {
     return;
   }
 
-  const age = Date.now() - new Date(scannedAt).getTime();
-  if (Number.isNaN(age)) {
-    meta.textContent = "Scan time unavailable";
-    return;
+  function _update() {
+    const age = Date.now() - new Date(scannedAt).getTime();
+    if (Number.isNaN(age)) {
+      meta.textContent = "Scan time unavailable";
+      return;
+    }
+    meta.textContent = _isRecentScan(scannedAt)
+      ? `Fresh scan · ${_formatAge(age)} ago`
+      : `Stale scan · ${_formatAge(age)} ago`;
   }
 
-  meta.textContent = _isRecentScan(scannedAt)
-    ? `Fresh scan · ${_formatAge(age)} ago`
-    : `Stale scan · ${_formatAge(age)} ago`;
+  _update();
+  // Live countdown — update every second while popup is open
+  _ageCountdownTimer = setInterval(_update, 1000);
 }
 
 function _isRecentScan(scannedAt, thresholdMs = 60000) {

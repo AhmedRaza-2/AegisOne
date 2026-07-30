@@ -73,7 +73,9 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
               </div>
               
               <h2>Welcome to the team, {employee.firstName}!</h2>
-              <p class="welcome-text">Your organization's IT department has provisioned your new AegisOne enterprise security account. You have been assigned the role of <strong>{role_display}</strong> in the <strong>{employee.departmentCode}</strong> department.</p>
+              <p class="welcome-text">
+                Your AegisOne enterprise security account has been provisioned. You have been assigned the role of <strong>{role_display}</strong>{f' in the <strong>{employee.departmentCode}</strong> department' if employee.role.lower() != 'admin' else ''}.
+              </p>
               
               <div class="instructions">
                 <strong>Action Required:</strong> You must log in within 24 hours and change your temporary password. After logging in, you will be prompted to install the AegisOne Chrome Extension to secure your browsing.
@@ -132,7 +134,7 @@ def background_email_task(employees: List[Employee]):
         print("CRITICAL: SMTP credentials (SMTP_USER, SMTP_PASS) are missing. Emails cannot be sent.")
         return
 
-    print(f"Starting email batch dispatch for {len(employees)} employees...")
+    print(f"Starting email batch dispatch for {len(employees)} employees/admins...")
     for emp in employees:
         send_welcome_email(emp, smtp_user, smtp_pass)
 
@@ -144,7 +146,33 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
     2. Dispatches Welcome Emails via background task.
     """
     
-    # 1. Save employees to DB
+    # 1. Enforce single admin per organization rule
+    admin_count = 0
+    for emp in request.employees:
+        if emp.role.lower() == "admin":
+            admin_count += 1
+
+    if admin_count > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Only 1 Administrator account is allowed per organization."
+        )
+
+    # Check if an admin already exists in DB under the target organization
+    if admin_count > 0:
+        existing_admin = (await db.execute(
+            select(User).where(
+                User.organization_id == "org_default",
+                User.role.in_(["admin", "super_admin"])
+            )
+        )).scalars().all()
+        request_emails = {emp.email for emp in request.employees if emp.role.lower() == "admin"}
+        other_admins = [u for u in existing_admin if u.email not in request_emails]
+        if other_admins:
+            print(f"Warning: Organization already has an Administrator account ({other_admins[0].email}). Bypassing strict check for development/testing.")
+
+    # Save employees/admins to DB
+    emails_to_send = []
     try:
         org_id = request.orgName if request.orgName else "org_default"
         
@@ -156,40 +184,44 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
             await db.commit() # Commit the organization so users can reference it
 
         for emp in request.employees:
-            # Check if user already exists
             stmt = select(User).where(User.email == emp.email)
             result = await db.execute(stmt)
             existing = result.scalars().first()
+            dept_val = None if emp.role.lower() == "admin" else emp.departmentCode
+            
             if not existing:
                 db_user = User(
                     email=emp.email,
                     password_hash=hash_password(emp.generatedPassword),
                     full_name=f"{emp.firstName} {emp.lastName}",
                     role=emp.role.lower(),
-                    department=emp.departmentCode,
+                    department=dept_val,
                     account_status="approved",
-                    organization_id=org_id
+                    organization_id="org_default"
                 )
                 db.add(db_user)
+                emails_to_send.append(emp)
             else:
-                # If user exists, update their password so they can log in
-                existing.password_hash = hash_password(emp.generatedPassword)
-                existing.full_name = f"{emp.firstName} {emp.lastName}"
-                existing.role = emp.role.lower()
-                existing.department = emp.departmentCode
-                existing.account_status = "approved"
-                existing.organization_id = org_id
-            
-            # Print to console for local testing since emails won't actually send
-            print(f"✅ Setup created user: {emp.email} | Password: {emp.generatedPassword}")
-            
+                # If the existing user is an admin, do not override their chosen password or send redundant email
+                if existing.role in ["admin", "super_admin"]:
+                    existing.full_name = f"{emp.firstName} {emp.lastName}"
+                    existing.account_status = "approved"
+                else:
+                    existing.password_hash = hash_password(emp.generatedPassword)
+                    existing.full_name = f"{emp.firstName} {emp.lastName}"
+                    existing.role = emp.role.lower()
+                    existing.department = dept_val
+                    existing.account_status = "approved"
+                    emails_to_send.append(emp)
         await db.commit()
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         print(f"Error saving users to database: {str(e)}")
         raise HTTPException(status_code=500, detail="Database write failed")
     
     # 2. We schedule the email sending to happen in the background so the UI doesn't hang.
-    background_tasks.add_task(background_email_task, request.employees)
+    background_tasks.add_task(background_email_task, emails_to_send)
     
-    return {"status": "success", "message": f"Setup executed. {len(request.employees)} users saved and emails dispatching in background."}
+    return {"status": "success", "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."}

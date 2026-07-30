@@ -23,8 +23,6 @@ import importlib.util
 import torch
 import torch.nn as nn
 import torch.quantization
-torch.set_num_threads(1)
-torch.set_num_interop_threads(1)
 import numpy as np
 from PIL import Image
 from transformers import DistilBertTokenizer
@@ -108,17 +106,10 @@ def load_all_models():
     if TORCH_NUM_THREADS > 0:
 <<<<<<< HEAD
         torch.set_num_threads(TORCH_NUM_THREADS)
-        torch.set_num_interop_threads(max(1, TORCH_NUM_THREADS // 2))
-=======
-        try:
-            torch.set_num_threads(TORCH_NUM_THREADS)
-        except RuntimeError:
-            pass
         try:
             torch.set_num_interop_threads(max(1, TORCH_NUM_THREADS // 2))
-        except RuntimeError:
-            pass
->>>>>>> 008a3a574fdd87f2b2418733bc0c8c063b4ffe36
+        except RuntimeError as e:
+            logger.warning(f"Could not set interop threads (already initialized): {e}")
         try:
             torch.set_flush_denormal(True)
         except Exception:

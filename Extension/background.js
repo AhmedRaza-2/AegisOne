@@ -38,18 +38,89 @@ const CONFIG = {
 const tabCache = new Map(); // tabId → { url, verdict, details }
 
 // ──────────────────────────────────────────────
+// FIX 2: Explicitly approved downloads
+// ──────────────────────────────────────────────
+const _approvedUrls = new Set();
+
+// Persisted processed-downloads registry (survives service-worker restarts)
+// Keyed by URL only — re-downloads may get a different filename from Chrome.
+const _processedDownloads = new Map();
+const PROCESSED_DL_KEY = "processed_downloads";
+const PROCESSED_DL_MAX = 500;
+const PROCESSED_DL_TTL = 7 * 24 * 60 * 60 * 1000;
+
+chrome.storage.local.get(PROCESSED_DL_KEY, (data) => {
+  const saved = data[PROCESSED_DL_KEY] || {};
+  const now = Date.now();
+  for (const [key, ts] of Object.entries(saved)) {
+    if (now - ts < PROCESSED_DL_TTL) {
+      _processedDownloads.set(key, ts);
+    }
+  }
+  _initDownloadIntercept();
+});
+
+function _isDownloadProcessed(url) {
+  const ts = _processedDownloads.get(url);
+  if (!ts) return false;
+  if (Date.now() - ts > PROCESSED_DL_TTL) {
+    _processedDownloads.delete(url);
+    _persistProcessedDownloads();
+    return false;
+  }
+  return true;
+}
+
+function _markDownloadProcessed(url) {
+  _processedDownloads.set(url, Date.now());
+  if (_processedDownloads.size > PROCESSED_DL_MAX) {
+    const first = _processedDownloads.entries().next().value;
+    if (first) _processedDownloads.delete(first[0]);
+  }
+  _persistProcessedDownloads();
+}
+
+function _persistProcessedDownloads() {
+  const obj = {};
+  _processedDownloads.forEach((ts, key) => { obj[key] = ts; });
+  chrome.storage.local.set({ [PROCESSED_DL_KEY]: obj });
+}
+
+// Helper: initiate a fallback re-download if the user explicitly approves a blocked file
+function _reDownload(url, label) {
+  _approvedUrls.add(url);
+  chrome.downloads.download({ url }, () => {
+    const err = chrome.runtime.lastError;
+    if (err) {
+      console.warn(`[AegisOne] Fallback re-download failed (${label}):`, err.message);
+      _approvedUrls.delete(url);
+    } else {
+      console.log(`[AegisOne] ✅ ${label}: ${url}`);
+    }
+  });
+}
+
+// ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
 async function callAPI(endpoint, body, isFormData = false) {
   try {
+    const { user_email } = await chrome.storage.local.get("user_email");
     const opts = {
       method: "POST",
       signal: AbortSignal.timeout(CONFIG.URL_SCAN_TIMEOUT_MS),
+      headers: {}
     };
+    if (user_email) {
+      opts.headers["X-User-Email"] = user_email;
+      if (isFormData && body instanceof FormData) {
+        if (!body.has("user_email")) body.append("user_email", user_email);
+      }
+    }
     if (isFormData) {
       opts.body = body; // FormData
     } else {
-      opts.headers = { "Content-Type": "application/json" };
+      opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
     const res = await fetch(`${CONFIG.API_BASE}${endpoint}`, opts);
@@ -151,84 +222,119 @@ chrome.tabs.onRemoved.addListener((tabId) => tabCache.delete(tabId));
 // ──────────────────────────────────────────────
 // 2. DOWNLOAD INTERCEPTION — Pre-Check, Cancel-First
 // ──────────────────────────────────────────────
-// pendingDownloads tracks {url, filename} for re-download after user approves
-const pendingDownloads = new Map(); // downloadId → { url, filename, originalMime }
+// FIX 1: pendingDownloads is persisted to chrome.storage.local so it survives
+// service-worker restarts. On startup we restore any entries that were waiting
+// for user approval, preventing Chrome's download history from triggering a
+// full re-scan of files that were already intercepted before the restart.
+const pendingDownloads = new Map(); // downloadId → { url, filename }
 
-if (CONFIG.INTERCEPT_DOWNLOADS) {
-  chrome.downloads.onCreated.addListener(async (downloadItem) => {
-    try {
-      const url = downloadItem.finalUrl || downloadItem.url || "";
-      if (!url) return;
+// Restore pending downloads from storage on startup
+chrome.storage.local.get("pending_downloads", (d) => {
+  const saved = d.pending_downloads || {};
+  for (const [id, entry] of Object.entries(saved)) {
+    // Do NOT add to _selfInitiatedUrls here. If Chrome resumes it, it should be re-scanned.
+    pendingDownloads.set(Number(id), entry);
+  }
+  if (Object.keys(saved).length > 0) {
+    console.log(`[AegisOne] Restored ${Object.keys(saved).length} pending download(s) from storage.`);
+  }
+});
 
-      // Skip internal / data / extension URLs
-      if (!url.startsWith("http") && !url.startsWith("file")) return;
-      if (isInternalURL(url)) return;
+// Sync pendingDownloads to chrome.storage whenever it changes
+function _syncPendingDownloads() {
+  const obj = {};
+  for (const [id, entry] of pendingDownloads) {
+    obj[String(id)] = entry;
+  }
+  chrome.storage.local.set({ pending_downloads: obj });
+}
 
-      const filename = downloadItem.filename || url.split("/").pop() || "unknown_file";
-      console.log(`[AegisOne] 📥 Download started — scanning BEFORE saving: ${url}`);
-
-      // ── STEP 1: Immediately cancel the download so nothing lands on disk ──
+function _initDownloadIntercept() {
+  if (!CONFIG.INTERCEPT_DOWNLOADS) return;
+  chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
+    (async () => {
       try {
-        chrome.downloads.cancel(downloadItem.id, () => {
-          const err = chrome.runtime.lastError; // absorb error if already done
-        });
-        chrome.downloads.erase({ id: downloadItem.id }, () => {
-          const err = chrome.runtime.lastError;
-        });
-      } catch (e) { console.warn("[AegisOne] Cancel failed:", e.message); }
+        const url = downloadItem.finalUrl || downloadItem.url || "";
+        if (!url) { suggest(); return; }
 
-      // Store for potential re-download if user approves
-      pendingDownloads.set(downloadItem.id, { url, filename });
+        // Skip internal / data / extension URLs
+        if (!url.startsWith("http") && !url.startsWith("file")) { suggest(); return; }
+        if (isInternalURL(url)) { suggest(); return; }
 
-      // ── STEP 2: Quick URL scan ──
-      const urlForm = new FormData();
-      urlForm.append("url", url);
-      const urlResult = await callAPI("/analyze/url", urlForm, true);
-      const quickRisk = urlResult?.phishing_probability ?? 0;
+        const filename = downloadItem.filename || url.split("/").pop() || "unknown_file";
 
-      // ── STEP 3: Full content scan (AI reads file from URL) ──
-      const contentForm = new FormData();
-      contentForm.append("url", url);
-      const contentResult = await callAPI("/analyze/download_url", contentForm, true);
+        // If already processed in a previous session, let it through without re-scanning
+        if (_isDownloadProcessed(url)) {
+          console.log(`[AegisOne] ⏭️ Already processed, letting through: ${filename}`);
+          suggest();
+          return;
+        }
 
-      const finalRisk = Math.max(
-        quickRisk,
-        contentResult?.phishing_probability ?? 0
-      );
-      const isPhishing = finalRisk > CONFIG.PHISHING_THRESHOLD ||
-        contentResult?.prediction === "phishing" ||
-        contentResult?.macros_found ||
-        urlResult?.prediction === "malicious" ||
-        urlResult?.prediction === "phishing";
+        // If user explicitly approved this URL from the modal, allow it to bypass scanning
+        if (_approvedUrls.has(url)) {
+          _approvedUrls.delete(url);
+          console.log(`[AegisOne] ⏭️ Bypassing scanner for explicitly approved URL: ${url}`);
+          suggest();
+          return;
+        }
 
-      if (isPhishing) {
-        const signals = contentResult?.phishing_signals ||
-          (quickRisk > CONFIG.PHISHING_THRESHOLD ? ["URL flagged as malicious"] : ["Attachment contents flagged"]);
-        // Show modal — user decides whether to re-download or not
-        await promptUserForDownload(
-          downloadItem.id,
-          filename,
-          finalRisk,
-          url,
-          contentResult?.file_type || urlResult?.category || "phishing",
-          signals
+        pendingDownloads.set(downloadItem.id, { url, filename });
+        _syncPendingDownloads();
+        console.log(`[AegisOne] 📥 Download intercept (determining filename) — scanning: ${url}`);
+
+        // ── STEP 1: Quick URL scan ──
+        const urlForm = new FormData();
+        urlForm.append("url", url);
+        const urlResult = await callAPI("/analyze/url", urlForm, true);
+        const quickRisk = urlResult?.phishing_probability ?? 0;
+
+        // ── STEP 2: Full content scan (AI reads file from URL) ──
+        const contentForm = new FormData();
+        contentForm.append("url", url);
+        const contentResult = await callAPI("/analyze/download_url", contentForm, true);
+
+        const finalRisk = Math.max(
+          quickRisk,
+          contentResult?.phishing_probability ?? 0
         );
-      } else {
-        // ✅ Scan passed — re-initiate the download
-        pendingDownloads.delete(downloadItem.id);
-        chrome.downloads.download({ url }, () => {
-          const err = chrome.runtime.lastError;
-          if (err) console.warn("[AegisOne] Re-download failed:", err.message);
-          else console.log(`[AegisOne] ✅ Safe file — re-downloading: ${filename}`);
-        });
+        const isPhishing = finalRisk > CONFIG.PHISHING_THRESHOLD ||
+          contentResult?.prediction === "phishing" ||
+          contentResult?.macros_found ||
+          urlResult?.prediction === "malicious" ||
+          urlResult?.prediction === "phishing";
+
+        if (isPhishing) {
+          const signals = contentResult?.phishing_signals ||
+            (quickRisk > CONFIG.PHISHING_THRESHOLD ? ["URL flagged as malicious"] : ["Attachment contents flagged"]);
+            
+          // User MUST decide. We CANCEL the current download stream instantly.
+          chrome.downloads.cancel(downloadItem.id, () => { const e = chrome.runtime.lastError; });
+          suggest(); // Release Chrome's hold on the UI
+
+          // Show modal — user decides whether to explicitly re-download or not
+          await promptUserForDownload(
+            downloadItem.id,
+            filename,
+            finalRisk,
+            url,
+            contentResult?.file_type || urlResult?.category || "phishing",
+            signals
+          );
+        } else {
+          // ✅ Scan passed — simply let the download proceed naturally!
+          _markDownloadProcessed(url);
+          pendingDownloads.delete(downloadItem.id);
+          _syncPendingDownloads();
+          suggest();
+          console.log(`[AegisOne] ✅ Safe file — passed naturally: ${filename}`);
+        }
+      } catch (err) {
+        console.error("[AegisOne] Error in download interceptor:", err);
+        // Fail-safe: if scan errors, allow it
+        suggest();
       }
-    } catch (err) {
-      console.error("[AegisOne] Error in download interceptor:", err);
-      // Fail-safe: if scan errors, re-download anyway to not block the user
-      chrome.downloads.download({ url: downloadItem.finalUrl || downloadItem.url }, () => {
-        const err2 = chrome.runtime.lastError;
-      });
-    }
+    })();
+    return true;
   });
 }
 
@@ -283,7 +389,7 @@ async function promptUserForDownload(downloadId, filename, risk, url, threatType
       risk,
       url
     }).catch(() => {
-      // Fallback if content script fails, block immediately
+      _markDownloadProcessed(url);
       cancelOrDeleteDownload(downloadId);
     });
 
@@ -293,6 +399,7 @@ async function promptUserForDownload(downloadId, filename, risk, url, threatType
     );
   } else {
     // If no active window is available to prompt, auto-cancel/delete for security
+    _markDownloadProcessed(url);
     cancelOrDeleteDownload(downloadId);
     sendNotification(
       "🚨 AegisOne: Malicious Download Blocked!",
@@ -531,30 +638,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // ── User confirmation decision for suspicious downloads ──
       case "DOWNLOAD_DECISION": {
         const { downloadId, action } = msg;
-        if (action === "resume") {
-          // User approved — re-download the file
-          const pending = pendingDownloads.get(downloadId);
-          if (pending?.url) {
-            chrome.downloads.download({ url: pending.url }, () => {
-              const err = chrome.runtime.lastError;
-              if (err) console.warn("[AegisOne] Re-download after approval failed:", err.message);
-              else console.log(`[AegisOne] ✅ User approved re-download of: ${pending.filename}`);
-            });
-            pendingDownloads.delete(downloadId);
-          } else {
-            // Fallback: try resume if we still have a download reference
-            chrome.downloads.resume(downloadId, () => {
-              const err = chrome.runtime.lastError;
-            });
-          }
-          console.log(`[AegisOne] User chose to proceed with download: ${downloadId}`);
-        } else {
-          // User chose to block — clean up any pending entries, nothing to remove from disk
-          // (the download was cancelled before it landed on disk)
+        const pending = pendingDownloads.get(downloadId);
+        if (action === "resume" && pending?.url) {
+          _markDownloadProcessed(pending.url);
+          _reDownload(pending.url, `User manually approved re-download of: ${pending.filename}`);
           pendingDownloads.delete(downloadId);
-          // Also try to cancel/erase if somehow still in downloads list
-          chrome.downloads.cancel(downloadId, () => { const e = chrome.runtime.lastError; });
-          chrome.downloads.erase({ id: downloadId }, () => { const e = chrome.runtime.lastError; });
+          _syncPendingDownloads();
+          console.log(`[AegisOne] User chose to proceed with download: ${downloadId}`);
+        } else if (pending?.url) {
+          _markDownloadProcessed(pending.url);
+          pendingDownloads.delete(downloadId);
+          _syncPendingDownloads();
+          cancelOrDeleteDownload(downloadId);
           console.log(`[AegisOne] User blocked download: ${downloadId}`);
         }
         sendResponse({ success: true });

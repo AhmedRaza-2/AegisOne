@@ -16,12 +16,6 @@ const contact = [
         content: "+92 334 5216102",
         link: "tel:+923345216102",
     },
-    {
-        icon: MapPin,
-        title: "Location",
-        content: "AegisOne Headquarters",
-        link: "https://maps.google.com",
-    },
 ];
 
 const SectionContact = () => {

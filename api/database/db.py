@@ -97,8 +97,29 @@ async def init_db():
             DashboardStatistic,
             AuditLog,
             HoverScan,
+            Message,
         )
         await conn.run_sync(Base.metadata.create_all)
 
+        # Auto-heal missing columns in SQLite for existing databases
+        if not is_postgres:
+            cols_to_check = [
+                ("users", "organization_id", "VARCHAR(64) DEFAULT 'org_default'"),
+                ("users", "department_id", "INTEGER REFERENCES departments(id)"),
+                ("users", "department", "VARCHAR(255) DEFAULT 'General'"),
+                ("users", "account_status", "VARCHAR(50) DEFAULT 'pending'"),
+                ("users", "approved_by", "INTEGER"),
+                ("users", "status_reason", "TEXT"),
+                ("users", "avatar_url", "VARCHAR(500)"),
+                ("users", "is_active", "BOOLEAN DEFAULT 1"),
+                ("users", "last_login", "DATETIME"),
+                ("users", "last_active_at", "DATETIME"),
+            ]
+            for table_name, col_name, col_type in cols_to_check:
+                try:
+                    await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
+                except Exception:
+                    pass
+
     await _enable_wal_mode()
-    logger.info("Database initialized")
+    logger.info("Database initialized with schema auto-healing")

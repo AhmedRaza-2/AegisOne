@@ -5,33 +5,33 @@ import SectionHeading from "../ui-elements/SectionHeading"
 const steps = [
     {
         icon: Activity,
-        title: "Event Interception",
-        description: "AegisOne's extension monitors navigation events, form submissions, clipboard changes, and downlads.",
+        title: "Invisible Protection Layer",
+        description: "The AegisOne agent runs silently in the background of your employees' browsers, protecting them without disrupting their workflow.",
     },
     {
         icon: Shield,
-        title: "Local Policy & Cache Check",
-        description: "Instantly checks local database caches and custom organization-level whitelist/blacklist policies.",
+        title: "Instant Policy Enforcement",
+        description: "Every action is instantly verified against your custom organizational security policies—without data ever leaving your network.",
     },
     {
         icon: Cpu,
-        title: "Feature Extraction",
-        description: "Extracts lightweight syntactic, visual, and behavioral characteristics without transmitting full history.",
+        title: "Zero-Trust Analysis",
+        description: "Key threat indicators are extracted and analyzed locally, ensuring your company's proprietary data remains completely confidential.",
     },
     {
         icon: GitFork,
-        title: "Intelligent Routing",
-        description: "FastAPI gateway routes inputs (URLs, emails, text, images, or documents) to the proper AI service.",
+        title: "Smart Threat Detection",
+        description: "Sophisticated AI models automatically categorize and neutralize incoming threats, phishing links, and malicious downloads before they reach the user.",
     },
     {
         icon: Brain,
-        title: "Multi-Modal AI Inference",
-        description: "Specialized neural network models analyze elements in parallel for reputation, visual similarity, and intent.",
+        title: "Continuous Learning Engine",
+        description: "Our system constantly adapts to new, unseen phishing attacks and sophisticated social engineering techniques in real-time.",
     },
     {
         icon: Lock,
-        title: "Enforcement & Alerting",
-        description: "Aggregates predictions into a single score, enforcing allow/warn/block policies and syncing dashboard telemetry.",
+        title: "Automated Incident Response",
+        description: "Threats are blocked immediately, and your security team receives instant alerts and actionable data to proactively manage organizational risk.",
     },
 ]
 
@@ -39,10 +39,10 @@ const SectionProcess = () => {
 
     return (
         <section id="process" className="px-4">
-            <div className="max-w-7xl mx-auto py-20">
-                <SectionHeading heading="How AegisOne Works" content="Real-time multi-modal routing from initial browser action to final AI evaluation" />
+            <div className="max-w-7xl mx-auto py-14">
+                <SectionHeading heading="Frictionless Security Lifecycle" content="Protecting your organization from the first click to the final block, entirely in the background." />
 
-                <div className="relative flex flex-col gap-6">
+                <div className="relative flex flex-col gap-2">
 
                     <div className="absolute left-0 md:left-1/2 transform -translate-x-1/2 w-1 bg-zinc-200/50 dark:bg-zinc-800/50 h-full rounded-full" />
 
