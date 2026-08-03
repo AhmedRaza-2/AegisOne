@@ -5,8 +5,13 @@ Integrates rule-based analysis with fallback template systems,
 and supports optional external LLM integration.
 """
 from typing import Dict, Any, List
+import httpx
+import json
+import logging
 
-def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
+logger = logging.getLogger("aegisone.xai")
+
+async def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     """
     Analyzes the compact evidence payload sent by the browser extension
     and generates a detailed, security-analyst-style explanation.
@@ -43,9 +48,11 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     red_flags = []
     mitre_techniques = []
     
+    seen = set()
     for factor in top_factors:
         label = factor.get("label", "")
-        if label:
+        if label and label not in seen:
+            seen.add(label)
             red_flags.append(label)
 
     # Technical feature fallbacks if not in top_factors
@@ -69,29 +76,84 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
 
     # 3. Create Natural Language Summary
     reasons_str = "; ".join(red_flags[:3]).lower()
-    summary = (
-        f"AegisOne security analysis flagged this website as potentially hazardous with a composite risk score of {risk_score}%. "
-        f"The primary indicators include: {reasons_str}. "
+    fallback_summary = (
+        f"🚨 Critical Security Alert: AegisOne's deep-learning security engines have analyzed this page and detected a severe threat, assigning it a risk score of {risk_score}%. "
+        f"This indicates a highly probable attempt to compromise your security. The key factors triggering this alert are: {reasons_str}. "
     )
     
     if login_form_detected:
-        summary += "A suspicious credential entry form was detected on this domain."
+        fallback_summary += "Credential Theft Risk: A suspicious login form is attempting to capture your passwords."
     elif hidden_iframes:
-        summary += "Invisible elements were detected which are commonly used in clickjacking attacks."
+        fallback_summary += "Clickjacking Risk: Invisible elements are layered over the page to trick your clicks."
     else:
-        summary += "Our AI models identified patterns consistent with known phishing or scam sites."
+        fallback_summary += "Our AI models identified patterns consistent with known phishing or scam sites."
 
     # 4. Generate Actionable Recommendations
-    recommendations = []
+    fallback_recs = []
     if login_form_detected:
-        recommendations.append("Do NOT input passwords, emails, or personal details.")
+        fallback_recs.append("🚫 CRITICAL: Do NOT enter any credentials, personal data, or payment info.")
     if risk_score >= 80:
-        recommendations.append("Close this browser window or navigate back immediately.")
-        recommendations.append("Notify your Security Operations Center (SOC) using the 'Report Threat' button.")
+        fallback_recs.append("🚪 Immediately close this tab or navigate away to prevent data exfiltration.")
+        fallback_recs.append("📢 Use the 'Report Threat' button to notify your Security Operations Center (SOC).")
     else:
-        recommendations.append("Proceed with extreme caution. Verify the destination URL before interacting.")
+        fallback_recs.append("✔️ You may proceed, but remain vigilant for deceptive prompts.")
         
-    recommendations.append("Ensure multi-factor authentication (MFA) is enabled for your organizational accounts.")
+    fallback_recs.append("Ensure multi-factor authentication (MFA) is enabled for your organizational accounts.")
+
+    # Try Ollama (qwen2.5:3b)
+    final_summary = fallback_summary
+    final_reasons = red_flags
+    final_recs = fallback_recs
+
+    context_str = f"Target URL: {url}\nDomain: {domain}\nRisk Score: {risk_score}%\nThreat Type: {threat_title}\nVerdict: {verdict}\nKey Threat Indicators:\n"
+    for rf in red_flags:
+        context_str += f"- {rf}\n"
+    if redirect_chain:
+        context_str += f"Redirect Chain: {' -> '.join(redirect_chain)}\n"
+
+    prompt = f"""You are AegisOne, an elite AI cybersecurity analyst. 
+You must analyze the following security event and provide a highly specific, fact-based explanation for why this exact webpage was flagged. 
+DO NOT use generalized statements. Mention the exact URL, domain, and the specific indicators provided in the context. Show your cybersecurity expertise.
+
+Return a JSON object with EXACTLY these keys:
+- "summary": A detailed, 2-3 sentence paragraph explaining exactly why this specific page ({domain}) is a threat, citing the risk score and primary indicators.
+- "main_reasons": An array of 3 highly detailed, specific strings explaining the technical reasons for the flag (e.g. referencing the specific toxic links, login forms, or redirects).
+- "recommendations": An array of 2-3 specific strings advising the user on how to safely proceed or mitigate the risk.
+
+Context for Analysis:
+{context_str}
+"""
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": "qwen2.5:3b",
+                    "prompt": prompt,
+                    "stream": False,
+                    "format": "json",
+                    "keep_alive": "1h",
+                    "options": {
+                        "num_predict": 250,
+                        "temperature": 0.4
+                    }
+                }
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            llm_text = data.get("response", "")
+            parsed = json.loads(llm_text)
+            
+            if "summary" in parsed and isinstance(parsed["summary"], str):
+                final_summary = parsed["summary"]
+            if "main_reasons" in parsed and isinstance(parsed["main_reasons"], list):
+                final_reasons = parsed["main_reasons"]
+            if "recommendations" in parsed and isinstance(parsed["recommendations"], list):
+                final_recs = parsed["recommendations"]
+                
+    except Exception as e:
+        import traceback
+        logger.warning(f"Ollama XAI generation failed, falling back to rule-based: {e}\n{traceback.format_exc()}")
 
     # 5. MITRE ATT&CK Mapping
     if "T1566" not in "".join(mitre_techniques):
@@ -110,10 +172,10 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     return {
-        "summary": summary,
-        "main_reasons": red_flags,
+        "summary": final_summary,
+        "main_reasons": final_reasons,
         "threat_likelihood": likelihood_label,
-        "recommendations": recommendations,
+        "recommendations": final_recs,
         "mitre_mapping": mitre_techniques,
         "ioc": ioc,
         "generated_at": time_now_iso()

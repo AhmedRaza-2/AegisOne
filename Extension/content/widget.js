@@ -163,8 +163,8 @@ function _setupControls(widget) {
   });
 
   // ✨ XAI button
-  document.getElementById("aegis-action-xai")?.addEventListener("click", async () => {
-    const btn = document.getElementById("aegis-action-xai");
+  document.getElementById("aegis-action-xai")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
     btn.textContent = "⏳ Loading...";
     btn.disabled = true;
 

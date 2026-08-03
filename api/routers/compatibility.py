@@ -391,7 +391,7 @@ async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_
 @router.post("/xai/explain")
 async def api_explain(evidence: Dict[str, Any] = Body(...)):
     start = time.time()
-    explanation = generate_explanation(evidence)
+    explanation = await generate_explanation(evidence)
     explanation["latency_ms"] = round((time.time() - start) * 1000, 1)
     return explanation
 

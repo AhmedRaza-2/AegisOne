@@ -119,57 +119,57 @@ export function generateLocalExplanation(tabData, explicitScore) {
   // Plain-English summary based on score band
   let summary;
   if (score >= 80) {
-    summary = `⚠️ This page looks like a phishing site. Our AI is ${score}% confident it's trying to steal your information. Don't enter any passwords or personal details here.`;
+    summary = `🚨 Critical Security Alert: AegisOne has analyzed this page and detected a severe phishing threat with ${score}% confidence. This site is actively attempting to deceive you into revealing sensitive information, such as passwords or financial details. Do not interact with any elements on this page.`;
   } else if (score >= 50) {
-    summary = `🔶 Something looks off about this page (${score}% risk). It's not confirmed dangerous, but be careful — especially if you're asked to log in.`;
+    summary = `⚠️ Security Warning: This page exhibits multiple suspicious characteristics (Risk Score: ${score}%). While not definitively malicious, it strongly resembles known deceptive sites. Exercise extreme caution and verify the source before proceeding.`;
   } else if (score >= 20) {
-    summary = `🔍 This page has a few minor suspicious signals (${score}% risk). It's probably fine, but stay alert.`;
+    summary = `🔶 Notice: Our AI engines have flagged some unusual patterns on this page (Risk Score: ${score}%). It is likely safe, but you should remain alert for any unexpected requests for information.`;
   } else {
-    summary = `✅ This page looks safe. Our AI didn't find any phishing signs. Risk: ${score}%.`;
+    summary = `✅ AegisOne Security Check: This page has been analyzed and appears completely safe. No phishing signatures, malicious scripts, or deceptive patterns were detected. Risk: ${score}%.`;
   }
 
   // Translate technical factor labels into plain English
   const friendlyLabel = (label = "") => {
     const l = label.toLowerCase();
     if (l.includes("login") || l.includes("credential"))
-      return "🔑 This page has a login form — a common phishing trick";
+      return "🔑 Credential Theft Risk: A suspicious login form is attempting to capture your passwords.";
     if (l.includes("iframe"))
-      return "🪄 Hidden content detected — often used to fake trusted sites";
+      return "🪄 Clickjacking Risk: Invisible elements are layered over the page to trick your clicks.";
     if (l.includes("redirect"))
-      return "↪️ This page tried to redirect you to another site";
+      return "↪️ Evasive Behavior: The site performed unauthorized redirects to mask its true destination.";
     if (l.includes("brand") || l.includes("impersonat"))
-      return "🎭 This page appears to be pretending to be a real, trusted brand";
+      return "🎭 Brand Impersonation: This site is spoofing a trusted organization to gain your trust.";
     if (l.includes("phish"))
-      return "🎣 Our AI detected phishing language on this page";
+      return "🎣 Semantic Threat: Our NLP model detected language commonly used in social engineering.";
     if (l.includes("url") || l.includes("domain"))
-      return "🌐 The web address has suspicious patterns";
+      return "🌐 Domain Anomaly: The web address contains deceptive characters or mismatches the brand.";
     if (l.includes("script") || l.includes("js"))
-      return "⚙️ Suspicious code was detected — this can be used to steal data";
+      return "⚙️ Malicious Code: Suspicious JavaScript was detected that could compromise your browser.";
     if (l.includes("malicious"))
-      return "🚨 One or more links on this page lead to dangerous sites";
+      return "🚨 Toxic Links: This page contains outbound links to known malware or phishing domains.";
     return `⚠️ ${label}`;
   };
 
   const main_reasons = factors.length > 0
-    ? factors.map(f => friendlyLabel(f.label))
+    ? [...new Set(factors.map(f => friendlyLabel(f.label)))]
     : score === 0
-      ? ["✅ No phishing signals were found"]
-      : ["🔍 Mild pattern match in URL or page structure"];
+      ? ["✅ Full DOM and URL analysis passed successfully without any red flags."]
+      : ["🔍 Heuristic analysis flagged structural anomalies in the page layout or URL."];
 
   // Simple, actionable advice
   const recommendations = [];
   if (score >= 80) {
-    recommendations.push("🚫 Do NOT type your password or personal info here");
-    recommendations.push("← Go back or close this tab to stay safe");
-    recommendations.push("📢 Hit Report Threat below to help protect others");
+    recommendations.push("🚫 CRITICAL: Do NOT enter any credentials, personal data, or payment info.");
+    recommendations.push("🚪 Immediately close this tab or navigate away to prevent data exfiltration.");
+    recommendations.push("📢 Use the 'Report Threat' button to notify your Security Operations Center (SOC).");
   } else if (score >= 50) {
-    recommendations.push("👀 Check the URL in your address bar is exactly right");
-    recommendations.push("🔑 Don't enter passwords unless you're 100% sure it's legit");
+    recommendations.push("👀 Carefully inspect the URL to ensure it exactly matches the official website.");
+    recommendations.push("🔑 Refrain from logging in or downloading files unless you independently verify the sender.");
   } else if (score >= 20) {
-    recommendations.push("✔️ You can continue, but stay alert");
-    recommendations.push("🔗 Avoid clicking links that seem out of place");
+    recommendations.push("✔️ You may proceed, but remain vigilant for deceptive prompts.");
+    recommendations.push("🔗 Avoid clicking aggressively styled pop-ups or unexpected download links.");
   } else {
-    recommendations.push("✅ This page appears safe — carry on!");
+    recommendations.push("✅ No action required. You may browse this page safely.");
   }
 
   return {

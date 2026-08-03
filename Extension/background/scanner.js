@@ -423,7 +423,7 @@ export async function scanEmail(sender, subject, body, signal = null) {
  * Only called when user explicitly clicks "Explain with AI".
  */
 export async function requestXAI(evidence) {
-  return callAPI("/xai/explain", evidence, false);
+  return callAPI("/xai/explain", evidence, false, AbortSignal.timeout(45000));
 }
 
 /**

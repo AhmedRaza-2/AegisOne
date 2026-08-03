@@ -281,7 +281,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const badUrls = urlResults.filter(u => (u.score || 0) >= THRESHOLD.HIGHLIGHT * 100);
           const worstUrl = badUrls.length > 0 ? Math.max(...badUrls.map(u => u.score || 0)) : 0;
           const textProb = Math.round((textResult?.phishing_probability ?? 0) * 100);
-          const composite = Math.max(worstUrl, textProb);
+          
+          let composite = textProb;
+          try {
+            const host = new URL(sender.tab?.url || "").hostname.toLowerCase();
+            const isUGC = ["google", "bing", "yahoo", "duckduckgo", "reddit", "linkedin", "facebook", "twitter", "x", "youtube", "github"].some(d => host.includes(d));
+            if (!isUGC) composite = Math.max(worstUrl, textProb);
+          } catch(e) {}
           const deepReport = {
             composite_risk: composite,
             text_prob: textProb,
@@ -376,7 +382,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           let xaiResult = await explainWithAI(tabData, url, msg.score);
 
           if (xaiResult?.error || !xaiResult?.summary) {
-            const local = generateLocalExplanation(tabData);
+            const local = generateLocalExplanation(tabData, msg.score);
             if (local) xaiResult = local;
           }
 

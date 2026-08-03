@@ -108,46 +108,60 @@ function _processScanQueue() {
   const batch = _scanQueue.splice(0, SCAN_BATCH_SIZE);
   const urls = [...new Set(batch.map(item => item.href))]; // Unique URLs for API
 
-  chrome.runtime.sendMessage({
-    type: MSG.SEARCH_SCAN,
-    urls: urls
-  }).then(res => {
-    if (res?.ok && res.results) {
-      // Map API results
-      const resultMap = new Map();
-      res.results.forEach(r => resultMap.set(r.url, r));
+  try {
+    chrome.runtime.sendMessage({
+      type: MSG.SEARCH_SCAN,
+      urls: urls
+    }).then(res => {
+      if (res?.ok && res.results) {
+        // Map API results
+        const resultMap = new Map();
+        res.results.forEach(r => resultMap.set(r.url, r));
 
-      // Resolve every link in this batch
-      batch.forEach(item => {
-        _scannedHrefs.add(item.href);
-        const r = resultMap.get(item.href);
+        // Resolve every link in this batch
+        batch.forEach(item => {
+          _scannedHrefs.add(item.href);
+          const r = resultMap.get(item.href);
 
-        if (r) {
-          const score = r.score ?? Math.round((r.phishing_probability || 0) * 100);
-          const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : "safe";
-          _injectBadge(item.linkEl, {
-            verdict,
-            score,
-            threat_type: r.threat_type || r.category || r.prediction,
-            href: item.href
-          });
-        } else {
-          // If backend didn't return a result for this URL (failed/timeout), mark safe to clear spinner
-          _injectBadge(item.linkEl, { verdict: "safe", score: 0, href: item.href });
-        }
-      });
-    } else {
-      console.warn("[AegisOne] Batch scan invalid, resetting:", res);
-      _resetBatch(batch);
-    }
+          if (r) {
+            const score = r.score ?? Math.round((r.phishing_probability || 0) * 100);
+            const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : "safe";
+            _injectBadge(item.linkEl, {
+              verdict,
+              score,
+              threat_type: r.threat_type || r.category || r.prediction,
+              href: item.href
+            });
+          } else {
+            // If backend didn't return a result for this URL (failed/timeout), mark safe to clear spinner
+            _injectBadge(item.linkEl, { verdict: "safe", score: 0, href: item.href });
+          }
+        });
+      } else {
+        console.warn("[AegisOne] Batch scan invalid, resetting:", res);
+        _resetBatch(batch);
+      }
 
-    if (_scanQueue.length > 0) {
-      _queueTimeout = setTimeout(_processScanQueue, 150);
-    }
-  }).catch(err => {
+      if (_scanQueue.length > 0) {
+        _queueTimeout = setTimeout(_processScanQueue, 150);
+      }
+    }).catch(err => {
+      _handleScanError(err, batch);
+    });
+  } catch (err) {
+    _handleScanError(err, batch);
+  }
+}
+
+function _handleScanError(err, batch) {
+  _resetBatch(batch);
+  if (err.message && err.message.includes("Extension context invalidated")) {
+    console.warn("[AegisOne] Extension reloaded. Please refresh the page.");
+    _scanQueue.length = 0; // Clear the queue
+    if (_observer) _observer.disconnect();
+  } else {
     console.error("[AegisOne] Batch scan error:", err);
-    _resetBatch(batch);
-  });
+  }
 }
 
 function _resetBatch(batch) {

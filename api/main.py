@@ -1,12 +1,6 @@
 """
 AegisOne Unified Phishing Detection API
 Entry point for the FastAPI application.
-<<<<<<< HEAD
-<<<<<<< HEAD
-# Forced reload trigger
-=======
-=======
->>>>>>> 008a3a574fdd87f2b2418733bc0c8c063b4ffe36
 
 Production-grade configuration:
 - SlowAPI rate limiting (60 req/s default)
@@ -14,10 +8,6 @@ Production-grade configuration:
 - ORjson serialization (~10x faster than stdlib json)
 - Structured logging
 - Multi-worker support via uvicorn
-<<<<<<< HEAD
->>>>>>> ff262510555dc5ea98c2935a24986f2270118617
-=======
->>>>>>> 008a3a574fdd87f2b2418733bc0c8c063b4ffe36
 """
 import os
 import sys
