@@ -84,10 +84,8 @@ class UserInfo(BaseModel):
         if not isinstance(data, dict):
             # Resolve department name string from ORM relationship or default
             dept_name = None
-            if hasattr(data, "dept_rel") and data.dept_rel:
-                dept_name = data.dept_rel.name
-            elif hasattr(data, "department") and data.department:
-                dept_name = data.department
+            if hasattr(data, "department") and data.department:
+                dept_name = data.department.name
             
             return {
                 "id": data.id,

@@ -38,7 +38,7 @@ export default function UsersPage() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("aegis_access_token");
       if (!token) return;
 
       const [usersRes, deptsRes] = await Promise.all([
@@ -87,7 +87,7 @@ export default function UsersPage() {
     const generatedPassword = Math.random().toString(36).slice(-10) + 'X#';
 
     try {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("aegis_access_token");
       const res = await fetch("http://localhost:8000/admin/users", {
         method: "POST",
         headers: {
@@ -140,7 +140,7 @@ export default function UsersPage() {
     if (!confirm(`Are you sure you want to mark this user as ${newStatus}?`)) return;
 
     try {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("aegis_access_token");
       const res = await fetch(`http://localhost:8000/admin/users/${id}/status`, {
         method: "PATCH",
         headers: {
@@ -163,7 +163,7 @@ export default function UsersPage() {
     if (!newPassword) return;
 
     try {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("aegis_access_token");
       const res = await fetch(`http://localhost:8000/admin/users/${id}/password?new_password=${encodeURIComponent(newPassword)}`, {
         method: "PUT",
         headers: {

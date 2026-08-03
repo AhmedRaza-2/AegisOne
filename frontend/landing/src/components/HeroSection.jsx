@@ -24,7 +24,7 @@ const HeroSection = () => {
                     STOP PHISHING AT THE SOURCE WITH
                     <br />
                     <span className="text-gradient bg-clip-text text-transparent">
-                        AEGISONE AI
+                        AEGISONE
                     </span>
                 </motion.h1>
 
