@@ -1,9 +1,7 @@
 services:
   backend:
     build:
-      # This compose file is downloaded by the hosted landing portal, so use a
-      # remote context rather than expecting a local project checkout.
-      context: https://github.com/amdevworks/AegisOne.git#main
+      context: .
       dockerfile: Dockerfile.backend
     container_name: aegisone-backend
     command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -24,7 +22,7 @@ services:
 
   setup:
     build:
-      context: https://github.com/amdevworks/AegisOne.git#main:frontend/setup
+      context: ./frontend/setup
     container_name: aegisone-setup
     ports:
       - "3001:3001"
@@ -36,7 +34,7 @@ services:
 
   dashboard:
     build:
-      context: https://github.com/amdevworks/AegisOne.git#main:frontend/dashboard
+      context: ./frontend/dashboard
     container_name: aegisone-dashboard
     ports:
       - "3002:3000"
