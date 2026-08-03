@@ -1,9 +1,9 @@
 "use client";
 import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { 
-  Users, Search, Activity, ShieldAlert, Download, Key, TrendingUp, 
-  Sparkles, X, Plus, ShieldCheck, Globe, Image as ImageIcon, 
+import {
+  Users, Search, Activity, ShieldAlert, Download, Key, TrendingUp,
+  Sparkles, X, Plus, ShieldCheck, Globe, Image as ImageIcon,
   Trash2, UserCheck, CheckCircle2, Lock, BarChart3, Power
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -116,11 +116,11 @@ export default function EmployeesPage() {
         { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-purple-500" },
       ];
     }
-    
+
     const scans = realStats.scans_today || 0;
     const threats = realStats.threats_today || 0;
     const urlScore = scans > 0 ? Math.max(50, 100 - Math.round((threats / scans) * 100)) : 100;
-    
+
     return [
       { label: "URL Protection", value: `${urlScore}%`, icon: Globe, color: "text-blue-500" },
       { label: "Credential Protection", value: "100%", icon: Key, color: "text-emerald-500" },
@@ -161,7 +161,7 @@ export default function EmployeesPage() {
       const threats = emp.threats || 0;
       const riskScore = emp.risk_score || 0;
       const score = Math.max(0, 100 - riskScore);
-      
+
       let status = "Excellent";
       if (score < 60) status = "Warning";
       else if (score < 80) status = "Needs Attention";
@@ -453,20 +453,18 @@ export default function EmployeesPage() {
                     <td className="px-4 py-3 text-right text-surface-700 dark:text-surface-300">{emp.total_scans}</td>
                     <td className="px-4 py-3 text-right text-surface-700 dark:text-surface-300">{emp.threatsCount}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
-                        emp.role === "manager"
+                      <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${emp.role === "manager"
                           ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
                           : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                      }`}>
+                        }`}>
                         {emp.role}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        emp.account_status === "active"
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${emp.account_status === "active"
                           ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
                           : "bg-surface-100 dark:bg-white/[0.04] text-surface-600 dark:text-surface-400"
-                      }`}>
+                        }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${emp.account_status === "active" ? "bg-emerald-500" : "bg-surface-400"}`} />
                         {emp.account_status === "active" ? "Active" : "Disabled"}
                       </span>
@@ -484,11 +482,10 @@ export default function EmployeesPage() {
                                 onConfirm: () => handleToggleStatusDirect(emp.id, emp.account_status, emp.fullName)
                               });
                             }}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                              emp.account_status === "active"
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${emp.account_status === "active"
                                 ? "border-surface-200 dark:border-white/[0.08] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
                                 : "border-purple-500/30 bg-purple-500/5 text-purple-650 dark:text-purple-400 hover:bg-purple-500/10"
-                            }`}
+                              }`}
                           >
                             <Power className="w-3.5 h-3.5" />
                             {emp.account_status === "active" ? "Disable" : "Enable"}
@@ -549,12 +546,12 @@ export default function EmployeesPage() {
                       </div>
                     </td>
                   </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
+      </div>
 
       {/* Add Employee Modal */}
       <AnimatePresence>
@@ -605,7 +602,7 @@ export default function EmployeesPage() {
                   <label className="text-xs font-bold text-surface-650 dark:text-surface-400">Target Department</label>
                   <div className="space-y-1.5 p-3 border border-surface-200 dark:border-white/[0.08] bg-surface-50 dark:bg-surface-900 rounded-lg max-h-[120px] overflow-y-auto">
                     {departments.map((dept) => {
-                      const isManagerDept = 
+                      const isManagerDept =
                         dept.id === user?.department_id ||
                         dept.name.toLowerCase() === user?.department?.toLowerCase() ||
                         (dept.name === "IT" && user?.department === "Information Technology") ||
@@ -621,9 +618,8 @@ export default function EmployeesPage() {
                           />
                           <label
                             htmlFor={`dept-${dept.id}`}
-                            className={`text-xs font-semibold select-none cursor-not-allowed ${
-                              isManagerDept ? "text-surface-900 dark:text-white" : "text-surface-400 dark:text-surface-500 opacity-60"
-                            }`}
+                            className={`text-xs font-semibold select-none cursor-not-allowed ${isManagerDept ? "text-surface-900 dark:text-white" : "text-surface-400 dark:text-surface-500 opacity-60"
+                              }`}
                           >
                             {dept.name === "Information Technology" ? "IT" : dept.name}
                           </label>
@@ -865,3 +861,4 @@ export default function EmployeesPage() {
     </div>
   );
 }
+

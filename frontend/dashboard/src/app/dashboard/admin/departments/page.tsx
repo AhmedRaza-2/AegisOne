@@ -1,8 +1,8 @@
 "use client";
 import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { 
-  Building2, Plus, Users, Trash2, X, Key, ShieldCheck, 
+import {
+  Building2, Plus, Users, Trash2, X, Key, ShieldCheck,
   CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -234,9 +234,8 @@ export default function DepartmentsPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
-            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${
-              toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
-            }`}
+            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
+              }`}
           >
             {toast.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
             {toast.message}
@@ -274,18 +273,17 @@ export default function DepartmentsPage() {
       <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           onClick={() => setSelectedDeptId("all")}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            selectedDeptId === "all"
+          className={`p-4 rounded-2xl border text-left transition-all ${selectedDeptId === "all"
               ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
               : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider opacity-70">Entire Organization</span>
             <Building2 className="w-4 h-4 text-brand-500" />
           </div>
           <p className="text-2xl font-bold text-surface-900 dark:text-white">{userList.length}</p>
-          <p className="text-[11px] text-surface-500 mt-1">Total Members Across All Depts</p>
+          <p className="text-[11px] text-surface-500 mt-1">Total Employees Across All Depts</p>
         </button>
 
         {departments.map((dept) => {
@@ -294,16 +292,15 @@ export default function DepartmentsPage() {
             <button
               key={dept.id}
               onClick={() => setSelectedDeptId(dept.id)}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                isSelected
+              className={`p-4 rounded-2xl border text-left transition-all ${isSelected
                   ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
                   : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-bold text-surface-900 dark:text-white truncate">{dept.name}</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-100 dark:bg-white/[0.06] text-surface-500">
-                  {dept.employee_count} members
+                  {dept.employee_count} employees
                 </span>
               </div>
               <p className="text-xs text-surface-500 font-medium truncate">
@@ -330,7 +327,7 @@ export default function DepartmentsPage() {
           </div>
 
           <div className="text-xs text-surface-500 font-medium">
-            Showing <span className="font-bold text-surface-900 dark:text-white">{filteredUsers.length}</span> members
+            Showing <span className="font-bold text-surface-900 dark:text-white">{filteredUsers.length}</span> employees
           </div>
         </div>
 
@@ -349,11 +346,11 @@ export default function DepartmentsPage() {
             <tbody className="divide-y divide-surface-100 dark:divide-white/[0.04]">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-surface-400">Loading members...</td>
+                  <td colSpan={5} className="py-12 text-center text-surface-400">Loading employees...</td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-surface-400">No members found matching your filter</td>
+                  <td colSpan={5} className="py-12 text-center text-surface-400">No employees found matching your filter</td>
                 </tr>
               ) : (
                 filteredUsers.map((u) => (
@@ -370,13 +367,12 @@ export default function DepartmentsPage() {
                       </div>
                     </td>
                     <td className="py-3 px-2">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
-                        u.role === "admin" || u.role === "super_admin"
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.role === "admin" || u.role === "super_admin"
                           ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
                           : u.role === "manager" || u.role === "department_admin"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
-                      }`}>
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                            : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
+                        }`}>
                         {u.role === "department_admin" ? "Manager" : u.role}
                       </span>
                     </td>
@@ -384,11 +380,10 @@ export default function DepartmentsPage() {
                       {u.department || "Organization"}
                     </td>
                     <td className="py-3 px-2">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
-                        u.account_status === "disabled" || u.account_status === "suspended"
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.account_status === "disabled" || u.account_status === "suspended"
                           ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                           : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      }`}>
+                        }`}>
                         {u.account_status || "Approved"}
                       </span>
                     </td>
@@ -397,11 +392,10 @@ export default function DepartmentsPage() {
                         {/* Status Toggle Button */}
                         <button
                           onClick={() => handleToggleStatus(u)}
-                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${
-                            u.account_status === "disabled" || u.account_status === "suspended"
+                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${u.account_status === "disabled" || u.account_status === "suspended"
                               ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-100"
                               : "bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 border-surface-200 dark:border-white/[0.08] hover:bg-surface-200"
-                          }`}
+                            }`}
                         >
                           {u.account_status === "disabled" || u.account_status === "suspended" ? "Enable" : "Disable"}
                         </button>
@@ -635,3 +629,4 @@ export default function DepartmentsPage() {
     </motion.div>
   );
 }
+

@@ -33,7 +33,7 @@ import re
 from api.config import (
     EMAIL_MODEL_PY, EMAIL_MODEL_PT,
     TEXT_MODEL_PY, TEXT_MODEL_PT,
-    URL_MODEL_PY, URL_MODEL_PT,
+    URL_MODEL_PY, URL_MODEL_PT, URL_MODEL_PT_FALLBACK,
     IMAGE_CONFIG_PY, IMAGE_MODEL_PT,
     ATTACHMENT_DIR, TRUSTED_DOMAINS, URL_CLASSES,
     INFERENCE_SEMAPHORE_LIMIT, TORCH_NUM_THREADS,
@@ -158,11 +158,18 @@ def load_all_models():
         logger.warning(f"  ✗ Text weights not found: {TEXT_MODEL_PT}")
 
     # ── 3. URL MODEL ──
-    if URL_MODEL_PT.exists():
+    url_candidates = [URL_MODEL_PT]
+    if URL_MODEL_PT_FALLBACK != URL_MODEL_PT:
+        url_candidates.append(URL_MODEL_PT_FALLBACK)
+
+    loaded_url = False
+    for url_pt in url_candidates:
+        if not url_pt.exists():
+            continue
         try:
             mod = _load_module("aegis_url", str(URL_MODEL_PY))
             model = mod.URLDetector()
-            model.load_state_dict(torch.load(str(URL_MODEL_PT), map_location=DEVICE), strict=False)
+            model.load_state_dict(torch.load(str(url_pt), map_location=DEVICE), strict=False)
             model.to(DEVICE).eval()
             if DEVICE == "cpu":
                 model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
@@ -170,11 +177,13 @@ def load_all_models():
             # Store sanitize_url if available
             if hasattr(mod, "sanitize_url"):
                 MODELS["url"]["sanitize"] = mod.sanitize_url
-            logger.info("  ✓ URL AI loaded")
+            logger.info(f"  ✓ URL AI loaded from {url_pt.name}")
+            loaded_url = True
+            break
         except Exception as e:
-            logger.error(f"  ✗ URL AI failed: {e}")
-    else:
-        logger.warning(f"  ✗ URL weights not found: {URL_MODEL_PT}")
+            logger.error(f"  ✗ URL AI failed from {url_pt}: {e}")
+    if not loaded_url:
+        logger.warning(f"  ✗ URL weights not found: {URL_MODEL_PT} or {URL_MODEL_PT_FALLBACK}")
 
     # ── 4. IMAGE MODEL ──
     if IMAGE_MODEL_PT.exists():

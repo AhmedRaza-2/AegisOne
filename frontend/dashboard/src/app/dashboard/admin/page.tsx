@@ -62,14 +62,14 @@ export default function AdminDashboard() {
   const trendData = (stats?.daily_trend && stats.daily_trend.length > 0)
     ? stats.daily_trend
     : [
-        { date: "Mon", safe: 0, threats: 0 },
-        { date: "Tue", safe: 0, threats: 0 },
-        { date: "Wed", safe: 0, threats: 0 },
-        { date: "Thu", safe: 0, threats: 0 },
-        { date: "Fri", safe: 0, threats: 0 },
-        { date: "Sat", safe: 0, threats: 0 },
-        { date: "Sun", safe: 0, threats: 0 },
-      ];
+      { date: "Mon", safe: 0, threats: 0 },
+      { date: "Tue", safe: 0, threats: 0 },
+      { date: "Wed", safe: 0, threats: 0 },
+      { date: "Thu", safe: 0, threats: 0 },
+      { date: "Fri", safe: 0, threats: 0 },
+      { date: "Sat", safe: 0, threats: 0 },
+      { date: "Sun", safe: 0, threats: 0 },
+    ];
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -79,8 +79,8 @@ export default function AdminDashboard() {
             {isGlobalAdmin ? "Platform Operations Command" : "Organization Admin Center"}
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            {isGlobalAdmin 
-              ? "Global multi-tenant system statistics and model health metrics" 
+            {isGlobalAdmin
+              ? "Global multi-tenant system statistics and model health metrics"
               : `Security policies, threat feeds, and enterprise employee directory`}
           </p>
         </div>
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
 
         <motion.div variants={fadeUp} className="stat-card flex flex-col">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-surface-900 dark:text-white">
-            <Building2 className="w-4 h-4 text-brand-650 dark:text-brand-400" /> 
+            <Building2 className="w-4 h-4 text-brand-650 dark:text-brand-400" />
             Top Threat Types
           </h3>
           <div className="flex-1 space-y-3">
@@ -219,3 +219,4 @@ export default function AdminDashboard() {
     </motion.div>
   );
 }
+

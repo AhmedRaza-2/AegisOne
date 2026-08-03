@@ -41,7 +41,6 @@ const navByRole: Record<string, NavItem[]> = {
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
-    { label: "Devices", href: "/dashboard/admin/devices", icon: Monitor },
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
@@ -82,7 +81,7 @@ function SidebarContent({
     setVerifyMsg("");
     setVerifyError("");
     try {
-      await fetch("http://127.0.0.1:8000/auth/forgot-password", {
+      await fetch("http://localhost:8000/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email })
@@ -90,7 +89,7 @@ function SidebarContent({
       setShowOtpModal(true);
       setVerifyMsg("A 6-digit verification code has been sent to your email.");
       setMenuOpen(false);
-    } catch(e) {
+    } catch (e) {
       alert("Failed to send reset code.");
     }
     setResetting(false);
@@ -101,7 +100,7 @@ function SidebarContent({
     setResetting(true);
     setVerifyError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/verify-reset-otp", {
+      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user?.email, otp })
@@ -140,11 +139,10 @@ function SidebarContent({
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${
-                active
+              className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${active
                   ? "bg-surface-100 dark:bg-white/[0.02] text-surface-900 dark:text-white border-l-2 border-brand-500 dark:border-[#4F84F8]"
                   : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02] border-l-2 border-transparent"
-              }`}
+                }`}
               title={collapsed ? item.label : undefined}
             >
               <item.icon className={`shrink-0 ${active ? 'w-4 h-4' : 'w-[15px] h-[15px]'}`} />
@@ -159,7 +157,7 @@ function SidebarContent({
         {showOtpModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-2xl rounded-2xl w-full max-w-sm p-6 relative">
-              <button 
+              <button
                 onClick={() => setShowOtpModal(false)}
                 className="absolute top-4 right-4 text-surface-400 hover:text-surface-900 dark:hover:text-white"
               >
@@ -175,7 +173,7 @@ function SidebarContent({
               <form onSubmit={handleVerifyOtp} className="space-y-4">
                 {verifyMsg && <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 dark:text-green-400 text-center">{verifyMsg}</div>}
                 {verifyError && <p className="text-sm text-red-500 dark:text-red-400 text-center">{verifyError}</p>}
-                
+
                 {!verifyMsg.includes("Success") ? (
                   <>
                     <div>
@@ -189,7 +187,7 @@ function SidebarContent({
                         className="w-full px-4 py-3 bg-white dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-center tracking-[0.5em] text-xl font-bold text-surface-900 dark:text-white placeholder-surface-300 dark:placeholder-surface-700 focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
                       />
                     </div>
-                    
+
                     <button
                       type="submit"
                       disabled={resetting || otp.length < 6}
@@ -232,20 +230,20 @@ function SidebarContent({
             </button>
           </div>
         )}
-        
+
         {!collapsed && (
-          <div 
+          <div
             className="flex items-center gap-3 p-2 -m-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] cursor-pointer transition-colors"
             onClick={() => setMenuOpen(!menuOpen)}
           >
             <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center overflow-hidden shrink-0">
-               <span className="text-sm font-bold text-white">{initials}</span>
+              <span className="text-sm font-bold text-white">{initials}</span>
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-               <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || user?.name || "User"}</span>
-               <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium">
-                 {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department}` : "")}
-               </span>
+              <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || user?.name || "User"}</span>
+              <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium">
+                {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department}` : "")}
+              </span>
             </div>
             <div className="shrink-0 text-surface-400">
               {menuOpen ? <ChevronRight className="w-4 h-4 rotate-90 transition-transform" /> : <ChevronRight className="w-4 h-4 transition-transform" />}
@@ -275,7 +273,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (isLoading) return;
-    
+
     if (!user) {
       router.replace("/login");
       return;
@@ -310,7 +308,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .then(data => {
           if (Array.isArray(data)) setInboxMessages(data);
         })
-        .catch(() => {});
+        .catch(() => { });
     };
     fetchInbox();
     const interval = setInterval(fetchInbox, 15000);
@@ -365,16 +363,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="h-16 border-b border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#0F1423] flex items-center justify-between px-6 sticky top-0 z-30 transition-colors duration-300">
           <div className="flex-1 flex items-center">
-             <button onClick={() => setMobileOpen(true)} className="md:hidden mr-4 p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04]">
-               <Menu className="w-5 h-5 text-surface-500 dark:text-surface-400" />
-             </button>
+            <button onClick={() => setMobileOpen(true)} className="md:hidden mr-4 p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04]">
+              <Menu className="w-5 h-5 text-surface-500 dark:text-surface-400" />
+            </button>
             <div className="relative w-full max-w-md hidden md:block">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
-               <input 
-                 type="text" 
-                 placeholder="Search logs, threats, endpoints..." 
-                 className="w-full bg-surface-100 dark:bg-[#141A29] border border-transparent dark:border-transparent rounded-full pl-9 pr-4 py-2 text-sm text-surface-900 dark:text-white placeholder:text-surface-500 focus:outline-none focus:border-brand-500 dark:focus:ring-1 dark:focus:ring-brand-500/50 transition-colors"
-               />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
+              <input
+                type="text"
+                placeholder="Search logs, threats, endpoints..."
+                className="w-full bg-surface-100 dark:bg-[#141A29] border border-transparent dark:border-transparent rounded-full pl-9 pr-4 py-2 text-sm text-surface-900 dark:text-white placeholder:text-surface-500 focus:outline-none focus:border-brand-500 dark:focus:ring-1 dark:focus:ring-brand-500/50 transition-colors"
+              />
             </div>
           </div>
           <div className="flex items-center gap-6">
@@ -393,7 +391,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </span>
                 )}
               </button>
-              
+
               {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-xl rounded-xl overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
@@ -421,17 +419,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           }}
                           className="w-full p-4 border-b border-surface-100 dark:border-white/[0.04] hover:bg-surface-50 dark:hover:bg-white/[0.02] transition-colors text-left flex gap-3 items-start"
                         >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                            !seenIds.has(msg.id) ? 'bg-brand-100 dark:bg-brand-900/30' : 'bg-surface-100 dark:bg-surface-800'
-                          }`}>
-                            <MessageSquare className={`w-4 h-4 ${
-                              !seenIds.has(msg.id) ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400'
-                            }`} />
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${!seenIds.has(msg.id) ? 'bg-brand-100 dark:bg-brand-900/30' : 'bg-surface-100 dark:bg-surface-800'
+                            }`}>
+                            <MessageSquare className={`w-4 h-4 ${!seenIds.has(msg.id) ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400'
+                              }`} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-medium truncate ${
-                              !seenIds.has(msg.id) ? 'text-surface-900 dark:text-white' : 'text-surface-500'
-                            }`}>
+                            <p className={`text-xs font-medium truncate ${!seenIds.has(msg.id) ? 'text-surface-900 dark:text-white' : 'text-surface-500'
+                              }`}>
                               {msg.title || (msg.msg_type === 'broadcast' ? 'Department Broadcast' : 'Direct Message')}
                             </p>
                             <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-2">{msg.content}</p>
@@ -467,9 +462,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="relative">
               <button onClick={() => setActivityOpen(!activityOpen)} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center">
-                 <Activity className="w-4 h-4" />
+                <Activity className="w-4 h-4" />
               </button>
-              
+
               {activityOpen && (
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04]">
@@ -500,7 +495,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1] hidden sm:block"></div>
             <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-surface-700 dark:text-surface-400">
-               System Status: <span className="flex items-center gap-1.5 text-surface-900 dark:text-white"><span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]"></span> Operational</span>
+              System Status: <span className="flex items-center gap-1.5 text-surface-900 dark:text-white"><span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]"></span> Operational</span>
             </div>
           </div>
         </header>
@@ -512,3 +507,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

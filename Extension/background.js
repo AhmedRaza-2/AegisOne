@@ -306,7 +306,7 @@ function _initDownloadIntercept() {
         if (isPhishing) {
           const signals = contentResult?.phishing_signals ||
             (quickRisk > CONFIG.PHISHING_THRESHOLD ? ["URL flagged as malicious"] : ["Attachment contents flagged"]);
-            
+
           // User MUST decide. We CANCEL the current download stream instantly.
           chrome.downloads.cancel(downloadItem.id, () => { const e = chrome.runtime.lastError; });
           suggest(); // Release Chrome's hold on the UI
@@ -557,10 +557,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           })(),
         ]);
 
-        const textResult    = textRes.status === "fulfilled"   ? textRes.value    : null;
-        const urlResults    = urlsRes.status === "fulfilled"   ? urlsRes.value    : [];
-        const imageResults  = imgsRes.status === "fulfilled"   ? imgsRes.value    : [];
-        const attachResults = attachRes.status === "fulfilled" ? attachRes.value  : [];
+        const textResult = textRes.status === "fulfilled" ? textRes.value : null;
+        const urlResults = urlsRes.status === "fulfilled" ? urlsRes.value : [];
+        const imageResults = imgsRes.status === "fulfilled" ? imgsRes.value : [];
+        const attachResults = attachRes.status === "fulfilled" ? attachRes.value : [];
 
         // Composite risk calculation:
         // Only count URL/image scores ≥ 0.85 to suppress model false positives.
@@ -749,3 +749,4 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   })();
   return true; // Keep channel open for async response
 });
+

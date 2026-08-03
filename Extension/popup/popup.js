@@ -10,7 +10,7 @@
  *  - Live scan age countdown while popup is open
  */
 
-const THRESHOLD_WARN   = 50;
+const THRESHOLD_WARN = 50;
 const THRESHOLD_DANGER = 80;
 let _ageCountdownTimer = null;
 
@@ -44,11 +44,11 @@ function _applyShieldState(enabled) {
 // ── Control Center Toggles ─────────────────────────────────
 async function loadControlToggles() {
   const stored = await chrome.storage.local.get(["enableUrlScan", "enableHoverScan", "enableFormGuard"]);
-  
+
   const tUrl = document.getElementById("toggleUrlScan");
   const tHover = document.getElementById("toggleHoverScan");
   const tForm = document.getElementById("toggleFormGuard");
-  
+
   if (tUrl) {
     tUrl.checked = stored.enableUrlScan !== false;
     tUrl.addEventListener("change", (e) => chrome.storage.local.set({ enableUrlScan: e.target.checked }));
@@ -72,9 +72,9 @@ async function loadPopupStats() {
     const res = await fetch(`http://localhost:8000/user/stats?device_id=${encodeURIComponent(deviceId)}`);
     if (res.ok) {
       const data = await res.json();
-      const elScans   = document.getElementById("statsScans");
+      const elScans = document.getElementById("statsScans");
       const elBlocked = document.getElementById("statsBlocked");
-      if (elScans)   elScans.textContent   = data.totalScans || 0;
+      if (elScans) elScans.textContent = data.totalScans || 0;
       if (elBlocked) elBlocked.textContent = data.threatsBlocked || 0;
     }
   } catch (err) {
@@ -197,8 +197,8 @@ function _renderSummary(data) {
 
 // ── Recent Events ────────────────────────────────────────────
 async function loadRecentEvents() {
-  const res  = await sendMsg({ type: "GET_EVENTS", limit: 15 });
-  const list  = document.getElementById("eventsList");
+  const res = await sendMsg({ type: "GET_EVENTS", limit: 15 });
+  const list = document.getElementById("eventsList");
   const empty = document.getElementById("eventsEmpty");
 
   if (!res?.events?.length) {
@@ -208,12 +208,12 @@ async function loadRecentEvents() {
 
   if (empty) empty.style.display = "none";
   list.innerHTML = res.events.map(e => {
-    const time  = new Date(e.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const icon  = e.type === "download_blocked" ? "📥" : e.type === "threat_report" ? "🚨" : e.type === "credential_warning" ? "🔐" : "⚠️";
+    const time = new Date(e.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const icon = e.type === "download_blocked" ? "📥" : e.type === "threat_report" ? "🚨" : e.type === "credential_warning" ? "🔐" : "⚠️";
     const color = (e.risk_score || 0) >= 80 ? "var(--red)" : "var(--amber)";
     // Sanitize user-derived strings to prevent XSS
     const domain = _sanitize(e.domain || "unknown");
-    const type   = _sanitize(e.type.replace(/_/g, " "));
+    const type = _sanitize(e.type.replace(/_/g, " "));
     return `
       <div class="event-item">
         <span class="event-icon">${icon}</span>
@@ -260,7 +260,7 @@ function switchTab(name) {
 async function rescan() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) {
-    chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_DEEP_PAGE_SCAN" }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_DEEP_PAGE_SCAN" }).catch(() => { });
     window.close();
   }
 }
@@ -276,7 +276,7 @@ async function _requestFreshScan(force = false) {
     }
   }
 
-  chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_DEEP_PAGE_SCAN" }).catch(() => {});
+  chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_DEEP_PAGE_SCAN" }).catch(() => { });
   setTimeout(async () => {
     const fresh = await sendMsg({ type: "GET_TAB_DATA" }) || {};
     const displayData = _mergeDisplayData(fresh?.data);
@@ -340,13 +340,13 @@ function _mergeDisplayData(data) {
 
   const mergedBreakdown = deepScore > baseScore
     ? {
-        ...(data.breakdown || {}),
-        deep_page: {
-          score: deepScore,
-          label: deepScore >= 80 ? "Deep page scan indicates high risk" : "Deep page scan indicates suspicious activity",
-          available: true,
-        },
-      }
+      ...(data.breakdown || {}),
+      deep_page: {
+        score: deepScore,
+        label: deepScore >= 80 ? "Deep page scan indicates high risk" : "Deep page scan indicates suspicious activity",
+        available: true,
+      },
+    }
     : data.breakdown;
 
   return {
@@ -405,7 +405,7 @@ function _formatAge(ageMs) {
 // ── Init ───────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("shieldToggle")?.addEventListener("change", toggleShield);
-  
+
   // Tab buttons click handler
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -416,6 +416,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Rescan button handler
   document.querySelector(".rescan-btn")?.addEventListener("click", rescan);
-  
+
   init();
 });
+

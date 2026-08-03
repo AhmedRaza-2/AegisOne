@@ -100,9 +100,8 @@ export default function SupervisorSettingsPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
-            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${
-              toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
-            }`}
+            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
+              }`}
           >
             {toast.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
             {toast.message}
@@ -124,31 +123,28 @@ export default function SupervisorSettingsPage() {
         <motion.div variants={fadeUp} className="w-full sm:w-56 space-y-1">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "profile"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === "profile"
                 ? "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400"
                 : "text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-white/[0.02]"
-            }`}
+              }`}
           >
             <Users className="w-4 h-4" /> Profile & Access
           </button>
           <button
             onClick={() => setActiveTab("department")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "department"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === "department"
                 ? "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400"
                 : "text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-white/[0.02]"
-            }`}
+              }`}
           >
             <Building2 className="w-4 h-4" /> Department Overview
           </button>
           <button
             onClick={() => setActiveTab("account")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "account"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === "account"
                 ? "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400"
                 : "text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-white/[0.02]"
-            }`}
+              }`}
           >
             <LogOut className="w-4 h-4" /> Account Session
           </button>
@@ -268,3 +264,4 @@ export default function SupervisorSettingsPage() {
     </motion.div>
   );
 }
+

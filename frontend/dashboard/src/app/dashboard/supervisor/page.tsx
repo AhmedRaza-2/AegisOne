@@ -330,12 +330,12 @@ export default function SupervisorDashboard() {
                         <span className="text-xs text-surface-500 dark:text-surface-400">{securityScore}%</span>
                       </div>
                     </td>
-                  <td className="px-3 py-2.5">
-                    <span className={`w-2 h-2 rounded-full inline-block ${emp.extensionInstalled ? "bg-emerald-500 dark:bg-emerald-400" : "bg-surface-300 dark:bg-surface-650"}`} />
-                  </td>
-                </tr>
-              );
-            })}
+                    <td className="px-3 py-2.5">
+                      <span className={`w-2 h-2 rounded-full inline-block ${emp.extensionInstalled ? "bg-emerald-500 dark:bg-emerald-400" : "bg-surface-300 dark:bg-surface-650"}`} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -370,3 +370,4 @@ export default function SupervisorDashboard() {
     </motion.div>
   );
 }
+

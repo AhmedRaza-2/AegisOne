@@ -114,6 +114,7 @@ async def init_db():
                 ("users", "is_active", "BOOLEAN DEFAULT 1"),
                 ("users", "last_login", "DATETIME"),
                 ("users", "last_active_at", "DATETIME"),
+                ("departments", "code", "VARCHAR(32)"),
             ]
             for table_name, col_name, col_type in cols_to_check:
                 try:

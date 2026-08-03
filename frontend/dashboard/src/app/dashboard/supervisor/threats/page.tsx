@@ -14,7 +14,7 @@ const getEventMetadata = (event: any) => {
   const severity = event.severity || "";
   const threatType = event.threat_type || "";
   const domain = event.domain || "";
-  
+
   if (decision === "block" || severity === "high" || type === "website_threat" || type === "download_blocked") {
     return {
       icon: ShieldAlert,
@@ -51,7 +51,7 @@ const formatEventTime = (timestampStr: string) => {
     const diffSec = Math.floor(diffMs / 1000);
     const diffMin = Math.floor(diffSec / 60);
     const diffHr = Math.floor(diffMin / 60);
-    
+
     if (diffSec < 60) return "Just now";
     if (diffMin < 60) return `${diffMin}m ago`;
     if (diffHr < 24) return `${diffHr}h ago`;
@@ -195,39 +195,39 @@ export default function ThreatCenterPage() {
               <div className="text-center text-xs text-surface-400 py-12">No high risk employees detected.</div>
             ) : (
               highRiskEmployees.map((emp) => (
-              <div key={emp.id} className="p-4 rounded-xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-semibold text-surface-900 dark:text-white">{emp.name}</h4>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        Risk Score: {emp.riskScore}
-                      </span>
+                <div key={emp.id} className="p-4 rounded-xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-surface-900 dark:text-white">{emp.name}</h4>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                          Risk Score: {emp.riskScore}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-xs text-surface-600 dark:text-surface-400 mb-4 flex items-start gap-2">
-                  <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400" />
-                  <span>{emp.reason}</span>
-                </div>
+                  <div className="text-xs text-surface-600 dark:text-surface-400 mb-4 flex items-start gap-2">
+                    <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400" />
+                    <span>{emp.reason}</span>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => router.push('/dashboard/supervisor/analytics')} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-200 dark:border-white/[0.08] hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors flex items-center justify-center gap-1.5 text-surface-700 dark:text-surface-300">
-                    <Activity className="w-3.5 h-3.5" /> Analytics
-                  </button>
-                  <button onClick={() => router.push('/dashboard/supervisor/communication')} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-200 dark:border-white/[0.08] hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors flex items-center justify-center gap-1.5 text-surface-700 dark:text-surface-300">
-                    <MessageSquare className="w-3.5 h-3.5" /> Message
-                  </button>
-                  <button onClick={() => setEscalatingEmployee(emp)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors flex items-center justify-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Escalate
-                  </button>
-                  <button onClick={() => setAssigningTraining(emp)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-200 dark:border-brand-900/50 hover:bg-brand-50 dark:hover:bg-brand-900/20 text-brand-600 dark:text-brand-400 transition-colors flex items-center justify-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5" /> Training
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => router.push('/dashboard/supervisor/analytics')} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-200 dark:border-white/[0.08] hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors flex items-center justify-center gap-1.5 text-surface-700 dark:text-surface-300">
+                      <Activity className="w-3.5 h-3.5" /> Analytics
+                    </button>
+                    <button onClick={() => router.push('/dashboard/supervisor/communication')} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-200 dark:border-white/[0.08] hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors flex items-center justify-center gap-1.5 text-surface-700 dark:text-surface-300">
+                      <MessageSquare className="w-3.5 h-3.5" /> Message
+                    </button>
+                    <button onClick={() => setEscalatingEmployee(emp)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors flex items-center justify-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Escalate
+                    </button>
+                    <button onClick={() => setAssigningTraining(emp)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-200 dark:border-brand-900/50 hover:bg-brand-50 dark:hover:bg-brand-900/20 text-brand-600 dark:text-brand-400 transition-colors flex items-center justify-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5" /> Training
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )))}
+              )))}
           </div>
         </motion.div>
 
@@ -317,3 +317,4 @@ export default function ThreatCenterPage() {
     </motion.div>
   );
 }
+

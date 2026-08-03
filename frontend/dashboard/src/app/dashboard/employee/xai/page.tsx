@@ -20,7 +20,7 @@ export default function XAIPage() {
           .then(res => { setData(res); setLoading(false); })
           .catch(err => { console.error(err); setLoading(false); });
       };
-      
+
       fetchData();
       const interval = setInterval(fetchData, 5000);
       return () => clearInterval(interval);
@@ -74,7 +74,7 @@ export default function XAIPage() {
               <p className="text-xs text-surface-600 dark:text-surface-400 z-10 leading-relaxed">
                 Extremely high correlation with known exfiltration vectors and malicious profiles based on heuristic matching.
               </p>
-              
+
               {/* Background watermark icon */}
               <div className="absolute -bottom-8 -right-8 opacity-5">
                 <BrainCircuit className="w-40 h-40" />
@@ -88,8 +88,8 @@ export default function XAIPage() {
                 <h3 className="text-sm font-bold text-surface-900 dark:text-white">AI Executive Summary</h3>
               </div>
               <p className="text-sm text-surface-700 dark:text-surface-300 leading-relaxed mb-6">
-                The system detected an <span className="font-bold text-red-500 dark:text-red-400">atypical threat pattern</span> on the host. The targeted domain, <span className="font-mono text-[#4F84F8] text-xs bg-surface-100 dark:bg-white/[0.05] px-1.5 py-0.5 rounded">{exp.target}</span>, 
-                {exp.recommendation.toLowerCase().includes("block") ? " attempted to establish a persistent connection to a server in a high-risk jurisdiction." : " shows indicators of phishing or malicious content."} 
+                The system detected an <span className="font-bold text-red-500 dark:text-red-400">atypical threat pattern</span> on the host. The targeted domain, <span className="font-mono text-[#4F84F8] text-xs bg-surface-100 dark:bg-white/[0.05] px-1.5 py-0.5 rounded">{exp.target}</span>,
+                {exp.recommendation.toLowerCase().includes("block") ? " attempted to establish a persistent connection to a server in a high-risk jurisdiction." : " shows indicators of phishing or malicious content."}
                 {exp.reasons.length > 0 ? ` Specifically: ${exp.reasons.join(", ")}.` : ""} This behavior mimics typical malicious pre-stages.
               </p>
               <div className="flex flex-wrap gap-2 mt-auto">
@@ -107,7 +107,7 @@ export default function XAIPage() {
                 <h3 className="text-xs font-bold text-surface-500 uppercase tracking-widest">Evidence Registry</h3>
                 <span className="text-[10px] text-surface-400">{exp.reasons.length || 3} Flags Detected</span>
               </div>
-              
+
               <div className="space-y-4 mb-6 flex-1">
                 {exp.reasons.length > 0 ? exp.reasons.map((reason: string, i: number) => (
                   <div key={i} className="flex items-start gap-4 p-3 rounded-lg border border-surface-100 dark:border-white/[0.02] bg-surface-50 dark:bg-white/[0.01]">
@@ -151,7 +151,7 @@ export default function XAIPage() {
                   </>
                 )}
               </div>
-              
+
               <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-surface-100 dark:bg-white/[0.03] hover:bg-surface-200 dark:hover:bg-white/[0.06] transition-colors text-sm font-bold text-surface-700 dark:text-surface-300 border border-surface-200 dark:border-white/[0.05]">
                 Download Evidence Payload (.pcap)
               </button>
@@ -163,7 +163,7 @@ export default function XAIPage() {
                 <h3 className="text-xs font-bold text-surface-500 uppercase tracking-widest">Network Cluster Visualization</h3>
                 <span className="flex items-center gap-1.5 text-[10px] text-surface-400 font-bold uppercase"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Topology</span>
               </div>
-              
+
               {/* Mock visualization graph */}
               <div className="flex-1 min-h-[250px] relative rounded-lg border border-surface-100 dark:border-white/[0.02] bg-[#FAFAFA] dark:bg-[#0B0F19] overflow-hidden">
                 {/* Connecting lines */}
@@ -172,7 +172,7 @@ export default function XAIPage() {
                   <line x1="50%" y1="50%" x2="70%" y2="35%" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
                   <line x1="50%" y1="50%" x2="80%" y2="70%" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
                   <line x1="50%" y1="50%" x2="35%" y2="80%" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
-                  
+
                   {/* Danger line */}
                   <line x1="35%" y1="80%" x2="50%" y2="50%" stroke="rgba(239,68,68,0.3)" strokeWidth="2" />
                 </svg>
@@ -187,7 +187,7 @@ export default function XAIPage() {
                 <div className="absolute top-[75%] left-[82%] w-8 h-8 rounded-full bg-surface-200 dark:bg-surface-800 border border-surface-300 dark:border-surface-600 flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
                   <Monitor className="w-3.5 h-3.5 text-surface-500" />
                 </div>
-                
+
                 {/* Central malicious node */}
                 <div className="absolute top-[50%] left-[50%] w-12 h-12 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
@@ -200,7 +200,7 @@ export default function XAIPage() {
                 <div className="absolute top-[80%] left-[35%] w-10 h-10 rounded-full bg-[#4F84F8]/20 border border-[#4F84F8]/50 flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
                   <Network className="w-4 h-4 text-[#4F84F8]" />
                 </div>
-                
+
                 {/* Info Overlay Box */}
                 <div className="absolute bottom-4 left-4 p-3 rounded bg-white/90 dark:bg-[#141A29]/90 border border-surface-200 dark:border-white/[0.05] backdrop-blur text-xs">
                   <div className="font-bold text-surface-900 dark:text-white mb-0.5">Source Geo-Location</div>
@@ -233,3 +233,4 @@ export default function XAIPage() {
     </motion.div>
   );
 }
+

@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [resetMode, setResetMode] = useState(false);
   const [otp, setOtp] = useState("");
   const [requestedRole, setRequestedRole] = useState("employee");
@@ -52,17 +52,17 @@ export default function LoginPage() {
     setError("");
     setSuccessMsg("");
     setLoading(true);
-    
+
     const result = await login(email, password);
     setLoading(false);
-    
+
     if (result.success) {
       const dbRole = result.role?.toLowerCase() || detectedRole || "employee";
       const dest = (dbRole === "admin" || dbRole === "super_admin")
-        ? "/dashboard/admin" 
+        ? "/dashboard/admin"
         : (dbRole === "manager" || dbRole === "department_admin")
-        ? "/dashboard/supervisor" 
-        : "/dashboard/employee";
+          ? "/dashboard/supervisor"
+          : "/dashboard/employee";
       router.push(dest);
     } else {
       setError(result.error || "Invalid credentials.");
@@ -81,7 +81,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/forgot-password", {
+      const res = await fetch("http://localhost:8000/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
@@ -103,7 +103,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/verify-reset-otp", {
+      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp })
@@ -134,7 +134,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/reset-password", {
+      const res = await fetch("http://localhost:8000/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp, new_password: newPassword })
@@ -248,7 +248,7 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
               {successMsg && <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 dark:text-green-400 text-center">{successMsg}</div>}
-              
+
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Email</label>
                 <div className="relative">
@@ -287,7 +287,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                error.includes("awaiting admin approval") 
+                error.includes("awaiting admin approval")
                   ? <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-600 dark:text-yellow-400 text-center">{error}</div>
                   : <p className="text-sm text-red-500 dark:text-red-400 text-center">{error}</p>
               )}
@@ -316,3 +316,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

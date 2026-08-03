@@ -37,9 +37,9 @@ export default function ApprovalsPage() {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
       const res = await fetch(`http://localhost:8000/admin/users/${userId}/status`, {
         method: "PATCH",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ status, reason: status === "rejected" ? "Rejected by admin" : undefined })
       });
@@ -56,8 +56,8 @@ export default function ApprovalsPage() {
     }
   };
 
-  const filtered = pendingUsers.filter(u => 
-    u.full_name.toLowerCase().includes(search.toLowerCase()) || 
+  const filtered = pendingUsers.filter(u =>
+    u.full_name.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -79,12 +79,12 @@ export default function ApprovalsPage() {
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="relative flex-1 w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input 
-            type="text" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            placeholder="Search pending requests..." 
-            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 transition-all" 
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search pending requests..."
+            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 transition-all"
           />
         </div>
       </div>
@@ -141,14 +141,14 @@ export default function ApprovalsPage() {
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex justify-end gap-2">
-                        <button 
+                        <button
                           onClick={() => handleAction(u.id, "approved")}
                           disabled={actionLoading === u.id}
                           className="px-3 py-1.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" /> Approve
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleAction(u.id, "rejected")}
                           disabled={actionLoading === u.id}
                           className="px-3 py-1.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
@@ -167,3 +167,4 @@ export default function ApprovalsPage() {
     </div>
   );
 }
+

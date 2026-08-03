@@ -106,9 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      
+
       if (requestedRole && data.role !== requestedRole) {
-         return { success: false, role: data.role, error: `Unauthorized. You are assigned as ${data.role}, but tried to access ${requestedRole}.` };
+        return { success: false, role: data.role, error: `Unauthorized. You are assigned as ${data.role}, but tried to access ${requestedRole}.` };
       }
 
       const userData = {
@@ -124,13 +124,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("aegis_token", data.access_token);
       localStorage.setItem("aegis_refresh_token", data.refresh_token);
       localStorage.setItem("user", JSON.stringify(userData));
-      
+
       // Store in Cookies for persistent session across tabs and reloads
       setCookie("aegis_access_token", data.access_token);
       setCookie("aegis_user", JSON.stringify(userData));
 
       setUser(userData);
-      
+
       return { success: true, role: data.role };
     } catch (err: any) {
       return { success: false, error: err.message || "Failed to connect to server" };
@@ -163,3 +163,4 @@ export function useAuth() {
   if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }
+

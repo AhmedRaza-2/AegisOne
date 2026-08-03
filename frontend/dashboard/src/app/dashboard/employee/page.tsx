@@ -32,7 +32,7 @@ export default function EmployeeDashboard() {
         try {
           setData(JSON.parse(cached));
           setLoading(false);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const fetchData = async () => {
@@ -130,7 +130,7 @@ export default function EmployeeDashboard() {
   const chartData = useMemo(() => {
     const trendMap: Record<string, number> = {};
     const now = new Date();
-    
+
     if (timeRange === "24h") {
       // Group by last 24 hours, hourly
       for (let i = 23; i >= 0; i--) {
@@ -166,7 +166,7 @@ export default function EmployeeDashboard() {
         }
       });
     }
-    
+
     return Object.entries(trendMap).map(([name, scans]) => ({
       name,
       scans
@@ -444,3 +444,4 @@ export default function EmployeeDashboard() {
     </motion.div>
   );
 }
+

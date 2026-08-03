@@ -23,7 +23,8 @@ EMAIL_MODEL_PT   = MODELS_DIR / "email" / "best_phishing_model.pt"
 TEXT_MODEL_PY    = MODELS_DIR / "text_general" / "phishing_model_text.py"
 TEXT_MODEL_PT    = MODELS_DIR / "text_general" / "best_phishing_model_text.pt"
 URL_MODEL_PY     = MODELS_DIR / "url" / "phishing_model_url.py"
-URL_MODEL_PT     = MODELS_DIR / "url" / "best.pt"
+URL_MODEL_PT     = Path(os.environ.get("AEGIS_URL_MODEL_CHECKPOINT", MODELS_DIR / "url" / "best (3).pt"))
+URL_MODEL_PT_FALLBACK = MODELS_DIR / "url" / "best.pt"
 IMAGE_CONFIG_PY  = MODELS_DIR / "image_phishing_detection_model" / "config_v2.py"
 IMAGE_MODEL_PT   = MODELS_DIR / "image_phishing_detection_model" / "checkpoints_v2" / "best_model.pth"
 ATTACHMENT_DIR   = MODELS_DIR / "attachements"
@@ -43,7 +44,7 @@ DATABASE_URL = os.environ.get(
 # AUTH
 # ═══════════════════════════════════════════════════════════════
 
-JWT_SECRET_KEY = os.environ.get("AEGIS_JWT_SECRET", secrets.token_hex(32))
+JWT_SECRET_KEY = os.environ.get("AEGIS_JWT_SECRET", "super-secret-development-key-12345")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_MINUTES = 60 * 24 * 30  # 30 days
 

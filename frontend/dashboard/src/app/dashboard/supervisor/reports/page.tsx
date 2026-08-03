@@ -110,9 +110,8 @@ export default function ReportsPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
-            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${
-              toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
-            }`}
+            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
+              }`}
           >
             {toast.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
             {toast.message}
@@ -158,11 +157,10 @@ export default function ReportsPage() {
           <div className="space-y-2">
             <button
               onClick={() => setReportType("security")}
-              className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all ${
-                reportType === "security"
+              className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all ${reportType === "security"
                   ? "bg-brand-50 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400 dark:border-brand-500/50"
                   : "border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2 font-semibold">
                 <Activity className="w-4 h-4" /> Security Summary
@@ -172,11 +170,10 @@ export default function ReportsPage() {
 
             <button
               onClick={() => setReportType("employee")}
-              className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all ${
-                reportType === "employee"
+              className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all ${reportType === "employee"
                   ? "bg-brand-50 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400 dark:border-brand-500/50"
                   : "border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2 font-semibold">
                 <Users className="w-4 h-4" /> Employee Risk Log
@@ -186,11 +183,10 @@ export default function ReportsPage() {
 
             <button
               onClick={() => setReportType("threat")}
-              className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all ${
-                reportType === "threat"
+              className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all ${reportType === "threat"
                   ? "bg-brand-50 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400 dark:border-brand-500/50"
                   : "border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2 font-semibold">
                 <ShieldAlert className="w-4 h-4" /> Threat Analysis
@@ -304,3 +300,4 @@ export default function ReportsPage() {
     </motion.div>
   );
 }
+

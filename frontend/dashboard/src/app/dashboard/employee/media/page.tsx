@@ -45,10 +45,9 @@ export default function MediaProtectionPage() {
         {mediaList.map((m: any) => (
           <div key={m.id} className="stat-card flex flex-col group relative overflow-hidden">
             {/* Background Risk Gradient */}
-            <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl -mr-10 -mt-10 opacity-20 ${
-              m.risk > 70 ? 'bg-red-500' : m.risk > 30 ? 'bg-amber-500' : 'bg-emerald-500'
-            }`} />
-            
+            <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl -mr-10 -mt-10 opacity-20 ${m.risk > 70 ? 'bg-red-500' : m.risk > 30 ? 'bg-amber-500' : 'bg-emerald-500'
+              }`} />
+
             <div className="flex items-center justify-between mb-4 relative z-10">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-surface-100 dark:bg-white/[0.05] flex items-center justify-center">
@@ -56,10 +55,9 @@ export default function MediaProtectionPage() {
                 </div>
                 <span className="text-xs font-bold uppercase text-surface-500">{m.type}</span>
               </div>
-              <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${
-                m.decision === 'Blocked' ? 'bg-red-500/10 text-red-500' : 
-                m.decision === 'Warned' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
-              }`}>
+              <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${m.decision === 'Blocked' ? 'bg-red-500/10 text-red-500' :
+                  m.decision === 'Warned' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
+                }`}>
                 {m.decision}
               </span>
             </div>
@@ -70,9 +68,9 @@ export default function MediaProtectionPage() {
               </h3>
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-1.5 rounded-full bg-surface-200 dark:bg-white/[0.1] overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full ${m.risk > 70 ? 'bg-red-500' : m.risk > 30 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                    style={{ width: `${m.risk}%` }} 
+                  <div
+                    className={`h-full rounded-full ${m.risk > 70 ? 'bg-red-500' : m.risk > 30 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${m.risk}%` }}
                   />
                 </div>
                 <span className="text-xs font-bold text-surface-700 dark:text-surface-300 w-8 text-right">{m.risk}%</span>
@@ -94,3 +92,4 @@ export default function MediaProtectionPage() {
     </motion.div>
   );
 }
+

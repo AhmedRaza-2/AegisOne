@@ -44,6 +44,7 @@ class Department(Base):
     id              = Column(Integer,     primary_key=True, autoincrement=True)
     organization_id = Column(String(64),  ForeignKey("organizations.id"), nullable=False, index=True)
     name            = Column(String(255), nullable=False)
+    code            = Column(String(32),  nullable=True, index=True)
     manager_id      = Column(Integer,     ForeignKey("users.id"), nullable=True)
     created_at      = Column(DateTime,    server_default=func.now())
 
@@ -525,7 +526,7 @@ class Incident(Base):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class Message(Base):
-    """Internal messaging system for broadcasts and direct messages."""
+    """Persisted direct, department-wide, and organization-wide messages."""
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

@@ -122,3 +122,4 @@ export default function ManagerBrowserExtensionPage() {
     </motion.div>
   );
 }
+

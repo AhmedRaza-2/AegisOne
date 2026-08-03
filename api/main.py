@@ -84,29 +84,7 @@ async def lifespan(app: FastAPI):
     from sqlalchemy.future import select
     
     async with async_session() as db:
-        # Ensure single org admin account exists for amdevwork
-        admin_stmt = select(User).where(User.email == "admin@amdevwork.com")
-        admin_res = await db.execute(admin_stmt)
-        existing_admin = admin_res.scalars().first()
-        if not existing_admin:
-            admin_user = User(
-                email="admin@amdevwork.com",
-                password_hash=hash_password("admin123"),
-                full_name="AMDevWork Admin",
-                role="admin",
-                department=None,
-                account_status="approved",
-                organization_id="org_default"
-            )
-            db.add(admin_user)
-            await db.commit()
-            print("Added org admin admin@amdevwork.com with password admin123")
-        else:
-            existing_admin.role = "admin"
-            existing_admin.department = None
-            existing_admin.account_status = "approved"
-            existing_admin.password_hash = hash_password("admin123")
-            await db.commit()
+        # Removed hardcoded AMDevWork Admin creation
 
         # Perform full database cleanup: reset department manager references and delete mock telemetry/users
         from sqlalchemy import delete, update
@@ -117,7 +95,6 @@ async def lifespan(app: FastAPI):
         await db.execute(delete(AuditLog))
         await db.execute(delete(Message))
         await db.execute(delete(ThreatReport))
-        await db.execute(delete(User).where(User.email != "admin@amdevwork.com"))
         await db.commit()
 
         # Ensure IT, Human Resources, and Finance departments exist
@@ -162,14 +139,7 @@ app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_SIZE)
 # 3. CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:3002",
-    ],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
