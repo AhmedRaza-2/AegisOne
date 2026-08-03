@@ -75,7 +75,7 @@ export default function ThreatCenterPage() {
 
     const loadData = () => {
       // Fetch Users
-      fetch("http://100.104.105.20:8000/admin/users", { headers })
+      fetch("http://localhost:8000/admin/users", { headers })
         .then(res => res.json())
         .then(data => {
           if (data.users) {
@@ -85,7 +85,7 @@ export default function ThreatCenterPage() {
         .catch(err => console.error("Users load error:", err));
 
       // Fetch Live Events
-      fetch("http://100.104.105.20:8000/admin/events?page=1&page_size=20", { headers })
+      fetch("http://localhost:8000/admin/events?page=1&page_size=20", { headers })
         .then(res => res.json())
         .then(data => {
           if (data.events) {
@@ -317,3 +317,4 @@ export default function ThreatCenterPage() {
     </motion.div>
   );
 }
+

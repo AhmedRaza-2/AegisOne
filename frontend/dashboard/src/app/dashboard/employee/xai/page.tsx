@@ -15,7 +15,7 @@ export default function XAIPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://100.104.105.20:8000/user/xai?email=${encodeURIComponent(user.email)}`)
+        fetch(`http://localhost:8000/user/xai?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => { setData(res); setLoading(false); })
           .catch(err => { console.error(err); setLoading(false); });
@@ -233,3 +233,4 @@ export default function XAIPage() {
     </motion.div>
   );
 }
+

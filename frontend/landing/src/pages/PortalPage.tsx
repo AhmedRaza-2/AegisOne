@@ -73,9 +73,9 @@ export default function PortalPage() {
 
   const isApproved = org.status === 'active';
 
-  const linuxCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
+  const linuxCommand = `curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d --remove-orphans`;
   
-  const windowsCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml\n\n$env:ORG_ID="${org.org_id}"\n$env:LICENSE_KEY="${org.license_key}"\n$env:DEPLOYMENT_TOKEN="${org.deployment_token}"\n$env:ADMIN_EMAIL="${org.admin_email}"\n\ndocker compose up -d`;
+  const windowsCommand = `Invoke-WebRequest -Uri "https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml" -OutFile "docker-compose.yml"\n\n$env:ORG_ID="${org.org_id}"\n$env:LICENSE_KEY="${org.license_key}"\n$env:DEPLOYMENT_TOKEN="${org.deployment_token}"\n$env:ADMIN_EMAIL="${org.admin_email}"\n\ndocker compose up -d --remove-orphans`;
 
   const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 
@@ -119,8 +119,8 @@ export default function PortalPage() {
           </span>
           <h1 className="text-4xl md:text-5xl font-bold text-[#0F172A] tracking-tight">Welcome to AegisOne, {org.name}</h1>
           <p className="text-base text-slate-500 max-w-2xl mx-auto leading-relaxed">
-            Your deployment credentials have been securely generated and bound to your account. 
-            Follow the zero-friction onboarding flow below to spin up your sovereign infrastructure instantly.
+            Your deployment credentials have been securely generated and bound to your account.
+            Run the command below on your own machine to start your private AegisOne services.
           </p>
         </div>
 
@@ -173,8 +173,8 @@ export default function PortalPage() {
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Install Docker Engine</h3>
                   <p className="text-base text-slate-600 mb-5 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    AegisOne operates entirely inside a secure container to ensure zero data leaves your network. 
-                    Before continuing, ensure Docker is installed and running on your host server.
+                    The landing site stays online independently. Docker runs your private backend, setup wizard,
+                    and dashboard on your own machine. Before continuing, ensure Docker is installed and running.
                   </p>
                   <a
                     href="https://docs.docker.com/get-docker/"
@@ -198,7 +198,7 @@ export default function PortalPage() {
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Run the Start Command</h3>
                   <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    There are no configuration files to manually download. We have automatically injected your 
+                    There are no configuration files to manually prepare. We have automatically injected your
                     <strong className="text-slate-800"> Organization ID</strong>, <strong className="text-slate-800">License Key</strong>, and <strong className="text-slate-800">Deployment Token</strong> into the command below. 
                     Simply paste this into your server's terminal.
                   </p>
@@ -252,8 +252,8 @@ export default function PortalPage() {
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Boot Up Local Dashboard</h3>
                   <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    Once the terminal finishes downloading the images and booting the container (this usually takes 30 to 60 seconds), 
-                    your isolated instance of AegisOne is live. Proceed to the local setup wizard to configure your network.
+                    Once Docker finishes building and starting the three local services, your private AegisOne instance is live.
+                    The public landing site remains separate; use the local setup wizard to configure your organization.
                   </p>
                   
                   <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">

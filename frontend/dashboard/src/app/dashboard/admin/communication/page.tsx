@@ -42,7 +42,7 @@ export default function AdminCommunicationPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch("http://100.104.105.20:8000/communication/contacts", { headers: getHeaders() })
+    fetch("http://localhost:8000/communication/contacts", { headers: getHeaders() })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) { setContacts(data); if (data.length > 0) setActiveContact(data[0]); }
@@ -52,7 +52,7 @@ export default function AdminCommunicationPage() {
   useEffect(() => {
     if (!user) return;
     const load = () =>
-      fetch("http://100.104.105.20:8000/communication/announcements", { headers: getHeaders() })
+      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
     load();
     const id = setInterval(load, 10000);
@@ -63,7 +63,7 @@ export default function AdminCommunicationPage() {
     if (!activeContact) return;
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
-      fetch(`http://100.104.105.20:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
+      fetch(`http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => { });
     load();
     pollRef.current = setInterval(load, 5000);
@@ -72,13 +72,13 @@ export default function AdminCommunicationPage() {
 
   const handleSend = async (text: string) => {
     if (!activeContact) return;
-    const res = await fetch("http://100.104.105.20:8000/communication/send", {
+    const res = await fetch("http://localhost:8000/communication/send", {
       method: "POST", headers: getHeaders(),
       body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: text })
     });
     if (res.ok) {
       const data = await fetch(
-        `http://100.104.105.20:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
+        `http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
       ).then(r => r.json());
       if (Array.isArray(data)) setThread(data);
     } else {
@@ -89,14 +89,14 @@ export default function AdminCommunicationPage() {
   const handleOrgBroadcast = async () => {
     if (!bContent.trim()) return;
     setBSending(true);
-    const res = await fetch("http://100.104.105.20:8000/communication/send", {
+    const res = await fetch("http://localhost:8000/communication/send", {
       method: "POST", headers: getHeaders(),
       body: JSON.stringify({ msg_type: "org_broadcast", title: bTitle, content: bContent })
     });
     if (res.ok) {
       showToast("Organization-wide broadcast sent!", "success");
       setBContent(""); setShowBroadcast(false);
-      fetch("http://100.104.105.20:8000/communication/announcements", { headers: getHeaders() })
+      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); });
     } else { const e = await res.json(); showToast(e.detail || "Failed", "error"); }
     setBSending(false);
@@ -231,3 +231,4 @@ export default function AdminCommunicationPage() {
     </div>
   );
 }
+

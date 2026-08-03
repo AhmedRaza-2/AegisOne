@@ -52,8 +52,8 @@ export default function DepartmentsPage() {
   const fetchData = async () => {
     try {
       const [deptsRes, usersRes] = await Promise.all([
-        fetch("http://100.104.105.20:8000/admin/departments", { headers: getHeaders() }),
-        fetch("http://100.104.105.20:8000/admin/users", { headers: getHeaders() })
+        fetch("http://localhost:8000/admin/departments", { headers: getHeaders() }),
+        fetch("http://localhost:8000/admin/users", { headers: getHeaders() })
       ]);
 
       if (deptsRes.ok) {
@@ -105,7 +105,7 @@ export default function DepartmentsPage() {
     if (!deptName.trim()) return;
 
     try {
-      const res = await fetch("http://100.104.105.20:8000/admin/departments", {
+      const res = await fetch("http://localhost:8000/admin/departments", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -135,7 +135,7 @@ export default function DepartmentsPage() {
     if (!fullName || !email || !password) return;
 
     try {
-      const res = await fetch("http://100.104.105.20:8000/admin/users", {
+      const res = await fetch("http://localhost:8000/admin/users", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -168,7 +168,7 @@ export default function DepartmentsPage() {
       return;
     }
     try {
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}/reset-password`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/reset-password`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ new_password: newPwInput })
@@ -188,7 +188,7 @@ export default function DepartmentsPage() {
   // Delete User Handler
   const handleDeleteUser = async (userId: number) => {
     try {
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}`, {
         method: "DELETE",
         headers: getHeaders()
       });
@@ -209,7 +209,7 @@ export default function DepartmentsPage() {
   const handleToggleStatus = async (userObj: any) => {
     const nextStatus = userObj.account_status === "disabled" || userObj.account_status === "suspended" ? "approved" : "disabled";
     try {
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userObj.id}/status`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userObj.id}/status`, {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({ status: nextStatus, reason: "Admin status update" })
@@ -406,7 +406,7 @@ export default function DepartmentsPage() {
                           onChange={async (e) => {
                             const newRole = e.target.value;
                             try {
-                              const endpoint = newRole === "manager" || newRole === "department_admin" ? `http://100.104.105.20:8000/admin/users/${u.id}/promote` : `http://100.104.105.20:8000/admin/users/${u.id}/demote`;
+                              const endpoint = newRole === "manager" || newRole === "department_admin" ? `http://localhost:8000/admin/users/${u.id}/promote` : `http://localhost:8000/admin/users/${u.id}/demote`;
                               const res = await fetch(endpoint, { method: "PUT", headers: getHeaders() });
                               if (res.ok) {
                                 showToast(`Role updated to ${newRole}`, "success");
@@ -629,3 +629,4 @@ export default function DepartmentsPage() {
     </motion.div>
   );
 }
+

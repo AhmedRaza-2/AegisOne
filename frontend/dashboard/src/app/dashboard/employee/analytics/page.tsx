@@ -33,7 +33,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://100.104.105.20:8000/user/analytics?email=${encodeURIComponent(user.email)}`)
+        fetch(`http://localhost:8000/user/analytics?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => {
             setData(res);
@@ -223,3 +223,4 @@ export default function AnalyticsPage() {
     </motion.div>
   );
 }
+

@@ -69,7 +69,7 @@ async function loadPopupStats() {
     // Use device_id from storage — no hardcoded email
     const { device_id: deviceId } = await chrome.storage.local.get("device_id");
     if (!deviceId) return;
-    const res = await fetch(`http://100.104.105.20:8000/user/stats?device_id=${encodeURIComponent(deviceId)}`);
+    const res = await fetch(`http://localhost:8000/user/stats?device_id=${encodeURIComponent(deviceId)}`);
     if (res.ok) {
       const data = await res.json();
       const elScans = document.getElementById("statsScans");
@@ -419,3 +419,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   init();
 });
+

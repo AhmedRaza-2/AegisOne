@@ -28,14 +28,14 @@ export default function ReportsPage() {
 
     try {
       // Fetch stats
-      const statsRes = await fetch(`http://100.104.105.20:8000/admin/stats?time_range=${timeRange}`, { headers });
+      const statsRes = await fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers });
       if (statsRes.ok) {
         const data = await statsRes.json();
         setStats(data);
       }
 
       // Fetch users
-      const usersRes = await fetch(`http://100.104.105.20:8000/admin/users?range=${timeRange}`, { headers });
+      const usersRes = await fetch(`http://localhost:8000/admin/users?range=${timeRange}`, { headers });
       if (usersRes.ok) {
         const uData = await usersRes.json();
         if (uData.users) setUsersList(uData.users);
@@ -300,3 +300,4 @@ export default function ReportsPage() {
     </motion.div>
   );
 }
+

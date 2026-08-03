@@ -14,7 +14,7 @@ const ContactForm = () => {
         setError('')
 
         try {
-            const res = await fetch('http://100.104.105.20:8000/public/contact', {
+            const res = await fetch('http://localhost:8000/public/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -68,3 +68,4 @@ const ContactForm = () => {
 }
 
 export default ContactForm
+

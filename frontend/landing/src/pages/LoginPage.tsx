@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
+import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
 import { Shield, Mail, Lock, Loader2, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import { loginOrganization, sendPasswordResetEmail } from '../lib/org-service';
 
@@ -44,7 +45,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
   const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#0A5ED6] focus:bg-white transition-all";
 
   return (
@@ -178,6 +178,13 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {loading && (
+        <AuthLoadingOverlay
+          title="Signing you in"
+          steps={['Verifying credentials', 'Contacting secure server', 'Loading your workspace']}
+        />
+      )}
     </div>
   );
 }

@@ -26,8 +26,8 @@ export default function AdminDashboard() {
         const token = localStorage.getItem("aegis_access_token");
         const headers = { Authorization: `Bearer ${token}` };
         const [statsRes, deptsRes] = await Promise.all([
-          fetch("http://100.104.105.20:8000/admin/stats", { headers }),
-          fetch("http://100.104.105.20:8000/admin/departments", { headers })
+          fetch("http://localhost:8000/admin/stats", { headers }),
+          fetch("http://localhost:8000/admin/departments", { headers })
         ]);
         if (statsRes.ok) {
           const data = await statsRes.json();
@@ -219,3 +219,4 @@ export default function AdminDashboard() {
     </motion.div>
   );
 }
+

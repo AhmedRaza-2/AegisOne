@@ -40,6 +40,7 @@ interface ActivationStatus {
 export default function App() {
   const [step, setStep] = useState<SetupStep>(1);
   const [loading, setLoading] = useState(false);
+  const API_BASE = 'http://localhost:8000';
 
   // Step 1: Org Info (Pre-filled from Docker Environment Variables)
   const [orgName, setOrgName] = useState('');
@@ -47,14 +48,9 @@ export default function App() {
   const [timezone, setTimezone] = useState('UTC+00:00');
   const [configLoaded, setConfigLoaded] = useState(false);
 
-  // Step 2: Departments
-  const [departments, setDepartments] = useState<Department[]>([
-    { id: '1', name: 'Information Technology', code: 'IT' },
-    { id: '2', name: 'Human Resources', code: 'HR' },
-    { id: '3', name: 'Finance', code: 'FIN' },
-  ]);
-  const [newDeptName, setNewDeptName] = useState('');
-  const [newDeptCode, setNewDeptCode] = useState('');
+  // Step 2+: Departments are inferred from the uploaded employee CSV
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [draggedEmployeeId, setDraggedEmployeeId] = useState<string | null>(null);
 
   // Step 3 & 4: Employees
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -71,7 +67,6 @@ export default function App() {
 
     if (orgNameParam) setOrgName(orgNameParam);
     if (industryParam) setIndustry(industryParam);
-    setConfigLoaded(true);
 
     if (adminEmailParam) {
       const nameParts = adminNameParam.split(' ');
@@ -97,10 +92,89 @@ export default function App() {
       ]);
       setFileUploaded(true);
     }
+
+    fetch(`${API_BASE}/setup/structure/org_default`)
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        if (Array.isArray(data.departments) && data.departments.length > 0) {
+          setDepartments(data.departments.map((d: any) => ({
+            id: String(d.id ?? crypto.randomUUID()),
+            name: d.name,
+            code: String(d.code || d.name || '').toUpperCase(),
+            leadId: d.managerId ? String(d.managerId) : undefined,
+          })));
+        }
+        if (Array.isArray(data.employees) && data.employees.length > 0 && !adminEmailParam) {
+          setEmployees(data.employees.map((u: any) => ({
+            id: String(u.id),
+            employeeId: u.employeeId || `EMP${u.id}`,
+            firstName: String(u.name || '').split(' ')[0] || 'User',
+            lastName: String(u.name || '').split(' ').slice(1).join(' ') || '',
+            email: u.email,
+            phone: '',
+            departmentCode: u.department || 'NONE',
+            role: u.role === 'admin' ? 'Admin' : (u.role === 'lead' ? 'Manager' : 'Employee'),
+            designation: '',
+            status: 'valid',
+          })));
+        }
+      })
+      .catch((err) => console.error('Failed to load persisted structure', err))
+      .finally(() => setConfigLoaded(true));
   }, []);
 
   // Step 7: Rollout Status
   const [rolloutActive, setRolloutActive] = useState(false);
+  const [dispatchDone, setDispatchDone] = useState(false);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
+  const [emailResults, setEmailResults] = useState<Record<string, { sent: boolean; error?: string }>>({});
+
+  const pollEmailStatus = (runId: string) => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/setup/email-status/${runId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.done) {
+            const byEmail: Record<string, { sent: boolean; error?: string }> = {};
+            for (const r of data.results || []) {
+              byEmail[r.email] = { sent: r.sent, error: r.error };
+            }
+            setEmailResults(byEmail);
+            setDispatchDone(true);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to poll email status', err);
+      }
+      setTimeout(() => poll(), 2000);
+    };
+    poll();
+  };
+
+  const saveStructure = async (nextDepartments = departments, nextEmployees = employees) => {
+    try {
+      await fetch(`${API_BASE}/setup/structure/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: 'org_default',
+          orgName,
+          departments: nextDepartments.map(d => ({
+            id: d.id,
+            name: d.name,
+            code: d.code,
+            managerEmail: nextEmployees.find(e => e.id === d.leadId)?.email || null,
+          })),
+          employees: nextEmployees,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to save structure', err);
+    }
+  };
 
   const handleNextStep = async () => {
     setLoading(true);
@@ -110,11 +184,64 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAddDepartment = () => {
-    if (!newDeptName || !newDeptCode) return;
-    setDepartments([...departments, { id: Math.random().toString(), name: newDeptName, code: newDeptCode.toUpperCase() }]);
-    setNewDeptName('');
-    setNewDeptCode('');
+  const codeToName = (code: string) => {
+    const normalized = code.toUpperCase().trim();
+    const map: Record<string, string> = {
+      IT: 'Information Technology',
+      HR: 'Human Resources',
+      FIN: 'Finance',
+      OPS: 'Operations',
+      SALES: 'Sales',
+      LEGAL: 'Legal',
+      ADMIN: 'Administration',
+    };
+    return map[normalized] || normalized || 'General';
+  };
+
+  const rebuildDepartmentsFromEmployees = (rows: Employee[]) => {
+    const seen = new Map<string, Department>();
+    rows.forEach((row, index) => {
+      const rawName = (row.departmentCode || 'General').trim();
+      const code = rawName.toUpperCase();
+      if (!seen.has(code)) {
+        seen.set(code, {
+          id: `dept_${code.replace(/[^A-Z0-9]+/g, '_')}_${index}`,
+          name: rawName || codeToName(code),
+          code,
+        });
+      }
+    });
+    const next = Array.from(seen.values());
+    setDepartments(next);
+    void saveStructure(next, rows.filter(row => row.status === 'valid' && row.email.includes('@')));
+  };
+
+  const renameDepartment = (deptId: string, name: string) => {
+    setDepartments(prev => {
+      const next = prev.map(dept => dept.id === deptId ? { ...dept, name } : dept);
+      void saveStructure(next, employees);
+      return next;
+    });
+  };
+
+  const updateEmployee = (employeeId: string, updates: Partial<Employee>) => {
+    setEmployees(prev => {
+      const next = prev.map(emp => emp.id === employeeId ? { ...emp, ...updates } : emp);
+      void saveStructure(undefined, next);
+      return next;
+    });
+  };
+
+  const moveEmployeeToDept = (employeeId: string, deptCode: string) => {
+    updateEmployee(employeeId, { departmentCode: deptCode });
+  };
+
+  const assignManager = (deptId: string, employeeId: string) => {
+    setDepartments(prev => {
+      const next = prev.map(dept => dept.id === deptId ? { ...dept, leadId: employeeId } : dept);
+      void saveStructure(next, employees);
+      return next;
+    });
   };
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -172,6 +299,9 @@ export default function App() {
 
         const [employeeId, firstName, lastName, email, phone, departmentCode, role, designation] = cols;
 
+        const departmentValue = (departmentCode || '').trim();
+        const departmentKey = departmentValue.toUpperCase();
+
         let status: 'valid' | 'invalid' = 'valid';
         let error = '';
 
@@ -194,9 +324,9 @@ export default function App() {
         } else if (employeeId && seenEmployeeIds.has(employeeId)) {
           status = 'invalid';
           error = 'Duplicate Employee ID';
-        } else if (!departments.find(d => d.code === departmentCode) && normalizedRole !== 'admin') {
+        } else if (!departmentKey && normalizedRole !== 'admin') {
           status = 'invalid';
-          error = `Invalid Dept: ${departmentCode}`;
+          error = 'Department is required';
         } else if (!allowedRoles.includes(normalizedRole)) {
           status = 'invalid';
           error = `Invalid Role: Must be Employee, Manager, or Admin`;
@@ -215,7 +345,7 @@ export default function App() {
           lastName: lastName || 'User',
           email: email || '',
           phone: phone || '',
-          departmentCode: departmentCode || 'NONE',
+          departmentCode: departmentKey || 'NONE',
           role: role || 'Employee',
           designation: designation || '',
           status,
@@ -227,8 +357,11 @@ export default function App() {
         setEmployees(prev => {
           const existingAdmin = prev.find(e => e.id === 'admin_initial');
           if (existingAdmin && !parsedEmployees.some(e => e.role.toLowerCase() === 'admin')) {
-            return [existingAdmin, ...parsedEmployees];
+            const merged = [existingAdmin, ...parsedEmployees];
+            rebuildDepartmentsFromEmployees(merged.filter(e => e.role.toLowerCase() !== 'admin'));
+            return merged;
           }
+          rebuildDepartmentsFromEmployees(parsedEmployees.filter(e => e.role.toLowerCase() !== 'admin'));
           return parsedEmployees;
         });
         setFileUploaded(true);
@@ -259,8 +392,8 @@ export default function App() {
 
   const STEPS = [
     { num: 1, title: 'Organization' },
-    { num: 2, title: 'Departments' },
-    { num: 3, title: 'Import Employees' },
+    { num: 2, title: 'Import Employees' },
+    { num: 3, title: 'Review Structure' },
     { num: 4, title: 'Validation' },
     { num: 5, title: 'Assign Managers' },
     { num: 6, title: 'Security' },
@@ -370,91 +503,41 @@ export default function App() {
               </div>
             )}
 
-            {/* STEP 2: DEPARTMENTS */}
+            {/* STEP 2: IMPORT EMPLOYEES */}
             {step === 2 && (
               <div className="animate-fadeIn space-y-8">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Create Departments</h2>
-                  <p className="text-slate-500 text-sm">Define the organizational structure before importing employees.</p>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-                  <div className="flex flex-col sm:flex-row gap-4 items-end">
-                    <div className="flex-1 space-y-2">
-                      <label className="text-xs font-bold text-slate-700 uppercase">Department Name</label>
-                      <input type="text" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} placeholder="e.g. Marketing" className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0A5ED6]" />
-                    </div>
-                    <div className="w-full sm:w-32 space-y-2">
-                      <label className="text-xs font-bold text-slate-700 uppercase">Code</label>
-                      <input type="text" value={newDeptCode} onChange={e => setNewDeptCode(e.target.value)} placeholder="MKT" className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0A5ED6] uppercase" />
-                    </div>
-                    <button onClick={handleAddDepartment} className="bg-slate-900 hover:bg-black text-white font-bold px-6 py-2.5 rounded-lg text-sm transition-colors w-full sm:w-auto">
-                      Add
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                      <tr>
-                        <th className="px-6 py-3 font-bold uppercase tracking-wider text-xs">Department Name</th>
-                        <th className="px-6 py-3 font-bold uppercase tracking-wider text-xs">Code</th>
-                        <th className="px-6 py-3 font-bold uppercase tracking-wider text-xs text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {departments.map(dept => (
-                        <tr key={dept.id} className="hover:bg-slate-50">
-                          <td className="px-6 py-4 font-semibold text-[#0F172A]">{dept.name}</td>
-                          <td className="px-6 py-4 font-mono text-slate-500">{dept.code}</td>
-                          <td className="px-6 py-4 text-right">
-                            <button onClick={() => setDepartments(departments.filter(d => d.id !== dept.id))} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase cursor-pointer">Remove</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Import Employees First</h2>
+                  <p className="text-slate-500 text-sm">Upload employee.csv and the setup will infer departments automatically, so you can edit structure after the import instead of building it twice.</p>
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
                   <button onClick={() => setStep(1)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
-                  <button onClick={handleNextStep} disabled={loading || departments.length === 0} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50">
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
+                  <button onClick={handleNextStep} disabled={loading || employees.length === 0} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50">
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Review Structure <ArrowRight className="w-4 h-4" /></>}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* STEP 3: IMPORT EMPLOYEES */}
+            {/* STEP 3: REVIEW STRUCTURE */}
             {step === 3 && (
               <div className="animate-fadeIn space-y-8">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Import Employees</h2>
-                  <p className="text-slate-500 text-sm mb-4">Download our standardized template, fill in your employee details, and upload it back here for automatic validation.</p>
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Review and Edit Structure</h2>
+                  <p className="text-slate-500 text-sm mb-4">Drag employees into departments, rename departments inline, and assign managers after the CSV import.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-                  {/* Download Card */}
-                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-8 text-center flex flex-col justify-center h-full min-h-[340px]">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
-                      <FileSpreadsheet className="w-8 h-8 text-blue-600" />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-1 bg-blue-50 border border-blue-100 rounded-2xl p-6">
+                    <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                      <FileSpreadsheet className="w-7 h-7 text-blue-600" />
                     </div>
-                    <h3 className="font-bold text-[#0F172A] mb-2">1. Download Template</h3>
-                    <p className="text-sm text-blue-800 mb-6">Download this ready-to-use file to easily add your team members.</p>
-
-                    <button onClick={handleDownloadTemplate} className="flex items-center justify-center gap-2 bg-white border border-blue-200 text-blue-700 font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-blue-100 transition-colors text-sm w-full max-w-[240px] cursor-pointer shadow-sm hover:shadow mb-6">
-                      <Download className="w-4 h-4" /> Employee_Template.csv
+                    <h3 className="font-bold text-[#0F172A] mb-2">1. Upload employee.csv</h3>
+                    <p className="text-sm text-blue-800 mb-5">The upload step infers departments automatically, so you only edit what the CSV actually contains.</p>
+                    <button onClick={handleDownloadTemplate} className="flex items-center justify-center gap-2 bg-white border border-blue-200 text-blue-700 font-bold px-4 py-2.5 rounded-lg hover:bg-blue-100 transition-colors text-sm w-full cursor-pointer shadow-sm mb-4">
+                      <Download className="w-4 h-4" /> Download Template
                     </button>
-
-                    <ul className="text-[11px] text-blue-800/80 space-y-1.5 text-left mx-auto max-w-[240px]">
-                      <li className="flex items-start gap-1.5 leading-snug"><span className="text-blue-400 font-bold">•</span> <span>Only type <strong>Employee</strong>, <strong>Manager</strong>, or <strong>Admin</strong> in the Role column.</span></li>
-                      <li className="flex items-start gap-1.5 leading-snug"><span className="text-blue-400 font-bold">•</span> <span>Use the exact <strong>Department Codes</strong> you created earlier.</span></li>
-                    </ul>
-                  </div>
-
-                  {/* Upload Card */}
-                  <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-slate-100 transition-colors cursor-pointer flex flex-col justify-center h-full min-h-[340px]" onClick={() => fileInputRef.current?.click()}>
                     <input
                       type="file"
                       accept=".csv"
@@ -462,46 +545,100 @@ export default function App() {
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    {loading ? (
-                      <div className="flex flex-col items-center justify-center h-full space-y-4">
-                        <Loader2 className="w-10 h-10 text-[#0A5ED6] animate-spin" />
-                        <p className="text-sm font-semibold text-slate-600">Validating CSV data...</p>
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-slate-900 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-black transition-colors text-sm">
+                      {employees.length > 0 ? 'Replace CSV File' : 'Select CSV File'}
+                    </button>
+                  </div>
+
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-[#0F172A]">Departments</h3>
+                        <span className="text-xs text-slate-500">{departments.length} inferred departments</span>
                       </div>
-                    ) : employees.length > 0 ? (
-                      <>
-                        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto shadow-sm mb-4">
-                          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                        </div>
-                        <h3 className="font-bold text-[#0F172A] mb-2">CSV Uploaded</h3>
-                        <p className="text-sm text-slate-500 mb-6"><strong>{employees.length} employees</strong> loaded in memory. Upload a new file to overwrite.</p>
-                        <button className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 border border-slate-300 font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-slate-200 transition-colors text-sm w-full max-w-[240px]">
-                          Replace CSV File
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm mb-4">
-                          <Upload className="w-8 h-8 text-slate-500" />
-                        </div>
-                        <h3 className="font-bold text-[#0F172A] mb-2">2. Upload Data</h3>
-                        <p className="text-sm text-slate-500 mb-6">Click to upload your filled CSV file here to validate and import.</p>
-                        <button className="flex items-center justify-center gap-2 bg-slate-900 text-white font-bold px-6 py-2.5 rounded-lg mx-auto hover:bg-black transition-colors text-sm w-full max-w-[240px]">
-                          Select CSV File
-                        </button>
-                      </>
-                    )}
+                      <div className="space-y-3">
+                        {departments.map(dept => (
+                          <div
+                            key={dept.id}
+                            className="bg-white border border-slate-200 rounded-xl p-3"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => {
+                              if (draggedEmployeeId) {
+                                moveEmployeeToDept(draggedEmployeeId, dept.code);
+                                setDraggedEmployeeId(null);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-3 mb-3">
+                              <input
+                                value={dept.name}
+                                onChange={(e) => renameDepartment(dept.id, e.target.value)}
+                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-[#0A5ED6]"
+                              />
+                              <span className="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">{dept.code}</span>
+                              <select
+                                value={dept.leadId || ''}
+                                onChange={(e) => assignManager(dept.id, e.target.value)}
+                                className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none"
+                              >
+                                <option value="">Assign manager</option>
+                                {employees.filter(e => e.status === 'valid' && e.role.toLowerCase() === 'manager' && e.departmentCode === dept.code).map(e => (
+                                  <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex flex-wrap gap-2 min-h-12">
+                              {employees.filter(e => e.departmentCode === dept.code && e.role.toLowerCase() !== 'admin').map(emp => (
+                                <div
+                                  key={emp.id}
+                                  draggable
+                                  onDragStart={() => setDraggedEmployeeId(emp.id)}
+                                  className="cursor-grab rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                                >
+                                  {emp.firstName} {emp.lastName}
+                                </div>
+                              ))}
+                              {employees.filter(e => e.departmentCode === dept.code && e.role.toLowerCase() !== 'admin').length === 0 && (
+                                <div className="text-xs text-slate-400">Drop employees here</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {departments.length === 0 && (
+                          <div className="text-sm text-slate-500">Upload the CSV first and departments will appear here automatically.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                      <h3 className="font-bold text-[#0F172A] mb-3">Employees</h3>
+                      <div className="max-h-[260px] overflow-auto space-y-2">
+                        {employees.map(emp => (
+                          <div key={emp.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 bg-slate-50">
+                            <div>
+                              <p className="font-semibold text-sm text-[#0F172A]">{emp.firstName} {emp.lastName}</p>
+                              <p className="text-xs text-slate-500">{emp.email} • {emp.role}</p>
+                            </div>
+                            <select
+                              value={emp.departmentCode}
+                              onChange={(e) => moveEmployeeToDept(emp.id, e.target.value)}
+                              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none"
+                            >
+                              <option value="NONE">No Department</option>
+                              {departments.map(dept => <option key={dept.id} value={dept.code}>{dept.code}</option>)}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
                   <button onClick={() => setStep(2)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
-                  {employees.length > 0 ? (
-                    <button onClick={() => setStep(4)} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
-                      Continue to Validation <ArrowRight className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <div className="text-slate-400 text-sm font-semibold px-4">Upload a CSV to continue</div>
-                  )}
+                  <button onClick={() => setStep(4)} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
+                    Continue to Validation <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             )}
@@ -668,21 +805,30 @@ export default function App() {
                   <button
                     onClick={async () => {
                       setLoading(true);
+                      setDispatchDone(false);
+                      setDispatchError(null);
                       try {
-                        const response = await fetch('http://100.104.105.20:8000/setup/execute', {
+                        const response = await fetch('http://localhost:8000/setup/execute', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ employees: validEmployees })
                         });
 
                         if (response.ok) {
+                          const data = await response.json();
+                          if (data.run_id) {
+                            pollEmailStatus(data.run_id);
+                          } else {
+                            setDispatchDone(true);
+                          }
                           setRolloutActive(true);
                           setStep(7);
                         } else {
-                          console.error('Failed to execute setup', await response.text());
-                          // You can add error handling state here if needed
+                          setDispatchError((await response.text()) || 'Failed to execute setup');
+                          console.error('Failed to execute setup');
                         }
                       } catch (err) {
+                        setDispatchError('Network error during setup execution. Check that the API is running.');
                         console.error('Network error during setup execution', err);
                       } finally {
                         setLoading(false);
@@ -705,7 +851,16 @@ export default function App() {
                     <h2 className="text-2xl font-bold text-[#0F172A] mb-2 flex items-center gap-2">
                       <Activity className="w-6 h-6 text-emerald-500" /> Email Dispatch Status
                     </h2>
-                    <p className="text-slate-500 text-sm">Monitor your organization's onboarding progress in real-time. Welcome emails have been successfully dispatched.</p>
+                    {dispatchDone ? (
+                      <p className="text-slate-500 text-sm">Welcome email dispatch finished. Review the delivery results below.</p>
+                    ) : (
+                      <p className="text-slate-500 text-sm flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" /> Dispatching welcome emails in the background...
+                      </p>
+                    )}
+                    {dispatchError && (
+                      <p className="text-red-600 text-sm font-semibold mt-2">Setup failed: {dispatchError}</p>
+                    )}
                   </div>
                   <div className="flex gap-4">
                     <button onClick={() => setStep(6)} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 font-bold px-6 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-sm">
@@ -725,11 +880,15 @@ export default function App() {
                   </div>
                   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Emails Sent</p>
-                    <p className="text-2xl font-bold text-blue-600">{validEmployees.length}</p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {dispatchDone ? Object.values(emailResults).filter(r => r.sent).length : '...'}
+                    </p>
                   </div>
                   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Emails Failed</p>
-                    <p className="text-2xl font-bold text-red-500">0</p>
+                    <p className="text-2xl font-bold text-red-500">
+                      {dispatchDone ? Object.values(emailResults).filter(r => !r.sent).length : '...'}
+                    </p>
                   </div>
                 </div>
 
@@ -745,24 +904,55 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {validEmployees.map(emp => (
-                          <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4">
-                              <p className="font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</p>
-                              <p className="text-xs text-slate-500">{emp.email}</p>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span className="inline-flex bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Dispatched</span>
-                            </td>
-                          </tr>
-                        ))}
+                        {validEmployees.map(emp => {
+                          const result = emailResults[emp.email];
+                          const sent = result ? result.sent : undefined;
+                          return (
+                            <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4">
+                                <p className="font-semibold text-[#0F172A]">{emp.firstName} {emp.lastName}</p>
+                                <p className="text-xs text-slate-500">{emp.email}</p>
+                                {sent === false && result?.error && (
+                                  <p className="text-[11px] text-red-500 mt-1 break-all">{result.error}</p>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                {sent === true ? (
+                                  <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
+                                ) : sent === false ? (
+                                  <AlertCircle className="w-5 h-5 text-red-500 mx-auto" />
+                                ) : (
+                                  <Loader2 className="w-4 h-4 animate-spin text-slate-300 mx-auto" />
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                {sent === true ? (
+                                  <span className="inline-flex bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Dispatched</span>
+                                ) : sent === false ? (
+                                  <span className="inline-flex bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Failed</span>
+                                ) : (
+                                  <span className="inline-flex bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold uppercase">Pending</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
+
+                {dispatchDone && Object.values(emailResults).some(r => !r.sent) && (
+                  <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-500" />
+                    <div>
+                      <p className="font-bold">Some welcome emails could not be delivered.</p>
+                      <p className="text-amber-700 mt-1">
+                        Verify the <span className="font-mono">SMTP_USER</span> / <span className="font-mono">SMTP_PASS</span> in the backend <span className="font-mono">.env</span> file. For Gmail, use a valid App Password (requires 2-Step Verification enabled on the account) and restart the API.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
 
               </div>
@@ -774,3 +964,4 @@ export default function App() {
     </div>
   );
 }
+

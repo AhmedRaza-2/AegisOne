@@ -15,7 +15,7 @@ export function TextScanner() {
     try {
       const formData = new FormData();
       formData.append("text", text);
-      const res = await fetch("http://100.104.105.20:8000/analyze/text", {
+      const res = await fetch("http://localhost:8000/analyze/text", {
         method: "POST",
         body: formData
       });
@@ -71,3 +71,4 @@ export function TextScanner() {
     </div>
   );
 }
+

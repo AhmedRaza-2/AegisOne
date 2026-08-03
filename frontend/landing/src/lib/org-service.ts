@@ -36,31 +36,36 @@ export interface RegisterPayload {
 }
 
 export async function registerOrganization(payload: RegisterPayload): Promise<Organization> {
-  // 0. Check if the organization name is already registered
-  const { data: existingOrg, error: checkError } = await supabase
-    .from('organizations')
-    .select('id')
-    .ilike('name', payload.name)
-    .maybeSingle();
+  // 0+1. Run uniqueness check and auth user creation in parallel to cut latency
+  const [checkRes, signUpRes] = await Promise.all([
+    supabase
+      .from('organizations')
+      .select('id')
+      .ilike('name', payload.name)
+      .maybeSingle(),
+    supabase.auth.signUp({
+      email: payload.admin_email,
+      password: payload.password,
+    }),
+  ]);
 
-  if (checkError) {
+  const existingOrg = checkRes.data;
+  if (checkRes.error) {
+    // Rollback the auth user we just created in parallel
+    if (signUpRes.data?.user?.id) await supabase.auth.admin.deleteUser(signUpRes.data.user.id).catch(() => {});
     throw new Error('Failed to verify organization uniqueness.');
   }
-  
+
   if (existingOrg) {
+    // Name is taken — undo the parallel auth user creation
+    if (signUpRes.data?.user?.id) await supabase.auth.admin.deleteUser(signUpRes.data.user.id).catch(() => {});
     throw new Error(`An organization named "${payload.name}" is already registered. Please login or contact support.`);
   }
 
-  // 1. Create Supabase Auth user
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email: payload.admin_email,
-    password: payload.password,
-  });
+  if (signUpRes.error) throw new Error(signUpRes.error.message);
+  if (!signUpRes.data.user) throw new Error('Auth user creation failed.');
 
-  if (authError) throw new Error(authError.message);
-  if (!authData.user) throw new Error('Auth user creation failed.');
-
-  const userId = authData.user.id;
+  const userId = signUpRes.data.user.id;
 
   // 2. Build the organization record
   const orgRecord = {
@@ -98,12 +103,27 @@ export async function registerOrganization(payload: RegisterPayload): Promise<Or
 // ─── Login ───────────────────────────────────────────────────────────────────
 
 export async function loginOrganization(email: string, password: string): Promise<Organization> {
-  const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+  // Single sign-in round-trip returns the user — use it directly for the org lookup
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
   if (authError) throw new Error(authError.message);
 
-  const org = await getMyOrganization();
+  const userId = authData.user?.id;
+  if (!userId) throw new Error('Organization profile not found.');
+
+  const org = await getOrganizationForUser(userId);
   if (!org) throw new Error('Organization profile not found.');
   return org;
+}
+
+async function getOrganizationForUser(userId: string): Promise<Organization | null> {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('*')
+    .eq('auth_user_id', userId)
+    .single();
+
+  if (error) return null;
+  return data as Organization;
 }
 
 // ─── Password Reset ─────────────────────────────────────────────────────────
@@ -127,15 +147,7 @@ export async function updatePassword(newPassword: string): Promise<void> {
 export async function getMyOrganization(): Promise<Organization | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-
-  const { data, error } = await supabase
-    .from('organizations')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (error) return null;
-  return data as Organization;
+  return getOrganizationForUser(user.id);
 }
 
 export async function logoutOrganization(): Promise<void> {

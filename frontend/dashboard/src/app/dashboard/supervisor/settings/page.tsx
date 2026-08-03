@@ -38,7 +38,7 @@ export default function SupervisorSettingsPage() {
     if (!fullName.trim()) return;
     setUpdatingProfile(true);
     try {
-      const res = await fetch("http://100.104.105.20:8000/auth/profile", {
+      const res = await fetch("http://localhost:8000/auth/profile", {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify({ full_name: fullName.trim() }),
@@ -68,7 +68,7 @@ export default function SupervisorSettingsPage() {
     }
     setChangingPassword(true);
     try {
-      const res = await fetch("http://100.104.105.20:8000/auth/change-password", {
+      const res = await fetch("http://localhost:8000/auth/change-password", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
@@ -264,3 +264,4 @@ export default function SupervisorSettingsPage() {
     </motion.div>
   );
 }
+

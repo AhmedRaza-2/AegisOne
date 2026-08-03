@@ -22,7 +22,7 @@ export default function DepartmentAnalyticsPage() {
 
       console.log(`[Supervisor Analytics] Fetching stats (range: ${timeRange})`);
 
-      fetch(`http://100.104.105.20:8000/admin/stats?time_range=${timeRange}`, { headers })
+      fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers })
         .then(res => {
           if (res.status === 401) {
             logout();
@@ -233,3 +233,4 @@ export default function DepartmentAnalyticsPage() {
     </motion.div>
   );
 }
+

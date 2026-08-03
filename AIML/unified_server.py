@@ -24,9 +24,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from transformers import DistilBertTokenizer
 from torchvision import models, transforms
+from pathlib import Path
 
 # ===== Setup Paths =====
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+URL_MODEL_PATH = str(Path(BASE_DIR) / "url" / "best (3).pt" if os.path.exists(os.path.join(BASE_DIR, "url", "best (3).pt")) else Path(BASE_DIR) / "url" / "best.pt")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ===== Safe Module Loader =====
@@ -99,7 +101,7 @@ async def load_all_models():
 
     # ---------- 3. URL MODEL ----------
     url_py = os.path.join(BASE_DIR, "url", "phishing_model_url.py")
-    url_pt = os.path.join(BASE_DIR, "url", "best.pt")
+    url_pt = URL_MODEL_PATH
     if os.path.exists(url_pt):
         try:
             mod = load_module("aegis_url", url_py)

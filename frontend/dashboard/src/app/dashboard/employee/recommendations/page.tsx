@@ -14,7 +14,7 @@ export default function RecommendationsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://100.104.105.20:8000/user/recommendations?email=${encodeURIComponent(user.email)}`)
+      fetch(`http://localhost:8000/user/recommendations?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });
@@ -70,3 +70,4 @@ export default function RecommendationsPage() {
     </motion.div>
   );
 }
+

@@ -22,7 +22,7 @@ chrome.storage.local.get("shield_enabled", (d) => {
 // ──────────────────────────────────────────────
 const CONFIG = {
   // LOCAL (default): run unified_server.py on your machine
-  API_BASE: "http://100.104.105.20:8000",
+  API_BASE: "http://localhost:8000",
   // NGROK (free cloud): replace with your ngrok URL when running remotely
   // API_BASE: "https://xxxx-xx-xx.ngrok-free.app",
 
@@ -749,3 +749,4 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   })();
   return true; // Keep channel open for async response
 });
+

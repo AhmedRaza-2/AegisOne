@@ -18,7 +18,7 @@ export default function ThreatCenterPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://100.104.105.20:8000/user/threats?email=${encodeURIComponent(user.email)}`)
+        fetch(`http://localhost:8000/user/threats?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => {
             setData(res);
@@ -312,3 +312,4 @@ export default function ThreatCenterPage() {
     </motion.div>
   );
 }
+

@@ -30,7 +30,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
     if (!token) return;
-    fetch("http://100.104.105.20:8000/admin/policies", {
+    fetch("http://localhost:8000/admin/policies", {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())
@@ -63,7 +63,7 @@ export default function AdminSettingsPage() {
     if (!fullName.trim()) return;
     setUpdatingProfile(true);
     try {
-      const res = await fetch("http://100.104.105.20:8000/auth/profile", {
+      const res = await fetch("http://localhost:8000/auth/profile", {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify({ full_name: fullName.trim() }),
@@ -93,7 +93,7 @@ export default function AdminSettingsPage() {
     }
     setChangingPassword(true);
     try {
-      const res = await fetch("http://100.104.105.20:8000/auth/change-password", {
+      const res = await fetch("http://localhost:8000/auth/change-password", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
@@ -311,7 +311,7 @@ export default function AdminSettingsPage() {
                       setSavingPolicy(true);
                       try {
                         const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-                        await fetch("http://100.104.105.20:8000/admin/policies", {
+                        await fetch("http://localhost:8000/admin/policies", {
                           method: "POST",
                           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
                           body: JSON.stringify([
@@ -354,3 +354,4 @@ export default function AdminSettingsPage() {
     </motion.div>
   );
 }
+

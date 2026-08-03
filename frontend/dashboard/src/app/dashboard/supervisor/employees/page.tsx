@@ -48,7 +48,7 @@ export default function EmployeesPage() {
     const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
 
     // Fetch Departments
-    fetch("http://100.104.105.20:8000/admin/departments", { headers })
+    fetch("http://localhost:8000/admin/departments", { headers })
       .then(res => res.json())
       .then(data => {
         if (data && data.departments) {
@@ -60,7 +60,7 @@ export default function EmployeesPage() {
     console.log(`[Employees & Analytics] Fetching data (range: ${timeRange})`);
 
     // Fetch Stats
-    fetch(`http://100.104.105.20:8000/admin/stats?time_range=${timeRange}`, { headers })
+    fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers })
       .then(res => {
         if (res.status === 401) {
           logout();
@@ -76,7 +76,7 @@ export default function EmployeesPage() {
       .catch(err => console.error("[Employees Page] Stats fetch error:", err));
 
     // Fetch Users
-    fetch(`http://100.104.105.20:8000/admin/users?time_range=${timeRange}`, { headers })
+    fetch(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
       .then(res => {
         if (res.status === 401) {
           logout();
@@ -197,7 +197,7 @@ export default function EmployeesPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users?force_transfer=${force}`, {
+      const res = await fetch(`http://localhost:8000/admin/users?force_transfer=${force}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -249,7 +249,7 @@ export default function EmployeesPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${selectedEmployee.id}/password?new_password=${encodeURIComponent(newPassword)}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${selectedEmployee.id}/password?new_password=${encodeURIComponent(newPassword)}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -269,7 +269,7 @@ export default function EmployeesPage() {
   const handlePromoteUser = async () => {
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${selectedEmployee.id}/promote`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${selectedEmployee.id}/promote`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -288,7 +288,7 @@ export default function EmployeesPage() {
   const handleDeleteUser = async () => {
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${selectedEmployee.id}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${selectedEmployee.id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -308,7 +308,7 @@ export default function EmployeesPage() {
   const handleResetPasswordDirect = async (userId: number, pw: string) => {
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}/password?new_password=${encodeURIComponent(pw)}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/password?new_password=${encodeURIComponent(pw)}`, {
         method: "PUT",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -325,7 +325,7 @@ export default function EmployeesPage() {
   const handlePromoteDirect = async (userId: number, name: string) => {
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}/promote`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/promote`, {
         method: "PUT",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -340,7 +340,7 @@ export default function EmployeesPage() {
   const handleRoleChangeDirect = async (userId: number, newRole: string, name: string) => {
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}/role?role=${newRole}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/role?role=${newRole}`, {
         method: "PUT",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -356,7 +356,7 @@ export default function EmployeesPage() {
     const nextStatus = currentStatus === "active" ? "suspended" : "active";
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}/status?status=${nextStatus}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/status?status=${nextStatus}`, {
         method: "PUT",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -371,7 +371,7 @@ export default function EmployeesPage() {
   const handleDeleteDirect = async (userId: number, name: string) => {
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -861,3 +861,4 @@ export default function EmployeesPage() {
     </div>
   );
 }
+

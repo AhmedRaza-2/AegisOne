@@ -1,14 +1,50 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AegisOne | Sovereign Phishing Protection</title>
-    <script type="module" crossorigin src="/assets/index-BkYXC-ZX.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CDCxU0VN.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>
+services:
+  backend:
+    build:
+      # This compose file is downloaded by the hosted landing portal, so use a
+      # remote context rather than expecting a local project checkout.
+      context: https://github.com/amdevworks/AegisOne.git#main
+      dockerfile: Dockerfile.backend
+    container_name: aegisone-backend
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      AEGIS_PORT: "8000"
+      AEGIS_WORKERS: "1"
+      AEGIS_DATABASE_URL: "sqlite+aiosqlite:///./api/database/aegisone.db"
+      AEGIS_JWT_SECRET: ${AEGIS_JWT_SECRET:-change-me-in-production}
+      ORG_ID: ${ORG_ID:-}
+      LICENSE_KEY: ${LICENSE_KEY:-}
+      DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - aegisone-api-data:/app/api/database
+    restart: unless-stopped
 
+  setup:
+    build:
+      context: https://github.com/amdevworks/AegisOne.git#main:frontend/setup
+    container_name: aegisone-setup
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_API_BASE_URL: "http://localhost:8000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: https://github.com/amdevworks/AegisOne.git#main:frontend/dashboard
+    container_name: aegisone-dashboard
+    ports:
+      - "3002:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  aegisone-api-data:

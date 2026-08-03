@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    envDir: path.resolve(__dirname, '../../'),
     plugins: [react(), tailwindcss()],
     css: {
       postcss: {}, // Prevents loading postcss.config.js from parent dir

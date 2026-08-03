@@ -14,7 +14,7 @@ export default function ManagerBrowserExtensionPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://100.104.105.20:8000/user/browser`)
+      fetch(`http://localhost:8000/user/browser`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(() => setLoading(false));
@@ -103,7 +103,7 @@ export default function ManagerBrowserExtensionPage() {
 
           <div className="pt-4 flex flex-wrap gap-4 border-t border-surface-200 dark:border-surface-800 mt-2">
             <a
-              href="http://100.104.105.20:8000/public/download/extension"
+              href="http://localhost:8000/public/download/extension"
               className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors shadow-md hover:shadow-lg"
             >
               <Download className="w-4 h-4" /> Download Extension ZIP
@@ -122,3 +122,4 @@ export default function ManagerBrowserExtensionPage() {
     </motion.div>
   );
 }
+

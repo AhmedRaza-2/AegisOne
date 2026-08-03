@@ -15,7 +15,7 @@ export default function ApprovalsPage() {
     const fetchPending = async () => {
       try {
         const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-        const res = await fetch("http://100.104.105.20:8000/admin/users/pending", {
+        const res = await fetch("http://localhost:8000/admin/users/pending", {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -35,7 +35,7 @@ export default function ApprovalsPage() {
     setActionLoading(userId);
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://100.104.105.20:8000/admin/users/${userId}/status`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -167,3 +167,4 @@ export default function ApprovalsPage() {
     </div>
   );
 }
+

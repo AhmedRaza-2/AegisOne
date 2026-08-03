@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
+import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
 import {
   Building2, User, Mail, Lock, Phone, Globe, Users, Briefcase,
   ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff
@@ -149,7 +150,7 @@ export default function RegisterPage() {
 
       // Send Admin Welcome & Credentials email via public auth API
       try {
-        await fetch("http://100.104.105.20:8000/auth/send-admin-credentials", {
+        await fetch("http://localhost:8000/auth/send-admin-credentials", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -409,6 +410,14 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
+
+      {loading && (
+        <AuthLoadingOverlay
+          title="Creating your organization"
+          steps={['Validating details', 'Securing admin account', 'Deploying your workspace']}
+        />
+      )}
     </div>
   );
 }
+

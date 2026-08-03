@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from transformers import DistilBertTokenizer
 
 from phishing_model_url import URLDetector, extract_url_numerical_features
+from model_paths import get_url_model_path
 
 app = FastAPI(title="AegisOne URL Phishing Detection", version="2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -34,7 +35,7 @@ class HealthResult(BaseModel):
 MODEL = None
 TOKENIZER = None
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = "best.pt"
+MODEL_PATH = str(get_url_model_path())
 CLASSES = ["benign", "defacement", "phishing", "malware"]
 
 def load_model():

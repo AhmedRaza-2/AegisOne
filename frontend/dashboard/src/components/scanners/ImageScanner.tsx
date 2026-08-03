@@ -18,7 +18,7 @@ export function ImageScanner() {
       const formData = new FormData();
       formData.append("file", file);
       // Calls the dedicated image analysis API
-      const res = await fetch("http://100.104.105.20:8000/analyze/image", {
+      const res = await fetch("http://localhost:8000/analyze/image", {
         method: "POST",
         body: formData
       });
@@ -83,3 +83,4 @@ export function ImageScanner() {
     </div>
   );
 }
+

@@ -35,7 +35,7 @@ export default function LoginPage() {
   const handleEmailBlur = async () => {
     if (!email || !email.includes("@")) return;
     try {
-      const res = await fetch(`http://100.104.105.20:8000/auth/check-role?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`http://localhost:8000/auth/check-role?email=${encodeURIComponent(email)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.exists && data.role) {
@@ -81,7 +81,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/forgot-password", {
+      const res = await fetch("http://localhost:8000/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
@@ -103,7 +103,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/verify-reset-otp", {
+      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp })
@@ -134,7 +134,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/reset-password", {
+      const res = await fetch("http://localhost:8000/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp, new_password: newPassword })
@@ -316,3 +316,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

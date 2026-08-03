@@ -29,10 +29,33 @@ export function initDownloadGuard() {
         _processed.set(key, ts);
       }
     }
-    // Register AFTER storage is loaded — otherwise Chrome may replay
-    // onCreated events for existing downloads before _processed is
-    // populated, causing every download to be re-scanned on restart.
-    chrome.downloads.onCreated.addListener(_onDownloadCreated);
+
+    // ── BUG FIX: Pre-seed _processed with ALL downloads currently
+    // known to Chrome (recent history + in-shelf items).
+    //
+    // Problem: The Manifest V3 service worker is NOT persistent. Chrome
+    // terminates it after ~30s of inactivity and restarts it on demand.
+    // On every restart, _processed starts empty. Chrome replays onCreated
+    // for downloads still on the download shelf (in-progress or recent),
+    // which pass the _isProcessed() check and get re-intercepted.
+    //
+    // Fix: Query chrome.downloads.search() before registering the listener.
+    // This gives us every URL Chrome already knows about, so we mark them
+    // all as processed. Legitimate NEW downloads will have IDs not in this
+    // pre-existing set, so they will still be intercepted correctly.
+    chrome.downloads.search({}, (existingDownloads) => {
+      const now2 = Date.now();
+      for (const dl of existingDownloads || []) {
+        const url = dl.finalUrl || dl.url || "";
+        if (url && !_processed.has(url)) {
+          _processed.set(url, now2);
+        }
+      }
+      _persistProcessed();
+
+      // Register AFTER both storage AND existing-download pre-seed are done.
+      chrome.downloads.onCreated.addListener(_onDownloadCreated);
+    });
   });
 }
 

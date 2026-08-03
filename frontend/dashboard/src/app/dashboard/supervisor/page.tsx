@@ -37,7 +37,7 @@ export default function SupervisorDashboard() {
       console.log(`[Supervisor Dashboard] Fetching stats and users (range: ${timeRange}) with token:`, token ? "Present" : "Missing");
 
       // Fetch Stats
-      fetch(`http://100.104.105.20:8000/admin/stats?time_range=${timeRange}`, { headers })
+      fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers })
         .then(res => {
           console.log("[Supervisor Dashboard] Stats status:", res.status);
           if (res.status === 401) {
@@ -59,7 +59,7 @@ export default function SupervisorDashboard() {
         .catch(err => console.error("[Supervisor Dashboard] Stats fetch error:", err));
 
       // Fetch Users
-      fetch(`http://100.104.105.20:8000/admin/users?time_range=${timeRange}`, { headers })
+      fetch(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
         .then(res => {
           console.log("[Supervisor Dashboard] Users status:", res.status);
           if (res.status === 401) {
@@ -370,3 +370,4 @@ export default function SupervisorDashboard() {
     </motion.div>
   );
 }
+

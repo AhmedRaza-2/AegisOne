@@ -14,7 +14,7 @@ export default function ModelsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://100.104.105.20:8000/user/models`)
+      fetch(`http://localhost:8000/user/models`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });
@@ -78,3 +78,4 @@ export default function ModelsPage() {
     </motion.div>
   );
 }
+

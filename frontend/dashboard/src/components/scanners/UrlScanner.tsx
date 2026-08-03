@@ -24,7 +24,7 @@ export function UrlScanner() {
     try {
       const formData = new FormData();
       formData.append("url", url);
-      const res = await fetch("http://100.104.105.20:8000/analyze/url", {
+      const res = await fetch("http://localhost:8000/analyze/url", {
         method: "POST",
         body: formData
       });
@@ -80,3 +80,4 @@ export function UrlScanner() {
     </div>
   );
 }
+

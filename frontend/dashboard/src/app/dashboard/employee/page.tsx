@@ -37,7 +37,7 @@ export default function EmployeeDashboard() {
 
       const fetchData = async () => {
         try {
-          const res = await fetch(`http://100.104.105.20:8000/user/stats?email=${encodeURIComponent(user.email)}`);
+          const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
           const json = await res.json();
           setData(json);
           sessionStorage.setItem(cacheKey, JSON.stringify(json));
@@ -444,3 +444,4 @@ export default function EmployeeDashboard() {
     </motion.div>
   );
 }
+

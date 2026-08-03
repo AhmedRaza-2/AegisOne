@@ -19,7 +19,7 @@ export function FileScanner() {
       formData.append("file", file);
       // fallback to image if document endpoint doesn't exist, but we will try /analyze/document or /analyze/image
       // the user mentioned it should be like images
-      const res = await fetch("http://100.104.105.20:8000/analyze/document", {
+      const res = await fetch("http://localhost:8000/analyze/document", {
         method: "POST",
         body: formData
       });
@@ -84,3 +84,4 @@ export function FileScanner() {
     </div>
   );
 }
+

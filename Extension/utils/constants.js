@@ -9,7 +9,7 @@
 export const DEBUG_MODE = false;
 
 // ── API Configuration ────────────────────────────────────
-export const API_BASE = "http://100.104.105.20:8000";
+export const API_BASE = "http://localhost:8000";
 export const API_TIMEOUT_MS = 6000;
 export const HEALTH_CHECK_INTERVAL_MS = 30_000;
 export const EVENT_SYNC_INTERVAL_MS = 30_000;
@@ -132,3 +132,4 @@ export const STORE_KEYS = {
   WARNINGLIST: "custom_warninglist",
   LAST_SYNC: "last_sync_timestamp",
 };
+

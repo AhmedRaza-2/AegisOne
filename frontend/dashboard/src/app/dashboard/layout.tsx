@@ -81,7 +81,7 @@ function SidebarContent({
     setVerifyMsg("");
     setVerifyError("");
     try {
-      await fetch("http://127.0.0.1:8000/auth/forgot-password", {
+      await fetch("http://localhost:8000/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email })
@@ -100,7 +100,7 @@ function SidebarContent({
     setResetting(true);
     setVerifyError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/verify-reset-otp", {
+      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user?.email, otp })
@@ -301,7 +301,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const fetchInbox = () => {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
       if (!token) return;
-      fetch("http://100.104.105.20:8000/communication/inbox", {
+      fetch("http://localhost:8000/communication/inbox", {
         headers: { "Authorization": `Bearer ${token}` }
       })
         .then(res => res.json())
@@ -507,3 +507,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

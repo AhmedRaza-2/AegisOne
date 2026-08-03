@@ -31,7 +31,7 @@ export default function AuditPage() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://100.104.105.20:8000/admin/audit", { headers: getHeaders() });
+      const res = await fetch("http://localhost:8000/admin/audit", { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);
@@ -152,3 +152,4 @@ export default function AuditPage() {
     </motion.div>
   );
 }
+
