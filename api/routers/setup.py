@@ -289,7 +289,6 @@ async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = De
             if mgr:
                 dept_row.manager_id = mgr.id
 
-    org.checklist = org.checklist
     await db.commit()
     return {"status": "success", "orgId": org.id}
 
@@ -369,6 +368,12 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
 
         # Mirror a lightweight setup structure in the database for the setup wizard.
         await _get_or_create_org(db, "org_default", "AegisOne")
+        # Reset user department references first to avoid ForeignKeyViolationError in Postgres
+        await db.execute(
+            update(User)
+            .where(User.organization_id == "org_default")
+            .values(department_id=None)
+        )
         await db.execute(delete(Department).where(Department.organization_id == "org_default"))
         dept_rows: dict[str, Department] = {}
         dept_names: dict[str, str] = {}
