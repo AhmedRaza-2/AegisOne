@@ -126,13 +126,10 @@ class URLDetector(nn.Module):
         bert_hidden = self.bert.config.hidden_size  # 768 for distilbert-base
 
         self.classifier = nn.Sequential(
-            nn.Linear(bert_hidden + 32, 256),
+            nn.Linear(bert_hidden + 32, 128),   # matches checkpoint: classifier.0
             nn.GELU(),
             nn.Dropout(0.3),
-            nn.Linear(256, 128),
-            nn.GELU(),
-            nn.Dropout(0.2),
-            nn.Linear(128, num_classes),
+            nn.Linear(128, num_classes),          # matches checkpoint: classifier.3
         )
 
     def forward(

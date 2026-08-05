@@ -12,6 +12,7 @@ AIML/image_phishing_detection_model/dataset/
 !AIML/url/final_url_dataset.csv
 !AIML/email/best_phishing_model.pt
 !AIML/url/best.pt
+!AIML/url/best_v3.pt
 !AIML/text_general/best_phishing_model_text.pt
 !AIML/image_phishing_detection_model/checkpoints_v2/best_model.pth
 # Models
@@ -42,6 +43,7 @@ api/database/aegisone.db
 *.ckpt
 !AIML/email/best_phishing_model.pt
 !AIML/url/best.pt
+!AIML/url/best_v3.pt
 !AIML/text_general/best_phishing_model_text.pt
 !AIML/image_phishing_detection_model/checkpoints_v2/best_model.pth
 # Byte-compiled / optimized / DLL files

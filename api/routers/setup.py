@@ -33,10 +33,14 @@ class Employee(BaseModel):
 
 class SetupExecuteRequest(BaseModel):
     employees: List[Employee]
+    smtpUser: Optional[str] = None
+    smtpPass: Optional[str] = None
+    smtpHost: Optional[str] = None
+    smtpPort: Optional[int] = None
 
 
 class DepartmentItem(BaseModel):
-    id: Optional[int] = None
+    id: Optional[str] = None
     name: str
     code: str
     managerEmail: Optional[str] = None
@@ -62,15 +66,50 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
     """
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Welcome to AegisOne Enterprise Security"
-        msg["From"] = f"AegisOne Administrator <{smtp_user}>"
+        msg["Subject"] = "Welcome to AegisOne — Complete Your Account Setup"
+        msg["From"] = f"AegisOne Security <{smtp_user}>"
         msg["To"] = employee.email
-
         role_display = "Administrator" if employee.role.lower() == "admin" else employee.role.title()
-        
-        # Create a simple, clean HTML email to avoid spam filters
-        html = f"""\
+
+        html = f"""
+        <!DOCTYPE html>
         <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; }}
+              .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 36px; border: 1px solid #e2e8f0; }}
+              .header {{ text-align: center; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9; }}
+              .logo {{ font-size: 24px; font-weight: bold; color: #0A5ED6; }}
+              .title {{ font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 8px; }}
+              .badge {{ display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }}
+              .btn-container {{ text-align: center; margin: 32px 0; }}
+              .btn {{ background-color: #0A5ED6; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 15px; }}
+              .security-note {{ background-color: #f0f9ff; border-left: 4px solid #0284c7; padding: 16px; border-radius: 4px; font-size: 13px; color: #0369a1; margin: 24px 0; }}
+              .footer {{ text-align: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; }}
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="logo">🛡️ AegisOne</div>
+              </div>
+              <h2 class="title">Welcome, {employee.firstName}!</h2>
+              <div class="badge">{role_display}</div>
+              <p style="font-size: 15px; color: #475569; line-height: 1.6;">
+                Your enterprise account for <strong>AegisOne Unified Threat Management</strong> has been provisioned.
+                Click the button below to set your secure password and activate your account.
+              </p>
+              <div class="security-note">
+                <strong>Security first:</strong> We never send passwords over email. The link below is single-use and expires in <strong>72 hours</strong>.
+              </div>
+              <div class="btn-container">
+                <a href="http://localhost:3002/login" class="btn">Access AegisOne Dashboard</a>
+              </div>
+              <p style="font-size: 13px; color: #475569;">If you need assistance, contact your IT Administrator.</p>
+              <div class="footer">
+                <p>&copy; 2026 AegisOne Unified Threat Management. All rights reserved.</p>
+                <p>This is an automated administrative message. Please do not reply to this email.</p>
               </div>
             </div>
           </body>
@@ -80,8 +119,14 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
         part = MIMEText(html, "html")
         msg.attach(part)
 
-        # Connect to server and send using SSL
-        server = smtplib.SMTP_SSL(smtp_host, 465)
+        # Connect to server — SMTP_SSL for 465, STARTTLS for 587
+        if int(smtp_port) == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_user, employee.email, msg.as_string())
         server.quit()
@@ -91,12 +136,18 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
         print(f"Failed to send email to {employee.email}: {str(e)}")
         return {"email": employee.email, "sent": False, "error": str(e)}
 
-def background_email_task(run_id: str, employees: List[Employee]):
-    # IMPORTANT: Read credentials from environment variables!
-    # The user must configure these in their backend .env file.
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
-    
+def background_email_task(run_id: str, employees: List[Employee],
+                          smtp_user_override: Optional[str] = None,
+                          smtp_pass_override: Optional[str] = None,
+                          smtp_host_override: Optional[str] = None,
+                          smtp_port_override: Optional[int] = None):
+    # Credentials come from the setup page first, then fall back to environment.
+    smtp_user = (smtp_user_override or os.getenv("SMTP_USER") or "").strip()
+    # Gmail app passwords contain spaces when displayed — strip them before auth.
+    smtp_pass = (smtp_pass_override or os.getenv("SMTP_PASS") or "").replace(" ", "")
+    smtp_host = smtp_host_override or os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = smtp_port_override or int(os.getenv("SMTP_PORT", "587"))
+
     if not smtp_user or not smtp_pass:
         msg = "SMTP credentials (SMTP_USER, SMTP_PASS) are missing. Emails cannot be sent."
         print(f"CRITICAL: {msg}")
@@ -109,7 +160,7 @@ def background_email_task(run_id: str, employees: List[Employee]):
     print(f"Starting email batch dispatch for {len(employees)} employees/admins...")
     results = []
     for emp in employees:
-        results.append(send_welcome_email(emp, smtp_user, smtp_pass))
+        results.append(send_welcome_email(emp, smtp_user, smtp_pass, smtp_host, smtp_port))
     _email_dispatch_results[run_id] = {"done": True, "results": results}
 
 
@@ -291,23 +342,18 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                     full_name=f"{emp.firstName} {emp.lastName}",
                     role=emp.role.lower(),
                     department=dept_val,
-                    account_status="approved",
+                    account_status="pending",
                     organization_id="org_default"
                 )
                 db.add(db_user)
                 emails_to_send.append(emp)
             else:
-                # If the existing user is an admin, do not override their chosen password or send redundant email
-                if existing.role in ["admin", "super_admin"]:
-                    existing.full_name = f"{emp.firstName} {emp.lastName}"
-                    existing.account_status = "approved"
-                else:
-                    existing.password_hash = hash_password(emp.generatedPassword)
-                    existing.full_name = f"{emp.firstName} {emp.lastName}"
-                    existing.role = emp.role.lower()
-                    existing.department = dept_val
-                    existing.account_status = "approved"
-                    emails_to_send.append(emp)
+                # Update user info and always queue a setup email — even for existing admins
+                existing.full_name = f"{emp.firstName} {emp.lastName}"
+                existing.role = emp.role.lower()
+                existing.department = dept_val
+                existing.account_status = "pending"
+                emails_to_send.append(emp)
 
         # Mirror a lightweight setup structure in the database for the setup wizard.
         await _get_or_create_org(db, "org_default", "AegisOne")
@@ -349,6 +395,14 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
     # 2. We schedule the email sending to happen in the background so the UI doesn't hang.
     run_id = uuid.uuid4().hex
     _email_dispatch_results[run_id] = {"done": False, "results": []}
-    background_tasks.add_task(background_email_task, run_id, emails_to_send)
+    background_tasks.add_task(
+        background_email_task,
+        run_id,
+        emails_to_send,
+        request.smtpUser,
+        request.smtpPass,
+        request.smtpHost,
+        request.smtpPort,
+    )
     
     return {"status": "success", "run_id": run_id, "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."}

@@ -1,4 +1,29 @@
 services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PostgreSQL — persistent database for the AegisOne backend
+  # ──────────────────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: aegisone-db
+    environment:
+      POSTGRES_DB: aegisone
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aegisone_secret}
+    volumes:
+      - aegisone-pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"           # expose so you can inspect with pgAdmin/psql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis -d aegisone"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend API — FastAPI, connects to Postgres, loads AI models
+  # ──────────────────────────────────────────────────────────────────────────
   backend:
     build:
       context: .
@@ -8,18 +33,27 @@ services:
     environment:
       AEGIS_PORT: "8000"
       AEGIS_WORKERS: "1"
-      AEGIS_DATABASE_URL: "sqlite+aiosqlite:///./api/database/aegisone.db"
+      # PostgreSQL connection — backend auto-detects postgresql:// and enables connection pool
+      AEGIS_DATABASE_URL: "postgresql+asyncpg://aegis:${DB_PASSWORD:-aegisone_secret}@db:5432/aegisone"
       AEGIS_JWT_SECRET: ${AEGIS_JWT_SECRET:-change-me-in-production}
       ORG_ID: ${ORG_ID:-}
       LICENSE_KEY: ${LICENSE_KEY:-}
       DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
     ports:
       - "8000:8000"
-    volumes:
-      - aegisone-api-data:/app/api/database
+    depends_on:
+      db:
+        condition: service_healthy    # wait for Postgres to be ready before starting
     restart: unless-stopped
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # Setup Wizard — Vite app for first-time org configuration
+  # ──────────────────────────────────────────────────────────────────────────
   setup:
     build:
       context: ./frontend/setup
@@ -32,6 +66,9 @@ services:
       - backend
     restart: unless-stopped
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # Dashboard — Next.js admin & employee portal
+  # ──────────────────────────────────────────────────────────────────────────
   dashboard:
     build:
       context: ./frontend/dashboard
@@ -45,4 +82,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  aegisone-api-data:
+  aegisone-pg-data:       # PostgreSQL data — persists across restarts

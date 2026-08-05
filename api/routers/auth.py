@@ -157,6 +157,9 @@ def send_password_reset_email(email: str, new_password: str):
     if not smtp_user or not smtp_pass:
         print("SMTP credentials missing.")
         return
+    # Gmail app passwords contain spaces when displayed — strip them before auth.
+    smtp_user = smtp_user.strip()
+    smtp_pass = smtp_pass.replace(" ", "")
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "AegisOne - Temporary Password Reset"
@@ -187,6 +190,9 @@ def send_admin_credentials_email(email: str, full_name: str, password: str, org_
     if not smtp_user or not smtp_pass:
         print("SMTP credentials missing.")
         return
+    # Gmail app passwords contain spaces when displayed — strip them before auth.
+    smtp_user = smtp_user.strip()
+    smtp_pass = smtp_pass.replace(" ", "")
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"AegisOne Admin Credentials - {org_name}"
@@ -254,6 +260,9 @@ def send_otp_email(email: str, otp: str):
     smtp_pass = os.getenv("SMTP_PASS")
     if not smtp_user or not smtp_pass:
         return
+    # Gmail app passwords contain spaces when displayed — strip them before auth.
+    smtp_user = smtp_user.strip()
+    smtp_pass = smtp_pass.replace(" ", "")
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "AegisOne - Password Reset Verification Code"

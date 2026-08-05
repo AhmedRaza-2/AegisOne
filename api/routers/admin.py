@@ -946,6 +946,9 @@ def send_welcome_email(email: str, name: str, password: str, department: str, ro
     if not smtp_user or not smtp_pass:
         print("SMTP credentials missing. Cannot send welcome email.")
         return
+    # Gmail app passwords contain spaces when displayed — strip them before auth.
+    smtp_user = smtp_user.strip()
+    smtp_pass = smtp_pass.replace(" ", "")
     
     # Map long department names to abbreviations
     display_dept = "IT" if department == "Information Technology" else department

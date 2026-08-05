@@ -34,6 +34,9 @@ async def contact_form(req: ContactRequest):
     
     if not smtp_user or not smtp_pass:
         return {"status": "success", "message": "Contact request received (SMTP unconfigured)"}
+    # Gmail app passwords contain spaces when displayed — strip them before auth.
+    smtp_user = smtp_user.strip()
+    smtp_pass = smtp_pass.replace(" ", "")
         
     msg = EmailMessage()
     msg["From"] = smtp_user

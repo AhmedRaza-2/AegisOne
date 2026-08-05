@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Building2, Users, Download, Upload, CheckCircle2, AlertCircle, Key, Mail,
   ShieldCheck, Activity, ArrowRight, ChevronRight, Loader2, Sparkles, UserPlus,
-  Shield, Network, HardDrive, FileSpreadsheet, Lock, Check, Search, Laptop, Globe, X
+  Shield, Network, HardDrive, FileSpreadsheet, Lock, Check, Search, Laptop, Globe, X,
+  Eye, EyeOff
 } from 'lucide-react';
 
 type SetupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -129,6 +130,13 @@ export default function App() {
   const [dispatchDone, setDispatchDone] = useState(false);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [emailResults, setEmailResults] = useState<Record<string, { sent: boolean; error?: string }>>({});
+
+  // SMTP credentials (filled in by the admin before dispatching welcome emails)
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
+  const [smtpPort, setSmtpPort] = useState('587');
 
   const pollEmailStatus = (runId: string) => {
     const poll = async () => {
@@ -800,6 +808,66 @@ export default function App() {
                   <div className="flex items-center gap-3 text-sm font-semibold text-slate-700"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Enable Force-Password-Change policy</div>
                 </div>
 
+                <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-lg mx-auto text-left">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-2"><Mail className="w-4 h-4" /> SMTP Sender Credentials</h4>
+                  <p className="text-xs text-slate-500 mb-4">Used to dispatch welcome emails. If left blank, the values from the root <span className="font-mono">.env</span> file are used (if set).</p>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 uppercase">SMTP User (sender email)</label>
+                      <input
+                        type="email"
+                        value={smtpUser}
+                        onChange={(e) => setSmtpUser(e.target.value)}
+                        placeholder="youremail@gmail.com"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6]"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 uppercase">SMTP Password / App Password</label>
+                      <div className="relative">
+                        <input
+                          type={showSmtpPass ? 'text' : 'password'}
+                          value={smtpPass}
+                          onChange={(e) => setSmtpPass(e.target.value)}
+                          placeholder="••••••••••••••••"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#0A5ED6]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSmtpPass((v) => !v)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                          aria-label={showSmtpPass ? 'Hide password' : 'Show password'}
+                        >
+                          {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">SMTP Host</label>
+                        <input
+                          type="text"
+                          value={smtpHost}
+                          onChange={(e) => setSmtpHost(e.target.value)}
+                          placeholder="smtp.gmail.com"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6]"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">Port</label>
+                        <input
+                          type="number"
+                          value={smtpPort}
+                          onChange={(e) => setSmtpPort(e.target.value)}
+                          placeholder="587"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6]"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400">For Gmail, use an App Password (requires 2-Step Verification enabled).</p>
+                  </div>
+                </div>
+
                 <div className="pt-8 border-t border-slate-100 flex justify-between items-center">
                   <button onClick={() => setStep(5)} className="text-slate-500 font-semibold hover:text-[#0F172A] text-sm">Back</button>
                   <button
@@ -811,7 +879,13 @@ export default function App() {
                         const response = await fetch('http://localhost:8000/setup/execute', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ employees: validEmployees })
+                          body: JSON.stringify({
+                            employees: validEmployees,
+                            smtpUser: smtpUser || undefined,
+                            smtpPass: smtpPass || undefined,
+                            smtpHost: smtpHost || undefined,
+                            smtpPort: smtpPort ? parseInt(smtpPort, 10) : undefined,
+                          })
                         });
 
                         if (response.ok) {

@@ -83,16 +83,18 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     from api.database.db import async_session
-    from api.database.models import User
-    from api.auth.password import hash_password
+    from api.database.models import Organization, Department, WebsiteScan, Device, AuditLog, Message, ThreatReport
     from sqlalchemy.future import select
-    
-    async with async_session() as db:
-        # Removed hardcoded AMDevWork Admin creation
+    from sqlalchemy import delete, update
 
-        # Perform full database cleanup: reset department manager references and delete mock telemetry/users
-        from sqlalchemy import delete, update
-        from api.database.models import Department, WebsiteScan, Device, AuditLog, Message, ThreatReport
+    async with async_session() as db:
+        # ── Ensure org_default exists (PostgreSQL enforces FKs — orgs row must exist before departments)
+        org_exists = (await db.execute(select(Organization).where(Organization.id == "org_default"))).scalars().first()
+        if not org_exists:
+            db.add(Organization(id="org_default", name="AegisOne", domain=None, plan="standard", timezone="UTC"))
+            await db.flush()
+
+        # ── Clean up stale mock telemetry from previous runs (safe on empty tables too)
         await db.execute(update(Department).values(manager_id=None))
         await db.execute(delete(WebsiteScan))
         await db.execute(delete(Device))
@@ -100,17 +102,7 @@ async def lifespan(app: FastAPI):
         await db.execute(delete(Message))
         await db.execute(delete(ThreatReport))
         await db.commit()
-
-        # Ensure IT, Human Resources, and Finance departments exist
-        for dname in ["IT", "Human Resources", "Finance"]:
-            d_exists = (await db.execute(select(Department).where(Department.name == dname))).scalars().first()
-            if not d_exists:
-                db.add(Department(name=dname, organization_id="org_default"))
-        await db.commit()
-        print("Database cleanup completed: mock users and telemetry cleared. Ready for fresh setup.")
-
-        # Startup database initialization completed cleanly
-        print("Database startup check completed.")
+        logger.info("Database startup: org_default ensured, stale telemetry cleared.")
 
     load_all_models()
     

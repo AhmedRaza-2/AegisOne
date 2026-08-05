@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Shield, Copy, CheckCircle2, Terminal, LogOut,
-  AlertCircle, Loader2, ArrowRight, X, ChevronRight, Server, Download, ArrowDown
+  Shield, Copy, CheckCircle2, LogOut,
+  AlertCircle, Loader2, ArrowRight, X, ChevronRight, Download, ArrowDown
 } from 'lucide-react';
 import { getMyOrganization, logoutOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
 
-// URLs for the other apps
-const SETUP_WIZARD_URL = 'http://localhost:3001';
 const DASHBOARD_URL = 'http://localhost:3002/login';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// ─── Copy Button Helper ────────────────────────────────────────────────────
 function CopyButton({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -73,9 +71,38 @@ export default function PortalPage() {
 
   const isApproved = org.status === 'active';
 
-  const linuxCommand = `curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d --remove-orphans`;
-  
-  const windowsCommand = `Invoke-WebRequest -Uri "https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml" -OutFile "docker-compose.yml"\n\n$env:ORG_ID="${org.org_id}"\n$env:LICENSE_KEY="${org.license_key}"\n$env:DEPLOYMENT_TOKEN="${org.deployment_token}"\n$env:ADMIN_EMAIL="${org.admin_email}"\n\ndocker compose up -d --remove-orphans`;
+  // ── Deploy commands ────────────────────────────────────────────────────────
+  // Linux/macOS
+  const linuxCommand = [
+    `# ── First time / fresh install ────────────────────────────────`,
+    `# Stop old containers (keeps database if upgrading, add -v to wipe)`,
+    `docker compose down --remove-orphans 2>/dev/null`,
+    ``,
+    `# Set your organisation credentials`,
+    `export ORG_ID="${org.org_id}" \\`,
+    `       LICENSE_KEY="${org.license_key}" \\`,
+    `       DEPLOYMENT_TOKEN="${org.deployment_token}" \\`,
+    `       ADMIN_EMAIL="${org.admin_email}"`,
+    ``,
+    `# Build images from source and start all 4 services (Postgres + backend + setup + dashboard)`,
+    `docker compose up -d --build --remove-orphans`,
+  ].join('\n');
+
+  // Windows PowerShell
+  const windowsCommand = [
+    `# ── First time / fresh install ────────────────────────────────`,
+    `# Stop old containers (keeps database if upgrading, add -v to wipe)`,
+    `docker compose down --remove-orphans 2>$null`,
+    ``,
+    `# Set your organisation credentials`,
+    `$env:ORG_ID="${org.org_id}"`,
+    `$env:LICENSE_KEY="${org.license_key}"`,
+    `$env:DEPLOYMENT_TOKEN="${org.deployment_token}"`,
+    `$env:ADMIN_EMAIL="${org.admin_email}"`,
+    ``,
+    `# Build images from source and start all 4 services (Postgres + backend + setup + dashboard)`,
+    `docker compose up -d --build --remove-orphans`,
+  ].join('\n');
 
   const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 
@@ -108,8 +135,8 @@ export default function PortalPage() {
 
       {/* Main Content */}
       <div className="max-w-5xl mx-auto w-full px-4 py-16 relative z-10 flex flex-col gap-12">
-        
-        {/* Header Title */}
+
+        {/* Header */}
         <div className="text-center space-y-4 mb-4">
           <span className={`inline-flex items-center text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider mb-2 ${statusColor}`}>
             {org.status === 'active' && <CheckCircle2 className="w-3 h-3 mr-1" />}
@@ -133,7 +160,8 @@ export default function PortalPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-[#0F172A]">Your request is under review</h2>
                 <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
-                  Your registration has been successfully published. Our team is currently reviewing your enterprise application. Once approved, your deployment command will unlock here automatically.
+                  Your registration has been successfully published. Our team is currently reviewing your enterprise application.
+                  Once approved, your deployment command will unlock here automatically.
                 </p>
               </>
             ) : (
@@ -145,23 +173,16 @@ export default function PortalPage() {
                 <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
                   Unfortunately, we are unable to approve your organization at this time.
                 </p>
-                {org.product_version !== '1.0.0' && (
-                  <div className="mt-4 p-5 bg-red-50 border border-red-200 rounded-xl inline-block text-left w-full max-w-md">
-                    <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Reason for Rejection</p>
-                    <p className="text-sm text-red-600">{org.product_version}</p>
-                  </div>
-                )}
               </>
             )}
           </div>
         ) : (
           <div className="animate-fadeIn max-w-4xl mx-auto w-full relative">
-            
-            {/* The Connecting Line */}
+            {/* Connecting line */}
             <div className="absolute left-6 top-8 bottom-16 w-0.5 bg-gradient-to-b from-blue-200 via-slate-200 to-emerald-200 hidden md:block" />
 
             <div className="space-y-16">
-              
+
               {/* Step 1: Install Docker */}
               <div className="flex flex-col md:flex-row gap-6 md:gap-10 relative z-10">
                 <div className="shrink-0 flex justify-center md:block">
@@ -198,31 +219,32 @@ export default function PortalPage() {
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Run the Start Command</h3>
                   <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    There are no configuration files to manually prepare. We have automatically injected your
-                    <strong className="text-slate-800"> Organization ID</strong>, <strong className="text-slate-800">License Key</strong>, and <strong className="text-slate-800">Deployment Token</strong> into the command below. 
-                    Simply paste this into your server's terminal.
+                    The command automatically <strong className="text-slate-800">stops any old containers</strong> first,
+                    then pulls the latest compose file and spins up fresh services with your{' '}
+                    <strong className="text-slate-800">Organization ID</strong>,{' '}
+                    <strong className="text-slate-800">License Key</strong>, and{' '}
+                    <strong className="text-slate-800">Deployment Token</strong> pre-injected.
                   </p>
-                  
-                  {/* Premium Terminal Block */}
+
+                  {/* Terminal Block */}
                   <div className="bg-[#0F172A] rounded-2xl shadow-2xl relative group overflow-hidden border border-slate-800 text-left">
-                    {/* Decorative glow */}
                     <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#0A5ED6]/30 rounded-full blur-[80px] pointer-events-none" />
-                    
-                    <div className="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex items-center justify-between relative z-10 overflow-x-auto">
+
+                    <div className="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex items-center justify-between relative z-10">
                       <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                         <div className="hidden sm:flex gap-2 mr-2">
                           <div className="w-3 h-3 rounded-full bg-red-500" />
                           <div className="w-3 h-3 rounded-full bg-amber-500" />
                           <div className="w-3 h-3 rounded-full bg-emerald-500" />
                         </div>
-                        <button 
-                          onClick={() => setOsTab('linux')} 
+                        <button
+                          onClick={() => setOsTab('linux')}
                           className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${osTab === 'linux' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
                         >
                           Linux / macOS (Bash)
                         </button>
-                        <button 
-                          onClick={() => setOsTab('windows')} 
+                        <button
+                          onClick={() => setOsTab('windows')}
                           className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${osTab === 'windows' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
                         >
                           Windows (PowerShell)
@@ -232,9 +254,9 @@ export default function PortalPage() {
                         <CopyButton value={activeCommand} label="Copy Script" />
                       </div>
                     </div>
-                    
+
                     <div className="p-6 md:p-8 overflow-x-auto relative z-10">
-                      <pre className="text-emerald-400 font-mono text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
+                      <pre className="text-emerald-400 font-mono text-sm leading-relaxed whitespace-pre">
                         {activeCommand}
                       </pre>
                     </div>
@@ -255,7 +277,7 @@ export default function PortalPage() {
                     Once Docker finishes building and starting the three local services, your private AegisOne instance is live.
                     The public landing site remains separate; use the local setup wizard to configure your organization.
                   </p>
-                  
+
                   <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                     <a
                       href={`http://localhost:3001?orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`}
