@@ -83,6 +83,10 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
               .logo {{ font-size: 24px; font-weight: bold; color: #0A5ED6; }}
               .title {{ font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 8px; }}
               .badge {{ display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }}
+              .credentials-box {{ background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; font-size: 14px; margin: 24px 0; }}
+              .credentials-row {{ margin-bottom: 8px; display: flex; justify-content: space-between; }}
+              .credentials-label {{ font-weight: 600; color: #64748b; }}
+              .credentials-value {{ font-family: monospace; color: #0f172a; font-weight: bold; }}
               .btn-container {{ text-align: center; margin: 32px 0; }}
               .btn {{ background-color: #0A5ED6; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 15px; }}
               .security-note {{ background-color: #f0f9ff; border-left: 4px solid #0284c7; padding: 16px; border-radius: 4px; font-size: 13px; color: #0369a1; margin: 24px 0; }}
@@ -98,14 +102,22 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
               <div class="badge">{role_display}</div>
               <p style="font-size: 15px; color: #475569; line-height: 1.6;">
                 Your enterprise account for <strong>AegisOne Unified Threat Management</strong> has been provisioned.
-                Click the button below to set your secure password and activate your account.
+                Here are your login credentials:
               </p>
+              
+              <div class="credentials-box">
+                <div style="margin-bottom: 8px;"><strong>Email:</strong> <span style="font-family: monospace; float: right;">{employee.email}</span></div>
+                <div style="margin-bottom: 8px;"><strong>Temporary Password:</strong> <span style="font-family: monospace; float: right; color: #0A5ED6; font-weight: bold;">{employee.generatedPassword or 'Your chosen password'}</span></div>
+              </div>
+
               <div class="security-note">
-                <strong>Security first:</strong> We never send passwords over email. The link below is single-use and expires in <strong>72 hours</strong>.
+                <strong>Security note:</strong> For security reasons, please change this temporary password immediately after logging in from your account settings.
               </div>
+              
               <div class="btn-container">
-                <a href="http://localhost:3002/login" class="btn">Access AegisOne Dashboard</a>
+                <a href="http://localhost:3002/login" class="btn">Log In to AegisOne</a>
               </div>
+              
               <p style="font-size: 13px; color: #475569;">If you need assistance, contact your IT Administrator.</p>
               <div class="footer">
                 <p>&copy; 2026 AegisOne Unified Threat Management. All rights reserved.</p>
