@@ -353,7 +353,7 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                     full_name=f"{emp.firstName} {emp.lastName}",
                     role=emp.role.lower(),
                     department=dept_val,
-                    account_status="pending",
+                    account_status="approved",
                     organization_id="org_default"
                 )
                 db.add(db_user)
@@ -363,7 +363,7 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 existing.full_name = f"{emp.firstName} {emp.lastName}"
                 existing.role = emp.role.lower()
                 existing.department = dept_val
-                existing.account_status = "pending"
+                existing.account_status = "approved"
                 emails_to_send.append(emp)
 
         # Mirror a lightweight setup structure in the database for the setup wizard.

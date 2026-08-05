@@ -62,12 +62,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
             detail="Account is deactivated",
         )
         
-    if user.account_status == "pending":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is awaiting admin approval",
-        )
-    elif user.account_status in ("rejected", "disabled", "suspended"):
+    if user.account_status in ("rejected", "disabled", "suspended"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been disabled. Please contact your administrator.",
