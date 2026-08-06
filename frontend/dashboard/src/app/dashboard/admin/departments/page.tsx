@@ -297,13 +297,13 @@ export default function DepartmentsPage() {
                   : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
                 }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-surface-900 dark:text-white truncate">{dept.name}</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-100 dark:bg-white/[0.06] text-surface-500">
+              <div className="flex items-start justify-between mb-2 gap-2">
+                <span className="text-sm font-bold text-surface-900 dark:text-white leading-tight">{dept.name}</span>
+                <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-100 dark:bg-white/[0.06] text-surface-500">
                   {dept.employee_count} employees
                 </span>
               </div>
-              <p className="text-xs text-surface-500 font-medium truncate">
+              <p className="text-xs text-surface-500 font-medium leading-snug mt-1">
                 Manager: <span className="text-surface-900 dark:text-white font-semibold">{dept.manager_name || "Unassigned"}</span>
               </p>
             </button>
