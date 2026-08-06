@@ -65,17 +65,25 @@ interface ContactItemProps {
 }
 
 export function ContactItem({ contact, isActive, onClick, accentColor = "brand" }: ContactItemProps) {
+  const activeBg = accentColor === "amber" 
+    ? "bg-surface-100 dark:bg-white/[0.02] border-l-amber-500" 
+    : "bg-surface-100 dark:bg-white/[0.02] border-l-brand-500";
+    
+  const avatarActive = accentColor === "amber"
+    ? "bg-amber-500 text-white"
+    : "bg-brand-500 text-white";
+    
+  const avatarInactive = accentColor === "amber"
+    ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+    : "bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400";
+
   return (
     <button
       onClick={onClick}
       className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-surface-50 dark:hover:bg-white/[0.03] transition-colors border-b border-surface-100 dark:border-white/[0.03]
-        ${isActive ? `bg-${accentColor}-50 dark:bg-${accentColor}-900/20 border-l-2 border-l-${accentColor}-500` : ""}`}
+        ${isActive ? `${activeBg} border-l-2` : ""}`}
     >
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm
-        ${isActive
-          ? `bg-${accentColor}-500 text-white`
-          : `bg-${accentColor}-100 dark:bg-${accentColor}-900/40 text-${accentColor}-600 dark:text-${accentColor}-400`
-        }`}>
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${isActive ? avatarActive : avatarInactive}`}>
         {contact.full_name.charAt(0).toUpperCase()}
       </div>
       <div className="min-w-0 flex-1">

@@ -9,16 +9,19 @@ from api.config import DATABASE_URL, DB_POOL_SIZE
 
 logger = logging.getLogger("aegisone.db")
 
-if not DATABASE_URL.startswith("postgresql"):
-    raise RuntimeError("AegisOne is configured to run ONLY on PostgreSQL. Check your DATABASE_URL environment variable.")
+# if not DATABASE_URL.startswith("postgresql"):
+#     raise RuntimeError("AegisOne is configured to run ONLY on PostgreSQL. Check your DATABASE_URL environment variable.")
 
 engine_kwargs = {
     "echo": False,
-    "pool_pre_ping": True,
-    "pool_size": DB_POOL_SIZE,
-    "max_overflow": DB_POOL_SIZE // 2,
-    "pool_timeout": 30
 }
+if DATABASE_URL.startswith("postgresql"):
+    engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_size": DB_POOL_SIZE,
+        "max_overflow": DB_POOL_SIZE // 2,
+        "pool_timeout": 30
+    })
 
 engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
