@@ -133,7 +133,8 @@ function SidebarContent({
 
       <nav className="flex-1 py-6 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map((item: any) => {
-          const active = pathname === item.href || (item.href !== "/dashboard/employee" && pathname.startsWith(item.href));
+          const isRoot = item.href === "/dashboard/admin" || item.href === "/dashboard/supervisor" || item.href === "/dashboard/employee";
+          const active = isRoot ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
