@@ -7,8 +7,10 @@ import { supabase } from '../lib/supabase';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('admin@aegisone.com');
   const [adminPassword, setAdminPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
 
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,19 +18,45 @@ export default function AdminDashboard() {
   const [statusTab, setStatusTab] = useState<'all' | 'pending' | 'active' | 'suspended'>('all');
   const navigate = useNavigate();
 
+  // Check if admin is already signed in on component mount
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.email === 'admin@aegisone.com') {
+        setIsAuthenticated(true);
+      } else {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchOrgs();
     }
   }, [isAuthenticated]);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPassword === 'admin123') {
+    setLoggingIn(true);
+    setAuthError('');
+    try {
+      // 1. Sign out any current tenant session first to prevent conflicts
+      await supabase.auth.signOut();
+
+      // 2. Sign in as Super Admin
+      const { error } = await supabase.auth.signInWithPassword({
+        email: adminEmail,
+        password: adminPassword,
+      });
+
+      if (error) throw error;
+
       setIsAuthenticated(true);
-      setAuthError('');
-    } else {
-      setAuthError('Invalid admin password.');
+    } catch (err: any) {
+      setAuthError(err.message || 'Invalid email or password.');
+    } finally {
+      setLoggingIn(false);
     }
   };
 
@@ -137,23 +165,45 @@ export default function AdminDashboard() {
             </div>
             <div className="text-center mb-8 space-y-2">
               <h1 className="text-2xl font-bold text-[#0F172A]">Super Admin</h1>
-              <p className="text-sm text-[#45464D]">Enter the master password to continue.</p>
+              <p className="text-sm text-[#45464D]">Enter your administrator credentials to continue.</p>
             </div>
             <form onSubmit={handleAdminLogin} className="space-y-4">
-              <input
-                type="password"
-                value={adminPassword}
-                onChange={e => setAdminPassword(e.target.value)}
-                placeholder="Enter Admin Password"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:border-[#0A5ED6] outline-none"
-                autoFocus
-              />
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Admin Email</label>
+                <input
+                  type="email"
+                  value={adminEmail}
+                  onChange={e => setAdminEmail(e.target.value)}
+                  placeholder="admin@aegisone.com"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:border-[#0A5ED6] outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Password</label>
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={e => setAdminPassword(e.target.value)}
+                  placeholder="Enter Password"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:border-[#0A5ED6] outline-none"
+                  required
+                  autoFocus
+                />
+              </div>
               {authError && <p className="text-xs text-red-500 text-center">{authError}</p>}
               <button
                 type="submit"
-                className="w-full bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold py-3 rounded-xl text-sm transition-all"
+                disabled={loggingIn}
+                className="w-full bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold py-3 rounded-xl text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Access Dashboard
+                {loggingIn ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Authenticating...
+                  </>
+                ) : (
+                  'Access Dashboard'
+                )}
               </button>
             </form>
           </div>

@@ -162,8 +162,23 @@ export async function getCurrentAuthUser() {
 // ─── Admin Functions ─────────────────────────────────────────────────────────
 
 export async function getOrganizations(): Promise<Organization[]> {
-  // 1. Fetch from Supabase cloud database
+  // 1. Try fetching via RPC functions (which bypass RLS via SECURITY DEFINER)
+  const rpcNames = ['get_all_organizations', 'list_organizations', 'get_organizations', 'get_organizations_admin'];
+  for (const rpcName of rpcNames) {
+    try {
+      const { data, error } = await supabase.rpc(rpcName);
+      if (!error && data) {
+        console.log(`[org-service] Successfully fetched organizations using RPC: ${rpcName}`);
+        return data as Organization[];
+      }
+    } catch (e) {
+      // Continue to next RPC
+    }
+  }
+
+  // 2. Fallback to direct table select (subject to RLS constraints)
   try {
+    console.warn("[org-service] Falling back to direct table select (RLS restrictions apply)");
     const { data, error } = await supabase
       .from('organizations')
       .select('*')
