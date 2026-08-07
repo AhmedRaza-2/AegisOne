@@ -28,10 +28,15 @@ class Organization(Base):
     is_active       = Column(Boolean,     default=True)
     created_at      = Column(DateTime,    server_default=func.now())
 
+    # SMTP Configuration (Saved during Setup Wizard)
+    smtp_host       = Column(String(255), default="smtp.gmail.com")
+    smtp_port       = Column(Integer,     default=587)
+    smtp_user       = Column(String(255), nullable=True)
+    smtp_pass       = Column(String(255), nullable=True)
+
     # Relationships
     departments     = relationship("Department", back_populates="organization", cascade="all, delete-orphan")
     users           = relationship("User", back_populates="organization")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1.5 DEPARTMENTS

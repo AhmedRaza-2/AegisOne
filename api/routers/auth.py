@@ -250,9 +250,7 @@ async def send_admin_credentials_notify(req: AdminCredentialsNotifyRequest, db: 
     send_admin_credentials_email(req.email, req.full_name, req.password, req.org_name or "Enterprise")
     return {"status": "ok", "message": f"Admin credentials email dispatched to {req.email}"}
 
-def send_otp_email(email: str, otp: str):
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
+def send_otp_email(email: str, otp: str, smtp_user: str, smtp_pass: str, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
     if not smtp_user or not smtp_pass:
         return
     # Gmail app passwords contain spaces when displayed — strip them before auth.
@@ -261,7 +259,7 @@ def send_otp_email(email: str, otp: str):
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "AegisOne - Password Reset Verification Code"
-        msg["From"] = smtp_user
+        msg["From"] = f"AegisOne Security <{smtp_user}>"
         msg["To"] = email
         html = f"""
         <html>
@@ -274,10 +272,20 @@ def send_otp_email(email: str, otp: str):
         </html>
         """
         msg.attach(MIMEText(html, "html"))
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        
+        # Connect to server — SMTP_SSL for 465, STARTTLS for 587
+        if int(smtp_port) == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_user, email, msg.as_string())
         server.quit()
+        print(f"Successfully sent OTP email to {email}")
     except Exception as e:
         print(f"Failed to send OTP email: {e}")
 
@@ -299,7 +307,17 @@ async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends
     print(f"[SECURITY OTP CODE] Email: {user.email} -> OTP Code: {otp}")
     print(f"==========================================\n")
     
-    send_otp_email(user.email, otp)
+    # Retrieve organization SMTP settings, fallback to env variables if empty
+    from api.database.models import Organization
+    org_res = await db.execute(select(Organization).where(Organization.id == "org_default"))
+    org = org_res.scalar_one_or_none()
+    
+    smtp_user = (org.smtp_user if org and org.smtp_user else os.getenv("SMTP_USER")) or ""
+    smtp_pass = (org.smtp_pass if org and org.smtp_pass else os.getenv("SMTP_PASS")) or ""
+    smtp_host = (org.smtp_host if org and org.smtp_host else os.getenv("SMTP_HOST")) or "smtp.gmail.com"
+    smtp_port = (org.smtp_port if org and org.smtp_port else int(os.getenv("SMTP_PORT", "587")))
+    
+    send_otp_email(user.email, otp, smtp_user, smtp_pass, smtp_host, smtp_port)
     return {"status": "ok", "message": "OTP sent"}
 
 class ResetWithNewPasswordRequest(BaseModel):

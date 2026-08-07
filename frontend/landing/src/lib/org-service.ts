@@ -197,23 +197,36 @@ export async function getOrganizations(): Promise<Organization[]> {
 }
 
 export async function updateOrganizationStatus(orgId: string, status: 'active' | 'pending' | 'suspended', reason?: string): Promise<void> {
+  // 1. Try updating status via the security-definer RPC to bypass RLS
   try {
-    const updates: any = { status };
-    if (reason) {
-      updates.product_version = reason;
+    const { error } = await supabase.rpc('update_org_status', {
+      org_id_param: orgId,
+      status_param: status,
+      reason_param: reason || null
+    });
+    if (!error) {
+      console.log("[org-service] Successfully updated organization status via RPC");
+      return;
     }
+    console.warn("[org-service] RPC update_org_status failed:", error);
+  } catch (e) {
+    console.warn("[org-service] RPC update_org_status exception:", e);
+  }
 
-    const { error } = await supabase
-      .from('organizations')
-      .update(updates)
-      .eq('id', orgId);
+  // 2. Fallback to direct table update (subject to RLS constraints)
+  const updates: any = { status };
+  if (reason) {
+    updates.product_version = reason;
+  }
 
-    if (error) {
-      throw new Error(`Supabase update error: ${error.message}`);
-    }
-  } catch (e: any) {
-    console.error("[org-service] Supabase status update failed:", e);
-    throw new Error(e.message || "Failed to update organization status in cloud DB.");
+  const { error } = await supabase
+    .from('organizations')
+    .update(updates)
+    .eq('id', orgId);
+
+  if (error) {
+    console.error("[org-service] Direct table update failed:", error);
+    throw new Error(`Failed to update organization: ${error.message}`);
   }
 }
 

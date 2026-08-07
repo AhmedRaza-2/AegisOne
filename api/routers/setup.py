@@ -367,7 +367,16 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 emails_to_send.append(emp)
 
         # Mirror a lightweight setup structure in the database for the setup wizard.
-        await _get_or_create_org(db, "org_default", "AegisOne")
+        org = await _get_or_create_org(db, "org_default", "AegisOne")
+        if request.smtpHost:
+            org.smtp_host = request.smtpHost
+        if request.smtpPort:
+            org.smtp_port = request.smtpPort
+        if request.smtpUser:
+            org.smtp_user = request.smtpUser
+        if request.smtpPass:
+            org.smtp_pass = request.smtpPass
+
         # Reset user department references first to avoid ForeignKeyViolationError in Postgres
         await db.execute(
             update(User)

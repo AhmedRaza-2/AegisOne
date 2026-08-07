@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, Check, X, Loader2, LogOut, Lock, Trash2, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { Shield, Check, X, Loader2, LogOut, Lock, Trash2, Search, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { getOrganizations, updateOrganizationStatus, deleteOrganization, logoutOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -7,8 +7,9 @@ import { supabase } from '../lib/supabase';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('admin@aegisone.com');
+  const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
 
@@ -18,15 +19,12 @@ export default function AdminDashboard() {
   const [statusTab, setStatusTab] = useState<'all' | 'pending' | 'active' | 'suspended'>('all');
   const navigate = useNavigate();
 
-  // Check if admin is already signed in on component mount
+  // Always require manual login when accessing /admin
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email === 'admin@aegisone.com') {
-        setIsAuthenticated(true);
-      } else {
-        setLoading(false);
-      }
+      // Force sign out any existing session to start fresh and require login
+      await supabase.auth.signOut().catch(() => {});
+      setLoading(false);
     })();
   }, []);
 
@@ -45,6 +43,11 @@ export default function AdminDashboard() {
       await supabase.auth.signOut();
 
       // 2. Sign in as Super Admin
+      const adminEmailConfig = import.meta.env.VITE_ADMIN_EMAIL || 'araza2125012.pgc@gmail.com';
+      if (adminEmail.toLowerCase() !== adminEmailConfig.toLowerCase()) {
+        throw new Error("Access Denied: Email is not registered as a Super Administrator.");
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email: adminEmail,
         password: adminPassword,
@@ -181,15 +184,24 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Password</label>
-                <input
-                  type="password"
-                  value={adminPassword}
-                  onChange={e => setAdminPassword(e.target.value)}
-                  placeholder="Enter Password"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:border-[#0A5ED6] outline-none"
-                  required
-                  autoFocus
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={adminPassword}
+                    onChange={e => setAdminPassword(e.target.value)}
+                    placeholder="Enter Password"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-10 py-3 text-sm text-[#0F172A] focus:border-[#0A5ED6] outline-none"
+                    required
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               {authError && <p className="text-xs text-red-500 text-center">{authError}</p>}
               <button
