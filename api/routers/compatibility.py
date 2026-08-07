@@ -450,48 +450,77 @@ async def get_current_policy(
 
 @router.post("/devices/register")
 async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Depends(get_db)):
-    device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
-    if not device:
-        device = Device(
-            device_id=payload.device_id,
-            organization_id=payload.organization_id or DEFAULT_POLICY["org_id"],
-            user_id=payload.user_id,
-            browser=payload.browser,
-            browser_version=payload.browser_version,
-            os=payload.os,
-            status="active",
-        )
-        db.add(device)
-    else:
-        device.organization_id = payload.organization_id or device.organization_id or DEFAULT_POLICY["org_id"]
-        device.user_id = payload.user_id if payload.user_id is not None else device.user_id
-        device.browser = payload.browser
-        device.browser_version = payload.browser_version
-        device.os = payload.os
-        device.status = "active"
-    await db.commit()
+    try:
+        # Try to find existing device
+        device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
+        if not device:
+            device = Device(
+                device_id=payload.device_id,
+                organization_id=payload.organization_id or DEFAULT_POLICY["org_id"],
+                user_id=payload.user_id,
+                browser=payload.browser,
+                browser_version=payload.browser_version,
+                os=payload.os,
+                status="active",
+            )
+            db.add(device)
+        else:
+            device.organization_id = payload.organization_id or device.organization_id or DEFAULT_POLICY["org_id"]
+            device.user_id = payload.user_id if payload.user_id is not None else device.user_id
+            device.browser = payload.browser
+            device.browser_version = payload.browser_version
+            device.os = payload.os
+            device.status = "active"
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        # Fetch the existing one again and update to handle concurrent race conditions
+        device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
+        if device:
+            device.organization_id = payload.organization_id or device.organization_id or DEFAULT_POLICY["org_id"]
+            device.user_id = payload.user_id if payload.user_id is not None else device.user_id
+            device.browser = payload.browser
+            device.browser_version = payload.browser_version
+            device.os = payload.os
+            device.status = "active"
+            await db.commit()
+        else:
+            raise e
+            
     return {"ok": True, "device_id": payload.device_id, "organization_id": device.organization_id}
 
 
 @router.post("/devices/heartbeat")
 async def heartbeat_device(payload: DeviceHeartbeatRequest, db: AsyncSession = Depends(get_db)):
-    device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
-    if not device:
-        device = Device(
-            device_id=payload.device_id,
-            organization_id=DEFAULT_POLICY["org_id"],
-            browser=payload.browser,
-            browser_version=payload.browser_version,
-            os=payload.os,
-            status="active",
-        )
-        db.add(device)
-    else:
-        device.browser = payload.browser
-        device.browser_version = payload.browser_version
-        device.os = payload.os
-        device.status = "active"
-    await db.commit()
+    try:
+        device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
+        if not device:
+            device = Device(
+                device_id=payload.device_id,
+                organization_id=DEFAULT_POLICY["org_id"],
+                browser=payload.browser,
+                browser_version=payload.browser_version,
+                os=payload.os,
+                status="active",
+            )
+            db.add(device)
+        else:
+            device.browser = payload.browser
+            device.browser_version = payload.browser_version
+            device.os = payload.os
+            device.status = "active"
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
+        if device:
+            device.browser = payload.browser
+            device.browser_version = payload.browser_version
+            device.os = payload.os
+            device.status = "active"
+            await db.commit()
+        else:
+            raise e
     return {"ok": True, "device_id": payload.device_id, "status": "active"}
 
 
@@ -508,6 +537,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
         # Deduplication check to prevent UNIQUE constraint failures
         existing = await db.execute(select(SecurityEvent).where(SecurityEvent.event_id == event_id))
         if existing.scalar_one_or_none():
+            print(f"[AegisOne:Ingest] Duplicate event bypassed: {event_id}")
             continue
             
         details = event.details or {}
@@ -525,6 +555,9 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
         )
         db.add(entry)
         persisted += 1
+
+        # Print debug log to console
+        print(f"[AegisOne:Ingest] Ingesting event: ID={event_id}, Type={event.type}, User={event.user_id}, Org={event.org_id}, Risk={event.risk_score or 0}%")
 
         if event.type == "credential_warning":
             db.add(CredentialEvent(
@@ -586,7 +619,9 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
                 decision=decision
             ))
 
-    await db.commit()
+    if persisted > 0:
+        await db.commit()
+        print(f"[AegisOne:Ingest] Successfully committed {persisted} security events to the database.")
     return {"status": "success", "count": persisted}
 
 

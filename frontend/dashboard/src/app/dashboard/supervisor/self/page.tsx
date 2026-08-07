@@ -1,202 +1,441 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import {
+  ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2, Globe, FileText,
+  Lock, BrainCircuit, Activity, ChevronRight, Server, Clock, Download, Image as ImageIcon, Scan,
+  BarChart3, TrendingUp, CheckCircle, XCircle
+} from "lucide-react";
 import { motion } from "framer-motion";
-import { Activity, ShieldCheck, User } from "lucide-react";
-import { useState, useEffect } from "react";
-import { AreaChart, Area, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useEffect, useState, useMemo } from "react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
+} from "recharts";
 
-const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } } };
-const stagger = { show: { transition: { staggerChildren: 0.1 } } };
-
-const intensityColors = ['bg-surface-100 dark:bg-[#1A2133]', 'bg-[#A5C0FF]', 'bg-[#4F84F8]', 'bg-[#3D6CE5]', 'bg-[#294BBD]'];
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
+};
+const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function ManagerSelfPage() {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all">("24h");
+  const [distType, setDistType] = useState<"scans" | "blocked" | "safe">("scans");
 
   useEffect(() => {
     if (user?.email) {
-      const fetchData = () => {
-        fetch(`http://localhost:8000/user/analytics?email=${encodeURIComponent(user.email)}`)
-          .then(res => res.json())
-          .then(res => { setData(res); setLoading(false); })
-          .catch(() => setLoading(false));
+      const cacheKey = `emp_stats_${user.email}`;
+      const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null;
+      if (cached) {
+        try {
+          setData(JSON.parse(cached));
+          setLoading(false);
+        } catch (e) { }
+      }
+
+      const fetchData = async () => {
+        try {
+          const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
+          const json = await res.json();
+          setData(json);
+          sessionStorage.setItem(cacheKey, JSON.stringify(json));
+          setLoading(false);
+        } catch (err) {
+          console.error(err);
+          setLoading(false);
+        }
       };
+
       fetchData();
       const interval = setInterval(fetchData, 10000);
       return () => clearInterval(interval);
     }
   }, [user]);
 
+  const recentScans = data?.scans || [];
+  const filteredScans = recentScans.filter((scan: any) => {
+    const scanTime = new Date(scan.timestamp).getTime();
+    const now = new Date().getTime();
+    const diff = now - scanTime;
+    if (timeRange === "24h") return diff <= 24 * 60 * 60 * 1000;
+    if (timeRange === "7d") return diff <= 7 * 24 * 60 * 60 * 1000;
+    if (timeRange === "30d") return diff <= 30 * 24 * 60 * 60 * 1000;
+    return true; // all
+  });
+
+  const totalScans = filteredScans.length;
+  const blockedScans = filteredScans.filter((s: any) => s.decision === 'block').length;
+  const securityScore = Math.max(0, 100 - (blockedScans * 2));
+  const isProtected = securityScore > 80;
+
+  const urlScans = filteredScans.filter((s: any) => s.scanType === 'url' || !s.scanType || s.scanType === 'text' || s.scanType === 'email');
+  const webScans = filteredScans.filter((s: any) => s.scanType === 'website');
+  const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
+  const imageScans = filteredScans.filter((s: any) => s.scanType === 'image');
+
+  const stats = {
+    urls: {
+      total: urlScans.length,
+      blocked: urlScans.filter((s: any) => s.decision === 'block').length
+    },
+    websites: {
+      total: webScans.length,
+      blocked: webScans.filter((s: any) => s.decision === 'block').length
+    },
+    files: {
+      total: fileScans.length,
+      blocked: fileScans.filter((s: any) => s.decision === 'block').length
+    },
+    images: {
+      total: imageScans.length,
+      blocked: imageScans.filter((s: any) => s.decision === 'block').length
+    }
+  };
+
+  const scanBreakdown = useMemo(() => {
+    if (distType === "blocked") {
+      return {
+        url: urlScans.filter((s: any) => s.decision === 'block').length,
+        image: imageScans.filter((s: any) => s.decision === 'block').length,
+        attachment: fileScans.filter((s: any) => s.decision === 'block').length,
+        website: webScans.filter((s: any) => s.decision === 'block').length
+      };
+    } else if (distType === "safe") {
+      return {
+        url: urlScans.filter((s: any) => s.decision !== 'block').length,
+        image: imageScans.filter((s: any) => s.decision !== 'block').length,
+        attachment: fileScans.filter((s: any) => s.decision !== 'block').length,
+        website: webScans.filter((s: any) => s.decision !== 'block').length
+      };
+    }
+    return {
+      url: urlScans.length,
+      image: imageScans.length,
+      attachment: fileScans.length,
+      website: webScans.length
+    };
+  }, [urlScans, imageScans, fileScans, webScans, distType]);
+
+  const rawDistribution = [
+    { name: 'URLs', value: scanBreakdown.url, color: '#4F84F8' },
+    { name: 'Images', value: scanBreakdown.image, color: '#F59E0B' },
+    { name: 'Downloads', value: scanBreakdown.attachment, color: '#EF4444' },
+    { name: 'Websites', value: scanBreakdown.website, color: '#8B5CF6' }
+  ].filter(d => d.value > 0);
+
+  const threatDistribution = rawDistribution.length > 0 ? rawDistribution : [{ name: 'No Scans Yet', value: 1, color: '#334155' }];
+
+  const chartData = useMemo(() => {
+    const trendMap: Record<string, number> = {};
+    const now = new Date();
+
+    if (timeRange === "24h") {
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+        const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        trendMap[label] = 0;
+      }
+      filteredScans.forEach((scan: any) => {
+        const scanTime = new Date(scan.timestamp);
+        const closestHour = new Date(scanTime.setMinutes(0, 0, 0));
+        const hourLabel = closestHour.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (trendMap[hourLabel] !== undefined) {
+          trendMap[hourLabel]++;
+        } else {
+          const keys = Object.keys(trendMap);
+          if (keys.length > 0) trendMap[keys[keys.length - 1]]++;
+        }
+      });
+    } else {
+      const daysCount = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 30;
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const label = d.toLocaleDateString([], { month: 'short', day: '2-digit' });
+        trendMap[label] = 0;
+      }
+      filteredScans.forEach((scan: any) => {
+        const scanTime = new Date(scan.timestamp);
+        const label = scanTime.toLocaleDateString([], { month: 'short', day: '2-digit' });
+        if (trendMap[label] !== undefined) {
+          trendMap[label]++;
+        }
+      });
+    }
+
+    return Object.entries(trendMap).map(([name, scans]) => ({
+      name,
+      scans
+    }));
+  }, [filteredScans, timeRange]);
+
   if (!user) return null;
-
-  const defaultTrend = [
-    { name: 'DAY 01', score: 65 }, { name: 'DAY 07', score: 70 },
-    { name: 'DAY 14', score: 78 }, { name: 'DAY 21', score: 85 },
-    { name: 'TODAY', score: 88 }
-  ];
-  const defaultCategories = [
-    { name: 'Phishing', value: 45, color: '#4F84F8' },
-    { name: 'Malware', value: 25, color: '#F87171' },
-    { name: 'Credentials', value: 20, color: '#F59E0B' },
-    { name: 'Safe', value: 10, color: '#22c55e' },
-  ];
-
-  const chartTrend = data?.dailyTrend?.length > 0
-    ? data.dailyTrend.map((t: any) => ({ name: t.name, score: t.threats || 0 }))
-    : defaultTrend;
-  const chartCategories = data?.threatTypes?.length > 0
-    ? data.threatTypes.map((t: any, i: number) => ({ name: t.name, value: t.value, color: ['#4F84F8', '#F87171', '#F59E0B', '#22c55e', '#a855f7'][i % 5] }))
-    : defaultCategories;
-  const totalEvents = chartCategories.reduce((acc: number, curr: any) => acc + curr.value, 0);
-
-  // Generate heatmap (stable per session)
-  const heatmapDays = Array.from({ length: 48 }, (_, i) => (i * 7 + 3) % 5);
+  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-emerald-500 animate-spin" /></div>;
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto pb-10">
 
       {/* Header */}
-      <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="max-w-xl">
-          <div className="flex items-center gap-2 mb-3">
-            <User className="w-5 h-5 text-[#4F84F8]" />
-            <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">My Personal Security Analytics</span>
-          </div>
-          <h1 className="text-3xl font-bold text-[#4F84F8] mb-3">
-            {user.full_name || user.fullName || "Manager"}'s Security
-          </h1>
-          <p className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed">
-            As a manager, you're a high-value target. Your personal scan activity and threats are monitored here, independently of your team's stats. Install the browser extension to contribute to this data in real-time.
-          </p>
+      <motion.div variants={fadeUp} className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">My Personal Security Analytics</h1>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Real-time protection and contextual AI analysis.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-8 shrink-0">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">My Scans</span>
-            <span className="text-2xl font-bold text-surface-900 dark:text-white mt-1">
-              {loading ? "..." : (data?.total_scans ?? 0)}
-            </span>
+        <div className="flex bg-surface-100 dark:bg-white/[0.04] p-1 rounded-lg border border-surface-200 dark:border-white/[0.08] shrink-0">
+          {[
+            { id: "24h", label: "24 Hours" },
+            { id: "7d", label: "7 Days" },
+            { id: "30d", label: "30 Days" },
+            { id: "all", label: "All Time" }
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTimeRange(t.id as any)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* 1. Security Snapshot */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Status */}
+        <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${securityScore >= 80 ? 'bg-emerald-500/10 text-emerald-500' : securityScore >= 50 ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-500'}`}>
+            {securityScore >= 80 ? <ShieldCheck className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Threats Blocked</span>
-            <span className="text-2xl font-bold text-surface-900 dark:text-white mt-1">
-              {loading ? "..." : (data?.total_threats ?? 0)}
-            </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-surface-500 mb-1">System Status</p>
+            <h3 className="text-xl font-bold text-surface-900 dark:text-white">
+              {securityScore >= 80 ? 'Protected' : securityScore >= 50 ? 'Active Threats' : 'At Risk'}
+            </h3>
           </div>
-          <div className="px-4 py-2 rounded-lg bg-surface-100 dark:bg-white/[0.05] border border-surface-200 dark:border-white/[0.1] flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#4F84F8]" />
-            <span className="text-xs font-bold text-surface-900 dark:text-white uppercase tracking-wider">Protected</span>
+        </motion.div>
+
+        {/* Security Score */}
+        <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0">
+            <BrainCircuit className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold uppercase tracking-widest text-surface-500 mb-1">Security Score</p>
+            <div className="flex items-center gap-3">
+              <h3 className="text-xl font-bold text-surface-900 dark:text-white">
+                {securityScore}/100
+              </h3>
+              <div className="flex-1 h-1.5 bg-surface-200 dark:bg-white/[0.05] rounded-full overflow-hidden">
+                <div className="h-full bg-purple-500" style={{ width: `${securityScore}%` }}></div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+      </div>
+
+      {/* Detailed Scan Analytics */}
+      <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 border-b border-surface-200 dark:border-white/[0.04] pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-surface-900 dark:text-white">Detailed Scan Analytics</h3>
+            <p className="text-xs text-surface-500 mt-1">Breakdown of all scanned telemetry</p>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <span className="text-xs font-semibold text-surface-500 uppercase tracking-wider block">Total Scans</span>
+              <span className="text-lg font-black text-surface-900 dark:text-white">{totalScans}</span>
+            </div>
+            <div className="w-px h-8 bg-surface-250 dark:bg-white/[0.08]" />
+            <div className="text-right">
+              <span className="text-xs font-semibold text-surface-500 uppercase tracking-wider block text-emerald-500">Total Safe</span>
+              <span className="text-lg font-black text-emerald-500">{totalScans - blockedScans}</span>
+            </div>
+            <div className="w-px h-8 bg-surface-250 dark:bg-white/[0.08]" />
+            <div className="text-right">
+              <span className="text-xs font-semibold text-surface-500 uppercase tracking-wider block text-red-500">Total Blocked</span>
+              <span className="text-lg font-black text-red-500">{blockedScans}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded bg-[#4F84F8]/10 text-[#4F84F8] flex items-center justify-center shrink-0"><Globe className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">URLs</span>
+            </div>
+            <div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.urls.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.urls.total - stats.urls.blocked} Safe</span>
+                <span className="text-red-500">{stats.urls.blocked} Blocked</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded bg-[#8B5CF6]/10 text-[#8B5CF6] flex items-center justify-center shrink-0"><ShieldCheck className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">Websites</span>
+            </div>
+            <div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.websites.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.websites.total - stats.websites.blocked} Safe</span>
+                <span className="text-red-500">{stats.websites.blocked} Blocked</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center shrink-0"><FileText className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">Downloads</span>
+            </div>
+            <div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.files.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.files.total - stats.files.blocked} Safe</span>
+                <span className="text-red-500">{stats.files.blocked} Blocked</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center shrink-0"><ImageIcon className="w-3 h-3" /></div>
+              <span className="text-sm font-bold text-surface-900 dark:text-white">Images</span>
+            </div>
+            <div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.images.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.images.total - stats.images.blocked} Safe</span>
+                <span className="text-red-500">{stats.images.blocked} Blocked</span>
+              </div>
+            </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Stats Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Total URL Scans", value: data?.url_scans ?? 0, color: "text-blue-500" },
-          { label: "Downloads Scanned", value: data?.download_scans ?? 0, color: "text-amber-500" },
-          { label: "Credential Events", value: data?.credential_events ?? 0, color: "text-purple-500" },
-          { label: "Risk Score", value: `${data?.risk_score ?? 0}/100`, color: "text-red-500" },
-        ].map((s, i) => (
-          <motion.div key={i} variants={fadeUp} className="stat-card text-center">
-            <p className={`text-2xl font-bold ${s.color}`}>{loading ? "—" : s.value}</p>
-            <p className="text-xs text-surface-500 mt-1">{s.label}</p>
-          </motion.div>
-        ))}
-      </div>
-
+      {/* Analytics Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Trend Chart */}
-        <motion.div variants={fadeUp} className="lg:col-span-2 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
-          <h2 className="text-base font-bold text-surface-900 dark:text-white mb-2">Security Score Trend</h2>
-          <p className="text-xs text-surface-500 mb-6">Your 30-day rolling personal security baseline</p>
-          <div className="h-64 w-full">
+
+        {/* Line Chart */}
+        <motion.div variants={fadeUp} className="lg:col-span-2 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col h-80">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-surface-900 dark:text-white">Complete Scan Trend</h3>
+          </div>
+          <div className="w-full flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="mgSelfScore" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="colorScans" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#4F84F8" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} dy={10} />
-                <RechartsTooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return <div className="bg-surface-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-xl">{payload[0].payload.name}: {payload[0].value}</div>;
-                    }
-                    return null;
-                  }}
-                />
-                <Area type="monotone" dataKey="score" stroke="#4F84F8" strokeWidth={3} fillOpacity={1} fill="url(#mgSelfScore)" activeDot={{ r: 6, fill: '#4F84F8', stroke: '#fff', strokeWidth: 2 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#141A29', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
+                <Area type="monotone" dataKey="scans" stroke="#4F84F8" strokeWidth={3} fillOpacity={1} fill="url(#colorScans)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Threat Categories */}
-        <motion.div variants={fadeUp} className="lg:col-span-1 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
-          <h2 className="text-base font-bold text-surface-900 dark:text-white mb-6">Threat Breakdown</h2>
-          <div className="relative h-48 w-full flex items-center justify-center mb-6">
+        {/* Threat Distribution */}
+        <motion.div variants={fadeUp} className="lg:col-span-1 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col h-80">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-surface-900 dark:text-white">Distribution</h3>
+            <div className="flex bg-surface-100 dark:bg-white/[0.02] p-0.5 rounded-md border border-surface-200 dark:border-white/[0.05] shrink-0">
+              {[
+                { id: "scans", label: "Scans" },
+                { id: "safe", label: "Safe" },
+                { id: "blocked", label: "Blocked" }
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setDistType(opt.id as any)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${distType === opt.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 hover:text-surface-900 dark:hover:text-white'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="w-full flex-1 relative min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={chartCategories} cx="50%" cy="50%" innerRadius={60} outerRadius={78} paddingAngle={2} dataKey="value" stroke="none">
-                  {chartCategories.map((entry: any, index: number) => (
+                <Pie data={threatDistribution} innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
+                  {threatDistribution.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
+                <Tooltip contentStyle={{ backgroundColor: '#141A29', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} itemStyle={{ color: '#fff' }} />
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-bold text-surface-900 dark:text-white">{totalEvents}</span>
-              <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mt-1">Events</span>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {chartCategories.map((cat: any, i: number) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }}></span>
-                  <span className="text-surface-700 dark:text-surface-300 font-medium">{cat.name}</span>
-                </div>
-                <span className="font-bold text-surface-900 dark:text-white">{cat.value}</span>
-              </div>
-            ))}
           </div>
         </motion.div>
       </div>
 
-      {/* Activity Heatmap */}
-      <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6">
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h2 className="text-base font-bold text-surface-900 dark:text-white">Detection Activity Heatmap</h2>
-            <p className="text-xs text-surface-500 mt-1">Your personal browsing security events — hourly intensity over 12 weeks</p>
+      <div className="grid grid-cols-1 gap-6">
+
+        {/* Real-time Threat Feed */}
+        <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 h-96 overflow-hidden flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-surface-900 dark:text-white">Real-Time Threat Feed</h3>
+              <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
+                {timeRange === "24h" ? "Showing all scans from the last 24 hours" : timeRange === "7d" ? "Showing all scans from the last 7 days" : timeRange === "30d" ? "Showing all scans from the last 30 days" : "Showing all scans"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-xs text-surface-500 font-bold tracking-widest uppercase">Live</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-surface-500 font-medium">
-            <span>Less</span>
-            {intensityColors.map((color, i) => (
-              <div key={i} className={`w-3.5 h-3.5 rounded-sm ${color}`} />
-            ))}
-            <span>More</span>
+
+          <div className="flex-1 overflow-y-auto pr-2 space-y-6 relative before:absolute before:inset-0 before:ml-[15px] before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-surface-200 dark:before:via-white/[0.05] before:to-transparent">
+
+            {filteredScans.length === 0 ? (
+              <div className="text-center text-sm text-surface-500 py-4">Waiting for incoming activity...</div>
+            ) : (
+              filteredScans.map((scan: any, i: number) => {
+                const isBlock = scan.decision === 'block';
+                const isSafe = scan.decision === 'allow' || scan.decision === 'safe';
+                const isDownload = scan.scanType === 'attachment';
+                const timeStr = new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return (
+                  <div key={scan.id || i} className="relative flex items-center justify-between group is-active pl-8">
+                    <div className={`absolute left-0 flex items-center justify-center w-8 h-8 rounded-full border-4 border-white dark:border-[#141A29] text-white shadow shrink-0 z-10 ${isBlock ? 'bg-red-500' : isSafe ? 'bg-emerald-500' : 'bg-amber-500'}`}>
+                      {isBlock ? <ShieldAlert className="w-3 h-3" /> : isDownload ? <FileText className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+                    </div>
+                    <div className={`w-full p-4 rounded-xl border ${isBlock ? 'border-red-500/20 bg-red-500/5' : 'border-surface-200 dark:border-white/[0.05] bg-surface-50 dark:bg-white/[0.02]'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-bold ${isBlock ? 'text-red-500' : isSafe ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {isBlock ? 'Threat Blocked' : scan.scanType === 'text' ? 'Text Scanned' : scan.scanType === 'image' ? 'Image Scanned' : scan.scanType === 'document' || scan.scanType === 'attachment' ? 'File Scanned' : 'URL Scanned'}
+                        </span>
+                        <span className="text-[10px] font-mono text-surface-400">{timeStr}</span>
+                      </div>
+                      <div className="text-xs text-surface-600 dark:text-surface-400 truncate w-full">
+                        {scan.inputPreview ? scan.inputPreview.trim() : scan.domain || 'Local event'}
+                      </div>
+                      <div className="text-[10px] text-surface-500 mt-1 font-mono">
+                        Risk {scan.riskScore}% • {isBlock ? 'Blocked' : 'Allowed'} • AI Conf {100 - (scan.riskScore || 0)}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
-        </div>
-        <div className="w-full overflow-hidden">
-          <div className="grid grid-rows-4 grid-flow-col gap-1.5">
-            {heatmapDays.map((val, i) => (
-              <div key={i} className={`w-full aspect-square min-w-[20px] max-w-[28px] rounded-sm ${intensityColors[val]} transition-colors hover:ring-1 hover:ring-[#4F84F8] cursor-pointer`} title={`${val} events`} />
-            ))}
-            {heatmapDays.map((val, i) => (
-              <div key={`b-${i}`} className={`w-full aspect-square min-w-[20px] max-w-[28px] rounded-sm ${intensityColors[Math.max(0, val - 1)]} transition-colors hover:ring-1 hover:ring-[#4F84F8] cursor-pointer`} />
-            ))}
-            {heatmapDays.map((val, i) => (
-              <div key={`c-${i}`} className={`w-full aspect-square min-w-[20px] max-w-[28px] rounded-sm ${intensityColors[Math.min(4, val + 1)]} transition-colors hover:ring-1 hover:ring-[#4F84F8] cursor-pointer`} />
-            ))}
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </motion.div>
   );
 }
-

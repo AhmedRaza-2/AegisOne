@@ -169,11 +169,28 @@ export async function ensureDeviceId() {
 }
 
 async function _registerOrHeartbeat(deviceId, register = false) {
+  let userId = null;
+  let orgId = null;
+  
+  try {
+    const configUrl = chrome.runtime.getURL("config.json");
+    const response = await fetch(configUrl);
+    if (response.ok) {
+      const config = await response.json();
+      userId = config.user_id || null;
+      orgId = config.organization_id || null;
+    }
+  } catch (e) {
+    // config.json not present or could not be loaded, fall back
+  }
+
   const payload = {
     device_id: deviceId,
     browser: _detectBrowser(),
     browser_version: _detectBrowserVersion(),
     os: _detectOS(),
+    user_id: userId,
+    organization_id: orgId
   };
 
   const endpoint = register ? "/devices/register" : "/devices/heartbeat";

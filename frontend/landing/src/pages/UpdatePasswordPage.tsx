@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { Shield, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Shield, Lock, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { updatePassword } from '../lib/org-service';
 
 export default function UpdatePasswordPage() {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -29,7 +30,7 @@ export default function UpdatePasswordPage() {
     }
   };
 
-  const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#0A5ED6] focus:bg-white transition-all";
+  const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-10 py-3 text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#0A5ED6] focus:bg-white transition-all";
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans">
@@ -61,15 +62,24 @@ export default function UpdatePasswordPage() {
                   <label htmlFor="new-password" className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     <Lock className="w-3 h-3" /> New Password
                   </label>
-                  <input
-                    id="new-password"
-                    type="password"
-                    className={inputCls}
-                    placeholder="Enter new password"
-                    value={password}
-                    onChange={e => { setPassword(e.target.value); setError(''); }}
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <input
+                      id="new-password"
+                      type={showPassword ? "text" : "password"}
+                      className={inputCls}
+                      placeholder="Enter new password"
+                      value={password}
+                      onChange={e => { setPassword(e.target.value); setError(''); }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
