@@ -105,11 +105,15 @@ async def load_all_models():
     if os.path.exists(url_pt):
         try:
             mod = load_module("aegis_url", url_py)
-            model = mod.URLDetector()
-            model.load_state_dict(torch.load(url_pt, map_location=DEVICE), strict=False)
-            model.to(DEVICE).eval()
-            MODELS["url"] = {"model": model, "extract_features": mod.extract_url_numerical_features}
-            print("✅ URL AI loaded")
+            model, model_name = mod.load_url_detector(url_pt, DEVICE)
+            from transformers import AutoTokenizer
+            url_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            MODELS["url"] = {
+                "model": model,
+                "tokenizer": url_tokenizer,
+                "extract_features": mod.extract_url_numerical_features
+            }
+            print(f"✅ URL AI loaded (base: {model_name})")
         except Exception as e:
             print(f"⚠️  URL AI failed: {e}")
     else:
@@ -183,34 +187,22 @@ def get_attention_based_xai(model, tokens, attention_mask):
     Returns a list of the top 3 highly attended words.
     """
     try:
-        # Check if model has the attention layer and attention weights are populated
         if not hasattr(model, "attention") or model.attention.attention_weights is None:
             return []
-        
-        # Stored weights shape: (batch_size, num_heads, seq_len, seq_len)
         attn_weights = model.attention.attention_weights
-        
-        # Average over heads (dim=1) and queries (dim=2) to get attention per key token
-        # attn_weights[0] is (num_heads, seq_len, seq_len)
         mean_attn = attn_weights[0].mean(dim=0).mean(dim=0)
-        
-        # Zip tokens with their mean attention score
         import string
         special_tokens = {"[cls]", "[sep]", "[pad]", "http", "https", "www", "com"}
         scored_tokens = []
         for idx, token in enumerate(tokens):
             t_lower = token.lower()
-            # Filter out BERT specials, subwords, pure punctuation, and very short tokens
             if (idx < len(mean_attn) and 
                 t_lower not in special_tokens and 
                 not t_lower.startswith("##") and 
                 len(t_lower) > 2 and 
                 not all(c in string.punctuation for c in t_lower)):
                 scored_tokens.append((token, float(mean_attn[idx].item())))
-        
-        # Sort by score descending
         scored_tokens.sort(key=lambda x: x[1], reverse=True)
-        # Extract top words (having non-zero attention contribution)
         top_words = [t[0] for t in scored_tokens[:3] if t[1] > 0.001]
         return top_words
     except Exception as e:
@@ -224,37 +216,28 @@ def get_bert_attention_xai(model, tokens, attention_mask):
     try:
         if not hasattr(model, "last_attentions") or model.last_attentions is None:
             return []
-        
-        # last_attentions is a list/tuple of length 6. Take the last layer: (batch_size, num_heads, seq_len, seq_len)
-        # For batch size 1: (num_heads, seq_len, seq_len)
         last_layer_attn = model.last_attentions[-1][0]
-        
-        # Average over heads to get (seq_len, seq_len)
         mean_attn = last_layer_attn.mean(dim=0)
-        
-        # Extract the attention weights from the CLS token (row 0) to all key tokens
         cls_attn = mean_attn[0, :]
-        
         import string
         special_tokens = {"[cls]", "[sep]", "[pad]", "http", "https", "www", "com", "org", "net", "edu", "pk"}
         scored_tokens = []
         for idx, token in enumerate(tokens):
             t_lower = token.lower()
-            if idx < len(cls_attn) and attention_mask[idx] == 1:
-                # Filter out special BERT tokens, subwords, pure punctuation, and very short tokens
-                if (t_lower not in special_tokens and 
-                    not t_lower.startswith("##") and 
-                    len(t_lower) > 2 and 
-                    not all(c in string.punctuation for c in t_lower)):
-                    scored_tokens.append((token, float(cls_attn[idx].item())))
-                    
-        # Sort by attention weight descending
+            if (idx < len(cls_attn) and 
+                attention_mask[idx] == 1 and 
+                t_lower not in special_tokens and 
+                not t_lower.startswith("##") and 
+                len(t_lower) > 2 and 
+                not all(c in string.punctuation for c in t_lower)):
+                scored_tokens.append((token, float(cls_attn[idx].item())))
         scored_tokens.sort(key=lambda x: x[1], reverse=True)
-        top_words = [t[0] for t in scored_tokens[:3] if t[1] > 0.001]
-        return top_words
+        return [t[0] for t in scored_tokens[:3] if t[1] > 0.001]
     except Exception as e:
-        print(f"Error extracting BERT attention XAI: {e}")
+        print(f"Error extracting URL XAI: {e}")
         return []
+
+# ===== Sync Prediction Core Logic =====
 
 def predict_email(sender, subject, body):
     if "email" not in MODELS:
@@ -268,15 +251,12 @@ def predict_email(sender, subject, body):
         logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
         prob = torch.sigmoid(logits).item()
     is_phish = prob >= 0.5
-    
-    # Extract attention-based XAI words
     tokens = TOKENIZER.convert_ids_to_tokens(enc["input_ids"][0])
     xai_words = get_attention_based_xai(m["model"], tokens, enc["attention_mask"][0])
     explanation = f"AI flagged suspicious keywords: {', '.join(xai_words)}" if xai_words else "AI identified suspicious context structure"
-
     return {"prediction": "phishing" if is_phish else "legitimate",
             "confidence": round(prob if is_phish else 1-prob, 4),
-            "phishing_probability": round(prob, 4), 
+            "phishing_probability": round(prob, 4),
             "model": "email",
             "xai_words": xai_words,
             "explanation": explanation}
@@ -285,15 +265,13 @@ def predict_text(text):
     if "text" not in MODELS:
         return {"error": "Text model not loaded"}
     m = MODELS["text"]
-    enc = TOKENIZER(text, add_special_tokens=True, max_length=128,
+    enc = TOKENIZER(text, add_special_tokens=True, max_length=96,
                     padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
     feats = m["extract_features"](text).unsqueeze(0).to(DEVICE)
     with torch.no_grad():
         logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
         prob = torch.sigmoid(logits).item()
     is_phish = prob >= 0.5
-    
-    # Extract attention-based XAI words
     tokens = TOKENIZER.convert_ids_to_tokens(enc["input_ids"][0])
     xai_words = get_attention_based_xai(m["model"], tokens, enc["attention_mask"][0])
     explanation = f"AI flagged suspicious keywords: {', '.join(xai_words)}" if xai_words else "AI identified suspicious patterns in content structure"
@@ -309,10 +287,11 @@ def predict_url(url):
     if "url" not in MODELS:
         return {"error": "URL model not loaded"}
     
-    from urllib.parse import urlparse
-    import re
+    # 1. Fast-path trusted domain routing & brand impersonation check
+    from AIML.url.brand_engine import check_brand_impersonation
+    brand_result = check_brand_impersonation(url)
     
-    # 1. Check Domain Whitelist for known safe websites
+    # Check if exactly a trusted domain to bypass deep checks
     trusted_domains = {
         "google.com", "google.com.pk", "youtube.com", "facebook.com", "instagram.com", 
         "twitter.com", "x.com", "linkedin.com", "github.com", "microsoft.com", 
@@ -322,152 +301,110 @@ def predict_url(url):
     }
     
     try:
+        from urllib.parse import urlparse
         parsed = urlparse(url)
-        domain = parsed.netloc.lower()
+        netloc = parsed.netloc.lower()
+        if "@" in netloc:
+            netloc = netloc.split("@")[-1]
+        domain = netloc.split(":")[0]
         if domain.startswith("www."):
             domain = domain[4:]
-        is_safe = False
+            
+        is_trusted = False
         for trusted in trusted_domains:
             if domain == trusted or domain.endswith("." + trusted):
-                is_safe = True
+                is_trusted = True
                 break
-        if is_safe:
-            # Generate a small dynamic safe probability based on the length of the URL (1% to 5%)
-            dynamic_safe_prob = round(((len(url) % 5) + 1) / 100.0, 4)
-            return {"prediction": "legitimate",
-                    "confidence": round(1.0 - dynamic_safe_prob, 4),
-                    "phishing_probability": dynamic_safe_prob,
-                    "category": "benign",
-                    "model": "url",
-                    "explanation": "AI verified URL matches trusted domain structure"}
-    except:
+                
+        # Stage 2: Risky file check on trusted domain
+        risky_extensions = {".exe", ".zip", ".rar", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".html", ".htm", ".bin", ".sh"}
+        path_and_query = (parsed.path + "?" + parsed.query).lower()
+        has_risky_file = any(ext in path_and_query for ext in risky_extensions)
+        
+        if is_trusted and not has_risky_file:
+            dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
+            return {
+                "prediction": "legitimate",
+                "confidence": round(1.0 - dynamic_safe, 4),
+                "phishing_probability": dynamic_safe,
+                "category": "Safe",
+                "model": "url",
+                "xai_words": [],
+                "explanation": "✓ Verified legitimate corporate domain",
+                "evidence": {
+                    "trusted_domain": True,
+                    "reason": "URL matches a trusted domain whitelist pattern"
+                }
+            }
+    except Exception:
         pass
+
+    # 2. Extract expanded lexical features (64 features)
+    from AIML.url.lexical_engine import extract_expanded_features
+    lexical_tensor = extract_expanded_features(url)
+
+    # 2.5 Fast-Path / Cascaded Decision Check
+    from AIML.url.fusion_engine import fuse_url_intelligence
+    cascade_res = fuse_url_intelligence(url, None, brand_result, lexical_tensor)
+    if cascade_res["evidence"]["fusion_method"] in {
+        "Cascade Level 1: Static Threat Signature Override",
+        "Cascade Level 2: Static Clean Pass Override"
+    }:
+        return {
+            "prediction": cascade_res["prediction"],
+            "confidence": cascade_res["confidence"],
+            "phishing_probability": round(cascade_res["risk_score"] / 100.0, 4),
+            "category": cascade_res["category"],
+            "model": "url",
+            "xai_words": [],
+            "explanation": cascade_res["explanation"],
+            "evidence": cascade_res["evidence"]
+        }
+
+    # 3. Deep Semantic Analysis (DistilBERT/BERT-Mini)
+    m = MODELS["url"]
     
     # Import the URL sanitization logic locally to avoid breaking existing imports
     import sys
     sys.path.insert(0, os.path.join(BASE_DIR, "url"))
     from phishing_model_url import sanitize_url
-    
-    m = MODELS["url"]
-    
-    # 2. Sanitize the URL to remove tracking parameters causing data drift
     clean_url = sanitize_url(url)
-    
-    # 3. Tokenize and extract features using the sanitized URL
-    enc = TOKENIZER(clean_url, add_special_tokens=True, max_length=128,
-                    padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
-    feats = m["extract_features"](clean_url).unsqueeze(0).to(DEVICE)
-    
+
+    url_tokenizer = m.get("tokenizer", TOKENIZER)
+    enc = url_tokenizer(clean_url, add_special_tokens=True, max_length=128,
+                        padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
+                        
+    # Model forward pass expects original 10 features
+    nn_feats = m["extract_features"](clean_url).unsqueeze(0).to(DEVICE)
+
     with torch.no_grad():
-        logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
-        probs = torch.softmax(logits, dim=1)[0]
-        pred_class = probs.argmax().item()
-        malicious_prob = 1.0 - probs[0].item()
-        
-    # 4. Hybrid Heuristic Confidence Calibration
-    # Evaluate if the URL has high-risk characteristics
-    has_high_risk = False
-    try:
-        # Check suspicious TLDs
-        suspicious_tlds = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.cc', '.ru', '.link', '.click', '.zip'}
-        if any(domain.endswith(tld) for tld in suspicious_tlds):
-            has_high_risk = True
-        # Check IP Address
-        elif re.match(r'\d+\.\d+\.\d+\.\d+', domain):
-            has_high_risk = True
-        else:
-            # Check phishing keywords
-            phishing_keywords = {"login", "signin", "verify", "verification", "account", "secure", "update", "banking", "billing", "paypal", "credential", "auth", "confirm"}
-            path_query = (parsed.path + "?" + parsed.query).lower()
-            if any(kw in path_query for kw in phishing_keywords):
-                has_high_risk = True
-            # Check subdomains depth
-            else:
-                subparts = [p for p in domain.split(".") if p and p != "www"]
-                if len(subparts) > 3:
-                    has_high_risk = True
-    except:
-        pass
+        logits = m["model"](enc["input_ids"], enc["attention_mask"], nn_feats)
+        probs = torch.softmax(logits, dim=1)[0].cpu().tolist()
 
-    # Apply adaptive threshold calibration
-    calib_threshold = 0.65 if has_high_risk else 0.85
-    if pred_class != 0 and malicious_prob < calib_threshold:
-        # Scale the malicious_prob dynamically to a very safe range (0.01 to 0.19)
-        ratio = malicious_prob / calib_threshold
-        dynamic_safe_prob = round(0.01 + (ratio * 0.18), 4)
-        pred_class = 0  # Revert to benign
-        malicious_prob = dynamic_safe_prob
-    elif pred_class == 0:
-        # Scale natural benign predictions to a safe range (0.01 to 0.24)
-        original_risk = 1.0 - probs[0].item()
-        dynamic_safe_prob = round(0.01 + (original_risk * 0.30), 4)
-        malicious_prob = dynamic_safe_prob
-        
-    is_phish = pred_class != 0
-    
-    # 5. Extract actual BERT attention-based XAI words
-    tokens = TOKENIZER.convert_ids_to_tokens(enc["input_ids"][0])
-    xai_words = get_bert_attention_xai(m["model"], tokens, enc["attention_mask"][0])
-    
-    # Construct dynamic data-driven XAI explanations for URL
-    from urllib.parse import urlparse
-    parsed = urlparse(url)
-    path = parsed.path
-    query = parsed.query
-    domain = parsed.netloc.lower()
-    
-    reasons = []
-    
-    # 1. Hyphen count
-    hyphens = url.count("-")
-    if hyphens > 3:
-        reasons.append(f"{hyphens} hyphens")
-        
-    # 2. Path length
-    if len(path) > 25:
-        reasons.append(f"long path ({len(path)} chars)")
-        
-    # 3. Query length
-    if len(query) > 20:
-        reasons.append("active query parameters")
-        
-    # 4. Subdomains
-    subparts = domain.split(".")
-    if len(subparts) > 3:
-        reasons.append(f"multiple subdomains ({len(subparts)-2})")
-        
-    # 5. Keywords
-    keywords = ["login", "signin", "verify", "account", "secure", "update", "online", "watch", "free", "match", "live", "stream", "sports", "channels"]
-    found_keywords = [k for k in keywords if k in url.lower()]
-    if found_keywords:
-        reasons.append(f"suspicious keywords: {', '.join([f"'{k}'" for k in found_keywords[:2]])}")
-        
-    category_name = URL_CLASSES[pred_class]
-    if category_name == "benign":
-        explanation = "AI verified URL matches trusted domain structure"
-    else:
-        if category_name == "defacement":
-            base = "AI detected defaced path anomalies"
-        elif category_name == "phishing":
-            base = "AI detected credential harvesting patterns"
-        else: # malware
-            base = "AI flagged similarity to malware hosting vectors"
-            
-        if reasons:
-            explanation = f"{base} (triggered by {', '.join(reasons)})"
-        else:
-            explanation = f"{base} in URL structure"
-            
-        if xai_words:
-            explanation += f" | AI focused on tokens: {', '.join([f"'{w}'" for w in xai_words])}"
+    # 4. Evidence Fusion & Calibration
+    from AIML.url.fusion_engine import fuse_url_intelligence
+    fusion_result = fuse_url_intelligence(url, probs, brand_result, lexical_tensor)
 
-    return {"prediction": "malicious" if is_phish else "legitimate",
-            "confidence": round(probs[pred_class].item(), 4),
-            "phishing_probability": round(malicious_prob, 4),
-            "category": URL_CLASSES[pred_class], 
-            "model": "url",
-            "xai_words": xai_words,
-            "explanation": explanation}
+    # 5. XAI Attention Words Extraction
+    is_phish = (fusion_result["prediction"] == "malicious")
+    xai_words = []
+    if is_phish:
+        with torch.no_grad():
+            tokens = url_tokenizer.convert_ids_to_tokens(enc["input_ids"][0])
+            xai_words = get_bert_attention_xai(m["model"], tokens, enc["attention_mask"][0])
+            if xai_words:
+                fusion_result["explanation"] += f" | AI focused on: {', '.join(xai_words)}"
+
+    return {
+        "prediction": fusion_result["prediction"],
+        "confidence": fusion_result["confidence"],
+        "phishing_probability": round(fusion_result["risk_score"] / 100.0, 4),
+        "category": fusion_result["category"],
+        "model": "url",
+        "xai_words": xai_words,
+        "explanation": fusion_result["explanation"],
+        "evidence": fusion_result["evidence"]
+    }
 
 def predict_image_bytes(img_bytes):
     if "image" not in MODELS:

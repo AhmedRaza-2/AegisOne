@@ -118,12 +118,17 @@ class URLDetector(nn.Module):
         # Freeze all layers except the last transformer layer for efficient fine-tuning
         for param in self.bert.parameters():
             param.requires_grad = False
-        for param in self.bert.transformer.layer[-1:].parameters():
-            param.requires_grad = True
+            
+        if hasattr(self.bert, "transformer"):
+            for param in self.bert.transformer.layer[-1:].parameters():
+                param.requires_grad = True
+        elif hasattr(self.bert, "encoder"):
+            for param in self.bert.encoder.layer[-1:].parameters():
+                param.requires_grad = True
 
         self.feature_mlp = URLFeatureMLP()
 
-        bert_hidden = self.bert.config.hidden_size  # 768 for distilbert-base
+        bert_hidden = self.bert.config.hidden_size  # 768 for distilbert-base, 256 for bert-mini
 
         self.classifier = nn.Sequential(
             nn.Linear(bert_hidden + 32, 128),   # matches checkpoint: classifier.0
@@ -131,6 +136,7 @@ class URLDetector(nn.Module):
             nn.Dropout(0.3),
             nn.Linear(128, num_classes),          # matches checkpoint: classifier.3
         )
+
 
     def forward(
         self,
@@ -152,3 +158,47 @@ class URLDetector(nn.Module):
 
         combined = torch.cat([text_feat, num_feat], dim=1)  # (batch, 800)
         return self.classifier(combined)                     # (batch, 4)
+
+
+def load_url_detector(checkpoint_path: str, device: torch.device = torch.device("cpu")) -> tuple[URLDetector, str]:
+    """
+    Inspects the checkpoint keys and shapes to identify the correct base model name,
+    initializes the URLDetector, and loads the weights.
+    Returns (model, model_name).
+    """
+    import os
+    if not os.path.exists(checkpoint_path):
+        raise FileNotFoundError(f"Model checkpoint not found: {checkpoint_path}")
+        
+    state = torch.load(checkpoint_path, map_location="cpu")
+    if isinstance(state, dict) and "model_state_dict" in state:
+        state = state["model_state_dict"]
+        
+    # Check the hidden size of word embeddings weight
+    word_embeddings_key = None
+    for key in ["bert.embeddings.word_embeddings.weight", "embeddings.word_embeddings.weight"]:
+        if key in state:
+            word_embeddings_key = key
+            break
+            
+    model_name = "distilbert-base-uncased"
+    if word_embeddings_key:
+        hidden_size = state[word_embeddings_key].shape[1]
+        if hidden_size == 256:
+            model_name = "prajjwal1/bert-mini"
+        elif hidden_size == 768:
+            model_name = "distilbert-base-uncased"
+            
+    # Clean the keys if needed (e.g. prefix removal)
+    clean_state = {}
+    for k, v in state.items():
+        if k.startswith("module."):
+            clean_state[k[7:]] = v
+        else:
+            clean_state[k] = v
+            
+    model = URLDetector(model_name=model_name)
+    model.load_state_dict(clean_state, strict=True)
+    model.to(device)
+    model.eval()
+    return model, model_name
