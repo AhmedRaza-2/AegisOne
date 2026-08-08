@@ -123,15 +123,27 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`PERMANENT ACTION:\nAre you sure you want to completely delete "${name}" from the database? This cannot be undone.`)) return;
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, name: string } | null>(null);
+  const [confirmName, setConfirmName] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    if (confirmName.trim().toLowerCase() !== deleteTarget.name.trim().toLowerCase()) {
+      alert("Confirmation name does not match the organization's name.");
+      return;
+    }
+    setIsDeleting(true);
     try {
-      await deleteOrganization(id);
-      setOrgs(orgs.filter(o => o.id !== id));
-    } catch (e) {
+      await deleteOrganization(deleteTarget.id);
+      setOrgs(orgs.filter(o => o.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setConfirmName('');
+    } catch (e: any) {
       console.error(e);
-      alert("Failed to delete organization from database");
+      alert("Failed to delete organization. Please verify your Supabase permissions and ensure the 'delete_organization_and_user' RPC is created.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -369,7 +381,7 @@ export default function AdminDashboard() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleDelete(org.id, org.name)}
+                        onClick={() => setDeleteTarget({ id: org.id, name: org.name })}
                         title="Permanently Delete"
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                       >
@@ -383,6 +395,66 @@ export default function AdminDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl p-6 shadow-xl transform transition-all scale-100">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <div className="p-2 bg-red-50 rounded-xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Delete Organization?</h3>
+                <p className="text-xs text-slate-500">This action is permanent and cannot be undone.</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+              All users, devices, threat telemetry, and configuration logs associated with <strong className="text-slate-900">"{deleteTarget.name}"</strong> will be permanently wiped.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Type the organization name to confirm:
+              </label>
+              <input
+                type="text"
+                placeholder={deleteTarget.name}
+                value={confirmName}
+                onChange={e => setConfirmName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:border-red-500 font-semibold"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setConfirmName('');
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting || confirmName.trim().toLowerCase() !== deleteTarget.name.trim().toLowerCase()}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Deleting...
+                  </>
+                ) : (
+                  "Confirm Delete"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
