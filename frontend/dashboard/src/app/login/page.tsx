@@ -166,8 +166,8 @@ export default function LoginPage() {
         <div className="glass-card p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-600/10 mb-4">
-              <Shield className="w-6 h-6 text-brand-600 dark:text-brand-500" />
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600/10 dark:bg-brand-500/10 p-2 mb-3 shadow-inner">
+              <img src="/logo.png" alt="AegisOne Logo" className="w-10 h-10 object-contain drop-shadow" />
             </div>
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Welcome back</h1>
             <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Sign in to your AegisOne dashboard</p>
@@ -193,9 +193,14 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || otp.length < 6}
-                className="w-full py-2.5 mt-2 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                className="w-full py-2.5 mt-2 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? "Verifying..." : "Verify Code"}
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Verifying...
+                  </>
+                ) : "Verify Code"}
               </button>
               <button
                 type="button"
@@ -253,9 +258,14 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || !newPassword || !confirmNewPassword}
-                className="w-full py-2.5 mt-2 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                className="w-full py-2.5 mt-2 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? "Updating Password..." : "Set New Password & Log In"}
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Updating Password...
+                  </>
+                ) : "Set New Password & Log In"}
               </button>
               <button
                 type="button"
@@ -314,9 +324,14 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 mt-2 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                className="w-full py-2.5 mt-2 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
               >
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Signing in...
+                  </>
+                ) : "Sign In"}
               </button>
             </form>
           )}
