@@ -13,9 +13,9 @@ services:
     volumes:
       - aegisone-pg-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"           # expose so you can inspect with pgAdmin/psql
+      - "5432:5432" # expose so you can inspect with pgAdmin/psql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aegis -d aegisone"]
+      test: [ "CMD-SHELL", "pg_isready -U aegis -d aegisone" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -29,7 +29,7 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     container_name: aegisone-backend
-    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
     environment:
       AEGIS_PORT: "8000"
       AEGIS_WORKERS: "1"
@@ -48,7 +48,7 @@ services:
       - "8000:8000"
     depends_on:
       db:
-        condition: service_healthy    # wait for Postgres to be ready before starting
+        condition: service_healthy # wait for Postgres to be ready before starting
     restart: unless-stopped
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -82,4 +82,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  aegisone-pg-data:       # PostgreSQL data — persists across restarts
+  aegisone-pg-data: # PostgreSQL data — persists across restarts

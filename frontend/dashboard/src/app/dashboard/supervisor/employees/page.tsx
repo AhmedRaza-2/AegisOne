@@ -455,16 +455,16 @@ export default function EmployeesPage() {
                     <td className="px-4 py-3 text-right text-surface-700 dark:text-surface-300">{emp.threatsCount}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${emp.role === "manager"
-                          ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
-                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                        ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
+                        : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
                         }`}>
                         {emp.role}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${emp.account_status === "active"
-                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                          : "bg-surface-100 dark:bg-white/[0.04] text-surface-600 dark:text-surface-400"
+                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                        : "bg-surface-100 dark:bg-white/[0.04] text-surface-600 dark:text-surface-400"
                         }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${emp.account_status === "active" ? "bg-emerald-500" : "bg-surface-400"}`} />
                         {emp.account_status === "active" ? "Active" : "Disabled"}
@@ -484,8 +484,8 @@ export default function EmployeesPage() {
                               });
                             }}
                             className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${emp.account_status === "active"
-                                ? "border-surface-200 dark:border-white/[0.08] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-                                : "border-purple-500/30 bg-purple-500/5 text-purple-650 dark:text-purple-400 hover:bg-purple-500/10"
+                              ? "border-surface-200 dark:border-white/[0.08] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+                              : "border-purple-500/30 bg-purple-500/5 text-purple-650 dark:text-purple-400 hover:bg-purple-500/10"
                               }`}
                           >
                             <Power className="w-3.5 h-3.5" />

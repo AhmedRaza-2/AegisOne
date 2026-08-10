@@ -8,10 +8,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-html {
-  scroll-behavior: smooth;
-}
-
 /* Custom glow effects for AegisOne aesthetic */
 .glow-blue {
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);

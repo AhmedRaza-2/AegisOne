@@ -23,7 +23,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     (async () => {
       // Force sign out any existing session to start fresh and require login
-      await supabase.auth.signOut().catch(() => {});
+      await supabase.auth.signOut().catch(() => { });
       setLoading(false);
     })();
   }, []);
@@ -275,11 +275,10 @@ export default function AdminDashboard() {
               <button
                 key={tab}
                 onClick={() => setStatusTab(tab)}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-all ${
-                  statusTab === tab
+                className={`px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-all ${statusTab === tab
                     ? 'bg-white text-[#0A5ED6] shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 {tab} ({orgs.filter(o => tab === 'all' || o.status === tab).length})
               </button>
@@ -335,11 +334,10 @@ export default function AdminDashboard() {
                   <td className="px-6 py-4 text-slate-700 font-medium">{org.admin_name || 'N/A'}</td>
                   <td className="px-6 py-4 text-slate-600 font-mono text-xs">{org.admin_email}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
-                      org.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                      org.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
+                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${org.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                        org.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                      }`}>
                       {org.status}
                     </span>
                     {org.status === 'suspended' && org.product_version !== '1.0.0' && (
