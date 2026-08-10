@@ -3,7 +3,7 @@ import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   Building2, Plus, Users, Trash2, X, Key, ShieldCheck,
-  CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle
+  CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle, Mail, Settings, Save
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,7 +22,15 @@ export default function DepartmentsPage() {
   // Modals state
   const [showAddDeptModal, setShowAddDeptModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showSmtpModal, setShowSmtpModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [deptReassignWarning, setDeptReassignWarning] = useState<{
+    show: boolean;
+    assignedUser: any;
+    targetDeptName: string;
+    managerId: string;
+  }>({ show: false, assignedUser: null, targetDeptName: "", managerId: "" });
 
   // Department Form
   const [deptName, setDeptName] = useState("");
@@ -34,6 +42,12 @@ export default function DepartmentsPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"manager" | "employee">("employee");
   const [targetDeptId, setTargetDeptId] = useState("");
+
+  // SMTP Settings Form
+  const [smtpHost, setSmtpHost] = useState("smtp.gmail.com");
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
 
   // Quick Action States
   const [newPwInput, setNewPwInput] = useState("");
@@ -51,9 +65,10 @@ export default function DepartmentsPage() {
 
   const fetchData = async () => {
     try {
-      const [deptsRes, usersRes] = await Promise.all([
+      const [deptsRes, usersRes, smtpRes] = await Promise.all([
         fetch("http://localhost:8000/admin/departments", { headers: getHeaders() }),
-        fetch("http://localhost:8000/admin/users", { headers: getHeaders() })
+        fetch("http://localhost:8000/admin/users", { headers: getHeaders() }),
+        fetch("http://localhost:8000/admin/smtp-settings", { headers: getHeaders() })
       ]);
 
       if (deptsRes.ok) {
@@ -64,7 +79,14 @@ export default function DepartmentsPage() {
         const uData = await usersRes.json();
         setUserList(uData.users || []);
       }
-    } catch (e) {
+      if (smtpRes.ok) {
+        const sData = await smtpRes.json();
+        setSmtpHost(sData.smtp_host || "smtp.gmail.com");
+        setSmtpPort(sData.smtp_port || 587);
+        setSmtpUser(sData.smtp_user || "");
+        setSmtpPass(sData.smtp_pass || "");
+      }
+    } catch {
       showToast("Failed to load organization data", "error");
     } finally {
       setLoading(false);
@@ -99,6 +121,24 @@ export default function DepartmentsPage() {
     });
   }, [userList, selectedDeptId, deferredSearch, departments]);
 
+  // Department Manager selection handler with reassign check
+  const handleManagerSelect = (selectedId: string) => {
+    setDeptManagerId(selectedId);
+    if (!selectedId) return;
+
+    const mgrUser = userList.find(u => u.id === parseInt(selectedId));
+    // Check if user is already a manager of another department
+    const existingDept = departments.find(d => d.manager_id === parseInt(selectedId) || d.manager_email === mgrUser?.email);
+    if (existingDept) {
+      setDeptReassignWarning({
+        show: true,
+        assignedUser: mgrUser,
+        targetDeptName: existingDept.name,
+        managerId: selectedId
+      });
+    }
+  };
+
   // Create Department Handler
   const handleCreateDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +159,7 @@ export default function DepartmentsPage() {
         setDeptName("");
         setDeptManagerId("");
         setShowAddDeptModal(false);
+        setDeptReassignWarning({ show: false, assignedUser: null, targetDeptName: "", managerId: "" });
         fetchData();
       } else {
         const err = await res.json();
@@ -148,7 +189,7 @@ export default function DepartmentsPage() {
       });
 
       if (res.ok) {
-        showToast("User account created successfully", "success");
+        showToast("User account created & credentials emailed", "success");
         setFullName(""); setEmail(""); setPassword("");
         setShowAddUserModal(false);
         fetchData();
@@ -185,20 +226,67 @@ export default function DepartmentsPage() {
     }
   };
 
-  // Delete User Handler
-  const handleDeleteUser = async (userId: number) => {
+  // Confirm & Delete User Handler
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
     try {
-      const res = await fetch(`http://localhost:8000/admin/users/${userId}`, {
+      const res = await fetch(`http://localhost:8000/admin/users/${userToDelete.id}`, {
         method: "DELETE",
         headers: getHeaders()
       });
       if (res.ok) {
-        showToast("User account deleted", "success");
+        showToast("User account deleted successfully", "success");
+        setUserToDelete(null);
         setSelectedUser(null);
         fetchData();
       } else {
         const err = await res.json();
         showToast(err.detail || "Failed to delete user", "error");
+      }
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Change User Department Handler
+  const handleDepartmentChange = async (userId: number, newDeptId: string) => {
+    const parsedDeptId = newDeptId ? parseInt(newDeptId) : null;
+    try {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/department`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({ department_id: parsedDeptId })
+      });
+      if (res.ok) {
+        showToast("User department updated", "success");
+        fetchData();
+      } else {
+        showToast("Failed to update user department", "error");
+      }
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Save SMTP Settings Handler
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("http://localhost:8000/admin/smtp-settings", {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          smtp_host: smtpHost,
+          smtp_port: parseInt(smtpPort as any),
+          smtp_user: smtpUser,
+          smtp_pass: smtpPass
+        })
+      });
+      if (res.ok) {
+        showToast("SMTP email credentials updated", "success");
+        setShowSmtpModal(false);
+      } else {
+        showToast("Failed to save SMTP settings", "error");
       }
     } catch {
       showToast("Network error", "error");
@@ -255,6 +343,12 @@ export default function DepartmentsPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowSmtpModal(true)}
+            className="px-4 py-2 bg-surface-100 dark:bg-white/[0.04] text-surface-900 dark:text-white text-xs font-semibold rounded-xl hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors flex items-center gap-2"
+          >
+            <Mail className="w-4 h-4 text-amber-500" /> SMTP Config
+          </button>
+          <button
             onClick={() => setShowAddDeptModal(true)}
             className="px-4 py-2 bg-surface-100 dark:bg-white/[0.04] text-surface-900 dark:text-white text-xs font-semibold rounded-xl hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors flex items-center gap-2"
           >
@@ -269,49 +363,55 @@ export default function DepartmentsPage() {
         </div>
       </motion.div>
 
-      {/* Department Cards Grid (Snapshots) */}
-      <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button
-          onClick={() => setSelectedDeptId("all")}
-          className={`p-4 rounded-2xl border text-left transition-all ${selectedDeptId === "all"
-              ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
-              : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-            }`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider opacity-70">Entire Organization</span>
-            <Building2 className="w-4 h-4 text-brand-500" />
-          </div>
-          <p className="text-2xl font-bold text-surface-900 dark:text-white">{userList.length}</p>
-          <p className="text-[11px] text-surface-500 mt-1">Total Employees Across All Depts</p>
-        </button>
+      {/* Department Quick Filter Grid */}
+      <motion.div variants={fadeUp} className="space-y-3">
+        <div className="flex items-center justify-between text-xs text-surface-500 font-medium px-1">
+          <span className="font-semibold text-surface-700 dark:text-surface-300">Filter Employees by Department</span>
+          <span className="bg-surface-100 dark:bg-white/[0.06] px-2.5 py-0.5 rounded-full text-[11px] font-bold text-surface-600 dark:text-surface-400">{departments.length} Departments</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <button
+            onClick={() => setSelectedDeptId("all")}
+            className={`p-3.5 rounded-xl border text-left transition-all ${selectedDeptId === "all"
+                ? "bg-brand-50/70 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 dark:border-brand-500/60 shadow-sm ring-1 ring-brand-500/20"
+                : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+              }`}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider opacity-75">Entire Organization</span>
+              <Building2 className="w-4 h-4 text-brand-500 shrink-0" />
+            </div>
+            <p className="text-xl font-extrabold text-surface-900 dark:text-white">{userList.length}</p>
+            <p className="text-[10px] text-surface-500 mt-0.5">Total Members Across All Depts</p>
+          </button>
 
-        {departments.map((dept) => {
-          const isSelected = selectedDeptId === dept.id;
-          return (
-            <button
-              key={dept.id}
-              onClick={() => setSelectedDeptId(dept.id)}
-              className={`p-4 rounded-2xl border text-left transition-all ${isSelected
-                  ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
-                  : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-                }`}
-            >
-              <div className="flex items-start justify-between mb-2 gap-2">
-                <span className="text-sm font-bold text-surface-900 dark:text-white leading-tight">{dept.name}</span>
-                <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-100 dark:bg-white/[0.06] text-surface-500">
-                  {dept.employee_count} employees
-                </span>
-              </div>
-              <p className="text-xs text-surface-500 font-medium leading-snug mt-1">
-                Manager: <span className="text-surface-900 dark:text-white font-semibold">{dept.manager_name || "Unassigned"}</span>
-              </p>
-            </button>
-          );
-        })}
+          {departments.map((dept) => {
+            const isSelected = selectedDeptId === dept.id;
+            return (
+              <button
+                key={dept.id}
+                onClick={() => setSelectedDeptId(dept.id)}
+                className={`p-3.5 rounded-xl border text-left transition-all ${isSelected
+                    ? "bg-brand-50/70 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 dark:border-brand-500/60 shadow-sm ring-1 ring-brand-500/20"
+                    : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+                  }`}
+              >
+                <div className="flex items-start justify-between mb-1 gap-2">
+                  <span className="text-xs font-bold text-surface-900 dark:text-white leading-snug truncate">{dept.name}</span>
+                  <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-100 dark:bg-white/[0.06] text-surface-500">
+                    {dept.employee_count}
+                  </span>
+                </div>
+                <p className="text-[11px] text-surface-500 truncate mt-1">
+                  Manager: <span className="text-surface-800 dark:text-surface-200 font-semibold">{dept.manager_name || "Unassigned"}</span>
+                </p>
+              </button>
+            );
+          })}
+        </div>
       </motion.div>
 
-      {/* Main Employee & Manager Table Section */}
+      {/* Main Employee & Manager Table Section - Vertical Scrollable Container */}
       <motion.div variants={fadeUp} className="stat-card space-y-4">
         {/* Table Controls */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-surface-100 dark:border-white/[0.06] pb-4">
@@ -331,10 +431,10 @@ export default function DepartmentsPage() {
           </div>
         </div>
 
-        {/* User Table */}
-        <div className="overflow-x-auto">
+        {/* User Table with Max Height Scroll */}
+        <div className="overflow-x-auto max-h-[520px] overflow-y-auto custom-scrollbar">
           <table className="w-full text-left text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-white dark:bg-surface-900 shadow-sm">
               <tr className="border-b border-surface-200 dark:border-white/[0.06] text-surface-500 uppercase tracking-wider">
                 <th className="py-3 px-2">Member</th>
                 <th className="py-3 px-2">Role</th>
@@ -353,109 +453,165 @@ export default function DepartmentsPage() {
                   <td colSpan={5} className="py-12 text-center text-surface-400">No employees found matching your filter</td>
                 </tr>
               ) : (
-                filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-surface-50 dark:hover:bg-white/[0.01] transition-colors">
-                    <td className="py-3 px-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 font-bold flex items-center justify-center shrink-0">
-                          {u.full_name?.charAt(0).toUpperCase()}
+                filteredUsers.map((u) => {
+                  const isAdmin = u.role === "admin" || u.role === "super_admin";
+                  return (
+                    <tr key={u.id} className="hover:bg-surface-50 dark:hover:bg-white/[0.01] transition-colors">
+                      <td className="py-3 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 font-bold flex items-center justify-center shrink-0">
+                            {u.full_name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-surface-900 dark:text-white">{u.full_name}</p>
+                            <p className="text-[11px] text-surface-500">{u.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-surface-900 dark:text-white">{u.full_name}</p>
-                          <p className="text-[11px] text-surface-500">{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.role === "admin" || u.role === "super_admin"
-                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                          : u.role === "manager" || u.role === "department_admin"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                            : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
-                        }`}>
-                        {u.role === "department_admin" ? "Manager" : u.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2 font-medium text-surface-700 dark:text-surface-300">
-                      {u.department || "Organization"}
-                    </td>
-                    <td className="py-3 px-2">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.account_status === "disabled" || u.account_status === "suspended"
-                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        }`}>
-                        {u.account_status || "Approved"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Status Toggle Button */}
-                        <button
-                          onClick={() => handleToggleStatus(u)}
-                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${u.account_status === "disabled" || u.account_status === "suspended"
-                              ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-100"
-                              : "bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 border-surface-200 dark:border-white/[0.08] hover:bg-surface-200"
-                            }`}
-                        >
-                          {u.account_status === "disabled" || u.account_status === "suspended" ? "Enable" : "Disable"}
-                        </button>
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${isAdmin
+                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                            : u.role === "manager" || u.role === "department_admin"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
+                          }`}>
+                          {u.role === "department_admin" ? "Manager" : u.role}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2">
+                        {isAdmin ? (
+                          <span className="font-medium text-surface-700 dark:text-surface-300">Organization</span>
+                        ) : (
+                          <select
+                            value={u.department_id || ""}
+                            onChange={(e) => handleDepartmentChange(u.id, e.target.value)}
+                            className="px-2 py-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                          >
+                            <option value="">General / Unassigned</option>
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.account_status === "disabled" || u.account_status === "suspended"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          }`}>
+                          {u.account_status || "Approved"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        {isAdmin ? (
+                          <span className="text-[11px] font-semibold text-surface-400 italic px-3 py-1 bg-surface-100 dark:bg-white/[0.04] rounded-lg inline-flex items-center gap-1">
+                            <Lock className="w-3 h-3 text-purple-500" /> Protected Admin
+                          </span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Status Toggle Button */}
+                            <button
+                              onClick={() => handleToggleStatus(u)}
+                              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${u.account_status === "disabled" || u.account_status === "suspended"
+                                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-100"
+                                  : "bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 border-surface-200 dark:border-white/[0.08] hover:bg-surface-200"
+                                }`}
+                            >
+                              {u.account_status === "disabled" || u.account_status === "suspended" ? "Enable" : "Disable"}
+                            </button>
 
-                        {/* Role Selector Dropdown */}
-                        <select
-                          value={u.role}
-                          onChange={async (e) => {
-                            const newRole = e.target.value;
-                            try {
-                              const endpoint = newRole === "manager" || newRole === "department_admin" ? `http://localhost:8000/admin/users/${u.id}/promote` : `http://localhost:8000/admin/users/${u.id}/demote`;
-                              const res = await fetch(endpoint, { method: "PUT", headers: getHeaders() });
-                              if (res.ok) {
-                                showToast(`Role updated to ${newRole}`, "success");
-                                fetchData();
-                              }
-                            } catch {
-                              showToast("Failed to update role", "error");
-                            }
-                          }}
-                          className="px-2 py-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-surface-900 dark:text-white focus:outline-none"
-                        >
-                          <option value="employee">Employee</option>
-                          <option value="manager">Manager</option>
-                          <option value="admin">Admin</option>
-                        </select>
+                            {/* Role Selector Dropdown */}
+                            <select
+                              value={u.role}
+                              onChange={async (e) => {
+                                const newRole = e.target.value;
+                                try {
+                                  const endpoint = newRole === "manager" || newRole === "department_admin" ? `http://localhost:8000/admin/users/${u.id}/promote` : `http://localhost:8000/admin/users/${u.id}/demote`;
+                                  const res = await fetch(endpoint, { method: "PUT", headers: getHeaders() });
+                                  if (res.ok) {
+                                    showToast(`Role updated to ${newRole}`, "success");
+                                    fetchData();
+                                  }
+                                } catch {
+                                  showToast("Failed to update role", "error");
+                                }
+                              }}
+                              className="px-2 py-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-surface-900 dark:text-white focus:outline-none"
+                            >
+                              <option value="employee">Employee</option>
+                              <option value="manager">Manager</option>
+                            </select>
 
-                        {/* Password Reset Icon */}
-                        <button
-                          onClick={() => setSelectedUser(u)}
-                          title="Reset Password"
-                          className="p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
-                        >
-                          <Key className="w-4 h-4" />
-                        </button>
+                            {/* Password Reset Icon */}
+                            <button
+                              onClick={() => setSelectedUser(u)}
+                              title="Reset Password"
+                              className="p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                            >
+                              <Key className="w-4 h-4" />
+                            </button>
 
-                        {/* Delete User Icon */}
-                        <button
-                          onClick={() => handleDeleteUser(u.id)}
-                          title="Delete Account"
-                          className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                            {/* Delete User Icon */}
+                            <button
+                              onClick={() => setUserToDelete(u)}
+                              title="Delete Account"
+                              className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </motion.div>
 
+      {/* Confirmation Modal for Delete User */}
+      <AnimatePresence>
+        {userToDelete && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.1] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-surface-900 dark:text-white">Confirm User Deletion</h3>
+                  <p className="text-xs text-surface-500">Are you sure you want to permanently delete this user account?</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-surface-50 dark:bg-surface-950 rounded-xl border border-surface-200 dark:border-white/[0.06] text-xs space-y-1">
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Name:</span> {userToDelete.full_name}</p>
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Email:</span> {userToDelete.email}</p>
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Role:</span> {userToDelete.role}</p>
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Department:</span> {userToDelete.department || "General"}</p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setUserToDelete(null)} className="px-4 py-2 bg-surface-100 dark:bg-white/[0.06] hover:bg-surface-200 text-surface-700 dark:text-surface-300 text-xs font-semibold rounded-xl transition-colors">
+                  Cancel
+                </button>
+                <button onClick={confirmDeleteUser} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm">
+                  <Trash2 className="w-4 h-4" /> Yes, Delete User
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Add Department Modal */}
       <AnimatePresence>
         {showAddDeptModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-md p-6">
-              <div className="flex items-center justify-between mb-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-surface-900 dark:text-white flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-brand-500" /> Create New Department
                 </h3>
@@ -474,18 +630,33 @@ export default function DepartmentsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-surface-500 mb-1">Assign Manager (Optional)</label>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">Assign Manager (All Organization Members)</label>
                   <select
                     value={deptManagerId}
-                    onChange={(e) => setDeptManagerId(e.target.value)}
+                    onChange={(e) => handleManagerSelect(e.target.value)}
                     className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
                   >
                     <option value="">No Manager Assigned</option>
-                    {userList.filter(u => u.role === "manager" || u.role === "department_admin").map((m) => (
-                      <option key={m.id} value={m.id}>{m.full_name} ({m.email})</option>
+                    {userList.filter(u => u.role !== "admin" && u.role !== "super_admin").map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.full_name} ({m.email}) - Current: {m.department || "Unassigned"} ({m.role})
+                      </option>
                     ))}
                   </select>
                 </div>
+
+                {/* Manager Reassignment Notice */}
+                {deptReassignWarning.show && (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" /> Manager Reassignment Notice
+                    </p>
+                    <p>
+                      <strong>{deptReassignWarning.assignedUser?.full_name}</strong> is currently managing the <strong>{deptReassignWarning.targetDeptName}</strong> department. Assigning them here will transfer their management role to this new department.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-3 pt-2">
                   <button type="button" onClick={() => setShowAddDeptModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl">Create Department</button>
@@ -574,6 +745,80 @@ export default function DepartmentsPage() {
         )}
       </AnimatePresence>
 
+      {/* SMTP Credentials Modal */}
+      <AnimatePresence>
+        {showSmtpModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-surface-100 dark:border-white/[0.06] pb-3">
+                <h3 className="text-base font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-amber-500" /> Organization SMTP Credentials
+                </h3>
+                <button onClick={() => setShowSmtpModal(false)} className="text-surface-400 hover:text-surface-700"><X className="w-5 h-5" /></button>
+              </div>
+
+              <form onSubmit={handleSaveSmtp} className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-surface-500 mb-1">SMTP Host</label>
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                      placeholder="smtp.gmail.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1">Port</label>
+                    <input
+                      type="number"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                      placeholder="587"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">SMTP Email Address</label>
+                  <input
+                    type="email"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    placeholder="admin@yourorg.com"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">SMTP App Password</label>
+                  <input
+                    type="password"
+                    value={smtpPass}
+                    onChange={(e) => setSmtpPass(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    placeholder="••••••••••••••••"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" onClick={() => setShowSmtpModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
+                  <button type="submit" className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded-xl flex items-center gap-1.5">
+                    <Save className="w-3.5 h-3.5" /> Save Credentials
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Selected User Management Modal Options */}
       <AnimatePresence>
         {selectedUser && (
@@ -616,7 +861,11 @@ export default function DepartmentsPage() {
                   {selectedUser.account_status === "disabled" ? "Enable Account" : "Disable Account"}
                 </button>
                 <button
-                  onClick={() => handleDeleteUser(selectedUser.id)}
+                  onClick={() => {
+                    const u = selectedUser;
+                    setSelectedUser(null);
+                    setUserToDelete(u);
+                  }}
                   className="py-2 px-4 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-xl flex items-center gap-1 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -629,4 +878,3 @@ export default function DepartmentsPage() {
     </motion.div>
   );
 }
-

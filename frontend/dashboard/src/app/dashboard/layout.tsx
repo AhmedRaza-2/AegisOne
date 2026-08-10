@@ -41,6 +41,7 @@ const navByRole: Record<string, NavItem[]> = {
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
+    { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
@@ -49,6 +50,7 @@ const navByRole: Record<string, NavItem[]> = {
   super_admin: [
     { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
+    { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
     { label: "Global Settings", href: "/dashboard/admin/settings", icon: Settings },
@@ -316,6 +318,52 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => clearInterval(interval);
   }, [user]);
 
+  const [showExtensionReminder, setShowExtensionReminder] = useState(false);
+
+  // First-time & repeating Extension Setup Popup logic
+  useEffect(() => {
+    if (!user) return;
+    const userKey = `aegis_ext_setup_ack_${user.email || user.id}`;
+    const acknowledged = localStorage.getItem(userKey);
+
+    if (!acknowledged) {
+      // Prompt modal after initial 2 seconds
+      const initialTimer = setTimeout(() => {
+        setShowExtensionReminder(true);
+      }, 2000);
+
+      return () => clearTimeout(initialTimer);
+    }
+  }, [user]);
+
+  const handleAcknowledgeExtension = () => {
+    if (!user) return;
+    const userKey = `aegis_ext_setup_ack_${user.email || user.id}`;
+    localStorage.setItem(userKey, "true");
+    setShowExtensionReminder(false);
+  };
+
+  const handleRefuseExtension = () => {
+    setShowExtensionReminder(false);
+    // If refused or closed without acknowledging, remind again after 45 seconds
+    setTimeout(() => {
+      if (user) {
+        const userKey = `aegis_ext_setup_ack_${user.email || user.id}`;
+        if (!localStorage.getItem(userKey)) {
+          setShowExtensionReminder(true);
+        }
+      }
+    }, 45000);
+  };
+
+  const handleGoToExtensionPage = () => {
+    handleAcknowledgeExtension();
+    const extPath = (user?.role === "department_admin" || user?.role === "manager" || user?.role === "office_admin")
+      ? "/dashboard/supervisor/extension"
+      : "/dashboard/employee/browser";
+    router.push(extPath);
+  };
+
   const unreadCount = inboxMessages.filter(m => !seenIds.has(m.id)).length;
   const commPath = user?.role === "department_admin" || user?.role === "manager" || user?.role === "office_admin"
     ? "/dashboard/supervisor/communication"
@@ -504,6 +552,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <main className="flex-1 p-6 md:p-8 text-surface-900 dark:text-white overflow-hidden">
           {children}
         </main>
+
+        {/* First Time Extension Setup Reminder Modal */}
+        <AnimatePresence>
+          {showExtensionReminder && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.1] shadow-2xl rounded-2xl w-full max-w-md p-6 space-y-4 text-left relative overflow-hidden">
+                <button
+                  onClick={handleRefuseExtension}
+                  className="absolute top-4 right-4 text-surface-400 hover:text-surface-700 dark:hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+                    <Puzzle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Security Extension Setup</h3>
+                    <p className="text-xs text-surface-500">Protect your web traffic & credential security</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-surface-600 dark:text-surface-300 leading-relaxed">
+                  Welcome! To enable real-time URL scanning, credential exfiltration blocking, and threat telemetry, please install the official <strong>AegisOne Browser Extension</strong>.
+                </p>
+
+                <div className="p-3 bg-brand-50/60 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/40 rounded-xl text-xs text-brand-800 dark:text-brand-300 space-y-1">
+                  <p className="font-semibold">Why install the extension?</p>
+                  <ul className="list-disc list-inside space-y-0.5 opacity-90">
+                    <li>Instant phishing & malicious link blocking</li>
+                    <li>Zero-delay credential leak detection</li>
+                    <li>Automatic threat reporting to your admin dashboard</li>
+                  </ul>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+                  <button
+                    onClick={handleGoToExtensionPage}
+                    className="flex-1 py-2.5 px-4 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <Puzzle className="w-4 h-4" /> Install Extension Now
+                  </button>
+                  <button
+                    onClick={handleAcknowledgeExtension}
+                    className="py-2.5 px-3 bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 text-xs font-semibold rounded-xl hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors whitespace-nowrap"
+                  >
+                    Already Installed / Don't Show Again
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

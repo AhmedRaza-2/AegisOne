@@ -186,10 +186,10 @@ export default function AdminDashboard() {
             <Building2 className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Department Breakdown & Member Distribution
           </h3>
           <button
-            onClick={() => window.location.href = "/dashboard/admin/departments"}
+            onClick={() => window.location.href = "/dashboard/admin/analytics"}
             className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors font-medium"
           >
-            Manage Departments →
+            View Full Analytics →
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -199,7 +199,7 @@ export default function AdminDashboard() {
             departments.map((dept) => (
               <div
                 key={dept.id}
-                onClick={() => window.location.href = "/dashboard/admin/departments"}
+                onClick={() => window.location.href = "/dashboard/admin/analytics"}
                 className="p-3.5 rounded-xl bg-surface-50 dark:bg-white/[0.02] border border-surface-100 dark:border-white/[0.04] hover:border-brand-500/30 transition-all cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-1.5">

@@ -364,6 +364,8 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 existing.role = emp.role.lower()
                 existing.department = dept_val
                 existing.account_status = "approved"
+                if emp.generatedPassword:
+                    existing.password_hash = hash_password(emp.generatedPassword)
                 emails_to_send.append(emp)
 
         # Mirror a lightweight setup structure in the database for the setup wizard.

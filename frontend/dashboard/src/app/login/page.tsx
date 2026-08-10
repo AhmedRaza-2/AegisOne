@@ -56,7 +56,6 @@ export default function LoginPage() {
     setLoading(true);
 
     const result = await login(email, password);
-    setLoading(false);
 
     if (result.success) {
       const dbRole = result.role?.toLowerCase() || detectedRole || "employee";
@@ -67,6 +66,7 @@ export default function LoginPage() {
           : "/dashboard/employee";
       router.push(dest);
     } else {
+      setLoading(false);
       setError(result.error || "Invalid credentials.");
     }
   };

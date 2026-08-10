@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   Users, Search, Activity, ShieldAlert, Download, Key, TrendingUp,
   Sparkles, X, Plus, ShieldCheck, Globe, Image as ImageIcon,
-  Trash2, UserCheck, CheckCircle2, Lock, BarChart3, Power
+  Trash2, UserCheck, CheckCircle2, Lock, BarChart3, Power, Eye, EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -40,6 +40,7 @@ export default function EmployeesPage() {
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [pwModal, setPwModal] = useState<{ userId: number; userName: string } | null>(null);
   const [pwInput, setPwInput] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [departments, setDepartments] = useState<any[]>([]);
 
   const fetchData = () => {
@@ -833,22 +834,37 @@ export default function EmployeesPage() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] w-full max-w-sm rounded-xl shadow-xl relative z-10 p-6 space-y-4">
               <h3 className="text-base font-bold text-surface-900 dark:text-white">Change Password</h3>
               <p className="text-sm text-surface-500">Enter new password for {pwModal.userName}</p>
-              <input
-                type="password"
-                value={pwInput}
-                onChange={e => setPwInput(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
-              />
+              <div className="relative">
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={pwInput}
+                  onChange={e => setPwInput(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-3 pr-10 py-2 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50 font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors"
+                >
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
-                  onClick={() => setPwModal(null)}
+                  onClick={() => {
+                    setPwModal(null);
+                    setShowPw(false);
+                  }}
                   className="px-4 py-2 border border-surface-200 dark:border-white/[0.08] text-surface-700 dark:text-surface-300 text-xs font-bold rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleResetPasswordDirect(pwModal.userId, pwInput)}
+                  onClick={() => {
+                    handleResetPasswordDirect(pwModal.userId, pwInput);
+                    setShowPw(false);
+                  }}
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
                 >
                   Update Password

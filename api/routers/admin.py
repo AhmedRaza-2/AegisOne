@@ -12,10 +12,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, cast, Date, or_, and_
+from sqlalchemy import select, func, update, cast, Date, or_, and_, case
 
 from api.database.db import get_db
 from api.database.models import (
+    Organization,
     Department,
     User,
     Device,
@@ -787,10 +788,10 @@ async def get_departments(
             mgr_name = mgr.full_name
             mgr_email = mgr.email
                 
-        # 2. Count members in department (checking full name and code alias)
+        # 2. Query department members and calculate real-time analytics
         alias_code = code_map.get(r.name, r.name)
-        emp_count = await db.scalar(
-            select(func.count(User.id)).where(
+        dept_users = (await db.execute(
+            select(User.id).where(
                 User.organization_id == org_id,
                 or_(
                     User.department_id == r.id,
@@ -798,7 +799,27 @@ async def get_departments(
                     User.department == alias_code
                 )
             )
-        ) or 0
+        )).scalars().all()
+        
+        emp_count = len(dept_users)
+        total_scans = 0
+        threats_count = 0
+        avg_risk_score = 0
+        
+        if dept_users:
+            from api.database.models import WebsiteScan
+            stats = (await db.execute(
+                select(
+                    func.count(WebsiteScan.id).label("total_scans"),
+                    func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label("threats"),
+                    func.avg(WebsiteScan.risk_score).label("avg_risk")
+                ).where(WebsiteScan.user_id.in_(dept_users))
+            )).first()
+            
+            if stats:
+                total_scans = stats.total_scans or 0
+                threats_count = stats.threats or 0
+                avg_risk_score = round(float(stats.avg_risk or 0), 1)
         
         depts_data.append({
             "id": r.id,
@@ -806,7 +827,10 @@ async def get_departments(
             "manager_id": r.manager_id,
             "manager_name": mgr_name,
             "manager_email": mgr_email,
-            "employee_count": emp_count
+            "employee_count": emp_count,
+            "total_scans": total_scans,
+            "threats_count": threats_count,
+            "avg_risk_score": avg_risk_score
         })
         
     return {"departments": depts_data}
@@ -824,6 +848,17 @@ async def create_department(
         manager_id=req.manager_id
     )
     db.add(new_dept)
+    await db.flush()
+
+    if req.manager_id:
+        m_q = select(User).where(User.id == req.manager_id, User.organization_id == admin.organization_id)
+        mgr_user = (await db.execute(m_q)).scalar_one_or_none()
+        if mgr_user:
+            mgr_user.department_id = new_dept.id
+            mgr_user.department = req.name
+            if mgr_user.role != Role.ADMIN.value and mgr_user.role != Role.SUPER_ADMIN.value:
+                mgr_user.role = Role.MANAGER.value
+
     await db.commit()
     return {"status": "success", "department_id": new_dept.id}
 
@@ -940,185 +975,105 @@ async def get_users(
         
     return {"users": users_response}
 
-def send_welcome_email(email: str, name: str, password: str, department: str, role: str):
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
+def send_welcome_email(email: str, name: str, password: str, department: str, role: str, org_smtp: dict = None):
+    smtp_user = (org_smtp.get("smtp_user") if org_smtp else None) or os.getenv("SMTP_USER")
+    smtp_pass = (org_smtp.get("smtp_pass") if org_smtp else None) or os.getenv("SMTP_PASS")
+    smtp_host = (org_smtp.get("smtp_host") if org_smtp else None) or os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int((org_smtp.get("smtp_port") if org_smtp else None) or os.getenv("SMTP_PORT", 587))
+
     if not smtp_user or not smtp_pass:
         print("SMTP credentials missing. Cannot send welcome email.")
         return
-    # Gmail app passwords contain spaces when displayed — strip them before auth.
     smtp_user = smtp_user.strip()
     smtp_pass = smtp_pass.replace(" ", "")
     
-    # Map long department names to abbreviations
     display_dept = "IT" if department == "Information Technology" else department
     display_role = role.capitalize()
     
     try:
+        from email.utils import formatdate, make_msgid
+        
+        text_content = f"""Hello {name},
+
+Welcome to AegisOne Enterprise Security!
+
+Your administrator has created a new account for you. Below are your temporary credentials:
+
+Role: {display_role}
+Department: {display_dept}
+Temporary Password: {password}
+
+Log in to your AegisOne Portal at: http://localhost:3002/login
+
+For security reasons, please change your password upon your first login.
+
+Best regards,
+AegisOne Security Team
+"""
+
+        html_content = f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to AegisOne Enterprise Security</title>
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; line-height: 1.6; padding: 20px; margin: 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px;">
+      <tr>
+        <td style="text-align: center; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: inline-block; background-color: #3b82f6; color: #ffffff; width: 44px; height: 44px; line-height: 44px; border-radius: 10px; font-weight: bold; font-size: 20px; text-align: center; margin-bottom: 8px;">Æ</div>
+          <div style="font-size: 20px; font-weight: 700; color: #0f172a;">AegisOne Unified Security</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-top: 24px;">
+          <h2 style="color: #0f172a; font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 12px;">Welcome to the team, {name}!</h2>
+          <p style="color: #475569; font-size: 14px; margin-bottom: 20px;">Your administrator has created a new account for you. Below are your account details and temporary login credentials:</p>
+          
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 6px;">
+            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; tracking: 0.5px; color: #64748b; margin-bottom: 12px;">ACCOUNT DETAILS</div>
+            <div style="font-size: 14px; margin-bottom: 8px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Allocated Role:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_role}</span></div>
+            <div style="font-size: 14px; margin-bottom: 8px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Department:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_dept}</span></div>
+            <div style="font-size: 14px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Temporary Password:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{password}</span></div>
+          </div>
+          
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="http://localhost:3002/login" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; text-decoration: none; font-weight: 600; padding: 12px 24px; border-radius: 8px; font-size: 14px;">Log In to AegisOne Portal</a>
+          </div>
+          
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 24px;">For security reasons, you will be prompted to change this temporary password upon your first login.</p>
+
+          <div style="text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+            <p style="margin: 4px 0;">&copy; 2026 AegisOne UTM. All rights reserved.</p>
+            <p style="margin: 4px 0;">This is an automated system email. Please do not reply directly to this message.</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "Welcome to AegisOne Enterprise Security"
         msg["From"] = f"AegisOne Security <{smtp_user}>"
         msg["To"] = email
-        html = f"""
-        <html>
-          <head>
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-              body {{
-                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background-color: #F8FAFC;
-                color: #0F172A;
-                line-height: 1.6;
-                padding: 20px;
-                margin: 0;
-              }}
-              .container {{
-                max-width: 560px;
-                margin: 0 auto;
-                background-color: #FFFFFF;
-                border: 1px solid #E2E8F0;
-                border-radius: 16px;
-                padding: 40px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-              }}
-              .header {{
-                text-align: center;
-                margin-bottom: 30px;
-                border-bottom: 1px solid #F1F5F9;
-                padding-bottom: 20px;
-              }}
-              .logo-icon {{
-                display: inline-block;
-                background-color: #4F84F8;
-                color: white;
-                width: 44px;
-                height: 44px;
-                line-height: 44px;
-                border-radius: 10px;
-                font-weight: bold;
-                font-size: 22px;
-                margin-bottom: 12px;
-                text-align: center;
-              }}
-              .logo-text {{
-                font-size: 22px;
-                font-weight: 700;
-                color: #0F172A;
-                letter-spacing: -0.5px;
-              }}
-              h2 {{
-                color: #0F172A;
-                font-size: 20px;
-                font-weight: 700;
-                margin-bottom: 10px;
-              }}
-              .welcome-text {{
-                color: #475569;
-                font-size: 15px;
-                margin-bottom: 25px;
-              }}
-              .credentials-box {{
-                background-color: #F8FAFC;
-                border: 1px solid #E2E8F0;
-                border-left: 4px solid #4F84F8;
-                padding: 24px;
-                margin: 25px 0;
-                border-radius: 8px;
-              }}
-              .credentials-box h3 {{
-                margin-top: 0;
-                font-size: 13px;
-                text-transform: uppercase;
-                letter-spacing: 0.8px;
-                color: #64748B;
-                margin-bottom: 15px;
-              }}
-              .cred-row {{
-                margin-bottom: 12px;
-                font-size: 14px;
-              }}
-              .cred-label {{
-                font-weight: 600;
-                color: #475569;
-                width: 140px;
-                display: inline-block;
-              }}
-              .code {{
-                font-family: Consolas, 'Liberation Mono', Menlo, monospace;
-                font-weight: 600;
-                color: #0F172A;
-                background-color: #E2E8F0;
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-size: 13.5px;
-              }}
-              .btn-container {{
-                text-align: center;
-                margin: 30px 0;
-              }}
-              .btn {{
-                display: inline-block;
-                background-color: #4F84F8;
-                color: #FFFFFF !important;
-                text-decoration: none;
-                font-weight: 600;
-                padding: 12px 26px;
-                border-radius: 8px;
-                font-size: 15px;
-                box-shadow: 0 4px 6px -1px rgba(79, 132, 248, 0.2);
-              }}
-              .footer {{
-                margin-top: 40px;
-                text-align: center;
-                font-size: 12px;
-                color: #94A3B8;
-                border-top: 1px solid #F1F5F9;
-                padding-top: 20px;
-              }}
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <div class="logo-icon">Æ</div>
-                <div class="logo-text">AegisOne Unified Security</div>
-              </div>
-              
-              <h2>Welcome to the team, {name}!</h2>
-              <p class="welcome-text">Your administrator has created a new account for you. Below are your account details and temporary credentials:</p>
-              
-              <div class="credentials-box">
-                <h3>Account Details</h3>
-                <div class="cred-row">
-                  <span class="cred-label">Allocated Role:</span>
-                  <span class="code">{display_role}</span>
-                </div>
-                <div class="cred-row">
-                  <span class="cred-label">Department:</span>
-                  <span class="code">{display_dept}</span>
-                </div>
-                <div class="cred-row">
-                  <span class="cred-label">Temporary Password:</span>
-                  <span class="code">{password}</span>
-                </div>
-              </div>
-              
-              <div class="btn-container">
-                <a href="http://localhost:3002/login" class="btn">Log In to AegisOne Portal</a>
-              </div>
-              
-              <p style="font-size: 13px; color: #64748B;">For security reasons, you will be prompted to change this temporary password upon your first login.</p>
+        msg["Reply-To"] = smtp_user
+        msg["Date"] = formatdate(localtime=True)
+        msg["Message-ID"] = make_msgid(domain=smtp_user.split('@')[-1] if '@' in smtp_user else 'aegisone.com')
+        
+        part1 = MIMEText(text_content, "plain", "utf-8")
+        part2 = MIMEText(html_content, "html", "utf-8")
+        msg.attach(part1)
+        msg.attach(part2)
 
-              <div class="footer">
-                <p>&copy; 2026 AegisOne UTM. All rights reserved.</p>
-                <p>This is an automated system email. Please do not reply directly.</p>
-              </div>
-            </div>
-          </body>
-        </html>
-        """
-        msg.attach(MIMEText(html, "html"))
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_user, email, msg.as_string())
         server.quit()
@@ -1190,10 +1145,89 @@ async def create_user(
     db.add(new_user)
     await db.commit()
     
+    # Fetch Org SMTP settings if available
+    org_stmt = select(Organization).where(Organization.id == admin.organization_id)
+    org_obj = (await db.execute(org_stmt)).scalar_one_or_none()
+    org_smtp = {
+        "smtp_host": getattr(org_obj, "smtp_host", None),
+        "smtp_port": getattr(org_obj, "smtp_port", None),
+        "smtp_user": getattr(org_obj, "smtp_user", None),
+        "smtp_pass": getattr(org_obj, "smtp_pass", None)
+    } if org_obj else None
+
     # Send email notifications
-    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role)
+    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role, org_smtp=org_smtp)
     
     return {"status": "success", "user_id": new_user.id}
+
+class UserDepartmentUpdate(BaseModel):
+    department_id: int | None = None
+
+@router.put("/users/{user_id}/department")
+async def update_user_department(
+    user_id: int,
+    req: UserDepartmentUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Update user's department."""
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    target_user = (await db.execute(q)).scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    dept_name = None
+    if req.department_id is not None:
+        dept_q = select(Department).where(Department.id == req.department_id)
+        dept = (await db.execute(dept_q)).scalar_one_or_none()
+        if dept:
+            dept_name = dept.name
+            
+    target_user.department_id = req.department_id
+    target_user.department = dept_name
+    await db.commit()
+    return {"status": "success", "department_id": req.department_id, "department": dept_name}
+
+class SmtpSettingsUpdate(BaseModel):
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str
+    smtp_pass: str
+
+@router.get("/smtp-settings")
+async def get_smtp_settings(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Fetch current organization's SMTP settings."""
+    org_stmt = select(Organization).where(Organization.id == admin.organization_id)
+    org_obj = (await db.execute(org_stmt)).scalar_one_or_none()
+    return {
+        "smtp_host": getattr(org_obj, "smtp_host", None) or os.getenv("SMTP_HOST", "smtp.gmail.com"),
+        "smtp_port": getattr(org_obj, "smtp_port", None) or int(os.getenv("SMTP_PORT", 587)),
+        "smtp_user": getattr(org_obj, "smtp_user", None) or os.getenv("SMTP_USER", ""),
+        "smtp_pass": getattr(org_obj, "smtp_pass", None) or os.getenv("SMTP_PASS", "")
+    }
+
+@router.put("/smtp-settings")
+async def update_smtp_settings(
+    req: SmtpSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Update organization SMTP settings."""
+    org_stmt = select(Organization).where(Organization.id == admin.organization_id)
+    org_obj = (await db.execute(org_stmt)).scalar_one_or_none()
+    if not org_obj:
+        org_obj = Organization(id=admin.organization_id, name="Organization", plan="standard")
+        db.add(org_obj)
+        
+    org_obj.smtp_host = req.smtp_host
+    org_obj.smtp_port = req.smtp_port
+    org_obj.smtp_user = req.smtp_user.strip()
+    org_obj.smtp_pass = req.smtp_pass.replace(" ", "")
+    await db.commit()
+    return {"status": "success"}
 
 @router.put("/users/{user_id}/password")
 async def reset_user_password(
@@ -1203,16 +1237,82 @@ async def reset_user_password(
     admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Force reset user password. Managers can only reset their own department."""
-    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
     if admin.role == Role.MANAGER.value:
-        q = q.where(User.department_id == admin.department_id)
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
         
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found or access denied")
         
+    from api.auth.password import hash_password
     user.password_hash = hash_password(new_password)
     await db.commit()
+
+    # Dispatch email notification to the user in background
+    from api.database.models import Organization
+    res_org = await db.execute(select(Organization).where(Organization.id == user.organization_id))
+    org = res_org.scalar_one_or_none()
+    
+    smtp_user = (org.smtp_user if org else None) or os.getenv("SMTP_USER") or ""
+    smtp_pass = (org.smtp_pass if org else None) or os.getenv("SMTP_PASS") or ""
+    smtp_host = (org.smtp_host if org else None) or os.getenv("SMTP_HOST") or "smtp.gmail.com"
+    smtp_port = (org.smtp_port if org else None) or os.getenv("SMTP_PORT") or 587
+
+    if smtp_user and smtp_pass:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "AegisOne — Your Password Has Been Updated"
+            msg["From"] = f"AegisOne Security <{smtp_user}>"
+            msg["To"] = user.email
+            
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+              <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b;">
+                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0;">
+                  <h2 style="color: #0A5ED6; margin-top: 0;">🛡️ AegisOne Security Update</h2>
+                  <p>Hello <strong>{user.full_name}</strong>,</p>
+                  <p>Your AegisOne enterprise login password has been updated by an administrator.</p>
+                  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 14px; margin: 20px 0; text-align: center;">
+                    <strong>Temporary Password:</strong> <span style="color: #0A5ED6; font-weight: bold; font-size: 16px;">{new_password}</span>
+                  </div>
+                  <p style="color: #64748b; font-size: 13px;">For security reasons, please log in and change this temporary password immediately inside your account settings.</p>
+                  <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+                  <p style="font-size: 11px; color: #94a3b8; text-align: center;">&copy; 2026 AegisOne. All rights reserved.</p>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(html, "html"))
+            
+            if int(smtp_port) == 465:
+                server = smtplib.SMTP_SSL(smtp_host, int(smtp_port))
+            else:
+                server = smtplib.SMTP(smtp_host, int(smtp_port), timeout=10)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+            server.login(smtp_user, smtp_pass.replace(" ", ""))
+            server.sendmail(smtp_user, user.email, msg.as_string())
+            server.quit()
+        except Exception as e:
+            print(f"[SMTP ERROR] Failed to send password update email to {user.email}: {e}")
+
     return {"status": "success"}
 
 @router.delete("/users/{user_id}")
@@ -1222,9 +1322,23 @@ async def delete_user(
     admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Delete a user. Managers can only delete in their own department."""
-    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
     if admin.role == Role.MANAGER.value:
-        q = q.where(User.department_id == admin.department_id)
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
         
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
@@ -1232,6 +1346,13 @@ async def delete_user(
         
     if user.id == admin.id:
         raise HTTPException(status_code=400, detail="You cannot delete your own account")
+        
+    # Unset manager_id in departments where this user is currently the manager
+    await db.execute(
+        update(Department)
+        .where(Department.manager_id == user.id)
+        .values(manager_id=None)
+    )
         
     await db.delete(user)
     await db.commit()
@@ -1244,9 +1365,23 @@ async def promote_user(
     admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Promote an employee to manager. Managers can only promote in their own department."""
-    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
     if admin.role == Role.MANAGER.value:
-        q = q.where(User.department_id == admin.department_id)
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
         
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
@@ -1263,7 +1398,10 @@ async def demote_user(
     admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Demote a manager/admin to employee."""
-    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found or access denied")
@@ -1282,9 +1420,23 @@ async def update_user_status(
     if status not in ["active", "suspended", "disabled"]:
         raise HTTPException(status_code=400, detail="Invalid status")
         
-    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
     if admin.role == Role.MANAGER.value:
-        q = q.where(User.department_id == admin.department_id)
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
         
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
@@ -1308,9 +1460,23 @@ async def update_user_role(
     if role not in ["employee", "manager"]:
         raise HTTPException(status_code=400, detail="Invalid role")
         
-    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
     if admin.role == Role.MANAGER.value:
-        q = q.where(User.department_id == admin.department_id)
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
         
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
