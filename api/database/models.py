@@ -550,3 +550,16 @@ class Message(Base):
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])
     department = relationship("Department", foreign_keys=[department_id])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 16. SETUP SESSIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SetupSession(Base):
+    """Draft state for frontend setup wizard resume-ability."""
+    __tablename__ = "setup_sessions"
+
+    id = Column(String(64), primary_key=True)
+    state_json = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

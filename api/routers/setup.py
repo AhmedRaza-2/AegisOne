@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete, update
 from api.database.db import get_db
-from api.database.models import User, Organization, Department
+from api.database.models import User, Organization, Department, SetupSession
 from api.auth.password import hash_password
 
 router = APIRouter(
@@ -54,11 +54,29 @@ class OrgStructureSaveRequest(BaseModel):
     employees: List[Employee]
 
 
+class BulkReassignRequest(BaseModel):
+    employeeIds: List[str]
+    targetDepartmentCode: str
+
+class MergeDepartmentRequest(BaseModel):
+    sourceDeptCode: str
+    targetDeptCode: str
+
 class OrgStructureResponse(BaseModel):
     orgId: str
     orgName: str
     departments: List[Dict[str, Any]]
     employees: List[Dict[str, Any]]
+
+class SmtpTestRequest(BaseModel):
+    smtpUser: str
+    smtpPass: str
+    smtpHost: str = "smtp.gmail.com"
+    smtpPort: int = 587
+
+class SetupSessionSaveRequest(BaseModel):
+    sessionId: str
+    state: dict
 
 def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
     """
@@ -292,6 +310,52 @@ async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = De
     await db.commit()
     return {"status": "success", "orgId": org.id}
 
+@router.post("/structure/bulk-reassign")
+async def bulk_reassign(request: BulkReassignRequest, db: AsyncSession = Depends(get_db)):
+    """Bulk reassigns users to a new department."""
+    target_code = request.targetDepartmentCode.upper()
+    dept = None
+    if target_code and target_code != "NONE":
+        dept = (await db.execute(select(Department).where(Department.code == target_code))).scalars().first()
+        if not dept:
+            raise HTTPException(status_code=404, detail="Target department not found")
+            
+    await db.execute(
+        update(User)
+        .where(User.id.in_(request.employeeIds))
+        .values(
+            department_id=dept.id if dept else None,
+            department=dept.name if dept else "General"
+        )
+    )
+    await db.commit()
+    return {"status": "success", "reassigned_count": len(request.employeeIds)}
+
+@router.post("/structure/merge")
+async def merge_departments(request: MergeDepartmentRequest, db: AsyncSession = Depends(get_db)):
+    """Merges source department into target department, moving all users."""
+    src_code = request.sourceDeptCode.upper()
+    tgt_code = request.targetDeptCode.upper()
+    
+    src_dept = (await db.execute(select(Department).where(Department.code == src_code))).scalars().first()
+    if not src_dept:
+        raise HTTPException(status_code=404, detail="Source department not found")
+        
+    tgt_dept = (await db.execute(select(Department).where(Department.code == tgt_code))).scalars().first()
+    if not tgt_dept:
+        raise HTTPException(status_code=404, detail="Target department not found")
+
+    await db.execute(
+        update(User)
+        .where(User.department_id == src_dept.id)
+        .values(department_id=tgt_dept.id, department=tgt_dept.name)
+    )
+    
+    await db.execute(delete(Department).where(Department.id == src_dept.id))
+    await db.commit()
+    return {"status": "success"}
+
+
 @router.get("/email-status/{run_id}")
 async def email_status(run_id: str):
     """
@@ -434,3 +498,41 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
     )
     
     return {"status": "success", "run_id": run_id, "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."}
+
+@router.post("/smtp/test")
+async def test_smtp(request: SmtpTestRequest):
+    """Test SMTP connection without sending an email."""
+    try:
+        if int(request.smtpPort) == 465:
+            server = smtplib.SMTP_SSL(request.smtpHost, request.smtpPort)
+        else:
+            server = smtplib.SMTP(request.smtpHost, request.smtpPort, timeout=10)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+        server.login(request.smtpUser, request.smtpPass)
+        server.quit()
+        return {"status": "success", "message": "SMTP connection successful."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"SMTP Error: {str(e)}")
+
+@router.post("/session")
+async def save_session(request: SetupSessionSaveRequest, db: AsyncSession = Depends(get_db)):
+    """Saves the current setup wizard state as a draft."""
+    session_id = request.sessionId
+    session = (await db.execute(select(SetupSession).where(SetupSession.id == session_id))).scalars().first()
+    if session:
+        session.state_json = request.state
+    else:
+        session = SetupSession(id=session_id, state_json=request.state)
+        db.add(session)
+    await db.commit()
+    return {"status": "success"}
+
+@router.get("/session/{session_id}")
+async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    """Retrieves a saved setup wizard state."""
+    session = (await db.execute(select(SetupSession).where(SetupSession.id == session_id))).scalars().first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"status": "success", "state": session.state_json}
