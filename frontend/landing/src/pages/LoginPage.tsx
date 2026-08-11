@@ -60,7 +60,10 @@ export default function LoginPage() {
         
         <div className="w-full max-w-md relative z-10">
 
-          <div className="text-center mb-8 space-y-2">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center mb-3">
+              <img src="/logo.png" alt="AegisOne Logo" className="w-16 h-16 object-contain" />
+            </div>
             <h1 className="text-2xl font-bold text-[#0F172A]">{isForgotPassword ? 'Reset Password' : 'Organization Portal'}</h1>
             <p className="text-sm text-[#45464D]">{isForgotPassword ? 'Enter your email to receive a reset link.' : 'Sign in to access your deployment dashboard.'}</p>
           </div>

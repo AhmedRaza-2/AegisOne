@@ -12,6 +12,7 @@ type AuthContextType = {
   theme: string;
   toggleTheme: () => void;
   fetchWithCache: (url: string, init?: RequestInit, ttlMs?: number) => Promise<any>;
+  invalidateCache: (urlPrefix?: string) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +44,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const eraseCookie = (name: string) => {
     if (typeof document === 'undefined') return;
     document.cookie = `${name}=; Max-Age=-99999999; path=/;`;
+  };
+
+  // Clear client cache (e.g. after database setup execution)
+  const invalidateCache = (urlPrefix?: string) => {
+    if (!urlPrefix) {
+      cacheRef.current.clear();
+      return;
+    }
+    for (const key of cacheRef.current.keys()) {
+      if (key.includes(urlPrefix)) {
+        cacheRef.current.delete(key);
+      }
+    }
   };
 
   // Client-side SWR Cache Helper (Deduplicates & accelerates page navigation)
@@ -121,13 +135,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.detail || "Invalid credentials" };
       }
       const token = data.access_token;
-      const loggedUser = data.user || { email, role: requestedRole || "admin" };
+      const userRole = data.role || requestedRole || "employee";
+      const loggedUser = {
+        email: email,
+        full_name: data.full_name || email.split("@")[0],
+        role: userRole,
+        department: data.department || "General",
+        organization_id: data.organization_id || "org_default"
+      };
       setUser(loggedUser);
       localStorage.setItem("aegis_access_token", token);
       localStorage.setItem("user", JSON.stringify(loggedUser));
       setCookie("aegis_access_token", token);
       setCookie("aegis_user", JSON.stringify(loggedUser));
-      return { success: true, role: loggedUser.role };
+      return { success: true, role: userRole };
     } catch (e) {
       return { success: false, error: "Network error logging in" };
     }
@@ -148,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, theme, toggleTheme, fetchWithCache }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, theme, toggleTheme, fetchWithCache, invalidateCache }}>
       {children}
     </AuthContext.Provider>
   );

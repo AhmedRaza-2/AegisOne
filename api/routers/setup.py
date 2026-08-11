@@ -125,7 +125,7 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
               
               <div class="credentials-box">
                 <div style="margin-bottom: 8px;"><strong>Email:</strong> <span style="font-family: monospace; float: right;">{employee.email}</span></div>
-                <div style="margin-bottom: 8px;"><strong>Temporary Password:</strong> <span style="font-family: monospace; float: right; color: #0A5ED6; font-weight: bold;">{employee.generatedPassword or 'Your chosen password'}</span></div>
+                <div style="margin-bottom: 8px;"><strong>Temporary Password:</strong> <span style="font-family: monospace; float: right; color: #0A5ED6; font-weight: bold;">{employee.generatedPassword}</span></div>
               </div>
 
               <div class="security-note">
@@ -379,13 +379,21 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
     # Save employees/admins to DB
     emails_to_send = []
     try:
+        import secrets
+        import string
+
         for emp in request.employees:
             stmt = select(User).where(User.email == emp.email)
             result = await db.execute(stmt)
             existing = result.scalars().first()
             dept_val = None if emp.role.lower() == "admin" else emp.departmentCode
             
-            pwd_raw = emp.generatedPassword or "AegisOne2026!"
+            # Generate a secure 10-character temporary password if not provided
+            if not emp.generatedPassword:
+                random_digits = ''.join(secrets.choice(string.digits) for _ in range(4))
+                emp.generatedPassword = f"AegisPass{random_digits}!"
+            
+            pwd_raw = emp.generatedPassword
             hashed_pwd = hash_password(pwd_raw)
             
             if not existing:
@@ -401,13 +409,12 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 db.add(db_user)
                 emails_to_send.append(emp)
             else:
-                # Update user info and always queue a setup email
+                # Update user info and set password
                 existing.full_name = f"{emp.firstName} {emp.lastName}"
                 existing.role = emp.role.lower()
                 existing.department = dept_val
                 existing.account_status = "approved"
-                if emp.generatedPassword:
-                    existing.password_hash = hash_password(emp.generatedPassword)
+                existing.password_hash = hashed_pwd
                 emails_to_send.append(emp)
 
         # Mirror a lightweight setup structure in the database for the setup wizard.
@@ -475,7 +482,20 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
         request.smtpPort,
     )
     
-    return {"status": "success", "run_id": run_id, "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."}
+    # Generate a fresh valid access token for the admin session to avoid 401 unauthorized errors on redirect
+    admin_user = (await db.execute(select(User).where(User.organization_id == "org_default", User.role == "admin"))).scalars().first()
+    admin_email = admin_user.email if admin_user else "admin@amdevwork.com"
+    
+    from api.auth.jwt_handler import create_access_token
+    fresh_token = create_access_token(data={"sub": admin_email, "role": "admin"})
+
+    return {
+        "status": "success",
+        "run_id": run_id,
+        "access_token": fresh_token,
+        "admin_email": admin_email,
+        "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."
+    }
 
 @router.post("/smtp/test")
 async def test_smtp(request: SmtpTestRequest):

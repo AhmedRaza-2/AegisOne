@@ -128,13 +128,16 @@ function SidebarContent({
     <>
       <div className="h-20 flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
         {!collapsed ? (
-          <div className="flex flex-col">
-            <span className="text-xl font-bold tracking-tight text-brand-600 dark:text-[#4F84F8]">AegisOne</span>
-            <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest mt-0.5">{roleBadge?.label || "Enterprise"} Portal</span>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="AegisOne Logo" className="w-9 h-9 object-contain shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-xl font-bold tracking-tight text-brand-600 dark:text-[#4F84F8]">AegisOne</span>
+              <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest mt-0.5">{roleBadge?.label || "Enterprise"} Portal</span>
+            </div>
           </div>
         ) : (
-          <div className="mx-auto">
-            <ShieldCheck className="w-8 h-8 text-brand-600 dark:text-[#4F84F8]" />
+          <div className="mx-auto flex justify-center">
+            <img src="/logo.png" alt="AegisOne Logo" className="w-8 h-8 object-contain" />
           </div>
         )}
       </div>
@@ -149,8 +152,8 @@ function SidebarContent({
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${active
-                  ? "bg-surface-100 dark:bg-white/[0.02] text-surface-900 dark:text-white border-l-2 border-brand-500 dark:border-[#4F84F8]"
-                  : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02] border-l-2 border-transparent"
+                ? "bg-surface-100 dark:bg-white/[0.02] text-surface-900 dark:text-white border-l-2 border-brand-500 dark:border-[#4F84F8]"
+                : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02] border-l-2 border-transparent"
                 }`}
               title={collapsed ? item.label : undefined}
             >
@@ -309,11 +312,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!user) return;
     const fetchInbox = () => {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      if (!token) return;
+      if (!token || token.startsWith("token_setup_")) return;
       fetch("http://localhost:8000/communication/inbox", {
         headers: { "Authorization": `Bearer ${token}` }
       })
-        .then(res => res.json())
+        .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (Array.isArray(data)) setInboxMessages(data);
         })
@@ -552,12 +555,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-surface-700 dark:text-surface-400">
               System Status: <span className="flex items-center gap-1.5 text-surface-900 dark:text-white"><span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]"></span> Operational</span>
             </div>
+            <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1]"></div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-xs font-bold transition-all cursor-pointer"
+              title="Sign out of AegisOne"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
+            </button>
           </div>
         </header>
 
         <main className="flex-1 p-6 md:p-8 text-surface-900 dark:text-white overflow-hidden">
           {children}
         </main>
+
+        {/* Dashboard Centered Luxury Footer */}
+        <footer className="px-6 py-3 shrink-0 border-t border-blue-200/50 dark:border-blue-900/30 bg-gradient-to-r from-blue-50/80 via-indigo-50/80 to-blue-50/80 dark:from-[#0B1528] dark:via-[#0F1C38] dark:to-[#0B1528] backdrop-blur-xs flex items-center justify-center gap-3 text-xs text-blue-800 dark:text-blue-200 text-center font-medium">
+          <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          <span>Powered by AegisOne</span>
+          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] border border-emerald-500/20">
+            No Data Shared To Us
+          </span>
+        </footer>
 
         {/* First Time Extension Setup Reminder Modal */}
         <AnimatePresence>

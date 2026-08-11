@@ -75,45 +75,59 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleApprove = async (id: string) => {
-    if (!window.confirm("Approve this organization and grant portal access?")) return;
+  // Custom Modal States
+  const [approveConfirmTarget, setApproveConfirmTarget] = useState<string | null>(null);
+  const [suspendModalTarget, setSuspendModalTarget] = useState<{ id: string; action: 'reject' | 'suspend' } | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const executeApproval = async () => {
+    if (!approveConfirmTarget) return;
+    setActionLoading(true);
     try {
-      await updateOrganizationStatus(id, 'active');
-      setOrgs(orgs.map(o => o.id === id ? { ...o, status: 'active' } : o));
+      await updateOrganizationStatus(approveConfirmTarget, 'active');
+      setOrgs(orgs.map(o => o.id === approveConfirmTarget ? { ...o, status: 'active' } : o));
+      setApproveConfirmTarget(null);
     } catch (e) {
       console.error(e);
       alert("Failed to approve organization");
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleReject = async (id: string) => {
-    const reason = window.prompt("Enter reason for rejection (this will be shown to the user):");
-    if (reason === null) return;
-
+  const executeSuspension = async () => {
+    if (!suspendModalTarget) return;
+    setActionLoading(true);
     try {
-      await updateOrganizationStatus(id, 'suspended', reason || 'Registration rejected by administrator');
-      setOrgs(orgs.map(o => o.id === id ? { ...o, status: 'suspended', product_version: reason } : o));
+      const reason = suspendReason.trim() || (suspendModalTarget.action === 'reject' ? 'Registration rejected by administrator' : 'Account suspended by administrator');
+      await updateOrganizationStatus(suspendModalTarget.id, 'suspended', reason);
+      setOrgs(orgs.map(o => o.id === suspendModalTarget.id ? { ...o, status: 'suspended', product_version: reason } : o));
+      setSuspendModalTarget(null);
+      setSuspendReason('');
     } catch (e) {
       console.error(e);
-      alert("Failed to reject organization");
+      alert("Failed to update organization status");
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleSuspend = async (id: string) => {
-    const reason = window.prompt("Enter reason for suspension:");
-    if (reason === null) return;
+  const handleApprove = (id: string) => {
+    setApproveConfirmTarget(id);
+  };
 
-    try {
-      await updateOrganizationStatus(id, 'suspended', reason || 'Account suspended by administrator');
-      setOrgs(orgs.map(o => o.id === id ? { ...o, status: 'suspended', product_version: reason } : o));
-    } catch (e) {
-      console.error(e);
-      alert("Failed to suspend organization");
-    }
+  const handleReject = (id: string) => {
+    setSuspendModalTarget({ id, action: 'reject' });
+    setSuspendReason('');
+  };
+
+  const handleSuspend = (id: string) => {
+    setSuspendModalTarget({ id, action: 'suspend' });
+    setSuspendReason('');
   };
 
   const handleActivate = async (id: string) => {
-    if (!window.confirm("Re-activate this organization account?")) return;
     try {
       await updateOrganizationStatus(id, 'active');
       setOrgs(orgs.map(o => o.id === id ? { ...o, status: 'active' } : o));
@@ -172,15 +186,13 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans">
         <div className="flex-1 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xl">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                <Lock className="w-8 h-8 text-red-500" />
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xl">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center mb-3">
+                <img src="/logo.png" alt="AegisOne Logo" className="w-16 h-16 object-contain" />
               </div>
-            </div>
-            <div className="text-center mb-8 space-y-2">
-              <h1 className="text-2xl font-bold text-[#0F172A]">Super Admin</h1>
-              <p className="text-sm text-[#45464D]">Enter your administrator credentials to continue.</p>
+              <h1 className="text-2xl font-bold text-[#0F172A]">Super Admin Portal</h1>
+              <p className="text-sm text-[#45464D] mt-1">Enter your platform administrator credentials</p>
             </div>
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div>
@@ -477,6 +489,91 @@ export default function AdminDashboard() {
                 ) : (
                   "Confirm Delete"
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Approve Confirmation Modal */}
+      {approveConfirmTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl p-6 shadow-xl">
+            <div className="flex items-center gap-3 text-emerald-600 mb-4">
+              <div className="p-2.5 bg-emerald-50 rounded-xl">
+                <Check className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Approve Organization?</h3>
+                <p className="text-xs text-slate-500">Grant tenant access to the AegisOne portal</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+              This will mark the organization status as <strong className="text-emerald-600">Active</strong> and generate portal setup credentials for the security administrator.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setApproveConfirmTarget(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeApproval}
+                disabled={actionLoading}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                Confirm Approval
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend / Reject Custom Modal */}
+      {suspendModalTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl p-6 shadow-xl">
+            <div className="flex items-center gap-3 text-amber-600 mb-4">
+              <div className="p-2.5 bg-amber-50 rounded-xl">
+                <X className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {suspendModalTarget.action === 'reject' ? 'Reject Registration' : 'Suspend Organization'}
+                </h3>
+                <p className="text-xs text-slate-500">Provide an optional reason for the admin</p>
+              </div>
+            </div>
+            <div className="mb-6 space-y-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Reason / Note:
+              </label>
+              <input
+                type="text"
+                placeholder={suspendModalTarget.action === 'reject' ? 'e.g. Registration details unverified' : 'e.g. Policy violation'}
+                value={suspendReason}
+                onChange={e => setSuspendReason(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:border-amber-500 font-medium"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setSuspendModalTarget(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeSuspension}
+                disabled={actionLoading}
+                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                Confirm {suspendModalTarget.action === 'reject' ? 'Rejection' : 'Suspension'}
               </button>
             </div>
           </div>

@@ -41,7 +41,7 @@ const STEPS = [
 ];
 
 export default function AdminSetupPage() {
-  const { user } = useAuth();
+  const { user, invalidateCache } = useAuth();
   const router = useRouter();
   const API_BASE = 'http://localhost:8000';
 
@@ -76,7 +76,7 @@ export default function AdminSetupPage() {
   const [newDeptNameInput, setNewDeptNameInput] = useState('');
 
   // SMTP Credentials
-  const [smtpUser, setSmtpUser] = useState('araza2125012.pgc@gmail.com');
+  const [smtpUser, setSmtpUser] = useState('');
   const [smtpPass, setSmtpPass] = useState('');
   const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
   const [smtpPort, setSmtpPort] = useState('587');
@@ -167,7 +167,16 @@ export default function AdminSetupPage() {
         })
       });
       if (res.ok) {
+        const data = await res.json();
+        if (data && data.access_token) {
+          const loggedUser = { email: data.admin_email || "admin@amdevwork.com", full_name: "Administrator", role: "admin", organization_id: "org_default" };
+          localStorage.setItem("aegis_access_token", data.access_token);
+          localStorage.setItem("user", JSON.stringify(loggedUser));
+          document.cookie = `aegis_access_token=${data.access_token}; path=/; SameSite=Lax`;
+          document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
+        }
         setDispatchDone(true);
+        invalidateCache(); // Invalidate cached dashboard stats & analytics so newly saved employees/departments load instantly!
         showToast('Rollout and credentials dispatch triggered successfully!');
       } else {
         const err = await res.json();
@@ -249,6 +258,7 @@ export default function AdminSetupPage() {
       const industryParam = searchParams.get('industry');
       const adminEmailParam = searchParams.get('adminEmail');
       const adminNameParam = searchParams.get('adminName') || 'Administrator';
+      const adminPasswordParam = searchParams.get('adminPassword');
 
       if (orgNameParam) setOrgName(orgNameParam);
       if (industryParam) setIndustry(industryParam);
@@ -270,10 +280,28 @@ export default function AdminSetupPage() {
         ]);
       }
 
-      // Show welcome popup modal ONLY when arriving from landing page redirection
+      // Auto-authenticate session if arriving from Landing/Portal with credentials
       const fromLanding = searchParams.get('fromLanding') === 'true';
       if (fromLanding) {
         setShowWelcomeModal(true);
+        if (adminEmailParam && adminPasswordParam) {
+          fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: adminEmailParam, password: adminPasswordParam })
+          })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data && data.access_token) {
+                const loggedUser = data.user || { email: adminEmailParam, full_name: adminNameParam, role: 'admin', organization_id: 'org_default' };
+                localStorage.setItem('aegis_access_token', data.access_token);
+                localStorage.setItem('user', JSON.stringify(loggedUser));
+                document.cookie = `aegis_access_token=${data.access_token}; path=/; SameSite=Lax`;
+                document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
+              }
+            })
+            .catch(() => { });
+        }
       }
     }
   }, [user]);
@@ -776,7 +804,7 @@ export default function AdminSetupPage() {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Sender Email / Username</label>
-                    <input type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border rounded-xl text-sm mt-1" />
+                    <input type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="e.g. admin@company.com" className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium mt-1 outline-none focus:border-[#0A5ED6]" />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP App Password</label>
@@ -785,6 +813,7 @@ export default function AdminSetupPage() {
                         type={showSmtpPass ? "text" : "password"}
                         value={smtpPass}
                         onChange={e => setSmtpPass(e.target.value)}
+                        placeholder="Enter 16-character App Password"
                         className="w-full px-4 py-2.5 pr-11 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold outline-none focus:border-[#0A5ED6]"
                       />
                       <button
@@ -812,14 +841,14 @@ export default function AdminSetupPage() {
               <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
                 <ShieldCheck className="w-10 h-10" />
               </div>
-              <h2 className="text-3xl font-extrabold text-[#0F172A] dark:text-white">Execute Organization Security Rollout</h2>
-              <p className="text-sm text-slate-500 max-w-md mx-auto">Provision security credentials, email user accounts, and activate browser extension protection policy for your organization.</p>
+              <h2 className="text-3xl font-extrabold text-[#0F172A] dark:text-white">Send Credentials to All Employees</h2>
+              <p className="text-sm text-slate-500 max-w-md mx-auto">Send credentials to all employees and activate browser extension protection policy for your organization.</p>
 
               <div className="pt-6">
                 {dispatchDone ? (
                   <div className="space-y-4">
                     <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-emerald-700 font-bold rounded-xl max-w-md mx-auto">
-                      Rollout Dispatch Completed Successfully!
+                      Email Dispatch Completed Successfully!
                     </div>
                     <button
                       onClick={() => router.push('/dashboard/admin')}
@@ -870,7 +899,7 @@ export default function AdminSetupPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-2xl">
             <h4 className="text-base font-bold text-[#0F172A] dark:text-white">Add New Employee</h4>
-            
+
             <input
               type="text"
               placeholder="Employee ID (Optional, e.g. EMP102)"
@@ -885,7 +914,7 @@ export default function AdminSetupPage() {
             </div>
 
             <input type="email" placeholder="Email Address *" value={newEmpEmail} onChange={e => setNewEmpEmail(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-mono" />
-            
+
             <div className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Role Assignment</label>

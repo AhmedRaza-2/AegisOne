@@ -166,8 +166,8 @@ export default function LoginPage() {
         <div className="glass-card p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600/10 dark:bg-brand-500/10 p-2 mb-3 shadow-inner">
-              <img src="/logo.png" alt="AegisOne Logo" className="w-10 h-10 object-contain drop-shadow" />
+            <div className="inline-flex items-center justify-center mb-3">
+              <img src="/logo.png" alt="AegisOne Logo" className="w-16 h-16 object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Welcome back</h1>
             <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Sign in to your AegisOne dashboard</p>

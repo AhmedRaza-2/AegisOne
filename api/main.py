@@ -82,10 +82,31 @@ async def lifespan(app: FastAPI):
 
     await init_db()
     
-    from api.database.db import async_session
+    from api.database.db import async_session, engine
     from api.database.models import Organization, Department, WebsiteScan, Device, AuditLog, Message, ThreatReport
     from sqlalchemy.future import select
-    from sqlalchemy import delete, update
+    from sqlalchemy import delete, update, text
+
+    # Ensure missing columns (e.g. SMTP fields on organizations) are auto-migrated dynamically
+    async with engine.begin() as conn:
+        for col_def in [
+            ("smtp_host", "VARCHAR(255) DEFAULT 'smtp.gmail.com'"),
+            ("smtp_port", "INTEGER DEFAULT 587"),
+            ("smtp_user", "VARCHAR(255)"),
+            ("smtp_pass", "VARCHAR(255)")
+        ]:
+            col_name, col_type = col_def
+            await conn.execute(text(f"""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='organizations' AND column_name='{col_name}'
+                    ) THEN
+                        ALTER TABLE organizations ADD COLUMN {col_name} {col_type};
+                    END IF;
+                END $$;
+            """))
 
     async with async_session() as db:
         # ── Ensure org_default exists (PostgreSQL enforces FKs — orgs row must exist before departments)
@@ -102,7 +123,7 @@ async def lifespan(app: FastAPI):
         await db.execute(delete(Message))
         await db.execute(delete(ThreatReport))
         await db.commit()
-        logger.info("Database startup: org_default ensured, stale telemetry cleared.")
+        logger.info("Database startup: org_default ensured, SMTP columns verified, stale telemetry cleared.")
 
     load_all_models()
     
