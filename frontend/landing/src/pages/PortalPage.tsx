@@ -20,11 +20,10 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
   return (
     <button
       onClick={copy}
-      className={`flex items-center gap-1.5 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg transition-all ${
-        copied
+      className={`flex items-center gap-1.5 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg transition-all ${copied
           ? 'bg-emerald-500 text-white border border-emerald-600 shadow-md'
           : 'bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white border border-white/10 backdrop-blur-sm'
-      }`}
+        }`}
     >
       {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
       {copied ? 'Copied' : (label ?? 'Copy')}
@@ -66,8 +65,8 @@ export default function PortalPage() {
   const statusColor = org.status === 'active'
     ? 'text-emerald-700 bg-emerald-100 border-emerald-200'
     : org.status === 'pending'
-    ? 'text-amber-700 bg-amber-100 border-amber-200'
-    : 'text-red-700 bg-red-100 border-red-200';
+      ? 'text-amber-700 bg-amber-100 border-amber-200'
+      : 'text-red-700 bg-red-100 border-red-200';
 
   const isApproved = org.status === 'active';
 
