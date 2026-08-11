@@ -272,28 +272,19 @@ export default function PortalPage() {
                   </div>
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Boot Up Local Dashboard</h3>
+                  <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Start Organization Setup</h3>
                   <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    Once Docker finishes building and starting the three local services, your private AegisOne instance is live.
-                    The public landing site remains separate; use the local setup wizard to configure your organization.
+                    Your AegisOne instance is initialized and ready. Click below to launch the step-by-step setup engine and configure your organization.
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                     <a
-                      href={`http://localhost:3001?orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`}
+                      href={`http://localhost:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-4 rounded-xl text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                     >
-                      Open Setup Wizard <ChevronRight className="w-4 h-4" />
-                    </a>
-                    <a
-                      href={DASHBOARD_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-8 py-4 rounded-xl text-sm transition-all border border-emerald-200 shadow-sm"
-                    >
-                      Go to Local Dashboard <ArrowRight className="w-4 h-4" />
+                      Start Setup Engine Now <ChevronRight className="w-4 h-4" />
                     </a>
                   </div>
                 </div>

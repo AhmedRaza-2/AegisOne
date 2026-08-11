@@ -40,6 +40,7 @@ const navByRole: Record<string, NavItem[]> = {
   ],
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
@@ -51,6 +52,7 @@ const navByRole: Record<string, NavItem[]> = {
   ],
   super_admin: [
     { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
