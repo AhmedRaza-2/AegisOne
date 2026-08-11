@@ -294,8 +294,8 @@ export default function AdminSetupPage() {
     return false;
   };
 
-  // Calculate current progress percentage for horizontal progress bar
-  const progressPercentage = Math.round((step / 5) * 100);
+  // Calculate current progress percentage for horizontal progress bar (capped at 100%)
+  const progressPercentage = Math.min(100, Math.round((step / 5) * 100));
 
   return (
     <div className={`space-y-8 bg-[#F8FAFC] dark:bg-slate-950 text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
@@ -316,7 +316,7 @@ export default function AdminSetupPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white">Organization Setup Engine</h3>
-                <p className="text-xs text-slate-500">Step {step} of 5 — Completed ({progressPercentage}%)</p>
+                <p className="text-xs text-slate-500">Step {Math.min(5, step)} of 5 — Completed ({progressPercentage}%)</p>
               </div>
 
               <div className="flex items-center gap-1.5 flex-wrap">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, Check, X, Loader2, LogOut, Lock, Trash2, Search, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Shield, Check, X, Loader2, LogOut, Lock, Trash2, Search, AlertCircle, RefreshCw, Eye, EyeOff, Globe } from 'lucide-react';
 import { getOrganizations, updateOrganizationStatus, deleteOrganization, logoutOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -305,8 +305,9 @@ export default function AdminDashboard() {
             <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-4">Organization</th>
-                <th className="px-6 py-4">Contact Person</th>
-                <th className="px-6 py-4">Email</th>
+                <th className="px-6 py-4">Country & Region</th>
+                <th className="px-6 py-4">Employee Scale & Tier</th>
+                <th className="px-6 py-4">Admin Contact</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions & Controls</th>
               </tr>
@@ -314,26 +315,51 @@ export default function AdminDashboard() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                     <Loader2 className="w-6 h-6 text-[#0A5ED6] animate-spin mx-auto mb-2" />
                     Loading database records...
                   </td>
                 </tr>
               ) : filteredOrgs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                     <AlertCircle className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                     No organizations found matching your criteria.
                   </td>
                 </tr>
-              ) : filteredOrgs.map(org => (
-                <tr key={org.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-[#0F172A]">{org.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{org.industry || 'General'} · {org.employee_count || 0} employees</p>
-                  </td>
-                  <td className="px-6 py-4 text-slate-700 font-medium">{org.admin_name || 'N/A'}</td>
-                  <td className="px-6 py-4 text-slate-600 font-mono text-xs">{org.admin_email}</td>
+              ) : filteredOrgs.map(org => {
+                const empCount = org.employee_count || 0;
+                let tier = 'Starter Tier';
+                let tierColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                if (empCount > 500) {
+                  tier = 'Enterprise Max';
+                  tierColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                } else if (empCount > 100) {
+                  tier = 'Business Pro';
+                  tierColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                }
+
+                return (
+                  <tr key={org.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-[#0F172A] text-base">{org.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">{org.industry || 'General Industry'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-slate-400" /> {org.country || 'Global'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-900 text-xs">{empCount} Employees</p>
+                      <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full border mt-1 ${tierColor}`}>
+                        {tier}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-slate-900 font-bold text-xs">{org.admin_name || 'N/A'}</p>
+                      <p className="text-slate-500 font-mono text-[11px] mt-0.5">{org.admin_email}</p>
+                    </td>
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
                       org.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
@@ -390,7 +416,8 @@ export default function AdminDashboard() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </div>

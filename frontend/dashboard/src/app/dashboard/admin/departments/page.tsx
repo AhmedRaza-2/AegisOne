@@ -11,7 +11,7 @@ const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function DepartmentsPage() {
-  const { user } = useAuth();
+  const { user, fetchWithCache } = useAuth();
   const [departments, setDepartments] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState<number | "all">("all");
@@ -66,22 +66,15 @@ export default function DepartmentsPage() {
 
   const fetchData = async () => {
     try {
-      const [deptsRes, usersRes, smtpRes] = await Promise.all([
-        fetch("http://localhost:8000/admin/departments", { headers: getHeaders() }),
-        fetch("http://localhost:8000/admin/users", { headers: getHeaders() }),
-        fetch("http://localhost:8000/admin/smtp-settings", { headers: getHeaders() })
+      const [dData, uData, sData] = await Promise.all([
+        fetchWithCache("http://localhost:8000/admin/departments", { headers: getHeaders() }),
+        fetchWithCache("http://localhost:8000/admin/users", { headers: getHeaders() }),
+        fetchWithCache("http://localhost:8000/admin/smtp-settings", { headers: getHeaders() })
       ]);
 
-      if (deptsRes.ok) {
-        const dData = await deptsRes.json();
-        setDepartments(dData.departments || []);
-      }
-      if (usersRes.ok) {
-        const uData = await usersRes.json();
-        setUserList(uData.users || []);
-      }
-      if (smtpRes.ok) {
-        const sData = await smtpRes.json();
+      if (dData) setDepartments(dData.departments || []);
+      if (uData) setUserList(uData.users || []);
+      if (sData) {
         setSmtpHost(sData.smtp_host || "smtp.gmail.com");
         setSmtpPort(sData.smtp_port || 587);
         setSmtpUser(sData.smtp_user || "");

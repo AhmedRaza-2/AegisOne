@@ -9,7 +9,7 @@ const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function AdminAnalyticsPage() {
-  const { user, theme, logout } = useAuth();
+  const { user, theme, logout, fetchWithCache } = useAuth();
   const [realStats, setRealStats] = useState<any>(null);
   const [departments, setDepartments] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
@@ -25,37 +25,26 @@ export default function AdminAnalyticsPage() {
 
   useEffect(() => {
     if (!user) return;
+    let isMounted = true;
 
     const fetchData = async () => {
       try {
         const headers = getHeaders();
-        const [statsRes, deptsRes, usersRes] = await Promise.all([
-          fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers }),
-          fetch(`http://localhost:8000/admin/departments`, { headers }),
-          fetch(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
+        const [sData, dData, uData] = await Promise.all([
+          fetchWithCache(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers }),
+          fetchWithCache(`http://localhost:8000/admin/departments`, { headers }),
+          fetchWithCache(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
         ]);
 
-        if (statsRes.status === 401) {
-          logout();
-          return;
-        }
-
-        if (statsRes.ok) {
-          const sData = await statsRes.json();
-          setRealStats(sData);
-        }
-        if (deptsRes.ok) {
-          const dData = await deptsRes.json();
-          setDepartments(dData.departments || []);
-        }
-        if (usersRes.ok) {
-          const uData = await usersRes.json();
-          setUserList(uData.users || []);
+        if (isMounted) {
+          if (sData) setRealStats(sData);
+          if (dData) setDepartments(dData.departments || []);
+          if (uData) setUserList(uData.users || []);
         }
       } catch (err) {
         console.error("[Admin Analytics] Fetch error:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 

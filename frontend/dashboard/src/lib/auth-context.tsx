@@ -11,6 +11,7 @@ type AuthContextType = {
   isLoading: boolean;
   theme: string;
   toggleTheme: () => void;
+  fetchWithCache: (url: string, init?: RequestInit, ttlMs?: number) => Promise<any>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,6 +43,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const eraseCookie = (name: string) => {
     if (typeof document === 'undefined') return;
     document.cookie = `${name}=; Max-Age=-99999999; path=/;`;
+  };
+
+  // Client-side SWR Cache Helper (Deduplicates & accelerates page navigation)
+  const fetchWithCache = async (url: string, init?: RequestInit, ttlMs = 15000) => {
+    const cached = cacheRef.current.get(url);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < ttlMs)) {
+      return cached.data;
+    }
+    const res = await fetch(url, init);
+    if (!res.ok) {
+      throw new Error(`Fetch error: ${res.status}`);
+    }
+    const data = await res.json();
+    cacheRef.current.set(url, { data, timestamp: now });
+    return data;
   };
 
   useEffect(() => {
@@ -99,41 +116,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: pass }),
       });
-
+      const data = await response.json();
       if (!response.ok) {
-        const data = await response.json();
         return { success: false, error: data.detail || "Invalid credentials" };
       }
-
-      const data = await response.json();
-
-      if (requestedRole && data.role !== requestedRole) {
-        return { success: false, role: data.role, error: `Unauthorized. You are assigned as ${data.role}, but tried to access ${requestedRole}.` };
-      }
-
-      const userData = {
-        email: email,
-        full_name: data.full_name,
-        role: data.role,
-        department: data.department,
-        organization_id: data.organization_id
-      };
-
-      // Store in LocalStorage
-      localStorage.setItem("aegis_access_token", data.access_token);
-      localStorage.setItem("aegis_token", data.access_token);
-      localStorage.setItem("aegis_refresh_token", data.refresh_token);
-      localStorage.setItem("user", JSON.stringify(userData));
-
-      // Store in Cookies for persistent session across tabs and reloads
-      setCookie("aegis_access_token", data.access_token);
-      setCookie("aegis_user", JSON.stringify(userData));
-
-      setUser(userData);
-
-      return { success: true, role: data.role };
-    } catch (err: any) {
-      return { success: false, error: err.message || "Failed to connect to server" };
+      const token = data.access_token;
+      const loggedUser = data.user || { email, role: requestedRole || "admin" };
+      setUser(loggedUser);
+      localStorage.setItem("aegis_access_token", token);
+      localStorage.setItem("user", JSON.stringify(loggedUser));
+      setCookie("aegis_access_token", token);
+      setCookie("aegis_user", JSON.stringify(loggedUser));
+      return { success: true, role: loggedUser.role };
+    } catch (e) {
+      return { success: false, error: "Network error logging in" };
     }
   };
 
@@ -152,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, theme, toggleTheme }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, theme, toggleTheme, fetchWithCache }}>
       {children}
     </AuthContext.Provider>
   );
