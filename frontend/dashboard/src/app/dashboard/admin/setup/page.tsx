@@ -81,6 +81,39 @@ export default function AdminSetupPage() {
   const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
   const [smtpPort, setSmtpPort] = useState('587');
   const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpTestStatus, setSmtpTestStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleTestSmtp = async () => {
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      showToast('Please enter all SMTP credentials before testing.', 'error');
+      return;
+    }
+    setTestingSmtp(true);
+    setSmtpTestStatus(null);
+    try {
+      const res = await fetch(`${API_BASE}/setup/smtp/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smtpUser: smtpUser.trim(),
+          smtpPass: smtpPass.trim(),
+          smtpHost: smtpHost.trim(),
+          smtpPort: parseInt(smtpPort, 10)
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSmtpTestStatus({ success: true, message: data.message || 'SMTP Connection & Login Successful!' });
+      } else {
+        setSmtpTestStatus({ success: false, message: data.detail || 'SMTP Test Failed' });
+      }
+    } catch (e) {
+      setSmtpTestStatus({ success: false, message: 'Network error connecting to SMTP server.' });
+    } finally {
+      setTestingSmtp(false);
+    }
+  };
 
   const [executing, setExecuting] = useState(false);
   const [dispatchDone, setDispatchDone] = useState(false);
@@ -513,6 +546,32 @@ export default function AdminSetupPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* View Mode Switcher */}
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 mr-2">
+                    <button
+                      type="button"
+                      onClick={() => setStructureViewMode('visual')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                        structureViewMode === 'visual'
+                          ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <ListFilter className="w-3.5 h-3.5" /> Visual Cards
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStructureViewMode('table')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                        structureViewMode === 'table'
+                          ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Table className="w-3.5 h-3.5" /> Editable Table
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -561,148 +620,286 @@ export default function AdminSetupPage() {
                   type="text"
                   value={visualSearch}
                   onChange={e => setVisualSearch(e.target.value)}
-                  placeholder="Filter nodes or employee names..."
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-sm"
+                  placeholder="Filter by name, email, department, or role..."
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-sm font-medium"
                 />
               </div>
 
-              {/* Unassigned Employees Dock & Department Nodes Grid */}
-              {employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length > 0 && (
-                <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-2">
-                      <Users className="w-4 h-4 text-amber-600" /> Unassigned Employees ({employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length})
-                    </span>
-                    <span className="text-[10px] text-amber-600 font-bold">Drag employees into a department below</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').map(emp => (
-                      <div
-                        key={emp.id}
-                        draggable
-                        onDragStart={() => setDraggedEmployeeId(emp.id)}
-                        className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-1.5 shadow-sm cursor-grab active:cursor-grabbing text-xs font-bold text-slate-800 dark:text-white hover:border-amber-500"
-                      >
-                        <span>{emp.firstName} {emp.lastName}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 font-bold uppercase">{emp.role}</span>
+              {/* VIEW 1: VISUAL CARDS & DRAG-DROP */}
+              {structureViewMode === 'visual' && (
+                <>
+                  {/* Unassigned Employees Dock */}
+                  {employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length > 0 && (
+                    <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                          <Users className="w-4 h-4 text-amber-600" /> Unassigned Employees ({employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length})
+                        </span>
+                        <span className="text-[10px] text-amber-600 font-bold">Drag employees into a department below</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Department Nodes Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {departments.map(dept => {
-                  const members = employees.filter(e => e.departmentCode === dept.code && e.role.toLowerCase() !== 'manager' && e.role.toLowerCase() !== 'admin');
-                  const manager = employees.find(e => e.id === dept.leadId || (e.departmentCode === dept.code && e.role.toLowerCase() === 'manager'));
-
-                  return (
-                    <div
-                      key={dept.id}
-                      className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-blue-400 transition-all flex flex-col justify-between"
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={() => {
-                        if (draggedEmployeeId) {
-                          moveEmployeeToDept(draggedEmployeeId, dept.code);
-                          setDraggedEmployeeId(null);
-                        }
-                      }}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
-                          <input
-                            value={dept.name}
-                            onChange={e => {
-                              const newName = e.target.value;
-                              setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, name: newName } : d));
-                            }}
-                            className="w-full bg-transparent text-[#0F172A] dark:text-white text-base font-extrabold outline-none focus:bg-slate-50 dark:focus:bg-slate-800 rounded px-1"
-                          />
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="font-mono text-xs font-bold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-lg border border-blue-200">
-                              {dept.code}
-                            </span>
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to delete ${dept.name}?`)) {
-                                  handleDeleteDepartment(dept.id, dept.code);
-                                }
-                              }}
-                              className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                      <div className="flex flex-wrap gap-2">
+                        {employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').map(emp => (
+                          <div
+                            key={emp.id}
+                            draggable
+                            onDragStart={() => setDraggedEmployeeId(emp.id)}
+                            className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-1.5 shadow-sm cursor-grab active:cursor-grabbing text-xs font-bold text-slate-800 dark:text-white hover:border-amber-500"
+                          >
+                            <span>{emp.firstName} {emp.lastName}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 font-bold uppercase">{emp.role}</span>
                           </div>
-                        </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                        {/* Manager Slot */}
-                        <div className="space-y-3 relative pl-3 border-l-2 border-blue-400/40 ml-2 py-1">
-                          {manager ? (
-                            <div
-                              draggable
-                              onDragStart={() => setDraggedEmployeeId(manager.id)}
-                              className="relative flex items-center justify-between gap-2 bg-gradient-to-r from-blue-50 to-indigo-50/30 dark:from-blue-950/40 dark:to-slate-900 border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-extrabold text-blue-950 dark:text-blue-100 truncate">{manager.firstName} {manager.lastName}</span>
-                                  <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.2 rounded uppercase">Manager</span>
-                                </div>
-                                <p className="text-[10px] text-slate-500 truncate">{manager.email}</p>
+                  {/* Department Nodes Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {departments.map(dept => {
+                      const members = employees.filter(e => e.departmentCode === dept.code && e.role.toLowerCase() !== 'manager' && e.role.toLowerCase() !== 'admin');
+                      const manager = employees.find(e => e.id === dept.leadId || (e.departmentCode === dept.code && e.role.toLowerCase() === 'manager'));
+
+                      return (
+                        <div
+                          key={dept.id}
+                          className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-blue-400 transition-all flex flex-col justify-between"
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={() => {
+                            if (draggedEmployeeId) {
+                              moveEmployeeToDept(draggedEmployeeId, dept.code);
+                              setDraggedEmployeeId(null);
+                            }
+                          }}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                              <input
+                                value={dept.name}
+                                onChange={e => {
+                                  const newName = e.target.value;
+                                  setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, name: newName } : d));
+                                }}
+                                className="w-full bg-transparent text-[#0F172A] dark:text-white text-base font-extrabold outline-none focus:bg-slate-50 dark:focus:bg-slate-800 rounded px-1"
+                              />
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="font-mono text-xs font-bold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-lg border border-blue-200">
+                                  {dept.code}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`Are you sure you want to delete ${dept.name}?`)) {
+                                      handleDeleteDepartment(dept.id, dept.code);
+                                    }
+                                  }}
+                                  className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             </div>
-                          ) : (
-                            <div
-                              onDragOver={e => e.preventDefault()}
-                              onDrop={() => {
-                                if (draggedEmployeeId) {
-                                  setEmployees(prev => prev.map(e => e.id === draggedEmployeeId ? { ...e, role: 'Manager', departmentCode: dept.code } : e));
-                                  setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, leadId: draggedEmployeeId } : d));
-                                  setDraggedEmployeeId(null);
-                                }
-                              }}
-                              className="p-2.5 bg-amber-50/60 dark:bg-amber-950/20 border border-dashed border-amber-300 dark:border-amber-800 rounded-xl text-xs text-amber-700 dark:text-amber-300 font-semibold flex items-center justify-between gap-2"
-                            >
-                              <span className="flex items-center gap-1.5 text-xs font-bold">
-                                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Drag Manager Here
-                              </span>
-                            </div>
-                          )}
 
-                          {/* Members Sub-list */}
-                          <div className="space-y-2 pt-1">
-                            <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Department Members ({members.length})</p>
-                            <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
-                              {members.map(emp => (
+                            {/* Manager Slot */}
+                            <div className="space-y-3 relative pl-3 border-l-2 border-blue-400/40 ml-2 py-1">
+                              {manager ? (
                                 <div
-                                  key={emp.id}
                                   draggable
-                                  onDragStart={() => setDraggedEmployeeId(emp.id)}
-                                  className="flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2"
+                                  onDragStart={() => setDraggedEmployeeId(manager.id)}
+                                  className="relative flex items-center justify-between gap-2 bg-gradient-to-r from-blue-50 to-indigo-50/30 dark:from-blue-950/40 dark:to-slate-900 border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing"
                                 >
-                                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{emp.firstName} {emp.lastName}</span>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs font-extrabold text-blue-950 dark:text-blue-100 truncate">{manager.firstName} {manager.lastName}</span>
+                                      <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.2 rounded uppercase">Manager</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 truncate">{manager.email}</p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  onDragOver={e => e.preventDefault()}
+                                  onDrop={() => {
+                                    if (draggedEmployeeId) {
+                                      setEmployees(prev => prev.map(e => e.id === draggedEmployeeId ? { ...e, role: 'Manager', departmentCode: dept.code } : e));
+                                      setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, leadId: draggedEmployeeId } : d));
+                                      setDraggedEmployeeId(null);
+                                    }
+                                  }}
+                                  className="p-2.5 bg-amber-50/60 dark:bg-amber-950/20 border border-dashed border-amber-300 dark:border-amber-800 rounded-xl text-xs text-amber-700 dark:text-amber-300 font-semibold flex items-center justify-between gap-2"
+                                >
+                                  <span className="flex items-center gap-1.5 text-xs font-bold">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Drag Manager Here
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Members Sub-list */}
+                              <div className="space-y-2 pt-1">
+                                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Department Members ({members.length})</p>
+                                <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
+                                  {members.map(emp => (
+                                    <div
+                                      key={emp.id}
+                                      draggable
+                                      onDragStart={() => setDraggedEmployeeId(emp.id)}
+                                      className="flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2"
+                                    >
+                                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{emp.firstName} {emp.lastName}</span>
+                                      <select
+                                        value={emp.role.toLowerCase()}
+                                        onChange={e => {
+                                          const newRole = e.target.value === 'manager' ? 'Manager' : 'Employee';
+                                          setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, role: newRole } : item));
+                                        }}
+                                        className="text-[10px] font-bold bg-white dark:bg-slate-950 border border-slate-200 rounded px-1.5 py-0.5 outline-none cursor-pointer"
+                                      >
+                                        <option value="employee">Employee</option>
+                                        <option value="manager">Manager</option>
+                                      </select>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* VIEW 2: HIGH-CAPACITY EDITABLE TABULAR VIEW */}
+              {structureViewMode === 'table' && (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto max-h-[520px] custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-4">EMP ID</th>
+                          <th className="py-3 px-4">NAME</th>
+                          <th className="py-3 px-4">EMAIL</th>
+                          <th className="py-3 px-4">DEPARTMENT</th>
+                          <th className="py-3 px-4">ROLE</th>
+                          <th className="py-3 px-4 text-right">ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                        {employees
+                          .filter(emp => {
+                            if (!visualSearch.trim()) return true;
+                            const query = visualSearch.toLowerCase();
+                            return (
+                              emp.firstName.toLowerCase().includes(query) ||
+                              emp.lastName.toLowerCase().includes(query) ||
+                              emp.email.toLowerCase().includes(query) ||
+                              (emp.employeeId && emp.employeeId.toLowerCase().includes(query)) ||
+                              emp.departmentCode.toLowerCase().includes(query) ||
+                              emp.role.toLowerCase().includes(query)
+                            );
+                          })
+                          .map((emp) => (
+                            <tr key={emp.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                              <td className="py-2.5 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
+                                <input
+                                  type="text"
+                                  value={emp.employeeId || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, employeeId: val } : item));
+                                  }}
+                                  className="w-24 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono font-bold"
+                                />
+                              </td>
+                              <td className="py-2.5 px-4">
+                                <div className="flex gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={emp.firstName}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, firstName: val } : item));
+                                    }}
+                                    className="w-24 bg-transparent outline-none font-bold text-slate-900 dark:text-white border-b border-transparent focus:border-blue-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={emp.lastName}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, lastName: val } : item));
+                                    }}
+                                    className="w-24 bg-transparent outline-none text-slate-700 dark:text-slate-300 border-b border-transparent focus:border-blue-500"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-4 font-mono text-slate-600 dark:text-slate-400">
+                                <input
+                                  type="email"
+                                  value={emp.email}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, email: val } : item));
+                                  }}
+                                  className="w-56 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono"
+                                />
+                              </td>
+                              <td className="py-2.5 px-4">
+                                {emp.role.toLowerCase() === 'admin' ? (
+                                  <span className="px-2 py-1 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 rounded font-bold text-[11px]">Organization</span>
+                                ) : (
+                                  <select
+                                    value={emp.departmentCode}
+                                    onChange={e => {
+                                      const newDept = e.target.value;
+                                      setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, departmentCode: newDept } : item));
+                                    }}
+                                    className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+                                  >
+                                    <option value="NONE">Unassigned</option>
+                                    {departments.map(d => (
+                                      <option key={d.code} value={d.code}>{d.name} ({d.code})</option>
+                                    ))}
+                                  </select>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-4">
+                                {emp.role.toLowerCase() === 'admin' ? (
+                                  <span className="px-2 py-1 bg-purple-600 text-white rounded font-bold text-[10px] uppercase">Admin</span>
+                                ) : (
                                   <select
                                     value={emp.role.toLowerCase()}
                                     onChange={e => {
                                       const newRole = e.target.value === 'manager' ? 'Manager' : 'Employee';
                                       setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, role: newRole } : item));
                                     }}
-                                    className="text-[10px] font-bold bg-white dark:bg-slate-950 border border-slate-200 rounded px-1.5 py-0.5 outline-none cursor-pointer"
+                                    className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
                                   >
                                     <option value="employee">Employee</option>
                                     <option value="manager">Manager</option>
                                   </select>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-4 text-right">
+                                {emp.role.toLowerCase() !== 'admin' && (
+                                  <button
+                                    onClick={() => {
+                                      setEmployees(prev => prev.filter(item => item.id !== emp.id));
+                                      showToast(`Removed employee ${emp.firstName}`);
+                                    }}
+                                    className="text-slate-400 hover:text-red-500 p-1 rounded transition-colors"
+                                    title="Delete Employee"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-slate-800">
                 <button onClick={() => setStep(1)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
@@ -787,12 +984,23 @@ export default function AdminSetupPage() {
           {/* STEP 4: SECURITY CREDENTIALS (SMTP) */}
           {step === 4 && (
             <div className="space-y-6 animate-fadeIn">
-              <div>
-                <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Security & SMTP Credentials</h2>
-                <p className="text-sm text-slate-500">Configure outbound SMTP credentials to dispatch user welcome packages.</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-1">Security & SMTP Credentials</h2>
+                  <p className="text-sm text-slate-500">Configure outbound SMTP credentials to dispatch user welcome packages.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTestSmtp}
+                  disabled={testingSmtp}
+                  className="px-5 py-2.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md hover:shadow-lg disabled:opacity-50 shrink-0"
+                >
+                  {testingSmtp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4 text-white" />}
+                  {testingSmtp ? "Testing Connection..." : "Test SMTP Connection"}
+                </button>
               </div>
 
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Host</label>
@@ -826,6 +1034,17 @@ export default function AdminSetupPage() {
                     </div>
                   </div>
                 </div>
+
+                {smtpTestStatus && (
+                  <div className={`mt-4 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2 border ${
+                    smtpTestStatus.success 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
+                      : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
+                  }`}>
+                    {smtpTestStatus.success ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                    <span>{smtpTestStatus.message}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-slate-800">

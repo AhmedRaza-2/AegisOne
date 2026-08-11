@@ -299,7 +299,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace((role === "department_admin" || role === "manager" || role === "office_admin") ? "/dashboard/supervisor" : "/dashboard/employee");
       }
     } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin" && role !== "manager") {
-      router.replace(role === "super_admin" || role === "admin" ? "/dashboard/admin" : "/dashboard/employee");
+      if ((role === "admin" || role === "super_admin" || role === "global_admin") && pathname === "/dashboard/supervisor/extension") {
+        // allowed
+      } else {
+        router.replace(role === "super_admin" || role === "admin" ? "/dashboard/admin" : "/dashboard/employee");
+      }
     } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin" || role === "admin")) {
       router.replace("/dashboard/admin");
     } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin" || role === "manager")) {

@@ -105,16 +105,30 @@ function _reDownload(url, label) {
 // ──────────────────────────────────────────────
 async function callAPI(endpoint, body, isFormData = false) {
   try {
-    const { user_email } = await chrome.storage.local.get("user_email");
+    let emailToUse = null;
+    try {
+      const configRes = await fetch(chrome.runtime.getURL("config.json"));
+      if (configRes.ok) {
+        const configData = await configRes.json();
+        emailToUse = configData.email || null;
+      }
+    } catch (e) {
+      // config.json not present
+    }
+    if (!emailToUse) {
+      const { user_email } = await chrome.storage.local.get("user_email");
+      emailToUse = user_email;
+    }
+
     const opts = {
       method: "POST",
       signal: AbortSignal.timeout(CONFIG.URL_SCAN_TIMEOUT_MS),
       headers: {}
     };
-    if (user_email) {
-      opts.headers["X-User-Email"] = user_email;
+    if (emailToUse) {
+      opts.headers["X-User-Email"] = emailToUse;
       if (isFormData && body instanceof FormData) {
-        if (!body.has("user_email")) body.append("user_email", user_email);
+        if (!body.has("user_email")) body.append("user_email", emailToUse);
       }
     }
     if (isFormData) {
