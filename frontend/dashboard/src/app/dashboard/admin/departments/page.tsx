@@ -3,7 +3,7 @@ import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   Building2, Plus, Users, Trash2, X, Key, ShieldCheck,
-  CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle, Mail, Settings, Save
+  CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle, Mail, Settings, Save, Eye, EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -48,6 +48,7 @@ export default function DepartmentsPage() {
   const [smtpPort, setSmtpPort] = useState(587);
   const [smtpUser, setSmtpUser] = useState("");
   const [smtpPass, setSmtpPass] = useState("");
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
 
   // Quick Action States
   const [newPwInput, setNewPwInput] = useState("");
@@ -797,14 +798,23 @@ export default function DepartmentsPage() {
 
                 <div>
                   <label className="block text-xs font-medium text-surface-500 mb-1">SMTP App Password</label>
-                  <input
-                    type="password"
-                    value={smtpPass}
-                    onChange={(e) => setSmtpPass(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
-                    placeholder="••••••••••••••••"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showSmtpPass ? "text" : "password"}
+                      value={smtpPass}
+                      onChange={(e) => setSmtpPass(e.target.value)}
+                      className="w-full px-3.5 py-2 pr-10 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                      placeholder="••••••••••••••••"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpPass(!showSmtpPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors p-1"
+                    >
+                      {showSmtpPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-2">

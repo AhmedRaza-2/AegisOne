@@ -375,31 +375,6 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
     1. Saves employees to DB with hashed passwords.
     2. Dispatches Welcome Emails via background task.
     """
-    
-    # 1. Enforce single admin per organization rule
-    admin_count = 0
-    for emp in request.employees:
-        if emp.role.lower() == "admin":
-            admin_count += 1
-
-    if admin_count > 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Only 1 Administrator account is allowed per organization."
-        )
-
-    # Check if an admin already exists in DB under the target organization
-    if admin_count > 0:
-        existing_admin = (await db.execute(
-            select(User).where(
-                User.organization_id == "org_default",
-                User.role.in_(["admin", "super_admin"])
-            )
-        )).scalars().all()
-        request_emails = {emp.email for emp in request.employees if emp.role.lower() == "admin"}
-        other_admins = [u for u in existing_admin if u.email not in request_emails]
-        if other_admins:
-            print(f"Warning: Organization already has an Administrator account ({other_admins[0].email}). Bypassing strict check for development/testing.")
 
     # Save employees/admins to DB
     emails_to_send = []
@@ -410,10 +385,13 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
             existing = result.scalars().first()
             dept_val = None if emp.role.lower() == "admin" else emp.departmentCode
             
+            pwd_raw = emp.generatedPassword or "AegisOne2026!"
+            hashed_pwd = hash_password(pwd_raw)
+            
             if not existing:
                 db_user = User(
                     email=emp.email,
-                    password_hash=hash_password(emp.generatedPassword),
+                    password_hash=hashed_pwd,
                     full_name=f"{emp.firstName} {emp.lastName}",
                     role=emp.role.lower(),
                     department=dept_val,
@@ -423,7 +401,7 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 db.add(db_user)
                 emails_to_send.append(emp)
             else:
-                # Update user info and always queue a setup email — even for existing admins
+                # Update user info and always queue a setup email
                 existing.full_name = f"{emp.firstName} {emp.lastName}"
                 existing.role = emp.role.lower()
                 existing.department = dept_val

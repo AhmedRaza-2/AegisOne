@@ -40,8 +40,11 @@ const navByRole: Record<string, NavItem[]> = {
   ],
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
+    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
+    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
@@ -49,8 +52,11 @@ const navByRole: Record<string, NavItem[]> = {
   ],
   super_admin: [
     { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
+    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
+    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
     { label: "Global Settings", href: "/dashboard/admin/settings", icon: Settings },

@@ -23,10 +23,11 @@ interface TableModeProps {
   employees: Employee[];
   departments: Department[];
   onMoveEmployee: (empId: string, deptCode: string) => void;
+  onRoleChange: (empId: string, role: string) => void;
   onBulkMove: (empIds: string[], deptCode: string) => void;
 }
 
-export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }: TableModeProps) {
+export function TableMode({ employees, departments, onMoveEmployee, onRoleChange, onBulkMove }: TableModeProps) {
   const { undo, redo, undoStack, redoStack } = useSetupStore();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -115,16 +116,16 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden flex flex-col relative h-[500px]">
       
-      {/* Toolbar */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex items-center gap-2 pr-4 border-r border-slate-200 dark:border-slate-800">
+      {/* Compact Minimal Top Bar */}
+      <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 pr-3 border-r border-slate-200 dark:border-slate-800">
           <button 
             onClick={undo}
             disabled={undoStack.length === 0}
             className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
             title="Undo"
           >
-            <Undo2 className="w-5 h-5" />
+            <Undo2 className="w-4 h-4" />
           </button>
           <button 
             onClick={redo}
@@ -132,10 +133,10 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
             className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
             title="Redo"
           >
-            <Redo2 className="w-5 h-5" />
+            <Redo2 className="w-4 h-4" />
           </button>
         </div>
-        
+
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input 
@@ -143,67 +144,31 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
             placeholder="Search by name or email..." 
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#0A5ED6] dark:text-white transition-colors"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-[#0A5ED6] dark:text-white"
           />
         </div>
         
-        <div className="flex gap-2 items-center flex-wrap">
-          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-lg">
-            <input 
-              type="checkbox" 
-              checked={unassignedOnly} 
-              onChange={e => setUnassignedOnly(e.target.checked)} 
-              className="rounded text-[#0A5ED6]"
-            />
-            Unassigned Only
-          </label>
-          
+        <div className="flex gap-2 items-center">
           <select 
             value={filterDept} 
             onChange={e => setFilterDept(e.target.value)}
-            className="text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none dark:text-white"
+            className="text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 outline-none dark:text-white"
           >
             <option value="ALL">All Departments</option>
-            <option value="NONE">No Department</option>
-            {departments.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+            <option value="NONE">Unassigned Only</option>
+            {departments.map(d => <option key={d.code} value={d.code}>{d.name} ({d.code})</option>)}
           </select>
           
           <select 
             value={filterRole} 
             onChange={e => setFilterRole(e.target.value)}
-            className="text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none dark:text-white"
+            className="text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 outline-none dark:text-white"
           >
             <option value="ALL">All Roles</option>
             <option value="employee">Employee</option>
             <option value="manager">Manager</option>
           </select>
         </div>
-      </div>
-      
-      {/* Click-to-filter department badges */}
-      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap gap-2 items-center">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-2">Quick Filter:</span>
-        <button
-          onClick={() => setFilterDept('ALL')}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${filterDept === 'ALL' ? 'bg-[#0A5ED6] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setFilterDept('NONE')}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${filterDept === 'NONE' ? 'bg-red-500 text-white' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50'}`}
-        >
-          Unassigned
-        </button>
-        {departments.map(d => (
-          <button
-            key={d.code}
-            onClick={() => setFilterDept(d.code)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${filterDept === d.code ? 'bg-slate-800 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
-          >
-            {d.code}
-          </button>
-        ))}
       </div>
 
       {/* Table Header */}
@@ -277,8 +242,15 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
                     </select>
                   </div>
                   
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    {emp.role}
+                  <div>
+                    <select
+                      value={emp.role.toLowerCase()}
+                      onChange={(e) => onRoleChange(emp.id, e.target.value)}
+                      className="text-xs font-bold bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-1.5 py-1 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 outline-none cursor-pointer capitalize dark:text-slate-200"
+                    >
+                      <option value="employee">Employee</option>
+                      <option value="manager">Manager</option>
+                    </select>
                   </div>
                 </div>
               );

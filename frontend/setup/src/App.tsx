@@ -56,10 +56,25 @@ export default function App() {
   // Adaptive Density & History
   const [structureViewMode, setStructureViewMode] = useState<'visual' | 'table'>('visual');
 
+  // Modals for Add Employee & Add Dept
+  const [isAddEmpModalOpen, setIsAddEmpModalOpen] = useState(false);
+  const [newEmpFirstName, setNewEmpFirstName] = useState('');
+  const [newEmpLastName, setNewEmpLastName] = useState('');
+  const [newEmpEmail, setNewEmpEmail] = useState('');
+  const [newEmpDeptCode, setNewEmpDeptCode] = useState('');
+  const [newEmpRole, setNewEmpRole] = useState('Employee');
+
+  const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false);
+  const [newDeptNameInput, setNewDeptNameInput] = useState('');
+
   // Merge Departments State
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [mergeSourceCode, setMergeSourceCode] = useState('');
   const [mergeTargetCode, setMergeTargetCode] = useState('');
+
+  // Lead Swap Modal State
+  const [isSwapLeadModalOpen, setIsSwapLeadModalOpen] = useState(false);
+  const [swapDeptId, setSwapDeptId] = useState('');
 
   // Push state to undo stack is handled by zustand now
 
@@ -264,21 +279,19 @@ export default function App() {
           }),
         });
 
-        if (sessionId) {
-          await fetch(`${API_BASE}/setup/session`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId,
-              state: {
-                step,
-                orgName,
-                departments: nextDepartments,
-                employees: nextEmployees
-              }
-            }),
-          });
-        }
+        await fetch(`${API_BASE}/setup/session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: sessionId || 'org_default',
+            state: {
+              step,
+              orgName,
+              departments: nextDepartments,
+              employees: nextEmployees
+            }
+          }),
+        });
       } catch (err) {
         console.error('Failed to save structure', err);
       } finally {
@@ -617,12 +630,11 @@ export default function App() {
 
   const STEPS = [
     { num: 1, title: 'Organization' },
-    { num: 2, title: 'Import Employees' },
-    { num: 3, title: 'Review Structure' },
-    { num: 4, title: 'Validation' },
-    { num: 5, title: 'Assign Managers' },
-    { num: 6, title: 'Security' },
-    { num: 7, title: 'Rollout' },
+    { num: 2, title: 'Review Structure' },
+    { num: 3, title: 'Validation' },
+    { num: 4, title: 'Assign Managers' },
+    { num: 5, title: 'Security' },
+    { num: 6, title: 'Rollout' },
   ];
 
   return (
@@ -657,7 +669,8 @@ export default function App() {
 
       {/* Sidebar (Left) */}
       <aside className="w-64 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex-col hidden lg:flex shrink-0 z-10 transition-colors">
-        <div className="h-20 flex flex-col justify-center px-6 shrink-0 border-b border-slate-200 dark:border-slate-800">
+        <div className="h-20 flex items-center gap-3 px-6 shrink-0 border-b border-slate-200 dark:border-slate-800">
+          <img src="/logo.png" alt="AegisOne Logo" className="w-8 h-8 object-contain drop-shadow shrink-0" />
           <div className="flex flex-col">
             <span className="text-xl font-bold tracking-tight text-[#0A5ED6] dark:text-[#4F84F8]">AegisOne</span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">Setup Engine</span>
@@ -667,12 +680,12 @@ export default function App() {
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/50">
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall Progress</span>
-            <span className="text-xs font-bold text-[#0A5ED6] dark:text-[#4F84F8]">{Math.round((step / 7) * 100)}%</span>
+            <span className="text-xs font-bold text-[#0A5ED6] dark:text-[#4F84F8]">{Math.round((step / 6) * 100)}%</span>
           </div>
           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div 
               className="h-full bg-[#0A5ED6] dark:bg-[#4F84F8] transition-all duration-500 ease-out"
-              style={{ width: `${Math.round((step / 7) * 100)}%` }}
+              style={{ width: `${Math.round((step / 6) * 100)}%` }}
             />
           </div>
         </div>
@@ -682,25 +695,56 @@ export default function App() {
           <nav className="space-y-1">
             {STEPS.map((s) => {
               const isActive = step === s.num;
-              const isPast = step > s.num;
+              
+              // Validate each step to ensure fields are actually filled
+              const isStep1Valid = Boolean(orgName.trim() && industry.trim());
+              const unassignedCount = employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length;
+              const isStep2Valid = isStep1Valid && departments.length > 0 && unassignedCount === 0;
+              const isStep3Valid = isStep2Valid && invalidEmployees.length === 0 && employees.length > 0;
+              const isStep4Valid = isStep3Valid && departments.every(d => Boolean(d.leadId || employees.some(e => e.departmentCode === d.code && e.role.toLowerCase() === 'manager')));
+              const isStep5Valid = isStep4Valid && Boolean(smtpUser.trim() && smtpPass.trim());
+
+              let isCompleted = false;
+              if (s.num === 1) isCompleted = isStep1Valid && step > 1;
+              else if (s.num === 2) isCompleted = isStep2Valid && step > 2;
+              else if (s.num === 3) isCompleted = isStep3Valid && step > 3;
+              else if (s.num === 4) isCompleted = isStep4Valid && step > 4;
+              else if (s.num === 5) isCompleted = isStep5Valid && step > 5;
+              else if (s.num === 6) isCompleted = dispatchDone;
+
               return (
-                <div
+                <button
                   key={s.num}
-                  className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${isActive
+                  type="button"
+                  onClick={() => {
+                    // Prevent jumping to future steps if current step is incomplete
+                    if (s.num > step) {
+                      if (step === 1 && !isStep1Valid) {
+                        showToast('Please complete Organization Name and Industry first', 'error');
+                        return;
+                      }
+                      if (step === 2 && !isStep2Valid) {
+                        showToast('Please assign all employees to departments before continuing', 'error');
+                        return;
+                      }
+                    }
+                    setStep(s.num);
+                  }}
+                  className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all text-left cursor-pointer ${isActive
                     ? "bg-slate-100 dark:bg-slate-800/50 text-[#0F172A] dark:text-white border-l-2 border-[#0A5ED6] dark:border-[#4F84F8]"
-                    : isPast
+                    : isCompleted
                       ? "text-[#0F172A] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 border-l-2 border-transparent"
                       : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/30 border-l-2 border-transparent"
                     }`}
                 >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-all ${isPast ? 'bg-emerald-500 text-white' :
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-all ${isCompleted ? 'bg-emerald-500 text-white' :
                     isActive ? 'bg-[#0A5ED6] dark:bg-[#4F84F8] text-white' :
                       'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                     }`}>
-                    {isPast ? <Check className="w-3 h-3" /> : s.num}
+                    {isCompleted ? <Check className="w-3 h-3" /> : s.num}
                   </div>
                   <span>{s.title}</span>
-                </div>
+                </button>
               );
             })}
           </nav>
@@ -719,14 +763,6 @@ export default function App() {
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden sm:block"></div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 hidden sm:inline">System Status:</span>
-              <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Docker Connected
-              </span>
-            </div>
           </div>
         </header>
 
@@ -736,90 +772,163 @@ export default function App() {
 
             {/* STEP 1: ORGANIZATION INFO */}
             {step === 1 && (
-              <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-16">
-                <div className="lg:col-span-1">
-                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Organization Information</h2>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">Let's verify your company's core identity imported from your Docker deployment command.</p>
+              <div className="animate-fadeIn max-w-5xl mx-auto space-y-8">
+                <div>
+                  <h2 className="text-3xl font-bold text-[#0F172A] dark:text-white mb-2 font-display tracking-tight">Organization Profile & Environment</h2>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">Verify your company profile and deployment environment parameters before structuring your departments.</p>
                 </div>
 
-                <div className="lg:col-span-2">
-                  {!configLoaded ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                      <Loader2 className="w-8 h-8 text-[#0A5ED6] animate-spin" />
-                      <p className="text-sm text-slate-500 font-semibold animate-pulse">Reading environment variables from Docker container...</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2 relative">
-                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">
-                            Organization Name
-                          </label>
-                          <input type="text" value={orgName} readOnly className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-700 dark:text-slate-300 font-semibold outline-none cursor-not-allowed" />
+                {!configLoaded ? (
+                  <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm space-y-4">
+                    <Loader2 className="w-8 h-8 text-[#0A5ED6] dark:text-[#4F84F8] animate-spin" />
+                    <p className="text-sm text-slate-500 font-semibold animate-pulse">Reading environment variables from Docker container...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Visual Highlights & System Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      <div className="bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent border border-blue-200/60 dark:border-blue-800/40 rounded-2xl p-5 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-[#0A5ED6] dark:bg-[#4F84F8] text-white flex items-center justify-center shrink-0 shadow-md">
+                          <Building2 className="w-6 h-6" />
                         </div>
-                        <div className="space-y-2 relative">
-                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">
-                            Industry
-                          </label>
-                          <input type="text" value={industry} readOnly className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-700 dark:text-slate-300 font-semibold outline-none cursor-not-allowed" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Timezone</label>
-                          <select value={timezone} onChange={e => setTimezone(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:text-slate-200 rounded-xl px-4 py-3 text-sm focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] outline-none">
-                            <option>UTC+00:00 (GMT)</option>
-                            <option>UTC+05:00 (PKT)</option>
-                            <option>UTC-05:00 (EST)</option>
-                          </select>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Organization</p>
+                          <p className="text-lg font-extrabold text-[#0F172A] dark:text-white truncate">{orgName || "INARA Security"}</p>
+                          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{industry || "Cybersecurity"}</span>
                         </div>
                       </div>
 
-                      <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                        <button onClick={handleNextStep} disabled={loading} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
+                      <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl p-5 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Deployment Engine</p>
+                          <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">Docker Isolated</p>
+                          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">v2.4.0 • Enterprise Edition</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent border border-indigo-200/60 dark:border-indigo-800/40 rounded-2xl p-5 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-600 dark:bg-indigo-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                          <Key className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Admin Account</p>
+                          <p className="text-sm font-bold text-[#0F172A] dark:text-white truncate">{employees.find(e => e.role === 'Admin')?.email || 'Administrator'}</p>
+                          <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5"><CheckCircle2 className="w-3 h-3" /> Credentials Provisioned</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Main Organization Form Card */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-sm space-y-6">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                        <div>
+                          <h3 className="text-base font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-[#0A5ED6] dark:text-[#4F84F8]" /> Company Identity Details
+                          </h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">These parameters establish your organization's tenant configuration across all security modules.</p>
+                        </div>
+                        <span className="text-[11px] font-bold px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800">
+                          Active Tenant
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                            Organization Name <span className="text-blue-600">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={orgName}
+                            onChange={(e) => setOrgName(e.target.value)}
+                            placeholder="e.g. Acme Cybersecurity Corp"
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] focus:ring-1 focus:ring-[#0A5ED6]/20 transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                            Industry / Sector <span className="text-blue-600">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={industry}
+                            onChange={(e) => setIndustry(e.target.value)}
+                            placeholder="e.g. Technology / Information Systems"
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] focus:ring-1 focus:ring-[#0A5ED6]/20 transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                            Primary Timezone
+                          </label>
+                          <select
+                            value={timezone}
+                            onChange={(e) => setTimezone(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[#0F172A] dark:text-white rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] cursor-pointer"
+                          >
+                            <option value="UTC+00:00">UTC+00:00 (GMT - Universal Time)</option>
+                            <option value="UTC+05:00">UTC+05:00 (PKT - Pakistan Standard Time)</option>
+                            <option value="UTC-05:00">UTC-05:00 (EST - Eastern Standard Time)</option>
+                            <option value="UTC+01:00">UTC+01:00 (CET - Central European Time)</option>
+                            <option value="UTC+08:00">UTC+08:00 (SGT - Singapore Standard Time)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                            Default Security Level
+                          </label>
+                          <div className="w-full bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-600 dark:text-slate-300 font-semibold flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                              Strict Real-time Scanning
+                            </span>
+                            <span className="text-[11px] text-slate-400">Standard Policy</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <p className="text-xs text-slate-400">Changes are automatically saved as you configure your organization.</p>
+                        <button
+                          onClick={handleNextStep}
+                          disabled={loading || !orgName.trim()}
+                          className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50"
+                        >
                           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* STEP 2: IMPORT EMPLOYEES */}
-            {step === 2 && (
-              <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-16">
-                <div className="lg:col-span-1">
-                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Import Employees First</h2>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">Upload employee.csv and the setup will infer departments automatically, so you can edit structure after the import instead of building it twice.</p>
-                </div>
-
-                <div className="lg:col-span-2 flex flex-col justify-center">
-                  <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                    <button onClick={() => setStep(1)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
-                    <button onClick={handleNextStep} disabled={loading || employees.length === 0} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50">
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Review Structure <ArrowRight className="w-4 h-4" /></>}
-                    </button>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
-            {/* STEP 3: REVIEW STRUCTURE */}
-            {step === 3 && (
-              <div className="animate-fadeIn space-y-8">
-                <div>
-                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Review and Edit Structure</h2>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">Drag employees into departments and rename departments inline.</p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-1 bg-blue-50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6">
-                    <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm mb-4">
-                      <FileSpreadsheet className="w-7 h-7 text-blue-600 dark:text-[#4F84F8]" />
-                    </div>
-                    <h3 className="font-bold text-[#0F172A] dark:text-white mb-2">1. Upload employee.csv</h3>
-                    <p className="text-sm text-blue-800 dark:text-slate-300 mb-5">The upload step infers departments automatically, so you only edit what the CSV actually contains.</p>
-                    <button onClick={handleDownloadTemplate} className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-slate-200 font-bold px-4 py-2.5 rounded-lg hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors text-sm w-full cursor-pointer shadow-sm mb-4">
-                      <Download className="w-4 h-4" /> Download Template
+            {/* STEP 2: REVIEW STRUCTURE */}
+            {step === 2 && (
+              <div className="animate-fadeIn space-y-4 max-w-full">
+                {/* Single Row Integrated Toolbar */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white font-display">Organization Hierarchy</h2>
+                    <span className="text-xs font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-full">
+                      {departments.length} Departments • {employees.length} Members
+                    </span>
+                  </div>
+                  
+                  {/* Single Row Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleDownloadTemplate}
+                      className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                      title="Download sample CSV template"
+                    >
+                      <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Template
                     </button>
                     <input
                       type="file"
@@ -828,280 +937,266 @@ export default function App() {
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-slate-900 dark:bg-[#0A5ED6] text-white font-bold px-4 py-2.5 rounded-lg hover:bg-black dark:hover:bg-[#0B63E0] transition-colors text-sm">
-                      {employees.length > 0 ? 'Replace CSV File' : 'Select CSV File'}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 text-xs font-bold text-white bg-[#0A5ED6] hover:bg-[#0B63E0] px-3.5 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" /> {employees.length > 0 ? 'Replace CSV' : 'Upload CSV'}
                     </button>
-                  </div>
+                    <button
+                      onClick={() => setIsAddEmpModalOpen(true)}
+                      className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Employee
+                    </button>
+                    <button
+                      onClick={() => setIsAddDeptModalOpen(true)}
+                      className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Dept
+                    </button>
 
-                  <div className="lg:col-span-2 space-y-4">
-                    <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-[#0F172A] dark:text-white">Departments</h3>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-500 dark:text-slate-400">{departments.length} inferred departments</span>
-                          <button onClick={() => setIsMergeModalOpen(true)} className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2.5 py-1.5 rounded-md transition-colors" disabled={departments.length < 2}>
-                            Merge
-                          </button>
-                          <button onClick={handleAddDepartment} className="flex items-center gap-1 text-xs font-bold text-[#0A5ED6] dark:text-[#4F84F8] hover:text-[#0B63E0] dark:hover:text-[#6A96F9] bg-[#0A5ED6]/10 dark:bg-[#4F84F8]/10 hover:bg-[#0A5ED6]/20 dark:hover:bg-[#4F84F8]/20 px-2.5 py-1.5 rounded-md transition-colors">
-                            <Plus className="w-3.5 h-3.5" /> Add Dept
-                          </button>
-                          <button
-                            onClick={() => {
-                              const headers = ['Employee ID', 'First Name', 'Last Name', 'Email', 'Department Code', 'Role', 'Status'];
-                              const rows = employees.map(e => [e.employeeId, e.firstName, e.lastName, e.email, e.departmentCode, e.role, e.status].join(','));
-                              const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join("\n");
-                              const encodedUri = encodeURI(csvContent);
-                              const link = document.createElement("a");
-                              link.setAttribute("href", encodedUri);
-                              link.setAttribute("download", "aegisone_structure.csv");
-                              document.body.appendChild(link);
-                              link.click();
-                              link.remove();
-                            }}
-                            className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2.5 py-1.5 rounded-md transition-colors"
-                          >
-                            <Download className="w-3.5 h-3.5" /> Export CSV
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* Structure View Mode Toggle */}
-                      <div className="flex justify-between items-center bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700 mb-4">
-                        <button
-                          onClick={() => setStructureViewMode('visual')}
-                          className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${structureViewMode === 'visual' ? 'bg-[#0A5ED6] text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-                        >
-                          <ListFilter className="w-4 h-4" /> Visual Mode
-                        </button>
-                        <button
-                          onClick={() => setStructureViewMode('table')}
-                          className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${structureViewMode === 'table' ? 'bg-[#0A5ED6] text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-                        >
-                          <Table className="w-4 h-4" /> Table Mode
-                        </button>
-                      </div>
+                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-950 rounded-xl p-1 border border-slate-200 dark:border-slate-800">
+                      <button
+                        onClick={() => setStructureViewMode('visual')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${structureViewMode === 'visual' ? 'bg-[#0A5ED6] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                      >
+                        <ListFilter className="w-3.5 h-3.5" /> Node Graph
+                      </button>
+                      <button
+                        onClick={() => setStructureViewMode('table')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${structureViewMode === 'table' ? 'bg-[#0A5ED6] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                      >
+                        <Table className="w-3.5 h-3.5" /> Active Sheet
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full space-y-4">
+                  <div>
 
                       {structureViewMode === 'visual' && (
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                           <div className="relative mb-2">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input 
                               type="text" 
-                              placeholder="Search employees..." 
+                              placeholder="Filter nodes or employee names..." 
                               value={visualSearch}
                               onChange={e => setVisualSearch(e.target.value)}
-                              className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#0A5ED6] dark:text-white transition-colors"
+                              className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#0A5ED6] dark:text-white transition-colors"
                             />
                           </div>
                           
-                        {(() => {
-                          const unassigned = visualEmployeesByDept.get('NONE') || [];
-                          if (unassigned.length === 0) return null;
-                          return (
-                            <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 rounded-xl p-3 mb-4">
-                              <h4 className="text-xs font-bold text-red-600 dark:text-red-400 mb-2 uppercase tracking-wider flex items-center gap-1">
-                                <AlertCircle className="w-4 h-4" /> Unassigned Employees ({unassigned.length})
-                              </h4>
-                              <div className="flex flex-wrap gap-2 min-h-12"
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={() => {
-                                  if (draggedEmployeeId) {
-                                    moveEmployeeToDept(draggedEmployeeId, 'NONE');
-                                    setDraggedEmployeeId(null);
-                                  }
-                                }}
-                              >
-                                {unassigned.map(emp => (
-                                  <div
-                                    key={emp.id}
-                                    draggable={editingEmployeeId !== emp.id}
-                                    onDragStart={() => {
-                                      if (editingEmployeeId !== emp.id) setDraggedEmployeeId(emp.id);
-                                    }}
-                                    onDoubleClick={() => {
-                                      setEditingEmployeeId(emp.id);
-                                      setEditingEmployeeName(`${emp.firstName} ${emp.lastName}`.trim());
-                                    }}
-                                    className="flex items-center gap-2 cursor-grab rounded-full border border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 p-1 pr-3 shadow-sm hover:shadow-md transition-shadow select-none"
-                                  >
-                                    <div className="w-6 h-6 rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 flex items-center justify-center text-[10px] font-bold shrink-0">
-                                      {(emp.firstName?.[0] || 'U')}{(emp.lastName?.[0] || '')}
-                                    </div>
-                                    {editingEmployeeId === emp.id ? (
-                                      <input
-                                        autoFocus
-                                        value={editingEmployeeName}
-                                        onChange={(e) => setEditingEmployeeName(e.target.value)}
-                                        onBlur={() => {
-                                          const parts = editingEmployeeName.trim().split(' ');
-                                          updateEmployee(emp.id, {
-                                            firstName: parts[0] || 'User',
-                                            lastName: parts.slice(1).join(' ') || ''
-                                          });
-                                          setEditingEmployeeId(null);
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            const parts = editingEmployeeName.trim().split(' ');
-                                            updateEmployee(emp.id, {
-                                              firstName: parts[0] || 'User',
-                                              lastName: parts.slice(1).join(' ') || ''
-                                            });
-                                            setEditingEmployeeId(null);
-                                          } else if (e.key === 'Escape') {
-                                            setEditingEmployeeId(null);
-                                          }
-                                        }}
-                                        className="text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none rounded px-1 w-24"
-                                      />
-                                    ) : (
-                                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                        {emp.firstName} {emp.lastName}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                        {departments.map(dept => (
-                          <div
-                            key={dept.id}
-                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3"
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => {
-                              if (draggedEmployeeId) {
-                                moveEmployeeToDept(draggedEmployeeId, dept.code);
-                                setDraggedEmployeeId(null);
-                              }
-                            }}
-                          >
-                            <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-700/50 pb-2">
-                              <div className="flex items-center gap-3">
-                                <input
-                                  value={dept.name}
-                                  onChange={(e) => renameDepartment(dept.id, e.target.value)}
-                                  className="w-64 max-w-[200px] sm:max-w-xs bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-[#0F172A] dark:text-white rounded-lg px-2 py-1 text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] transition-all"
-                                  placeholder="Department Name"
-                                />
-                                <span className="font-mono text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md">{dept.code}</span>
-                              </div>
-                              <button onClick={() => handleDeleteDepartment(dept.id, dept.code)} className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 p-1.5 rounded-md transition-colors" title="Delete Department">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                            <div className="flex flex-wrap gap-2 min-h-12">
-                              {(visualEmployeesByDept.get(dept.code) || []).map(emp => (
-                                <div
-                                  key={emp.id}
-                                  draggable={editingEmployeeId !== emp.id}
-                                  onDragStart={() => {
-                                    if (editingEmployeeId !== emp.id) setDraggedEmployeeId(emp.id);
-                                  }}
-                                  onDoubleClick={() => {
-                                    setEditingEmployeeId(emp.id);
-                                    setEditingEmployeeName(`${emp.firstName} ${emp.lastName}`.trim());
-                                  }}
-                                  className="flex items-center gap-2 cursor-grab rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 pr-3 shadow-sm hover:shadow-md transition-shadow select-none"
-                                >
-                                  <div className="w-6 h-6 rounded-full bg-[#0A5ED6]/10 text-[#0A5ED6] dark:bg-[#4F84F8]/20 dark:text-[#4F84F8] flex items-center justify-center text-[10px] font-bold shrink-0">
-                                    {(emp.firstName?.[0] || 'U')}{(emp.lastName?.[0] || '')}
-                                  </div>
-                                  {editingEmployeeId === emp.id ? (
-                                    <input
-                                      autoFocus
-                                      value={editingEmployeeName}
-                                      onChange={(e) => setEditingEmployeeName(e.target.value)}
-                                      onBlur={() => {
-                                        const parts = editingEmployeeName.trim().split(' ');
-                                        updateEmployee(emp.id, {
-                                          firstName: parts[0] || 'User',
-                                          lastName: parts.slice(1).join(' ') || ''
-                                        });
-                                        setEditingEmployeeId(null);
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          const parts = editingEmployeeName.trim().split(' ');
-                                          updateEmployee(emp.id, {
-                                            firstName: parts[0] || 'User',
-                                            lastName: parts.slice(1).join(' ') || ''
-                                          });
-                                          setEditingEmployeeId(null);
-                                        } else if (e.key === 'Escape') {
-                                          setEditingEmployeeId(null);
-                                        }
-                                      }}
-                                      className="text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none rounded px-1 w-24"
-                                    />
-                                  ) : (
-                                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                      {emp.firstName} {emp.lastName}
-                                    </span>
-                                  )}
+                          {/* Top Level Unassigned Node */}
+                          {(() => {
+                            const unassigned = visualEmployeesByDept.get('NONE') || [];
+                            if (unassigned.length === 0) return null;
+                            return (
+                              <div className="relative bg-red-50/70 dark:bg-red-950/20 border-2 border-dashed border-red-300 dark:border-red-800 rounded-2xl p-4 transition-all">
+                                <div className="flex items-center justify-between mb-3 border-b border-red-200 dark:border-red-800/60 pb-2">
+                                  <h4 className="text-xs font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4" /> Unassigned Members Pool ({unassigned.length})
+                                  </h4>
+                                  <span className="text-[10px] text-red-500 font-semibold">Drag into department nodes below</span>
                                 </div>
-                              ))}
-                              {(visualEmployeesByDept.get(dept.code) || []).length === 0 && (
-                                <div className="text-xs text-slate-400 dark:text-slate-500">Drop employees here</div>
-                              )}
-                            </div>
+                                <div 
+                                  className="flex flex-wrap gap-2.5 min-h-[50px] p-2"
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDrop={() => {
+                                    if (draggedEmployeeId) {
+                                      moveEmployeeToDept(draggedEmployeeId, 'NONE');
+                                      setDraggedEmployeeId(null);
+                                    }
+                                  }}
+                                >
+                                  {unassigned.map(emp => (
+                                    <div
+                                      key={emp.id}
+                                      draggable={editingEmployeeId !== emp.id}
+                                      onDragStart={() => {
+                                        if (editingEmployeeId !== emp.id) setDraggedEmployeeId(emp.id);
+                                      }}
+                                      className="flex items-center gap-2 cursor-grab active:cursor-grabbing rounded-xl border border-red-200 dark:border-red-800/80 bg-white dark:bg-slate-900 px-3 py-1.5 shadow-sm hover:shadow-md hover:border-red-400 transition-all select-none"
+                                    >
+                                      <div className="w-6 h-6 rounded-full bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300 flex items-center justify-center text-[10px] font-extrabold shrink-0">
+                                        {(emp.firstName?.[0] || 'U')}{(emp.lastName?.[0] || '')}
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{emp.firstName} {emp.lastName}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Node Structure / ERD Diagram Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {departments.map(dept => {
+                              const deptEmployees = visualEmployeesByDept.get(dept.code) || [];
+                              const manager = deptEmployees.find(e => e.id === dept.leadId || e.role.toLowerCase() === 'manager');
+                              const members = deptEmployees.filter(e => e.id !== manager?.id);
+
+                              return (
+                                <div
+                                  key={dept.id}
+                                  className="relative bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-blue-400 dark:hover:border-blue-600 transition-all flex flex-col justify-between"
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDrop={() => {
+                                    if (draggedEmployeeId) {
+                                      moveEmployeeToDept(draggedEmployeeId, dept.code);
+                                      setDraggedEmployeeId(null);
+                                    }
+                                  }}
+                                >
+                                  {/* Department ERD Node Header */}
+                                  <div>
+                                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                        <input
+                                          value={dept.name}
+                                          onChange={(e) => renameDepartment(dept.id, e.target.value)}
+                                          className="w-full bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-[#0F172A] dark:text-white rounded-lg px-2 py-1 text-base font-extrabold outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] transition-all truncate"
+                                          placeholder="Department Name"
+                                        />
+                                      </div>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="font-mono text-xs font-bold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                                          {dept.code}
+                                        </span>
+                                        <button 
+                                          onClick={() => {
+                                            if (window.confirm(`Are you sure you want to delete department ${dept.name} (${dept.code})? Employees will become unassigned.`)) {
+                                              handleDeleteDepartment(dept.id, dept.code);
+                                            }
+                                          }} 
+                                          className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg transition-colors" 
+                                          title="Delete Department"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    {/* Connection Line & Manager Node */}
+                                       <div className="space-y-3 relative pl-3 border-l-2 border-blue-400/40 dark:border-blue-500/30 ml-2 py-1">
+                                         {manager ? (
+                                           <div 
+                                             draggable
+                                             onDragStart={() => setDraggedEmployeeId(manager.id)}
+                                             className="relative flex items-center justify-between gap-2 bg-gradient-to-r from-blue-50 to-indigo-50/30 dark:from-blue-950/40 dark:to-slate-900 border border-blue-200/80 dark:border-blue-800/60 rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing hover:border-blue-400"
+                                           >
+                                             <div className="flex items-center gap-2 min-w-0">
+                                               <div className="min-w-0">
+                                                 <div className="flex items-center gap-1.5">
+                                                   <span className="text-xs font-extrabold text-blue-950 dark:text-blue-100 truncate">{manager.firstName} {manager.lastName}</span>
+                                                   <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.2 rounded uppercase">Manager</span>
+                                                 </div>
+                                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{manager.email}</p>
+                                               </div>
+                                             </div>
+                                           </div>
+                                         ) : (
+                                           <div 
+                                             onDragOver={(e) => e.preventDefault()}
+                                             onDrop={() => {
+                                               if (draggedEmployeeId) {
+                                                 setEmployees(prev => prev.map(e => e.id === draggedEmployeeId ? { ...e, role: 'Manager', departmentCode: dept.code } : e));
+                                                 setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, leadId: draggedEmployeeId } : d));
+                                                 setDraggedEmployeeId(null);
+                                               }
+                                             }}
+                                             className="p-2.5 bg-amber-50/60 dark:bg-amber-950/20 border border-dashed border-amber-300 dark:border-amber-800 rounded-xl text-xs text-amber-700 dark:text-amber-300 font-semibold flex items-center justify-between gap-2"
+                                           >
+                                             <span className="flex items-center gap-1.5 text-xs font-bold">
+                                               <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Drag Manager Here
+                                             </span>
+                                           </div>
+                                         )}
+
+                                         {/* Sub-node connection lines to Members */}
+                                         <div className="space-y-2 pt-1">
+                                           <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Department Members ({members.length})</p>
+                                           {members.length > 0 ? (
+                                             <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
+                                               {members.map(emp => (
+                                                 <div
+                                                   key={emp.id}
+                                                   draggable={editingEmployeeId !== emp.id}
+                                                   onDragStart={() => {
+                                                     if (editingEmployeeId !== emp.id) setDraggedEmployeeId(emp.id);
+                                                   }}
+                                                   className="flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all"
+                                                 >
+                                                   <div className="flex items-center gap-2 min-w-0">
+                                                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{emp.firstName} {emp.lastName}</span>
+                                                   </div>
+
+                                                   <select
+                                                     value={emp.role.toLowerCase()}
+                                                     onChange={(e) => {
+                                                       const newRole = e.target.value === 'manager' ? 'Manager' : 'Employee';
+                                                       updateEmployee(emp.id, { role: newRole });
+                                                       if (newRole === 'Manager' && !dept.leadId) {
+                                                         setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: emp.id } : d));
+                                                       }
+                                                     }}
+                                                     className="text-[10px] font-bold bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-1.5 py-0.5 outline-none cursor-pointer capitalize text-slate-600 dark:text-slate-300 hover:border-blue-400"
+                                                   >
+                                                     <option value="employee">Employee</option>
+                                                     <option value="manager">Manager</option>
+                                                   </select>
+                                                 </div>
+                                               ))}
+                                             </div>
+                                           ) : (
+                                             <div className="p-3 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                                               Drag employees here
+                                             </div>
+                                           )}
+                                         </div>
+                                       </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {departments.length === 0 && (
+                              <div className="col-span-full flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                                <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+                                  <FileSpreadsheet className="w-7 h-7" />
+                                </div>
+                                <h4 className="text-lg font-bold text-[#0F172A] dark:text-white mb-1 font-display">No Departments Configured</h4>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mb-4">
+                                  Upload your employee CSV file or click <span className="font-bold text-blue-600">Add Dept</span> or <span className="font-bold text-emerald-600">Add Employee</span> above to create your organizational hierarchy manually.
+                                </p>
+                              </div>
+                            )}
                           </div>
-                        ))}
-                        {departments.length === 0 && (
-                          <div className="flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
-                            <div className="w-12 h-12 bg-blue-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3">
-                              <FileSpreadsheet className="w-6 h-6 text-[#0A5ED6] dark:text-[#4F84F8]" />
-                            </div>
-                            <h4 className="font-bold text-[#0F172A] dark:text-white mb-1">No Departments Yet</h4>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">Upload your employee CSV file, and we will automatically create and map your departments.</p>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+
+                      {structureViewMode === 'table' && (
+                        <TableMode 
+                          employees={employees} 
+                          departments={departments}
+                          onMoveEmployee={moveEmployeeToDept}
+                          onRoleChange={(empId, newRole) => {
+                            const formattedRole = newRole.toLowerCase() === 'manager' ? 'Manager' : 'Employee';
+                            updateEmployee(empId, { role: formattedRole });
+                          }}
+                          onBulkMove={handleBulkReassign}
+                        />
                       )}
                     </div>
-
-
-                    {structureViewMode === 'table' ? (
-                      <TableMode 
-                        employees={employees} 
-                        departments={departments}
-                        onMoveEmployee={moveEmployeeToDept}
-                        onBulkMove={handleBulkReassign}
-                      />
-                    ) : (
-                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-                        <h3 className="font-bold text-[#0F172A] dark:text-white mb-3">Employees</h3>
-                        <div className="max-h-[260px] overflow-auto space-y-2">
-                          {employees.map(emp => (
-                            <div key={emp.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-950">
-                              <div>
-                                <p className="font-semibold text-sm text-[#0F172A] dark:text-slate-200">{emp.firstName} {emp.lastName}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{emp.email} • {emp.role}</p>
-                              </div>
-                              {emp.role.toLowerCase() === 'admin' ? (
-                                <span className="bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg">Global</span>
-                              ) : (
-                                <select
-                                  value={emp.departmentCode}
-                                  onChange={(e) => moveEmployeeToDept(emp.id, e.target.value)}
-                                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2 text-xs outline-none"
-                                >
-                                  <option value="NONE">No Department</option>
-                                  {departments.map(dept => <option key={dept.id} value={dept.code}>{dept.code}</option>)}
-                                </select>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                </div>
 
                 {/* Live Validation Summary & Continue Button */}
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center sticky bottom-0 bg-[#f8fafc] dark:bg-[#0f172a] pb-6 z-20">
-                  <button onClick={() => setStep(2)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                  <button onClick={() => setStep(1)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
                   <div className="flex items-center gap-6">
                     {(() => {
                       const unassigned = employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length;
@@ -1129,7 +1224,7 @@ export default function App() {
                     })()}
                     
                     <button 
-                      onClick={() => setStep(4)} 
+                      onClick={() => setStep(3)} 
                       disabled={employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length > 0}
                       className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -1202,8 +1297,8 @@ export default function App() {
               </div>
             )}
 
-            {/* STEP 4: VALIDATION PREVIEW */}
-            {step === 4 && (
+            {/* STEP 3: VALIDATION PREVIEW */}
+            {step === 3 && (
               <div className="animate-fadeIn space-y-6">
                 <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                   <div>
@@ -1237,7 +1332,7 @@ export default function App() {
                         </li>
                       ))}
                     </ul>
-                    <button onClick={() => { setPreviewMode(false); setStep(3); }} className="mt-4 text-xs font-bold text-red-700 dark:text-red-400 underline hover:text-red-900 dark:hover:text-red-300">Upload corrected file</button>
+                    <button onClick={() => { setPreviewMode(false); setStep(2); }} className="mt-4 text-xs font-bold text-red-700 dark:text-red-400 underline hover:text-red-900 dark:hover:text-red-300">Upload corrected file</button>
                   </div>
                 )}
 
@@ -1335,11 +1430,9 @@ export default function App() {
                                     <button 
                                       onClick={() => {
                                         updateEmployee(emp.id, editingDraft || {});
-                                        // Auto-revalidate the employee
                                         setEmployees(prev => prev.map(e => {
                                           if (e.id === emp.id) {
                                             const updated = { ...e, ...editingDraft };
-                                            const allowedRoles = ['employee', 'manager', 'admin'];
                                             let err = undefined;
                                             let st: 'valid' | 'invalid' = 'valid';
                                             if (!updated.email || !updated.email.includes('@')) { st = 'invalid'; err = 'Invalid Email Format'; }
@@ -1352,19 +1445,19 @@ export default function App() {
                                       }}
                                       className="bg-emerald-500 hover:bg-emerald-600 text-white rounded px-2 py-0.5 text-[10px] font-bold"
                                     >
-                                      SAVE
+                                      Save
                                     </button>
                                     <button 
                                       onClick={() => setEditingEmployeeId(null)}
-                                      className="text-slate-400 hover:text-slate-600"
+                                      className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded px-2 py-0.5 text-[10px] font-bold"
                                     >
-                                      <X className="w-4 h-4" />
+                                      Cancel
                                     </button>
                                   </div>
                                 ) : (
-                                  emp.status === 'valid' ? 
-                                    <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold uppercase"><CheckCircle2 className="w-3 h-3" /> Valid</span> :
-                                    <span className="inline-flex items-center gap-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded text-[10px] font-bold uppercase" title={emp.error}><AlertCircle className="w-3 h-3" /> Error</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${emp.status === 'invalid' ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'}`}>
+                                    {emp.status === 'invalid' ? emp.error || 'Invalid' : 'Valid'}
+                                  </span>
                                 )}
                               </td>
                             </tr>
@@ -1376,7 +1469,7 @@ export default function App() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <button onClick={() => { setPreviewMode(false); setStep(3); }} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                  <button onClick={() => { setPreviewMode(false); setStep(2); }} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
                   <button
                     onClick={handleNextStep}
                     disabled={invalidEmployees.length > 0 || validEmployees.length === 0 || loading}
@@ -1388,8 +1481,8 @@ export default function App() {
               </div>
             )}
 
-            {/* STEP 5: ASSIGN MANAGERS */}
-            {step === 5 && (
+            {/* STEP 4: ASSIGN MANAGERS */}
+            {step === 4 && (
               <div className="animate-fadeIn space-y-8">
                 <div>
                   <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Review Department Managers</h2>
@@ -1400,8 +1493,7 @@ export default function App() {
                   {departments.map(dept => {
                     const deptEmployees = validEmployees.filter(e => e.departmentCode === dept.code);
                     const potentialManagers = deptEmployees.filter(e => e.role.toLowerCase() === 'manager');
-                    const defaultManager = potentialManagers[0];
-
+                    
                     return (
                       <div key={dept.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
@@ -1411,7 +1503,7 @@ export default function App() {
                         {potentialManagers.length > 0 ? (
                           <select
                             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] outline-none cursor-pointer"
-                            value={dept.leadId || defaultManager?.id || ""}
+                            value={dept.leadId || potentialManagers[0]?.id || ""}
                             onChange={(e) => {
                               setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: e.target.value } : d));
                             }}
@@ -1419,24 +1511,45 @@ export default function App() {
                             <option value="">Select Manager...</option>
                             <option value="SKIP">Skip — assign later</option>
                             {potentialManagers.map(e => (
-                              <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.designation})</option>
+                              <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.email})</option>
                             ))}
                           </select>
                         ) : (
-                          <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 flex flex-col items-center text-center">
-                            {dept.leadId === 'SKIP' ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Skipped</span>
-                            ) : (
-                              <>
-                                <span className="text-slate-400 dark:text-slate-500 text-xs mb-2">No managers found in this department.</span>
+                          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg flex items-start gap-2.5">
+                            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                            <div className="text-xs">
+                              <p className="font-semibold text-amber-900 dark:text-amber-200 mb-0.5">No Manager in CSV</p>
+                              <p className="text-amber-700 dark:text-amber-300 mb-2">No employee with role <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 rounded">Manager</code> was found in department {dept.name}.</p>
+                              {deptEmployees.length > 0 ? (
+                                <select
+                                  className="w-full bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 dark:text-slate-200 rounded px-2 py-1 text-xs outline-none cursor-pointer mt-1"
+                                  value={dept.leadId || ""}
+                                  onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    if (selectedId && selectedId !== "SKIP") {
+                                      setEmployees(employees.map(emp => emp.id === selectedId ? { ...emp, role: 'Manager' } : emp));
+                                    }
+                                    setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: selectedId } : d));
+                                  }}
+                                >
+                                  <option value="">Select Employee to Promote to Manager...</option>
+                                  <option value="SKIP">Skip — assign later</option>
+                                  {deptEmployees.map(e => (
+                                    <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.email})</option>
+                                  ))}
+                                </select>
+                              ) : (
                                 <button
-                                  onClick={() => setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: 'SKIP' } : d))}
-                                  className="text-xs font-bold text-[#0A5ED6] dark:text-[#4F84F8] hover:underline"
+                                  type="button"
+                                  onClick={() => {
+                                    setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: 'SKIP' } : d));
+                                  }}
+                                  className="text-amber-800 dark:text-amber-300 font-bold underline text-[11px]"
                                 >
                                   Skip — assign later
                                 </button>
-                              </>
-                            )}
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1445,7 +1558,7 @@ export default function App() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <button onClick={() => setStep(4)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                  <button onClick={() => setStep(3)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
                   <button 
                     onClick={() => {
                       // Commit any auto-selected managers to state before proceeding
@@ -1460,71 +1573,35 @@ export default function App() {
                         return dept;
                       });
                       setDepartments(nextDepts);
-                      saveStructure(nextDepts, employees);
-                      generatePasswordsAndMails();
-                    }} 
-                    disabled={loading} 
+                      void saveStructure(nextDepts, employees);
+                      handleNextStep();
+                    }}
                     className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md"
                   >
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Save Assignments <ArrowRight className="w-4 h-4" /></>}
+                    Save & Continue <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* STEP 6: ACCOUNT GENERATION & SECURITY */}
-            {step === 6 && (
-              <div className="animate-fadeIn space-y-8 text-center py-4">
-                <h2 className="text-3xl font-bold text-[#0F172A] dark:text-white mb-4">Generate Secure Accounts</h2>
-                <p className="text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed mb-8">
-                  AegisOne will generate secure 14-character passwords for {validEmployees.length} employees and dispatch welcome emails containing temporary credentials.
-                </p>
-
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-lg mx-auto text-left space-y-3">
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Automated Actions Queue</h4>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400"><div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 ml-1.5 mr-1" /> Hash & Store secure passwords to local DB</div>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400"><div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 ml-1.5 mr-1" /> Generate Temporary Login Tokens</div>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400"><div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 ml-1.5 mr-1" /> Dispatch {validEmployees.length} Email Invitations</div>
-                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400"><div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 ml-1.5 mr-1" /> Enable Force-Password-Change policy</div>
+            {/* STEP 5: SECURITY */}
+            {step === 5 && (
+              <div className="animate-fadeIn space-y-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Security & Credentials Dispatch</h2>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">Configure email server credentials to dispatch secure welcome messages and password setup links to your employees.</p>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-lg mx-auto text-left">
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-2"><Mail className="w-4 h-4" /> SMTP Sender Credentials</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Required to dispatch welcome emails with temporary credentials to your employees.</p>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP User (sender email) <span className="text-red-500">*</span></label>
-                      <input
-                        type="email"
-                        value={smtpUser}
-                        onChange={(e) => setSmtpUser(e.target.value)}
-                        placeholder="youremail@gmail.com"
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Password / App Password <span className="text-red-500">*</span></label>
-                      <div className="relative">
-                        <input
-                          type={showSmtpPass ? 'text' : 'password'}
-                          value={smtpPass}
-                          onChange={(e) => setSmtpPass(e.target.value)}
-                          placeholder="••••••••••••••••"
-                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSmtpPass((v) => !v)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                          aria-label={showSmtpPass ? 'Hide password' : 'Show password'}
-                        >
-                          {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Host <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
+                    <h3 className="font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                      <Mail className="w-5 h-5 text-[#0A5ED6] dark:text-[#4F84F8]" /> SMTP Email Server Configuration
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Specify the outbound email account used to dispatch employee welcome credentials.</p>
+                    
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">SMTP Host</label>
                         <input
                           type="text"
                           value={smtpHost}
@@ -1533,10 +1610,39 @@ export default function App() {
                           className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Port <span className="text-red-500">*</span></label>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Sender Email / Username</label>
                         <input
-                          type="number"
+                          type="email"
+                          value={smtpUser}
+                          onChange={(e) => setSmtpUser(e.target.value)}
+                          placeholder="admin@company.com"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">App Password</label>
+                        <div className="relative">
+                          <input
+                            type={showSmtpPass ? "text" : "password"}
+                            value={smtpPass}
+                            onChange={(e) => setSmtpPass(e.target.value)}
+                            placeholder="•••• •••• •••• ••••"
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSmtpPass(!showSmtpPass)}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          >
+                            {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">SMTP Port</label>
+                        <input
+                          type="text"
                           value={smtpPort}
                           onChange={(e) => setSmtpPort(e.target.value)}
                           placeholder="587"
@@ -1549,7 +1655,7 @@ export default function App() {
                 </div>
 
                 <div className="pt-8 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <button onClick={() => setStep(5)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                  <button onClick={() => setStep(4)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
                   <div className="flex items-center gap-4">
                     {(!smtpUser || !smtpPass || !smtpHost || !smtpPort) && (
                       <span className="text-xs font-bold text-red-500 hidden sm:flex items-center gap-1">
@@ -1566,21 +1672,28 @@ export default function App() {
                     <button
                       onClick={async () => {
                         setLoading(true);
-                        setDispatchDone(false);
                         setDispatchError(null);
                         try {
-                          const response = await fetch('http://localhost:8000/setup/execute', {
+                          const payload = {
+                            employees: validEmployees.map(e => ({
+                              firstName: e.firstName,
+                              lastName: e.lastName,
+                              email: e.email,
+                              departmentCode: e.departmentCode,
+                              role: e.role,
+                              designation: e.designation,
+                              generatedPassword: e.generatedPassword
+                            })),
+                            smtpUser: smtpUser,
+                            smtpPass: smtpPass,
+                            smtpHost: smtpHost,
+                            smtpPort: parseInt(smtpPort, 10)
+                          };
+                          const response = await fetch(`${API_BASE}/setup/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              employees: validEmployees,
-                              smtpUser: smtpUser || undefined,
-                              smtpPass: smtpPass || undefined,
-                              smtpHost: smtpHost || undefined,
-                              smtpPort: smtpPort ? parseInt(smtpPort, 10) : undefined,
-                            })
+                            body: JSON.stringify(payload)
                           });
-
                           if (response.ok) {
                             const data = await response.json();
                             if (data.run_id) {
@@ -1589,7 +1702,7 @@ export default function App() {
                               setDispatchDone(true);
                             }
                             setRolloutActive(true);
-                            setStep(7);
+                            setStep(6);
                           } else {
                             setDispatchError((await response.text()) || 'Failed to execute setup');
                             console.error('Failed to execute setup');
@@ -1601,46 +1714,28 @@ export default function App() {
                           setLoading(false);
                         }
                       }}
-                      disabled={loading || !smtpUser || !smtpPass || !smtpHost || !smtpPort}
-                      className="inline-flex items-center gap-2 bg-[#0F172A] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 text-white font-bold px-10 py-4 rounded-xl transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!smtpUser || !smtpPass || loading}
+                      className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50"
                     >
-                      {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Executing Security Protocol...</> : <><ShieldCheck className="w-5 h-5" /> Execute & Send Welcome Emails</>}
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Finalize & Dispatch Emails <ArrowRight className="w-4 h-4" /></>}
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* STEP 7: EMPLOYEE ACTIVATION STATUS (ROLLOUT) */}
-            {step === 7 && (
-              <div className="animate-fadeIn space-y-8">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2 flex items-center gap-2">
-                      <Activity className="w-6 h-6 text-emerald-500" /> Email Dispatch Status
-                    </h2>
-                    {dispatchDone ? (
-                      <p className="text-slate-500 dark:text-slate-400 text-sm">Welcome email dispatch finished. Review the delivery results below.</p>
-                    ) : (
-                      <p className="text-slate-500 dark:text-slate-400 text-sm flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-500 dark:text-blue-400" /> Dispatching welcome emails in the background...
-                      </p>
-                    )}
-                    {dispatchError && (
-                      <p className="text-red-600 dark:text-red-400 text-sm font-semibold mt-2">Setup failed: {dispatchError}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-4">
-                    <button onClick={() => setStep(6)} className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold px-6 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm">
-                      Back
-                    </button>
-                    <button onClick={() => window.location.href = 'http://localhost:3002/login'} className="flex items-center gap-2 bg-slate-900 dark:bg-blue-600 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-black dark:hover:bg-blue-700 transition-colors text-sm">
-                      Go to Full Dashboard <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
+            {/* STEP 6: ROLLOUT */}
+            {step === 6 && (
+              <div className="animate-fadeIn space-y-8 text-center max-w-3xl mx-auto py-6">
+                <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                  <CheckCircle2 className="w-8 h-8" />
                 </div>
 
-                {/* KPI Cards */}
+                <div>
+                  <h2 className="text-3xl font-bold text-[#0F172A] dark:text-white mb-2 font-display">Setup Complete!</h2>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">Your organization structure and employee accounts have been created in the AegisOne security database.</p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Total Employees</p>
@@ -1648,7 +1743,7 @@ export default function App() {
                   </div>
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Emails Sent</p>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                       {dispatchDone ? Object.values(emailResults).filter(r => r.sent).length : '...'}
                     </p>
                   </div>
@@ -1661,14 +1756,14 @@ export default function App() {
                 </div>
 
                 {/* Status Table */}
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
-                  <div className="max-h-[300px] overflow-y-auto">
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm text-left">
+                  <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-left text-sm relative">
                       <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 sticky top-0 z-10 shadow-sm">
                         <tr>
-                          <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px]">Employee</th>
-                          <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-center">Email Sent</th>
-                          <th className="px-6 py-4 font-bold uppercase tracking-wider text-[10px] text-right">Status</th>
+                          <th className="px-6 py-3 font-bold uppercase tracking-wider text-[10px]">Employee</th>
+                          <th className="px-6 py-3 font-bold uppercase tracking-wider text-[10px] text-center">Email Sent</th>
+                          <th className="px-6 py-3 font-bold uppercase tracking-wider text-[10px] text-right">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1677,14 +1772,14 @@ export default function App() {
                           const sent = result ? result.sent : undefined;
                           return (
                             <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                              <td className="px-6 py-4">
+                              <td className="px-6 py-3">
                                 <p className="font-semibold text-[#0F172A] dark:text-slate-200">{emp.firstName} {emp.lastName}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{emp.email}</p>
                                 {sent === false && result?.error && (
                                   <p className="text-[11px] text-red-500 mt-1 break-all">{result.error}</p>
                                 )}
                               </td>
-                              <td className="px-6 py-4 text-center">
+                              <td className="px-6 py-3 text-center">
                                 {sent === true ? (
                                   <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
                                 ) : sent === false ? (
@@ -1693,7 +1788,7 @@ export default function App() {
                                   <Loader2 className="w-4 h-4 animate-spin text-slate-300 mx-auto" />
                                 )}
                               </td>
-                              <td className="px-6 py-4 text-right">
+                              <td className="px-6 py-3 text-right">
                                 {sent === true ? (
                                   <span className="inline-flex bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full text-xs font-bold uppercase">Dispatched</span>
                                 ) : sent === false ? (
@@ -1711,23 +1806,303 @@ export default function App() {
                 </div>
 
                 {dispatchDone && Object.values(emailResults).some(r => !r.sent) && (
-                  <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-200">
+                  <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-200 text-left">
                     <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-500" />
                     <div>
                       <p className="font-bold">Some welcome emails could not be delivered.</p>
                       <p className="text-amber-700 dark:text-amber-300/80 mt-1">
-                        Verify the <span className="font-mono">SMTP_USER</span> / <span className="font-mono">SMTP_PASS</span> in the backend <span className="font-mono">.env</span> file. For Gmail, use a valid App Password (requires 2-Step Verification enabled on the account) and restart the API.
+                        Verify your SMTP account credentials and ensure Google App Password / 2-Step Verification is enabled.
                       </p>
                     </div>
                   </div>
                 )}
 
-
+                <div className="pt-4 flex justify-center gap-4">
+                  <button onClick={() => setStep(5)} className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold px-6 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm">
+                    Back
+                  </button>
+                  <button onClick={() => window.location.href = 'http://localhost:3002/login'} className="flex items-center gap-2 bg-slate-900 dark:bg-blue-600 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-black dark:hover:bg-blue-700 transition-colors text-sm">
+                    Go to Full Dashboard <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </main>
       </div>
+
+      {/* Modal: Add Employee */}
+      {isAddEmpModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-[#0A5ED6]" /> Add New Employee
+              </h3>
+              <button onClick={() => setIsAddEmpModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">First Name *</label>
+                  <input
+                    type="text"
+                    value={newEmpFirstName}
+                    onChange={e => setNewEmpFirstName(e.target.value)}
+                    placeholder="e.g. Sarah"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-[#0F172A] dark:text-white outline-none focus:border-[#0A5ED6]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Last Name *</label>
+                  <input
+                    type="text"
+                    value={newEmpLastName}
+                    onChange={e => setNewEmpLastName(e.target.value)}
+                    placeholder="e.g. Connor"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-[#0F172A] dark:text-white outline-none focus:border-[#0A5ED6]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Email Address *</label>
+                <input
+                  type="email"
+                  value={newEmpEmail}
+                  onChange={e => setNewEmpEmail(e.target.value)}
+                  placeholder="sarah.connor@company.com"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-[#0F172A] dark:text-white outline-none focus:border-[#0A5ED6]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Department</label>
+                  <select
+                    value={newEmpDeptCode}
+                    onChange={e => setNewEmpDeptCode(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-[#0F172A] dark:text-white outline-none focus:border-[#0A5ED6]"
+                  >
+                    <option value="NONE">Unassigned</option>
+                    {departments.map(d => <option key={d.code} value={d.code}>{d.name} ({d.code})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Role</label>
+                  <select
+                    value={newEmpRole}
+                    onChange={e => setNewEmpRole(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-[#0F172A] dark:text-white outline-none focus:border-[#0A5ED6]"
+                  >
+                    <option value="Employee">Employee</option>
+                    <option value="Manager">Manager</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <button
+                onClick={() => setIsAddEmpModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!newEmpFirstName.trim() || !newEmpEmail.trim() || !newEmpEmail.includes('@')) {
+                    showToast('Valid First Name and Email required', 'error');
+                    return;
+                  }
+                  const newEmpId = `EMP_${Math.floor(Math.random() * 8999 + 1000)}`;
+                  const newEmp: Employee = {
+                    id: crypto.randomUUID(),
+                    employeeId: newEmpId,
+                    firstName: newEmpFirstName.trim(),
+                    lastName: newEmpLastName.trim(),
+                    email: newEmpEmail.trim(),
+                    phone: '',
+                    departmentCode: newEmpDeptCode || 'NONE',
+                    role: newEmpRole,
+                    status: 'valid'
+                  };
+                  setEmployees(prev => {
+                    const next = [newEmp, ...prev];
+                    void saveStructure(departments, next);
+                    return next;
+                  });
+                  setIsAddEmpModalOpen(false);
+                  setNewEmpFirstName('');
+                  setNewEmpLastName('');
+                  setNewEmpEmail('');
+                  showToast(`Added ${newEmp.firstName} ${newEmp.lastName}`, 'success');
+                }}
+                className="px-5 py-2 text-xs font-bold text-white bg-[#0A5ED6] hover:bg-[#0B63E0] rounded-xl transition-all shadow-md"
+              >
+                Create Employee
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Department */}
+      {isAddDeptModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-[#0A5ED6]" /> Add Department
+              </h3>
+              <button onClick={() => setIsAddDeptModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Department Name *</label>
+                <input
+                  type="text"
+                  value={newDeptNameInput}
+                  onChange={e => setNewDeptNameInput(e.target.value)}
+                  placeholder="e.g. Web Development"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-[#0F172A] dark:text-white outline-none focus:border-[#0A5ED6]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Auto-Generated Code</label>
+                <div className="w-full bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm font-mono font-bold text-blue-600 dark:text-blue-400">
+                  {(() => {
+                    const tokens = newDeptNameInput.trim().replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+                    let code = 'DPT';
+                    if (tokens.length === 1) code = tokens[0].substring(0, 4).toUpperCase();
+                    else if (tokens.length > 1) code = tokens.slice(0, 4).map(t => t[0]).join('').toUpperCase();
+                    return code || 'DPT';
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <button
+                onClick={() => setIsAddDeptModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!newDeptNameInput.trim()) {
+                    showToast('Department name is required', 'error');
+                    return;
+                  }
+                  const name = newDeptNameInput.trim();
+                  const tokens = name.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+                  let baseCode = 'DPT';
+                  if (tokens.length === 1) baseCode = tokens[0].substring(0, 4).toUpperCase();
+                  else if (tokens.length > 1) baseCode = tokens.slice(0, 4).map(t => t[0]).join('').toUpperCase();
+                  
+                  let finalCode = baseCode;
+                  let counter = 1;
+                  while (departments.some(d => d.code === finalCode)) {
+                    finalCode = `${baseCode}${counter}`;
+                    counter++;
+                  }
+
+                  const newDept: Department = {
+                    id: `dept_${finalCode}_${Date.now()}`,
+                    name,
+                    code: finalCode
+                  };
+
+                  setDepartments(prev => {
+                    const next = [...prev, newDept];
+                    void saveStructure(next, employees);
+                    return next;
+                  });
+                  setIsAddDeptModalOpen(false);
+                  setNewDeptNameInput('');
+                  showToast(`Created Department ${name} (${finalCode})`, 'success');
+                }}
+                className="px-5 py-2 text-xs font-bold text-white bg-[#0A5ED6] hover:bg-[#0B63E0] rounded-xl transition-all shadow-md"
+              >
+                Create Department
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Swap Department Lead */}
+      {isSwapLeadModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95">
+            {(() => {
+              const targetDept = departments.find(d => d.id === swapDeptId);
+              const deptEmployees = employees.filter(e => e.departmentCode === targetDept?.code && e.role.toLowerCase() !== 'admin');
+
+              return (
+                <>
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <div>
+                      <h3 className="font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                        <Users className="w-5 h-5 text-blue-600" /> Swap Department Lead
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Select a new lead for {targetDept?.name} ({targetDept?.code})</p>
+                    </div>
+                    <button onClick={() => setIsSwapLeadModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar">
+                    {deptEmployees.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-4 text-center">No employees in this department yet. Move an employee into this department node first.</p>
+                    ) : (
+                      deptEmployees.map(emp => {
+                        const isCurrentLead = targetDept?.leadId === emp.id || emp.role.toLowerCase() === 'manager';
+                        return (
+                          <div
+                            key={emp.id}
+                            onClick={() => {
+                              // Promote selected employee to Manager and leadId, demote previous manager if any
+                              setEmployees(prev => prev.map(e => {
+                                if (e.id === emp.id) return { ...e, role: 'Manager' };
+                                if (e.departmentCode === targetDept?.code && e.id === targetDept?.leadId) return { ...e, role: 'Employee' };
+                                return e;
+                              }));
+                              setDepartments(prev => prev.map(d => d.id === targetDept?.id ? { ...d, leadId: emp.id } : d));
+                              setIsSwapLeadModalOpen(false);
+                              showToast(`Promoted ${emp.firstName} ${emp.lastName} to ${targetDept?.name} Lead`, 'success');
+                            }}
+                            className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${isCurrentLead ? 'bg-blue-50/80 border-blue-300 dark:bg-blue-950/40 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}
+                          >
+                            <div>
+                              <p className="text-xs font-bold text-[#0F172A] dark:text-white">{emp.firstName} {emp.lastName}</p>
+                              <p className="text-[11px] text-slate-500">{emp.email}</p>
+                            </div>
+                            {isCurrentLead ? (
+                              <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded uppercase">Current Lead</span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">Select as Lead</span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
