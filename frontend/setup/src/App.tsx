@@ -569,8 +569,18 @@ export default function App() {
           adminCount++;
         }
 
-        const cleanId = (employeeId || '').trim().toUpperCase();
+        let finalEmpId = (employeeId || '').trim();
+        const cleanId = finalEmpId.toUpperCase();
         const cleanEmail = (email || '').trim().toLowerCase();
+
+        if (cleanId && seenEmployeeIds.has(cleanId)) {
+          // Force uniqueness so duplicate IDs can NEVER exist
+          let counter = 1;
+          while (seenEmployeeIds.has(`${cleanId}_${counter}`)) {
+            counter++;
+          }
+          finalEmpId = `${finalEmpId}_${counter}`;
+        }
 
         if (!cleanEmail) {
           status = 'invalid';
@@ -581,9 +591,6 @@ export default function App() {
         } else if (seenEmails.has(cleanEmail)) {
           status = 'invalid';
           error = 'Duplicate Email';
-        } else if (cleanId && seenEmployeeIds.has(cleanId)) {
-          status = 'invalid';
-          error = 'Duplicate Employee ID';
         } else if (!departmentKey && normalizedRole !== 'admin') {
           status = 'invalid';
           error = 'Department is required';
@@ -596,11 +603,11 @@ export default function App() {
         }
 
         if (cleanEmail) seenEmails.add(cleanEmail);
-        if (cleanId) seenEmployeeIds.add(cleanId);
+        if (finalEmpId) seenEmployeeIds.add(finalEmpId.toUpperCase());
 
         parsedEmployees.push({
-          id: Math.random().toString(),
-          employeeId: employeeId || `EMP${i}`,
+          id: crypto.randomUUID(),
+          employeeId: finalEmpId || `EMP${i}`,
           firstName: firstName || 'Unknown',
           lastName: lastName || 'User',
           email: email || '',

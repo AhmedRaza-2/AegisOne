@@ -1,6 +1,5 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-<<<<<<< Updated upstream
 import { MessageSquare, Megaphone, Users, CheckCircle2, XCircle, Plus, X, Globe, Send } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";

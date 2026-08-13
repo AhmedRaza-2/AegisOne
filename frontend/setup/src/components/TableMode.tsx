@@ -172,10 +172,11 @@ export function TableMode({ employees, departments, onMoveEmployee, onRoleChange
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-[48px_1fr_1.5fr_1fr_100px] gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+      <div className="grid grid-cols-[48px_110px_1fr_1.5fr_1fr_100px] gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 z-10">
         <div className="flex items-center justify-center cursor-pointer" onClick={toggleSelectAll}>
           {allSelected ? <CheckSquare className="w-4 h-4 text-[#0A5ED6]" /> : someSelected ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
         </div>
+        <div>Emp ID</div>
         <div>Name</div>
         <div>Email</div>
         <div>Department</div>
@@ -204,6 +205,11 @@ export function TableMode({ employees, departments, onMoveEmployee, onRoleChange
               const isSelected = selectedIds.has(emp.id);
               const isUnassigned = emp.departmentCode === 'NONE';
               
+              // Live duplication checks
+              const isDupId = emp.employeeId && employees.some(other => other.id !== emp.id && other.employeeId.toUpperCase() === emp.employeeId.toUpperCase());
+              const isDupEmail = emp.email && employees.some(other => other.id !== emp.id && other.email.toLowerCase() === emp.email.toLowerCase());
+              const isInvalid = isDupId || isDupEmail || isUnassigned;
+              
               return (
                 <div
                   key={emp.id}
@@ -215,20 +221,30 @@ export function TableMode({ employees, departments, onMoveEmployee, onRoleChange
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
-                  className={`grid grid-cols-[48px_1fr_1.5fr_1fr_100px] gap-4 px-4 items-center border-b border-slate-100 dark:border-slate-800/50 bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800/50 transition-colors ${
-                    isUnassigned ? 'border-l-4 border-l-red-500 bg-red-50/10 dark:bg-red-900/10' : 'border-l-4 border-l-transparent'
+                  className={`grid grid-cols-[48px_110px_1fr_1.5fr_1fr_100px] gap-4 px-4 items-center border-b border-slate-100 dark:border-slate-800/50 bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800/50 transition-colors ${
+                    isDupId || isDupEmail ? 'border-l-4 border-l-amber-500 bg-amber-50/20 dark:bg-amber-950/20' : isUnassigned ? 'border-l-4 border-l-red-500 bg-red-50/10 dark:bg-red-900/10' : 'border-l-4 border-l-transparent'
                   }`}
                 >
                   <div className="flex items-center justify-center cursor-pointer h-full" onClick={() => toggleSelect(emp.id)}>
                     {isSelected ? <CheckSquare className="w-4 h-4 text-[#0A5ED6]" /> : <Square className="w-4 h-4 text-slate-300 dark:text-slate-600" />}
                   </div>
                   
+                  <div className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 truncate flex items-center gap-1">
+                    {emp.employeeId || 'N/A'}
+                    {isDupId && (
+                      <span className="text-[9px] bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-300 px-1 py-0.2 rounded font-sans font-bold" title="Duplicate Employee ID">DUP ID</span>
+                    )}
+                  </div>
+
                   <div className="font-semibold text-sm text-[#0F172A] dark:text-white truncate">
                     {emp.firstName} {emp.lastName}
                   </div>
                   
-                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
                     {emp.email}
+                    {isDupEmail && (
+                      <span className="text-[9px] bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-300 px-1 py-0.2 rounded font-sans font-bold" title="Duplicate Email">DUP EMAIL</span>
+                    )}
                   </div>
                   
                   <div className="pr-4">

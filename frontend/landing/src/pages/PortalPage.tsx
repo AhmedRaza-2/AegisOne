@@ -72,15 +72,10 @@ export default function PortalPage() {
 
   // ── Deploy commands ────────────────────────────────────────────────────────
   // Linux/macOS
-  const linuxCommand = [
-    `mkdir -p AegisOne && cd AegisOne`,
-    `curl -sSL https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml -o docker-compose.yml`,
-    `export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}"`,
-    `docker compose up -d`,
-  ].join(' && ');
+  const linuxCommand = `mkdir -p AegisOne && cd AegisOne && curl -sSL https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml -o docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
 
-  // Windows PowerShell
-  const windowsCommand = `mkdir AegisOne -ErrorAction SilentlyContinue; cd AegisOne; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml" -OutFile "docker-compose.yml"; $env:ORG_ID="${org.org_id}"; $env:LICENSE_KEY="${org.license_key}"; $env:DEPLOYMENT_TOKEN="${org.deployment_token}"; $env:ADMIN_EMAIL="${org.admin_email}"; docker compose up -d`;
+  // Windows PowerShell — Single line execution without folder nesting
+  const windowsCommand = `mkdir AegisOne -ErrorAction SilentlyContinue; Set-Location AegisOne; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml" -OutFile "docker-compose.yml"; $env:ORG_ID="${org.org_id}"; $env:LICENSE_KEY="${org.license_key}"; $env:DEPLOYMENT_TOKEN="${org.deployment_token}"; $env:ADMIN_EMAIL="${org.admin_email}"; docker compose up -d`;
 
   const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 
@@ -233,8 +228,8 @@ export default function PortalPage() {
                       </div>
                     </div>
 
-                    <div className="p-6 md:p-8 overflow-x-auto relative z-10">
-                      <pre className="text-emerald-400 font-mono text-sm leading-relaxed whitespace-pre">
+                    <div className="p-4 md:p-6 overflow-x-auto relative z-10 custom-scrollbar">
+                      <pre className="text-emerald-400 font-mono text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-all font-bold">
                         {activeCommand}
                       </pre>
                     </div>
