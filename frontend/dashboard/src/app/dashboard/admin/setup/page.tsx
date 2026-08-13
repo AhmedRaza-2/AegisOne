@@ -50,6 +50,8 @@ export default function AdminSetupPage() {
   const [isDark, setIsDark] = useState(false);
 
   // Step 1: Org Info
+  const [isSetupCompleted, setIsSetupCompleted] = useState(false);
+  const [isEditingSetup, setIsEditingSetup] = useState(false);
   const [orgName, setOrgName] = useState('');
   const [industry, setIndustry] = useState('');
   const [timezone, setTimezone] = useState('UTC+00:00 (GMT - Universal Time)');
@@ -154,6 +156,12 @@ export default function AdminSetupPage() {
 
     const assignedEmpId = newEmpCustomId.trim() ? newEmpCustomId.trim().toUpperCase() : `EMP${Math.floor(100 + Math.random() * 900)}`;
 
+    const isDuplicateId = employees.some(e => e.employeeId && e.employeeId.toUpperCase() === assignedEmpId);
+    if (isDuplicateId) {
+      showToast(`Employee ID "${assignedEmpId}" is already in use!`, 'error');
+      return;
+    }
+
     const newEmp: Employee = {
       id: `emp_${Date.now()}`,
       employeeId: assignedEmpId,
@@ -209,6 +217,9 @@ export default function AdminSetupPage() {
           document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
         }
         setDispatchDone(true);
+        setIsSetupCompleted(true);
+        localStorage.setItem('aegis_setup_done', 'true');
+        if (orgName) localStorage.setItem('aegis_org_name', orgName);
         invalidateCache(); // Invalidate cached dashboard stats & analytics so newly saved employees/departments load instantly!
         showToast('Rollout and credentials dispatch triggered successfully!');
       } else {
@@ -232,14 +243,33 @@ export default function AdminSetupPage() {
 
       const newEmployees: Employee[] = [];
       const newDeptMap = new Map<string, string>();
+      const seenEmployeeIds = new Set<string>();
+      const seenEmails = new Set<string>();
 
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
-        if (cols.length < 5) continue;
+        if (cols.length < 4) continue;
 
         const [employeeId, firstName, lastName, email, phone, departmentCode, role, designation] = cols;
         const deptCode = (departmentCode || 'IT').toUpperCase().trim();
         const empRole = (role || 'Employee').trim();
+
+        const cleanId = (employeeId || `EMP00${i}`).trim().toUpperCase();
+        const cleanEmail = (email || `user${i}@company.com`).trim().toLowerCase();
+
+        let status: 'valid' | 'invalid' = 'valid';
+        let error = '';
+
+        if (seenEmployeeIds.has(cleanId)) {
+          status = 'invalid';
+          error = `Duplicate Employee ID: ${cleanId}`;
+        } else if (seenEmails.has(cleanEmail)) {
+          status = 'invalid';
+          error = `Duplicate Email: ${cleanEmail}`;
+        }
+
+        seenEmployeeIds.add(cleanId);
+        seenEmails.add(cleanEmail);
 
         if (!newDeptMap.has(deptCode)) {
           let deptName = deptCode;
@@ -251,15 +281,16 @@ export default function AdminSetupPage() {
 
         newEmployees.push({
           id: `emp_csv_${i}_${Date.now()}`,
-          employeeId: employeeId || `EMP00${i}`,
+          employeeId: cleanId,
           firstName: firstName || 'User',
           lastName: lastName || `${i}`,
-          email: email || `user${i}@company.com`,
+          email: cleanEmail,
           phone: phone || '',
           departmentCode: deptCode,
           role: empRole,
           designation: designation || 'Staff',
-          status: 'valid'
+          status,
+          error
         });
       }
 
@@ -286,14 +317,20 @@ export default function AdminSetupPage() {
   // Pre-fill parameters if arriving from Onboarding Portal or logged in user
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const storedSetupDone = localStorage.getItem('aegis_setup_done') === 'true' || dispatchDone;
+      if (storedSetupDone) {
+        setIsSetupCompleted(true);
+      }
+
       const searchParams = new URLSearchParams(window.location.search);
       const orgNameParam = searchParams.get('orgName');
       const industryParam = searchParams.get('industry');
-      const adminEmailParam = searchParams.get('adminEmail');
-      const adminNameParam = searchParams.get('adminName') || 'Administrator';
+      const adminEmailParam = searchParams.get('adminEmail') || user?.email || '';
+      const adminNameParam = searchParams.get('adminName') || user?.full_name || 'Administrator';
       const adminPasswordParam = searchParams.get('adminPassword');
 
-      if (orgNameParam) setOrgName(orgNameParam);
+      const activeOrgName = orgNameParam || user?.organization_name || localStorage.getItem('aegis_org_name') || '';
+      if (activeOrgName) setOrgName(activeOrgName);
       if (industryParam) setIndustry(industryParam);
 
       if (adminEmailParam) {
@@ -315,8 +352,10 @@ export default function AdminSetupPage() {
 
       // Auto-authenticate session if arriving from Landing/Portal with credentials
       const fromLanding = searchParams.get('fromLanding') === 'true';
-      if (fromLanding) {
+      const welcomeAlreadyShown = sessionStorage.getItem('aegis_welcome_shown') === 'true';
+      if (fromLanding && !welcomeAlreadyShown) {
         setShowWelcomeModal(true);
+        sessionStorage.setItem('aegis_welcome_shown', 'true');
         if (adminEmailParam && adminPasswordParam) {
           fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
@@ -337,11 +376,12 @@ export default function AdminSetupPage() {
         }
       }
     }
-  }, [user]);
+  }, [user, dispatchDone]);
 
   // Step validation state checks
+  const hasInvalidEmployees = employees.some(e => e.status === 'invalid');
   const isStep1Valid = Boolean(orgName.trim() && industry.trim());
-  const isStep2Valid = isStep1Valid && departments.length > 0 && employees.length > 0;
+  const isStep2Valid = isStep1Valid && departments.length > 0 && employees.length > 0 && !hasInvalidEmployees;
   const isStep3Valid = isStep2Valid; // Validation
   const isStep4Valid = isStep3Valid && Boolean(smtpHost.trim() && smtpPort.trim() && smtpUser.trim() && smtpPass.trim());
   const isStep5Valid = isStep4Valid && dispatchDone;
@@ -371,6 +411,33 @@ export default function AdminSetupPage() {
       {/* Main Content Area */}
       <main className="w-full">
         <div className="max-w-6xl mx-auto space-y-8 pb-12">
+
+          {isSetupCompleted && !isEditingSetup && (
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-slate-900 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-extrabold text-[#0F172A] dark:text-white">Organization Setup is Active & Configured</h2>
+                    <span className="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full font-bold text-[10px] uppercase tracking-wide border border-emerald-200">
+                      Provisioned
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Your tenant <strong className="text-slate-700 dark:text-slate-300">{orgName || 'AegisOne'}</strong> is fully operational. Form inputs are locked to preserve data integrity.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditingSetup(true)}
+                className="px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs shadow-sm flex items-center gap-2 transition-all"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-500" /> Re-Configure / Unlock Fields
+              </button>
+            </div>
+          )}
 
           {/* Stepper Header with Horizontal Progress Bar */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
@@ -909,77 +976,137 @@ export default function AdminSetupPage() {
           )}
 
           {/* STEP 3: VALIDATION */}
-          {step === 3 && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1">Preview Import & Verification</h2>
-                  <p className="text-xs text-slate-500">Review data integrity and department manager assignments before writing to PostgreSQL.</p>
-                </div>
-                <div className="flex items-center gap-4 text-center">
-                  <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-200">
-                    <span className="text-xs font-bold text-slate-400 uppercase block">Total Parsed</span>
-                    <span className="text-lg font-black text-blue-600 dark:text-blue-400">{employees.length}</span>
-                  </div>
-                  <div className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-200">
-                    <span className="text-xs font-bold text-slate-400 uppercase block">Valid</span>
-                    <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">{employees.length}</span>
-                  </div>
-                  <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200">
-                    <span className="text-xs font-bold text-slate-400 uppercase block">Errors</span>
-                    <span className="text-lg font-black text-slate-400">0</span>
-                  </div>
-                </div>
-              </div>
+          {step === 3 && (() => {
+            const seenIds = new Set<string>();
+            const dupIds = new Set<string>();
+            const seenEmails = new Set<string>();
+            const dupEmails = new Set<string>();
 
-              {/* Data Verification Table (Scrollable after 10 items) */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 z-10">
-                      <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        <th className="py-3 px-4">ID</th>
-                        <th className="py-3 px-4">NAME</th>
-                        <th className="py-3 px-4">EMAIL</th>
-                        <th className="py-3 px-4">DEPT</th>
-                        <th className="py-3 px-4">ROLE</th>
-                        <th className="py-3 px-4 text-right">STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-medium">
-                      {employees.map(emp => {
-                        const isManager = emp.role.toLowerCase() === 'manager';
-                        const isAdmin = emp.role.toLowerCase() === 'admin';
-                        return (
-                          <tr key={emp.id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isManager ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
-                            <td className="py-3 px-4 font-mono font-bold text-slate-500">{emp.employeeId || emp.id.substring(0, 6)}</td>
-                            <td className="py-3 px-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                              {emp.firstName} {emp.lastName}
-                              {isManager && <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.2 rounded uppercase">Manager</span>}
-                              {isAdmin && <span className="text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.2 rounded uppercase">Admin</span>}
-                            </td>
-                            <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono">{emp.email}</td>
-                            <td className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400 font-mono">{emp.departmentCode}</td>
-                            <td className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-300 capitalize">{emp.role}</td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 uppercase border border-emerald-200 dark:border-emerald-800">
-                                VALID
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            employees.forEach(e => {
+              const cleanId = (e.employeeId || '').trim().toUpperCase();
+              const cleanEmail = (e.email || '').trim().toLowerCase();
+
+              if (cleanId) {
+                if (seenIds.has(cleanId)) dupIds.add(cleanId);
+                else seenIds.add(cleanId);
+              }
+
+              if (cleanEmail) {
+                if (seenEmails.has(cleanEmail)) dupEmails.add(cleanEmail);
+                else seenEmails.add(cleanEmail);
+              }
+            });
+
+            const errorCount = employees.filter(e => {
+              const cleanId = (e.employeeId || '').trim().toUpperCase();
+              const cleanEmail = (e.email || '').trim().toLowerCase();
+              return (cleanId && dupIds.has(cleanId)) || (cleanEmail && dupEmails.has(cleanEmail)) || e.departmentCode === 'NONE';
+            }).length;
+
+            const validCount = employees.length - errorCount;
+
+            return (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1">Preview Import & Verification</h2>
+                    <p className="text-xs text-slate-500">Review data integrity and department manager assignments before writing to PostgreSQL.</p>
+                  </div>
+                  <div className="flex items-center gap-4 text-center">
+                    <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-200">
+                      <span className="text-xs font-bold text-slate-400 uppercase block">Total Parsed</span>
+                      <span className="text-lg font-black text-blue-600 dark:text-blue-400">{employees.length}</span>
+                    </div>
+                    <div className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-200">
+                      <span className="text-xs font-bold text-slate-400 uppercase block">Valid</span>
+                      <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">{validCount}</span>
+                    </div>
+                    <div className={`px-3 py-1 rounded-xl border ${errorCount > 0 ? 'bg-red-50 dark:bg-red-950/40 border-red-200 text-red-600 dark:text-red-400' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 text-slate-400'}`}>
+                      <span className="text-xs font-bold uppercase block">Errors</span>
+                      <span className="text-lg font-black">{errorCount}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Data Verification Table (Scrollable after 10 items) */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-4">ID</th>
+                          <th className="py-3 px-4">NAME</th>
+                          <th className="py-3 px-4">EMAIL</th>
+                          <th className="py-3 px-4">DEPT</th>
+                          <th className="py-3 px-4">ROLE</th>
+                          <th className="py-3 px-4 text-right">STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                        {employees.map((emp) => {
+                          const cleanId = (emp.employeeId || '').trim().toUpperCase();
+                          const cleanEmail = (emp.email || '').trim().toLowerCase();
+
+                          const isDupId = Boolean(cleanId && dupIds.has(cleanId));
+                          const isDupEmail = Boolean(cleanEmail && dupEmails.has(cleanEmail));
+                          const isUnassigned = emp.departmentCode === 'NONE';
+
+                          const isRowInvalid = isDupId || isDupEmail || isUnassigned;
+                          const errorLabel = isDupId ? 'DUPLICATE ID' : isDupEmail ? 'DUPLICATE EMAIL' : 'NO DEPT';
+
+                          return (
+                            <tr key={emp.id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isRowInvalid ? 'bg-red-50/20 dark:bg-red-950/20' : ''}`}>
+                              <td className="py-3 px-4 font-mono font-bold text-slate-500">{emp.employeeId || 'N/A'}</td>
+                              <td className="py-3 px-4 font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                                {emp.firstName} {emp.lastName}
+                                {emp.role.toLowerCase() === 'admin' && (
+                                  <span className="px-1.5 py-0.2 bg-purple-600 text-white rounded text-[9px] font-bold uppercase">Admin</span>
+                                )}
+                                {emp.role.toLowerCase() === 'manager' && (
+                                  <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded text-[9px] font-bold uppercase">Manager</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono">{emp.email}</td>
+                              <td className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">{emp.departmentCode}</td>
+                              <td className="py-3 px-4 text-slate-500 capitalize">{emp.role}</td>
+                              <td className="py-3 px-4 text-right">
+                                {isRowInvalid ? (
+                                  <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 rounded-full font-bold text-[10px] uppercase">
+                                    {errorLabel}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 rounded-full font-bold text-[10px] uppercase">
+                                    VALID
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-slate-800">
+                  <button onClick={() => setStep(2)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
+                  <button
+                    onClick={() => {
+                      if (errorCount > 0) {
+                        showToast(`Cannot proceed: ${errorCount} employee(s) have duplicate IDs or unassigned departments! Please fix them in Step 2.`, 'error');
+                        return;
+                      }
+                      setStep(4);
+                    }}
+                    disabled={errorCount > 0}
+                    className={`px-8 py-3.5 font-bold rounded-xl text-sm shadow-lg flex items-center gap-2 transition-all ${errorCount > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-[#0A5ED6] hover:bg-[#0B63E0] text-white'}`}
+                  >
+                    Import {validCount} Valid Employees <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-
-              <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-slate-800">
-                <button onClick={() => setStep(2)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-all">Back</button>
-                <button onClick={() => setStep(4)} className="px-8 py-3.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Import {employees.length} Valid Employees <ChevronRight className="w-4 h-4" /></button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* STEP 4: SECURITY CREDENTIALS (SMTP) */}
           {step === 4 && (

@@ -89,6 +89,7 @@ async def lifespan(app: FastAPI):
 
     # Ensure missing columns (e.g. SMTP fields on organizations) are auto-migrated dynamically
     async with engine.begin() as conn:
+        dialect_name = engine.dialect.name
         for col_def in [
             ("smtp_host", "VARCHAR(255) DEFAULT 'smtp.gmail.com'"),
             ("smtp_port", "INTEGER DEFAULT 587"),
@@ -96,17 +97,23 @@ async def lifespan(app: FastAPI):
             ("smtp_pass", "VARCHAR(255)")
         ]:
             col_name, col_type = col_def
-            await conn.execute(text(f"""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_name='organizations' AND column_name='{col_name}'
-                    ) THEN
-                        ALTER TABLE organizations ADD COLUMN {col_name} {col_type};
-                    END IF;
-                END $$;
-            """))
+            if dialect_name == "postgresql":
+                await conn.execute(text(f"""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='organizations' AND column_name='{col_name}'
+                        ) THEN
+                            ALTER TABLE organizations ADD COLUMN {col_name} {col_type};
+                        END IF;
+                    END $$;
+                """))
+            else:
+                try:
+                    await conn.execute(text(f"ALTER TABLE organizations ADD COLUMN {col_name} {col_type};"))
+                except Exception:
+                    pass
 
     async with async_session() as db:
         # ── Ensure org_default exists (PostgreSQL enforces FKs — orgs row must exist before departments)
