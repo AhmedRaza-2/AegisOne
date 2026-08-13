@@ -27,7 +27,13 @@ export default function App() {
   } = useSetupStore();
   const [loading, setLoading] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const API_BASE = 'http://localhost:8000';
+  // Dynamic API_BASE — works on any machine when deployed via Docker
+  const API_BASE = (() => {
+    if (typeof window === 'undefined') return 'http://localhost:8000';
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:8000';
+    return `http://${host}:8000`;
+  })();
 
   useEffect(() => {
     if (isDark) {

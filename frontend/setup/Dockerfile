@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 
-RUN npm install --include=optional
+RUN npm install --legacy-peer-deps
 
 COPY . .
 

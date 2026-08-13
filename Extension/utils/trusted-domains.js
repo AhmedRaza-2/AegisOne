@@ -64,10 +64,20 @@ export function getRootDomain(url) {
 }
 
 /**
- * Returns true if this URL should never be scanned.
+ * Returns true if this URL should never be scanned (trusted domain or TLD).
  */
 export function isTrusted(url) {
-  return false;
+  try {
+    const h = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    const root = getRootDomain(url);
+    // Check explicit domain list
+    if (TRUSTED_DOMAINS.has(root) || TRUSTED_DOMAINS.has(h)) return true;
+    // Check trusted TLDs (.edu, .gov, .ac.uk, etc.)
+    for (const tld of TRUSTED_TLDS) {
+      if (h.endsWith(tld)) return true;
+    }
+    return false;
+  } catch { return false; }
 }
 
 /**

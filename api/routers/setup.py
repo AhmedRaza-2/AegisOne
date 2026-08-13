@@ -78,7 +78,7 @@ class SetupSessionSaveRequest(BaseModel):
     sessionId: str
     state: dict
 
-def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
+def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587, dashboard_url: str = "http://localhost:3002"):
     """
     Sends a beautifully formatted Welcome Email to the user with their credentials.
     """
@@ -133,7 +133,7 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
               </div>
               
               <div class="btn-container">
-                <a href="http://localhost:3002/login" class="btn">Log In to AegisOne</a>
+                <a href="{dashboard_url}/login" class="btn">Log In to AegisOne</a>
               </div>
               
               <p style="font-size: 13px; color: #475569;">If you need assistance, contact your IT Administrator.</p>
@@ -177,6 +177,8 @@ def background_email_task(run_id: str, employees: List[Employee],
     smtp_pass = (smtp_pass_override or os.getenv("SMTP_PASS") or "").replace(" ", "")
     smtp_host = smtp_host_override or os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = smtp_port_override or int(os.getenv("SMTP_PORT", "587"))
+    # Dashboard URL for email login link — set AEGIS_DASHBOARD_URL in docker-compose env
+    dashboard_url = os.getenv("AEGIS_DASHBOARD_URL", "http://localhost:3002").rstrip("/")
 
     if not smtp_user or not smtp_pass:
         msg = "SMTP credentials (SMTP_USER, SMTP_PASS) are missing. Emails cannot be sent."
@@ -190,7 +192,7 @@ def background_email_task(run_id: str, employees: List[Employee],
     print(f"Starting email batch dispatch for {len(employees)} employees/admins...")
     results = []
     for emp in employees:
-        results.append(send_welcome_email(emp, smtp_user, smtp_pass, smtp_host, smtp_port))
+        results.append(send_welcome_email(emp, smtp_user, smtp_pass, smtp_host, smtp_port, dashboard_url))
     _email_dispatch_results[run_id] = {"done": True, "results": results}
 
 

@@ -13,7 +13,7 @@ services:
     volumes:
       - aegisone-pg-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432" # expose so you can inspect with pgAdmin/psql
+      - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U aegis -d aegisone" ]
       interval: 5s
@@ -22,74 +22,45 @@ services:
     restart: unless-stopped
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Backend API — FastAPI, connects to Postgres, loads AI models
+  # Backend API — FastAPI + AI Engine (Pre-built Docker Hub Image)
   # ──────────────────────────────────────────────────────────────────────────
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
+    image: ahmedraza2006/aegisone-backend:latest
     container_name: aegisone-backend
     command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
     environment:
       AEGIS_PORT: "8000"
       AEGIS_WORKERS: "1"
-      # PostgreSQL connection — backend auto-detects postgresql:// and enables connection pool
       AEGIS_DATABASE_URL: "postgresql+asyncpg://aegis:${DB_PASSWORD:-aegisone_secret}@db:5432/aegisone"
       AEGIS_JWT_SECRET: ${AEGIS_JWT_SECRET:-change-me-in-production}
-      # Dashboard URL injected into welcome emails — set this to your server's IP/domain
       AEGIS_DASHBOARD_URL: ${AEGIS_DASHBOARD_URL:-http://localhost:3002}
       ORG_ID: ${ORG_ID:-}
       LICENSE_KEY: ${LICENSE_KEY:-}
       DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      # Ollama Cloud API key — if set, Tier 2 XAI uses Ollama Cloud instead of local Ollama
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
       db:
-        condition: service_healthy # wait for Postgres to be ready before starting
+        condition: service_healthy
     restart: unless-stopped
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Setup Wizard — Vite app for first-time org configuration
-  # ──────────────────────────────────────────────────────────────────────────
-  setup:
-    build:
-      context: ./frontend/setup
-    container_name: aegisone-setup
-    ports:
-      - "3001:3001"
-    environment:
-      # Set SERVER_HOST to your server's IP if employees access from other computers
-      # e.g. SERVER_HOST=192.168.1.100
-      VITE_API_BASE_URL: "http://${SERVER_HOST:-localhost}:8000"
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # Dashboard — Next.js admin & employee portal
+  # Dashboard — Admin & Employee Portal (Pre-built Docker Hub Image)
   # ──────────────────────────────────────────────────────────────────────────
   dashboard:
-    build:
-      context: ./frontend/dashboard
+    image: ahmedraza2006/aegisone-dashboard:latest
     container_name: aegisone-dashboard
     ports:
       - "3002:3000"
     environment:
-      # NEXT_PUBLIC_API_BASE is read by src/lib/api.ts — set SERVER_HOST to your server IP
       NEXT_PUBLIC_API_BASE: "http://${SERVER_HOST:-localhost}:8000"
       NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST:-localhost}:8000"
-      # Dashboard URL (used in welcome emails)
       AEGIS_DASHBOARD_URL: "http://${SERVER_HOST:-localhost}:3002"
     depends_on:
       - backend
     restart: unless-stopped
 
 volumes:
-  aegisone-pg-data: # PostgreSQL data — persists across restarts
+  aegisone-pg-data:

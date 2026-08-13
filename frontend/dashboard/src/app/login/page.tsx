@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Shield, Mail, Lock, ArrowLeft, Building, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
+import { API_BASE } from "@/lib/api";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -37,7 +38,7 @@ export default function LoginPage() {
   const handleEmailBlur = async () => {
     if (!email || !email.includes("@")) return;
     try {
-      const res = await fetch(`http://localhost:8000/auth/check-role?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`${API_BASE}/auth/check-role?email=${encodeURIComponent(email)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.exists && data.role) {
@@ -83,7 +84,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:8000/auth/forgot-password", {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
@@ -105,7 +106,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
+      const res = await fetch(`${API_BASE}/auth/verify-reset-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp })
@@ -136,7 +137,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:8000/auth/reset-password", {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp, new_password: newPassword })

@@ -1,8 +1,5 @@
 "use client";
-import { UrlScanner } from "@/components/scanners/UrlScanner";
-import { TextScanner } from "@/components/scanners/TextScanner";
-import { FileScanner } from "@/components/scanners/FileScanner";
-import { ImageScanner } from "@/components/scanners/ImageScanner";
+import { IntelligentScanner } from "@/components/scanners/IntelligentScanner";
 import { motion } from "framer-motion";
 
 const stagger = { show: { transition: { staggerChildren: 0.1 } } };
@@ -18,11 +15,8 @@ export default function ManualScanCenter() {
         </div>
       </motion.div>
 
-      <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <UrlScanner />
-        <TextScanner />
-        <FileScanner />
-        <ImageScanner />
+      <motion.div variants={fadeUp}>
+        <IntelligentScanner />
       </motion.div>
     </motion.div>
   );

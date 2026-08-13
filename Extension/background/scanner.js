@@ -13,7 +13,7 @@
  */
 
 import { API_BASE, API_TIMEOUT_MS, THRESHOLD, VERDICT, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
-import { isInternalURL, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
+import { isInternalURL, isTrusted, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
 import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
 import { storeEvent } from "./event-store.js";
@@ -123,6 +123,8 @@ function _validateScanResponse(data) {
  */
 export async function scanURL(url, pageFeatures = {}, { bypassCache = false, signal = null } = {}) {
   if (!url || isInternalURL(url)) return _skippedResult(url);
+  // Skip scanning well-known trusted domains (Wikipedia, Google, GitHub, etc.) — prevents false positives
+  if (isTrusted(url)) return _safeTrustedResult(url);
   const policy = await _getPolicySnapshot();
   const domain = getRootDomain(url);
   if (_matchesAny(domain, policy.allowlist)) return _policySafeResult(url, "policy_allowlist");
@@ -446,6 +448,10 @@ export async function checkHealth() {
 // ── Internal helpers ──────────────────────────────────────
 function _skippedResult(url) {
   return { url, score: 0, verdict: VERDICT.SAFE, skipped: true, reason: "internal_url" };
+}
+
+function _safeTrustedResult(url) {
+  return { url, domain: getRootDomain(url), score: 0, verdict: VERDICT.SAFE, skipped: true, reason: "trusted_domain" };
 }
 
 function _policySafeResult(url, reason = "policy_allowlist") {

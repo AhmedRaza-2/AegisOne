@@ -2,6 +2,7 @@
 import { Link2, Activity, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { API_BASE } from "@/lib/api";
 
 export function UrlScanner() {
   const [url, setUrl] = useState("");
@@ -24,7 +25,7 @@ export function UrlScanner() {
     try {
       const formData = new FormData();
       formData.append("url", url);
-      const res = await fetch("http://localhost:8000/analyze/url", {
+      const res = await fetch(`${API_BASE}/analyze/url`, {
         method: "POST",
         body: formData
       });

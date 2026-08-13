@@ -73,35 +73,14 @@ export default function PortalPage() {
   // ── Deploy commands ────────────────────────────────────────────────────────
   // Linux/macOS
   const linuxCommand = [
-    `# ── First time / fresh install ────────────────────────────────`,
-    `# Stop old containers (keeps database if upgrading, add -v to wipe)`,
-    `docker compose down --remove-orphans 2>/dev/null`,
-    ``,
-    `# Set your organisation credentials`,
-    `export ORG_ID="${org.org_id}" \\`,
-    `       LICENSE_KEY="${org.license_key}" \\`,
-    `       DEPLOYMENT_TOKEN="${org.deployment_token}" \\`,
-    `       ADMIN_EMAIL="${org.admin_email}"`,
-    ``,
-    `# Build images from source and start all 4 services (Postgres + backend + setup + dashboard)`,
-    `docker compose up -d --build --remove-orphans`,
-  ].join('\n');
+    `mkdir -p AegisOne && cd AegisOne`,
+    `curl -sSL https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml -o docker-compose.yml`,
+    `export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}"`,
+    `docker compose up -d`,
+  ].join(' && ');
 
   // Windows PowerShell
-  const windowsCommand = [
-    `# ── First time / fresh install ────────────────────────────────`,
-    `# Stop old containers (keeps database if upgrading, add -v to wipe)`,
-    `docker compose down --remove-orphans 2>$null`,
-    ``,
-    `# Set your organisation credentials`,
-    `$env:ORG_ID="${org.org_id}"`,
-    `$env:LICENSE_KEY="${org.license_key}"`,
-    `$env:DEPLOYMENT_TOKEN="${org.deployment_token}"`,
-    `$env:ADMIN_EMAIL="${org.admin_email}"`,
-    ``,
-    `# Build images from source and start all 4 services (Postgres + backend + setup + dashboard)`,
-    `docker compose up -d --build --remove-orphans`,
-  ].join('\n');
+  const windowsCommand = `mkdir AegisOne -ErrorAction SilentlyContinue; cd AegisOne; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml" -OutFile "docker-compose.yml"; $env:ORG_ID="${org.org_id}"; $env:LICENSE_KEY="${org.license_key}"; $env:DEPLOYMENT_TOKEN="${org.deployment_token}"; $env:ADMIN_EMAIL="${org.admin_email}"; docker compose up -d`;
 
   const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 

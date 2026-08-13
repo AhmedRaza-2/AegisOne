@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useSetupStore, Department, Employee, SetupStep } from './store/setupStore';
 import { TableMode } from './components/TableMode';
+import { markSetupCompleted } from './lib/firebase';
 
 interface ActivationStatus {
   emailSent: boolean;
@@ -27,7 +28,16 @@ export default function App() {
   } = useSetupStore();
   const [loading, setLoading] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const API_BASE = 'http://localhost:8000';
+  // Dynamic API_BASE: use the same hostname as the setup wizard, but port 8000
+  // This ensures it works on any machine when deployed via Docker
+  const API_BASE = (() => {
+    if (typeof window === 'undefined') return 'http://localhost:8000';
+    const host = window.location.hostname;
+    // If localhost or 127.0.0.1, use direct localhost connection
+    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:8000';
+    // On a networked machine, use the same IP but port 8000
+    return `http://${host}:8000`;
+  })();
 
   useEffect(() => {
     if (isDark) {
@@ -53,11 +63,18 @@ export default function App() {
   const [fileUploaded, setFileUploaded] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   
-  // Adaptive Density & History
-  const [structureViewMode, setStructureViewMode] = useState<'visual' | 'table'>('visual');
+  // Adaptive Density & History — persisted to localStorage so view survives reload
+  const [structureViewMode, _setStructureViewMode] = useState<'visual' | 'table'>(() => {
+    try { return (localStorage.getItem('aegis_view_mode') as 'visual' | 'table') || 'visual'; } catch { return 'visual'; }
+  });
+  const setStructureViewMode = (mode: 'visual' | 'table') => {
+    try { localStorage.setItem('aegis_view_mode', mode); } catch {}
+    _setStructureViewMode(mode);
+  };
 
   // Modals for Add Employee & Add Dept
   const [isAddEmpModalOpen, setIsAddEmpModalOpen] = useState(false);
+  const [newEmpIdInput, setNewEmpIdInput] = useState('');
   const [newEmpFirstName, setNewEmpFirstName] = useState('');
   const [newEmpLastName, setNewEmpLastName] = useState('');
   const [newEmpEmail, setNewEmpEmail] = useState('');
@@ -1696,6 +1713,8 @@ export default function App() {
                           });
                           if (response.ok) {
                             const data = await response.json();
+                            // Mark setup as complete so demo seed data never reappears on reload
+                            markSetupCompleted();
                             if (data.run_id) {
                               pollEmailStatus(data.run_id);
                             } else {
@@ -1846,6 +1865,16 @@ export default function App() {
 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Employee ID (Optional)</label>
+                  <input
+                    type="text"
+                    value={newEmpIdInput}
+                    onChange={e => setNewEmpIdInput(e.target.value)}
+                    placeholder="e.g. EMP_1234 (Auto-generated if left blank)"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-[#0F172A] dark:text-white outline-none focus:border-[#0A5ED6]"
+                  />
+                </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">First Name *</label>
                   <input
@@ -1918,16 +1947,29 @@ export default function App() {
                     showToast('Valid First Name and Email required', 'error');
                     return;
                   }
-                  const newEmpId = `EMP_${Math.floor(Math.random() * 8999 + 1000)}`;
+                  
+                  const targetEmail = newEmpEmail.trim().toLowerCase();
+                  if (employees.some(e => e.email.toLowerCase() === targetEmail)) {
+                    showToast(`Email ${targetEmail} is already registered to another employee.`, 'error');
+                    return;
+                  }
+
+                  const targetId = newEmpIdInput.trim() || `EMP_${Math.floor(Math.random() * 8999 + 1000)}`;
+                  if (employees.some(e => e.employeeId === targetId)) {
+                    showToast(`Employee ID ${targetId} is already in use.`, 'error');
+                    return;
+                  }
+
                   const newEmp: Employee = {
                     id: crypto.randomUUID(),
-                    employeeId: newEmpId,
+                    employeeId: targetId,
                     firstName: newEmpFirstName.trim(),
                     lastName: newEmpLastName.trim(),
                     email: newEmpEmail.trim(),
                     phone: '',
                     departmentCode: newEmpDeptCode || 'NONE',
                     role: newEmpRole,
+                    designation: newEmpRole,
                     status: 'valid'
                   };
                   setEmployees(prev => {
@@ -1935,7 +1977,9 @@ export default function App() {
                     void saveStructure(departments, next);
                     return next;
                   });
+                  // Removed automatic switch to table view to preserve user's current card view
                   setIsAddEmpModalOpen(false);
+                  setNewEmpIdInput('');
                   setNewEmpFirstName('');
                   setNewEmpLastName('');
                   setNewEmpEmail('');

@@ -162,6 +162,41 @@ function isInternalURL(url) {
   }
 }
 
+// ── Trusted domain allowlist — never flag these as phishing ──────────────────
+// These are established, globally-recognized domains with very low phishing risk.
+// Model false positives on these domains are suppressed at the extension level.
+const TRUSTED_DOMAINS = new Set([
+  "wikipedia.org", "wikimedia.org",
+  "google.com", "google.co.uk", "google.com.pk", "google.co.in",
+  "googleapis.com", "gstatic.com", "gmail.com", "youtube.com",
+  "github.com", "github.io", "githubusercontent.com", "gitlab.com",
+  "microsoft.com", "live.com", "outlook.com", "office.com", "microsoftonline.com", "azure.com",
+  "apple.com", "icloud.com",
+  "amazon.com", "aws.amazon.com", "awsstatic.com",
+  "stackoverflow.com", "stackexchange.com",
+  "npmjs.com", "pypi.org", "nuget.org",
+  "mozilla.org", "firefox.com",
+  "cloudflare.com", "cloudflare.net",
+  "linkedin.com", "twitter.com", "x.com", "facebook.com", "instagram.com",
+  "reddit.com", "medium.com", "dev.to",
+  "gov.pk", "punjab.gov.pk", "gov.uk", "gov.us", ".edu",
+]);
+
+function isTrustedDomain(url) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    // Check exact match or suffix match (e.g. "en.wikipedia.org" → "wikipedia.org")
+    for (const trusted of TRUSTED_DOMAINS) {
+      if (hostname === trusted || hostname.endsWith("." + trusted) || trusted.startsWith(".") && hostname.endsWith(trusted)) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function setBadge(tabId, verdict, probability) {
   const isPhishing = verdict === "phishing" || verdict === "malicious" ||
     (probability != null && probability > CONFIG.PHISHING_THRESHOLD);

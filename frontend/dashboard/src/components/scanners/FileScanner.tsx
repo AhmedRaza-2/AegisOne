@@ -2,6 +2,7 @@
 import { Upload, Activity, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { API_BASE } from "@/lib/api";
 
 export function FileScanner() {
   const [file, setFile] = useState<File | null>(null);
@@ -19,7 +20,7 @@ export function FileScanner() {
       formData.append("file", file);
       // fallback to image if document endpoint doesn't exist, but we will try /analyze/document or /analyze/image
       // the user mentioned it should be like images
-      const res = await fetch("http://localhost:8000/analyze/document", {
+      const res = await fetch(`${API_BASE}/analyze/document`, {
         method: "POST",
         body: formData
       });

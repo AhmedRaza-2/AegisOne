@@ -2,6 +2,7 @@
 import { Image as ImageIcon, Activity, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { API_BASE } from "@/lib/api";
 
 export function ImageScanner() {
   const [file, setFile] = useState<File | null>(null);
@@ -18,7 +19,7 @@ export function ImageScanner() {
       const formData = new FormData();
       formData.append("file", file);
       // Calls the dedicated image analysis API
-      const res = await fetch("http://localhost:8000/analyze/image", {
+      const res = await fetch(`${API_BASE}/analyze/image`, {
         method: "POST",
         body: formData
       });

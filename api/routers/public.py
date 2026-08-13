@@ -81,11 +81,17 @@ from api.database.models import User
 
 @router.get("/download/extension")
 async def download_extension(email: str = None, db: AsyncSession = Depends(get_db)):
-    # Path to Extension folder in root directory
-    extension_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Extension"))
-    
-    if not os.path.exists(extension_dir):
-        raise HTTPException(status_code=404, detail="Extension folder not found")
+    # Resolve Extension directory — works in: local dev, Docker container, any working dir
+    _here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.abspath(os.path.join(_here, "..", "..", "Extension")),   # local dev: api/routers/../../Extension
+        os.path.abspath(os.path.join("/app", "Extension")),              # Docker: /app/Extension
+        os.path.abspath(os.path.join(os.getcwd(), "Extension")),         # CWD fallback
+    ]
+    extension_dir = next((p for p in candidates if os.path.exists(p)), None)
+
+    if extension_dir is None:
+        raise HTTPException(status_code=404, detail="Extension folder not found on this server")
 
     # Fetch employee's mapping details if email parameter is supplied
     config_data = {}

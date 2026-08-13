@@ -58,16 +58,24 @@ const SEED_DEPARTMENTS: Department[] = [
   },
 ];
 
+// Key that marks whether real setup has been completed — prevents demo data injection
+const SETUP_COMPLETED_KEY = 'aegis_setup_completed';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function loadFromStorage<T>(key: string, seed: T[]): T[] {
   try {
     const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw) as T[];
-    // First boot — seed the data
-    localStorage.setItem(key, JSON.stringify(seed));
-    return seed;
+    // Only seed demo data if setup has NOT been completed yet
+    const setupDone = localStorage.getItem(SETUP_COMPLETED_KEY);
+    if (!setupDone) {
+      localStorage.setItem(key, JSON.stringify(seed));
+      return seed;
+    }
+    // Setup completed — return empty list, not demo data
+    return [];
   } catch {
-    return seed;
+    return [];
   }
 }
 
@@ -165,28 +173,28 @@ export function signInUser(email: string): UserSession {
 
   const emp = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
   if (!emp) {
-    // Create a guest session for unrecognized emails
-    const defaultOrg = orgs[0] || SEED_ORGS[0];
+    // Create a guest session for unrecognized emails — use first real org, never demo fallback
+    const defaultOrg = orgs.find(o => o.id !== 'org-demo-001') || orgs[0];
     const session: UserSession = {
       uid: generateId('uid'),
       email,
       name: email.split('@')[0],
       role: 'admin',
-      orgId: defaultOrg.id,
-      orgName: defaultOrg.name,
+      orgId: defaultOrg?.id || generateId('org'),
+      orgName: defaultOrg?.name || email.split('@')[1]?.split('.')[0] || 'My Organization',
     };
     setSession(session);
     return session;
   }
 
-  const org = orgs.find(o => o.id === emp.orgId) || orgs[0] || SEED_ORGS[0];
+  const org = orgs.find(o => o.id === emp.orgId) || orgs.find(o => o.id !== 'org-demo-001') || orgs[0];
   const session: UserSession = {
     uid: emp.id,
     email: emp.email,
     name: emp.name,
     role: emp.role === 'lead' ? 'admin' : 'employee',
-    orgId: org.id,
-    orgName: org.name,
+    orgId: org?.id || emp.orgId,
+    orgName: org?.name || 'My Organization',
     employeeId: emp.employeeId,
     profileCompleted: emp.profileCompleted,
     extensionInstalled: emp.extensionInstalled,
@@ -194,6 +202,11 @@ export function signInUser(email: string): UserSession {
   };
   setSession(session);
   return session;
+}
+
+/** Call this after setup wizard completes to prevent demo data from ever re-appearing. */
+export function markSetupCompleted(): void {
+  localStorage.setItem(SETUP_COMPLETED_KEY, 'true');
 }
 
 // ─── Organization Functions ───────────────────────────────────────────────────

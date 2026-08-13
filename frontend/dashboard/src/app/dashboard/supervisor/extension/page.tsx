@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
 import { Monitor, ShieldCheck, Activity, Globe, Database, Network, Download, Puzzle, ExternalLink, User } from "lucide-react";
 import { useState, useEffect } from "react";
+import { API_BASE } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -14,7 +15,7 @@ export default function ManagerBrowserExtensionPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/browser`)
+      fetch(`${API_BASE}/user/browser`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(() => setLoading(false));
@@ -103,7 +104,7 @@ export default function ManagerBrowserExtensionPage() {
 
           <div className="pt-4 flex flex-wrap gap-4 border-t border-surface-200 dark:border-surface-800 mt-2">
             <a
-              href={`http://localhost:8000/public/download/extension?email=${encodeURIComponent(user?.email || "")}`}
+              href={`${API_BASE}/public/download/extension?email=${encodeURIComponent(user?.email || "")}`}
               className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors shadow-md hover:shadow-lg"
             >
               <Download className="w-4 h-4" /> Download Extension ZIP

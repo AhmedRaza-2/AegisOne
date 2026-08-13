@@ -9,6 +9,9 @@
 export const DEBUG_MODE = false;
 
 // ── API Configuration ────────────────────────────────────
+// Default API base — change in Extension popup Settings page to your server IP
+// e.g. http://192.168.1.100:8000 for a server on your LAN
+// The popup allows overriding this via the "Server URL" setting (stored in chrome.storage.local)
 export const API_BASE = "http://localhost:8000";
 export const API_TIMEOUT_MS = 6000;
 export const HEALTH_CHECK_INTERVAL_MS = 30_000;

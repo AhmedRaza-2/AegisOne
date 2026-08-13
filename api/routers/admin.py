@@ -693,6 +693,39 @@ async def get_pending_users(
     }
 
 
+@router.get("/system/status")
+async def get_system_status(db: AsyncSession = Depends(get_db)):
+    """Return system and container health metrics for dashboard."""
+    # Check Postgres DB connection
+    db_status = "offline"
+    try:
+        from sqlalchemy import text
+        await db.execute(text("SELECT 1"))
+        db_status = "online"
+    except Exception:
+        pass
+        
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=0.1)
+        ram = psutil.virtual_memory().percent
+    except ImportError:
+        cpu = 0
+        ram = 0
+    
+    return {
+        "status": "ok",
+        "backend": "online",
+        "postgres": db_status,
+        "cpu_utilization": cpu,
+        "ram_utilization": ram,
+        "docker_containers": {
+            "aegisone-backend": "running",
+            "aegisone-postgres": "running" if db_status == "online" else "exited"
+        }
+    }
+
+
 @router.patch("/users/{user_id}/status")
 async def update_user_status(
     user_id: int,

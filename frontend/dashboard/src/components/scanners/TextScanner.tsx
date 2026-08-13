@@ -2,6 +2,7 @@
 import { AlignLeft, Activity, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { API_BASE } from "@/lib/api";
 
 export function TextScanner() {
   const [text, setText] = useState("");
@@ -15,7 +16,7 @@ export function TextScanner() {
     try {
       const formData = new FormData();
       formData.append("text", text);
-      const res = await fetch("http://localhost:8000/analyze/text", {
+      const res = await fetch(`${API_BASE}/analyze/text`, {
         method: "POST",
         body: formData
       });
