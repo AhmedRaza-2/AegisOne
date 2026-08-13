@@ -40,18 +40,11 @@ const navByRole: Record<string, NavItem[]> = {
   ],
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-<<<<<<< Updated upstream
     { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
-=======
-    { label: "Users", href: "/dashboard/admin/users", icon: Users },
-    { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
-    { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
-    { label: "Devices", href: "/dashboard/admin/devices", icon: Monitor },
->>>>>>> Stashed changes
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
@@ -298,11 +291,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     const role = user.role;
-<<<<<<< Updated upstream
     if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin" && role !== "admin") {
-=======
-    if (pathname.startsWith("/dashboard/admin") && role !== "admin" && role !== "super_admin" && role !== "global_admin") {
->>>>>>> Stashed changes
       // Allow department_admin to access approvals page
       if ((role === "department_admin" || role === "manager") && pathname === "/dashboard/admin/approvals") {
         // allowed
@@ -310,17 +299,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace((role === "department_admin" || role === "manager" || role === "office_admin") ? "/dashboard/supervisor" : "/dashboard/employee");
       }
     } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin" && role !== "manager") {
-<<<<<<< Updated upstream
       if ((role === "admin" || role === "super_admin" || role === "global_admin") && pathname === "/dashboard/supervisor/extension") {
         // allowed
       } else {
         router.replace(role === "super_admin" || role === "admin" ? "/dashboard/admin" : "/dashboard/employee");
       }
     } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin" || role === "admin")) {
-=======
-      router.replace((role === "admin" || role === "super_admin") ? "/dashboard/admin" : "/dashboard/employee");
-    } else if (pathname.startsWith("/dashboard/employee") && (role === "admin" || role === "super_admin" || role === "global_admin")) {
->>>>>>> Stashed changes
       router.replace("/dashboard/admin");
     } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin" || role === "manager")) {
       router.replace("/dashboard/supervisor");

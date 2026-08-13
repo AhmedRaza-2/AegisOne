@@ -119,22 +119,6 @@ export default function AdminCommunicationPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2">
                   <Globe className="w-5 h-5 text-amber-500" /> Organization-Wide Broadcast
-                </h3>
-                <button onClick={() => setShowBroadcast(false)} className="text-surface-400 hover:text-surface-700"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/40 rounded-lg text-xs text-amber-700 dark:text-amber-400">
-                ⚠️ This will be visible to <strong>everyone</strong> in the organization.
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-surface-500 mb-1.5">Type</label>
-                  <select value={bTitle} onChange={e => setBTitle(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
-                    <option>Organization Notice</option><option>Security Policy Update</option>
-                    <option>System Maintenance</option><option>Emergency Security Alert</option>
-                    <option>Compliance Reminder</option><option>General Announcement</option>
-                  </select>
-                </div>
                 <div>
                   <label className="block text-xs font-medium text-surface-500 mb-1.5">Message</label>
                   <textarea value={bContent} onChange={e => setBContent(e.target.value)} rows={4}

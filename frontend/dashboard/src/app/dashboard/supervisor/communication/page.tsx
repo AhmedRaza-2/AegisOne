@@ -1,44 +1,9 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-<<<<<<< Updated upstream
 import { MessageSquare, Megaphone, Users, CheckCircle2, XCircle, Plus, X, Globe, Send } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatView, ContactItem, ChatContact, ChatMessage, roleLabel, ts } from "@/components/chat/ChatComponents";
-=======
-import { MessageSquare, Megaphone, Send, Clock, Users, User, AlertCircle, Info, ShieldAlert } from "lucide-react";
-import { motion } from "framer-motion";
-import { useState } from "react";
-import { toast } from "@/components/ui/toast";
-
-const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
-const stagger = { show: { transition: { staggerChildren: 0.05 } } };
-
-// Mock data
-const mockEmployees = ["Ahmed Raza", "Sara Ahmed", "Ali Khan", "Usman Tariq", "Fatima Noor"];
-
-const mockHistory = [
-  { id: 1, type: "Broadcast", title: "Phishing Campaign Alert", date: "2 hours ago", content: "We are seeing an influx of fake Microsoft login pages. Please verify URLs.", priority: "High" },
-  { id: 2, type: "Direct", title: "Message to Ali Khan", date: "Yesterday", content: "Please review the security awareness module sent to your email.", priority: "Normal" },
-  { id: 3, type: "Broadcast", title: "Weekly Security Update", date: "3 days ago", content: "All systems are operational. Remember to update your AegisOne extension.", priority: "Normal" },
-];
-
-export default function CommunicationCenterPage() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("broadcast");
-  const [messageText, setMessageText] = useState("");
-  const [selectedEmployee, setSelectedEmployee] = useState(mockEmployees[0]);
-  const [broadcastType, setBroadcastType] = useState("Security Update");
-  
-  if (!user) return null;
-
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageText) return;
-    toast(`Message sent successfully!\n\nType: ${activeTab}\nContent: ${messageText}`, "success");
-    setMessageText("");
-  };
->>>>>>> Stashed changes
 
 function Toast({ toast }: { toast: { message: string; type: "success" | "error" } | null }) {
   if (!toast) return null;

@@ -157,13 +157,8 @@ export default function DepartmentsPage() {
         setDeptReassignWarning({ show: false, assignedUser: null, targetDeptName: "", managerId: "" });
         fetchData();
       } else {
-<<<<<<< Updated upstream
         const err = await res.json();
         showToast(err.detail || "Failed to create department", "error");
-=======
-        const error = await res.json();
-        toast(error.detail || "Failed to create department", "error");
->>>>>>> Stashed changes
       }
     } catch {
       showToast("Network error", "error");

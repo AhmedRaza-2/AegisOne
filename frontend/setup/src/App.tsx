@@ -569,16 +569,19 @@ export default function App() {
           adminCount++;
         }
 
-        if (!email) {
+        const cleanId = (employeeId || '').trim().toUpperCase();
+        const cleanEmail = (email || '').trim().toLowerCase();
+
+        if (!cleanEmail) {
           status = 'invalid';
           error = 'Email not populated';
-        } else if (!email.includes('@')) {
+        } else if (!cleanEmail.includes('@')) {
           status = 'invalid';
           error = 'Invalid Email Format';
-        } else if (seenEmails.has(email)) {
+        } else if (seenEmails.has(cleanEmail)) {
           status = 'invalid';
           error = 'Duplicate Email';
-        } else if (employeeId && seenEmployeeIds.has(employeeId)) {
+        } else if (cleanId && seenEmployeeIds.has(cleanId)) {
           status = 'invalid';
           error = 'Duplicate Employee ID';
         } else if (!departmentKey && normalizedRole !== 'admin') {
@@ -592,8 +595,8 @@ export default function App() {
           error = `Only 1 Admin allowed in the organization`;
         }
 
-        if (email) seenEmails.add(email);
-        if (employeeId) seenEmployeeIds.add(employeeId);
+        if (cleanEmail) seenEmails.add(cleanEmail);
+        if (cleanId) seenEmployeeIds.add(cleanId);
 
         parsedEmployees.push({
           id: Math.random().toString(),
@@ -1471,11 +1474,18 @@ export default function App() {
                                       Cancel
                                     </button>
                                   </div>
-                                ) : (
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${emp.status === 'invalid' ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'}`}>
-                                    {emp.status === 'invalid' ? emp.error || 'Invalid' : 'Valid'}
-                                  </span>
-                                )}
+                                ) : (() => {
+                                  // Live check for duplicate employee ID in list
+                                  const isDupId = emp.employeeId && employees.some(other => other.id !== emp.id && other.employeeId.toUpperCase() === emp.employeeId.toUpperCase());
+                                  const effectiveStatus = isDupId ? 'invalid' : emp.status;
+                                  const effectiveError = isDupId ? 'Duplicate Employee ID' : emp.error;
+
+                                  return (
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${effectiveStatus === 'invalid' ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'}`}>
+                                      {effectiveStatus === 'invalid' ? effectiveError || 'Invalid' : 'Valid'}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                             </tr>
                           );
