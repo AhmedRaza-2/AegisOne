@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle, Mail, Settings, Save, Eye, EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "@/components/ui/toast";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -156,8 +157,13 @@ export default function DepartmentsPage() {
         setDeptReassignWarning({ show: false, assignedUser: null, targetDeptName: "", managerId: "" });
         fetchData();
       } else {
+<<<<<<< Updated upstream
         const err = await res.json();
         showToast(err.detail || "Failed to create department", "error");
+=======
+        const error = await res.json();
+        toast(error.detail || "Failed to create department", "error");
+>>>>>>> Stashed changes
       }
     } catch {
       showToast("Network error", "error");

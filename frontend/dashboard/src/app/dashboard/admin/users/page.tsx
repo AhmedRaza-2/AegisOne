@@ -3,6 +3,7 @@ import { Users, Search, ShieldCheck, ShieldOff, Plus, Trash2, X, KeyRound, Ban, 
 import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "@/components/ui/toast";
 
 export function getRoleBadge(role: string) {
   switch (role) {
@@ -128,7 +129,7 @@ export default function UsersPage() {
         setShowAddModal(false);
       } else {
         const error = await res.json();
-        alert(error.detail || "Failed to create user");
+        toast(error.detail || "Failed to create user", "error");
       }
     } catch (error) {
       console.error(error);
@@ -171,9 +172,9 @@ export default function UsersPage() {
         }
       });
       if (res.ok) {
-        alert("Password reset successfully.");
+        toast("Password reset successfully.", "success");
       } else {
-        alert("Failed to reset password.");
+        toast("Failed to reset password.", "error");
       }
     } catch (error) {
       console.error(error);
