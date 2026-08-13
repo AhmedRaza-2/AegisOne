@@ -15,7 +15,7 @@ class XAIRequest(BaseModel):
 # Local Ollama URL
 OLLAMA_URL = "http://localhost:11434/api/generate"
 # The fast, small model we will use
-MODEL_NAME = "llama3.2:1b"
+MODEL_NAME = "qwen2.5:1.5b"
 
 @router.post("/xai/explain")
 async def generate_xai_explanation(req: XAIRequest):

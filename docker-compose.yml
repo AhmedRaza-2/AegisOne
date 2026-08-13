@@ -1,83 +1,95 @@
-version: '3.8'
-
 services:
-  # 1. PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: aegisone-postgres
-    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PostgreSQL — persistent database for the AegisOne backend
+  # ──────────────────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: aegisone-db
     environment:
-      POSTGRES_USER: aegis
-      POSTGRES_PASSWORD: password
       POSTGRES_DB: aegisone
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aegisone_secret}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - aegisone-pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # expose so you can inspect with pgAdmin/psql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aegis -d aegisone"]
-      interval: 10s
+      test: [ "CMD-SHELL", "pg_isready -U aegis -d aegisone" ]
+      interval: 5s
       timeout: 5s
-      retries: 5
-
-  # 2. Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: aegisone-redis
+      retries: 10
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
 
-  # 3. Backend API (FastAPI + AI Engine)
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend API — FastAPI, connects to Postgres, loads AI models
+  # ──────────────────────────────────────────────────────────────────────────
   backend:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: aegisone-backend
-    restart: unless-stopped
-    ports:
-      - "8000:9000"
-      - "9000:9000"
+    command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:////app/api/database/aegisone.db
-      - ENVIRONMENT=production
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-    volumes:
-      - ./api:/app/api
-      - ./AIML:/app/AIML
+      AEGIS_PORT: "8000"
+      AEGIS_WORKERS: "1"
+      # PostgreSQL connection — backend auto-detects postgresql:// and enables connection pool
+      AEGIS_DATABASE_URL: "postgresql+asyncpg://aegis:${DB_PASSWORD:-aegisone_secret}@db:5432/aegisone"
+      AEGIS_JWT_SECRET: ${AEGIS_JWT_SECRET:-change-me-in-production}
+      # Dashboard URL injected into welcome emails — set this to your server's IP/domain
+      AEGIS_DASHBOARD_URL: ${AEGIS_DASHBOARD_URL:-http://localhost:3002}
+      ORG_ID: ${ORG_ID:-}
+      LICENSE_KEY: ${LICENSE_KEY:-}
+      DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      # Ollama Cloud API key — if set, Tier 2 XAI uses Ollama Cloud instead of local Ollama
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy # wait for Postgres to be ready before starting
+    restart: unless-stopped
 
-  # 5. Setup Wizard (Frontend - Port 3001)
+  # ──────────────────────────────────────────────────────────────────────────
+  # Setup Wizard — Vite app for first-time org configuration
+  # ──────────────────────────────────────────────────────────────────────────
   setup:
     build:
       context: ./frontend/setup
-      dockerfile: Dockerfile
     container_name: aegisone-setup
-    restart: unless-stopped
-    tty: true
     ports:
       - "3001:3001"
+    environment:
+      # Set SERVER_HOST to your server's IP if employees access from other computers
+      # e.g. SERVER_HOST=192.168.1.100
+      VITE_API_BASE_URL: "http://${SERVER_HOST:-localhost}:8000"
     depends_on:
       - backend
+    restart: unless-stopped
 
-  # 6. Dashboard Portal (Frontend - Port 3002)
+  # ──────────────────────────────────────────────────────────────────────────
+  # Dashboard — Next.js admin & employee portal
+  # ──────────────────────────────────────────────────────────────────────────
   dashboard:
     build:
       context: ./frontend/dashboard
-      dockerfile: Dockerfile
     container_name: aegisone-dashboard
-    restart: unless-stopped
     ports:
       - "3002:3000"
     environment:
-      - PORT=3000
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # NEXT_PUBLIC_API_BASE is read by src/lib/api.ts — set SERVER_HOST to your server IP
+      NEXT_PUBLIC_API_BASE: "http://${SERVER_HOST:-localhost}:8000"
+      NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST:-localhost}:8000"
+      # Dashboard URL (used in welcome emails)
+      AEGIS_DASHBOARD_URL: "http://${SERVER_HOST:-localhost}:3002"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
-  redis_data:
+  aegisone-pg-data: # PostgreSQL data — persists across restarts

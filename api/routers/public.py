@@ -34,6 +34,9 @@ async def contact_form(req: ContactRequest):
     
     if not smtp_user or not smtp_pass:
         return {"status": "success", "message": "Contact request received (SMTP unconfigured)"}
+    # Gmail app passwords contain spaces when displayed — strip them before auth.
+    smtp_user = smtp_user.strip()
+    smtp_pass = smtp_pass.replace(" ", "")
         
     msg = EmailMessage()
     msg["From"] = smtp_user
@@ -68,15 +71,39 @@ Message:
 
 import io
 import zipfile
+import json
 from fastapi.responses import StreamingResponse
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from api.database.db import get_db
+from api.database.models import User
 
 @router.get("/download/extension")
-async def download_extension():
-    # Path to Extension folder in root directory
-    extension_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Extension"))
-    
-    if not os.path.exists(extension_dir):
-        raise HTTPException(status_code=404, detail="Extension folder not found")
+async def download_extension(email: str = None, db: AsyncSession = Depends(get_db)):
+    # Resolve Extension directory — works in: local dev, Docker container, any working dir
+    _here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.abspath(os.path.join(_here, "..", "..", "Extension")),   # local dev: api/routers/../../Extension
+        os.path.abspath(os.path.join("/app", "Extension")),              # Docker: /app/Extension
+        os.path.abspath(os.path.join(os.getcwd(), "Extension")),         # CWD fallback
+    ]
+    extension_dir = next((p for p in candidates if os.path.exists(p)), None)
+
+    if extension_dir is None:
+        raise HTTPException(status_code=404, detail="Extension folder not found on this server")
+
+    # Fetch employee's mapping details if email parameter is supplied
+    config_data = {}
+    if email:
+        res = await db.execute(select(User).where(User.email == email))
+        user = res.scalar_one_or_none()
+        if user:
+            config_data = {
+                "email": user.email,
+                "user_id": user.id,
+                "organization_id": user.organization_id or "org_default"
+            }
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -85,6 +112,11 @@ async def download_extension():
                 file_path = os.path.join(root, file)
                 arcname = os.path.relpath(file_path, extension_dir)
                 zip_file.write(file_path, arcname)
+        
+        # Inject dynamic config.json if we successfully resolved user details
+        if config_data:
+            config_json_bytes = json.dumps(config_data, indent=2).encode("utf-8")
+            zip_file.writestr("config.json", config_json_bytes)
 
     zip_buffer.seek(0)
     return StreamingResponse(

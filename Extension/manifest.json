@@ -45,6 +45,7 @@
         "background/requestQueue.js",
         "utils/constants.js",
         "utils/trusted-domains.js",
+        "config.json",
         "icons/*.png"
       ],
       "matches": ["<all_urls>"]

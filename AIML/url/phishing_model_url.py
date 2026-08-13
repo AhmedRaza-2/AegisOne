@@ -1,20 +1,34 @@
+"""
+AegisOne — URL Phishing Detector: Model Architecture
+=====================================================
+DistilBERT + 10-feature MLP Hybrid | 4-class classification
+Classes: 0=Benign, 1=Phishing, 2=Malware, 3=Defacement
+
+Upload this file to Google Drive at: MyDrive/AegisOne/phishing_model_url.py
+"""
+
+import re
+import numpy as np
 import torch
 import torch.nn as nn
 from transformers import AutoModel
-import re
 from urllib.parse import urlparse
 
-# ═══════════════════════════════════════
-# FEATURE ENGINE (KEEP - VERY IMPORTANT)
-# ═══════════════════════════════════════
+# ═══════════════════════════════════════════════════════
+# CONSTANTS
+# ═══════════════════════════════════════════════════════
 
-SUSPICIOUS_TLDS = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top'}
-SHORTENERS = {'bit.ly', 't.co', 'goo.gl', 'tinyurl.com'}
+SUSPICIOUS_TLDS = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.cc', '.zip', '.click', '.link'}
+SHORTENERS      = {'bit.ly', 't.co', 'goo.gl', 'tinyurl.com', 'ow.ly', 'is.gd'}
+
+# ═══════════════════════════════════════════════════════
+# URL SANITIZER
+# ═══════════════════════════════════════════════════════
 
 def sanitize_url(url: str) -> str:
     """
-    Cleans tracking parameters and irrelevant long query strings from URLs
-    to prevent Data Drift/Out-of-Distribution false positives in production.
+    Strips tracking parameters from known benign domains to prevent
+    long query strings from skewing model predictions.
     """
     try:
         url_str = str(url).strip()
@@ -22,53 +36,52 @@ def sanitize_url(url: str) -> str:
             parsed = urlparse("http://" + url_str)
         else:
             parsed = urlparse(url_str)
-            
-        # If it's a known search engine or social media, strip queries
+
         domain = parsed.netloc.lower()
-        if any(d in domain for d in ['google.', 'linkedin.com', 'pinterest.com', 'facebook.com', 'youtube.com', 'twitter.com', 'x.com']):
-            # Strip query completely for these to prevent massive anomaly scores
-            # unless it's a specific useful query (like youtube ?v=)
-            if 'youtube.com' not in domain:
-                return parsed.scheme + "://" + parsed.netloc + parsed.path
-                
+        # For known safe domains, strip query/fragment to prevent OOD false positives
+        safe_domains = ['google.', 'linkedin.com', 'pinterest.com', 'facebook.com',
+                        'twitter.com', 'x.com']
+        if any(d in domain for d in safe_domains):
+            return parsed.scheme + "://" + parsed.netloc + parsed.path
+
         return url_str
-    except:
+    except Exception:
         return str(url)
 
-def extract_url_numerical_features(url):
-    # Apply sanitization to the numerical feature extractor too
+
+# ═══════════════════════════════════════════════════════
+# NUMERICAL FEATURE EXTRACTOR (10 features, log-normalized)
+# ═══════════════════════════════════════════════════════
+
+def extract_url_numerical_features(url: str) -> torch.Tensor:
     url = sanitize_url(url)
     url_str = str(url).lower().replace("https://", "").replace("http://", "").replace("www.", "")
 
     try:
-        # Prepend 'http://' for urlparse to correctly interpret relative paths and domains
-        # This handles cases where only a domain or path is provided without a scheme
         parsed = urlparse("http://" + url_str)
         domain = parsed.netloc
-    except ValueError as e:
-        # Handle cases where urlparse raises an error (e.g., Invalid IPv6 URL)
-        print(f"Warning: Could not parse URL '{url}'. Error: {e}. Returning zeros.")
-        # Return a tensor of zeros for all 10 features
+    except ValueError:
         return torch.zeros(10, dtype=torch.float32)
 
     features = [
-        len(url_str),
-        len(domain),
-        url_str.count('.'),
-        url_str.count('-'),
-        sum(c in "!@#$%^&*_=+" for c in url_str),
-        1.0 if any(s in domain for s in SHORTENERS) else 0.0,
-        1.0 if any(url_str.endswith(tld) for tld in SUSPICIOUS_TLDS) else 0.0,
-        1.0 if re.match(r'\d+\.\d+\.\d+\.\d+', domain) else 0.0,
-        len(parsed.path),
-        len(parsed.query)
+        np.log1p(len(url_str)) / 5.0,                               # [0] URL total length (log-scaled)
+        np.log1p(len(domain))  / 4.0,                               # [1] Domain length (log-scaled)
+        min(url_str.count('.'), 10) / 10.0,                         # [2] Dot count (capped at 10)
+        min(url_str.count('-'), 10) / 10.0,                         # [3] Hyphen count (capped at 10)
+        min(sum(c in "!@#$%^&*_=+" for c in url_str), 20) / 20.0,  # [4] Special char count (capped)
+        1.0 if any(s in domain for s in SHORTENERS) else 0.0,       # [5] URL shortener flag
+        1.0 if any(url_str.endswith(t) for t in SUSPICIOUS_TLDS) else 0.0,  # [6] Suspicious TLD
+        1.0 if re.match(r'\d+\.\d+\.\d+\.\d+', domain) else 0.0,   # [7] Raw IP address flag
+        np.log1p(len(parsed.path))  / 4.0,                          # [8] Path length (log-scaled)
+        np.log1p(len(parsed.query)) / 5.0,                          # [9] Query string length (log-scaled)
     ]
 
     return torch.tensor(features, dtype=torch.float32)
 
-# ═══════════════════════════════════════
-# FEATURE MLP
-# ═══════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════
+# NUMERICAL FEATURE MLP
+# ═══════════════════════════════════════════════════════
 
 class URLFeatureMLP(nn.Module):
     def __init__(self):
@@ -78,58 +91,114 @@ class URLFeatureMLP(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(64, 32),
-            nn.ReLU()
+            nn.ReLU(),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
-# ═══════════════════════════════════════
-# FINAL MODEL (OPTIMIZED)
-# ═══════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════
+# HYBRID URL DETECTOR: DistilBERT [CLS] + Feature MLP
+# ═══════════════════════════════════════════════════════
 
 class URLDetector(nn.Module):
-    def __init__(self, model_name="distilbert-base-uncased", num_classes=4):
+    """
+    Hybrid model fusing:
+      - DistilBERT CLS token (768-dim) for semantic understanding
+      - 10-feature MLP (32-dim) for structural/lexical signals
+    → concatenated → 4-class softmax classifier
+    """
+
+    def __init__(self, model_name: str = "distilbert-base-uncased", num_classes: int = 4):
         super().__init__()
 
-        # ⚡ LIGHTWEIGHT BERT (KEY UPGRADE)
-        self.bert = AutoModel.from_pretrained(
-            model_name,
-            attn_implementation="eager"
-        )
+        self.bert = AutoModel.from_pretrained(model_name, attn_implementation="eager")
 
-        # freeze most layers (speed boost)
+        # Freeze all layers except the last transformer layer for efficient fine-tuning
         for param in self.bert.parameters():
             param.requires_grad = False
-
-        # only last layer trainable
-        for param in self.bert.transformer.layer[-1:].parameters():
-            param.requires_grad = True
+            
+        if hasattr(self.bert, "transformer"):
+            for param in self.bert.transformer.layer[-1:].parameters():
+                param.requires_grad = True
+        elif hasattr(self.bert, "encoder"):
+            for param in self.bert.encoder.layer[-1:].parameters():
+                param.requires_grad = True
 
         self.feature_mlp = URLFeatureMLP()
 
+        bert_hidden = self.bert.config.hidden_size  # 768 for distilbert-base, 256 for bert-mini
+
         self.classifier = nn.Sequential(
-            nn.Linear(768 + 32, 128),
-            nn.ReLU(),
+            nn.Linear(bert_hidden + 32, 128),   # matches checkpoint: classifier.0
+            nn.GELU(),
             nn.Dropout(0.3),
-            nn.Linear(128, num_classes)
+            nn.Linear(128, num_classes),          # matches checkpoint: classifier.3
         )
 
-    def forward(self, input_ids, attention_mask, numerical_feats):
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        numerical_feats: torch.Tensor,
+    ) -> torch.Tensor:
 
         outputs = self.bert(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            output_attentions=True
+            output_attentions=True,
         )
-        bert_out = outputs.last_hidden_state
         self.last_attentions = outputs.attentions
 
-        # CLS token
-        text_feat = bert_out[:, 0, :]
+        # CLS token embedding
+        text_feat = outputs.last_hidden_state[:, 0, :]   # (batch, 768)
+        num_feat  = self.feature_mlp(numerical_feats)    # (batch, 32)
 
-        num_feat = self.feature_mlp(numerical_feats)
+        combined = torch.cat([text_feat, num_feat], dim=1)  # (batch, 800)
+        return self.classifier(combined)                     # (batch, 4)
 
-        combined = torch.cat([text_feat, num_feat], dim=1)
 
-        return self.classifier(combined)
+def load_url_detector(checkpoint_path: str, device: torch.device = torch.device("cpu")) -> tuple[URLDetector, str]:
+    """
+    Inspects the checkpoint keys and shapes to identify the correct base model name,
+    initializes the URLDetector, and loads the weights.
+    Returns (model, model_name).
+    """
+    import os
+    if not os.path.exists(checkpoint_path):
+        raise FileNotFoundError(f"Model checkpoint not found: {checkpoint_path}")
+        
+    state = torch.load(checkpoint_path, map_location="cpu")
+    if isinstance(state, dict) and "model_state_dict" in state:
+        state = state["model_state_dict"]
+        
+    # Check the hidden size of word embeddings weight
+    word_embeddings_key = None
+    for key in ["bert.embeddings.word_embeddings.weight", "embeddings.word_embeddings.weight"]:
+        if key in state:
+            word_embeddings_key = key
+            break
+            
+    model_name = "distilbert-base-uncased"
+    if word_embeddings_key:
+        hidden_size = state[word_embeddings_key].shape[1]
+        if hidden_size == 256:
+            model_name = "prajjwal1/bert-mini"
+        elif hidden_size == 768:
+            model_name = "distilbert-base-uncased"
+            
+    # Clean the keys if needed (e.g. prefix removal)
+    clean_state = {}
+    for k, v in state.items():
+        if k.startswith("module."):
+            clean_state[k[7:]] = v
+        else:
+            clean_state[k] = v
+            
+    model = URLDetector(model_name=model_name)
+    model.load_state_dict(clean_state, strict=True)
+    model.to(device)
+    model.eval()
+    return model, model_name

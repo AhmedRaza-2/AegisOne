@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
+import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
 import {
   Building2, User, Mail, Lock, Phone, Globe, Users, Briefcase,
   ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff
@@ -33,11 +34,10 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
     <div className="flex items-center gap-2 justify-center mb-8">
       {Array.from({ length: total }, (_, i) => i + 1).map((step) => (
         <React.Fragment key={step}>
-          <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all duration-300 ${
-            step < current ? 'bg-emerald-500 text-white' :
-            step === current ? 'bg-[#0A5ED6] text-white ring-4 ring-[#0A5ED6]/30' :
-            'bg-slate-200 text-slate-500'
-          }`}>
+          <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all duration-300 ${step < current ? 'bg-emerald-500 text-white' :
+              step === current ? 'bg-[#0A5ED6] text-white ring-4 ring-[#0A5ED6]/30' :
+                'bg-slate-200 text-slate-500'
+            }`}>
             {step < current ? <CheckCircle2 className="w-4 h-4" /> : step}
           </div>
           {step < total && (
@@ -137,7 +137,7 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
     try {
-      await registerOrganization({
+      const org = await registerOrganization({
         name: form.name,
         industry: form.industry,
         employee_count: form.employee_count,
@@ -147,6 +147,26 @@ export default function RegisterPage() {
         phone: form.phone,
         password: form.password,
       });
+
+      // Send Admin Welcome & Credentials email via public auth API
+      try {
+        await fetch("http://localhost:8000/auth/send-admin-credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: form.admin_email,
+            full_name: form.admin_name,
+            password: form.password,
+            org_name: form.name
+          })
+        });
+      } catch (e) {
+        console.warn("[RegisterPage] Admin credentials email dispatch notify skipped/logged:", e);
+      }
+
+      // Temporarily store the password in sessionStorage so PortalPage can pass it to the local setup wizard
+      sessionStorage.setItem('tempAdminPassword', form.password);
+
       navigate('/portal');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
@@ -166,9 +186,9 @@ export default function RegisterPage() {
         <div className="absolute inset-0 pointer-events-none overflow-hidden flex justify-center items-center">
           <div className="w-[600px] h-[600px] bg-[#0A5ED6]/5 rounded-full blur-[120px]" />
         </div>
-        
+
         <div className="w-full max-w-lg relative z-10">
-          
+
           {/* Header */}
           <div className="text-center mb-8 space-y-2">
             <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 px-3 py-1 rounded-full text-xs font-semibold text-[#0A5ED6] uppercase tracking-wider">
@@ -224,11 +244,10 @@ export default function RegisterPage() {
                           type="button"
                           key={r.value}
                           onClick={() => setForm(p => ({ ...p, employee_count: r.value }))}
-                          className={`py-2 px-1 rounded-lg border text-xs font-semibold transition-all ${
-                            form.employee_count === r.value
+                          className={`py-2 px-1 rounded-lg border text-xs font-semibold transition-all ${form.employee_count === r.value
                               ? 'bg-[#0A5ED6]/10 border-[#0A5ED6] text-[#0A5ED6]'
                               : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-[#0A5ED6]'
-                          }`}
+                            }`}
                         >
                           {r.label}
                         </button>
@@ -298,11 +317,10 @@ export default function RegisterPage() {
                     {/* Strength bar */}
                     {form.password && (
                       <div className="mt-1.5 h-1 bg-slate-200 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-300 ${
-                          form.password.length < 8 ? 'w-1/4 bg-red-500' :
-                          !/[A-Z]/.test(form.password) || !/[0-9]/.test(form.password) ? 'w-2/4 bg-amber-500' :
-                          'w-full bg-emerald-500'
-                        }`} />
+                        <div className={`h-full rounded-full transition-all duration-300 ${form.password.length < 8 ? 'w-1/4 bg-red-500' :
+                            !/[A-Z]/.test(form.password) || !/[0-9]/.test(form.password) ? 'w-2/4 bg-amber-500' :
+                              'w-full bg-emerald-500'
+                          }`} />
                       </div>
                     )}
                   </Field>
@@ -392,6 +410,14 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
+
+      {loading && (
+        <AuthLoadingOverlay
+          title="Creating your organization"
+          steps={['Validating details', 'Securing admin account', 'Deploying your workspace']}
+        />
+      )}
     </div>
   );
 }
+

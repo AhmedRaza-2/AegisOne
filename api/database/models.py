@@ -28,10 +28,15 @@ class Organization(Base):
     is_active       = Column(Boolean,     default=True)
     created_at      = Column(DateTime,    server_default=func.now())
 
+    # SMTP Configuration (Saved during Setup Wizard)
+    smtp_host       = Column(String(255), default="smtp.gmail.com")
+    smtp_port       = Column(Integer,     default=587)
+    smtp_user       = Column(String(255), nullable=True)
+    smtp_pass       = Column(String(255), nullable=True)
+
     # Relationships
     departments     = relationship("Department", back_populates="organization", cascade="all, delete-orphan")
     users           = relationship("User", back_populates="organization")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1.5 DEPARTMENTS
@@ -44,6 +49,7 @@ class Department(Base):
     id              = Column(Integer,     primary_key=True, autoincrement=True)
     organization_id = Column(String(64),  ForeignKey("organizations.id"), nullable=False, index=True)
     name            = Column(String(255), nullable=False)
+    code            = Column(String(32),  nullable=True, index=True)
     manager_id      = Column(Integer,     ForeignKey("users.id"), nullable=True)
     created_at      = Column(DateTime,    server_default=func.now())
 
@@ -520,3 +526,40 @@ class Incident(Base):
     resolver = relationship("User", foreign_keys=[resolved_by_id], back_populates="resolved_incidents")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 15. COMMUNICATIONS (MESSAGES)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Message(Base):
+    """Persisted direct, department-wide, and organization-wide messages."""
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=True, index=True)
+    
+    msg_type = Column(String(50), nullable=False) # 'broadcast', 'direct'
+    title = Column(String(255), nullable=True)
+    content = Column(Text, nullable=False)
+    priority = Column(String(50), default="Normal")
+    
+    created_at = Column(DateTime, server_default=func.now())
+    is_read = Column(Boolean, default=False)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
+    department = relationship("Department", foreign_keys=[department_id])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 16. SETUP SESSIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SetupSession(Base):
+    """Draft state for frontend setup wizard resume-ability."""
+    __tablename__ = "setup_sessions"
+
+    id = Column(String(64), primary_key=True)
+    state_json = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

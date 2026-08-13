@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Shield, Copy, CheckCircle2, Terminal, LogOut,
-  AlertCircle, Loader2, ArrowRight, X, ChevronRight, Server, Download, ArrowDown
+  Shield, Copy, CheckCircle2, LogOut,
+  AlertCircle, Loader2, ArrowRight, X, ChevronRight, Download, ArrowDown
 } from 'lucide-react';
 import { getMyOrganization, logoutOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
 
-// URLs for the other apps
-const SETUP_WIZARD_URL = 'http://localhost:3001';
 const DASHBOARD_URL = 'http://localhost:3002/login';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// ─── Copy Button Helper ────────────────────────────────────────────────────
 function CopyButton({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -22,11 +20,10 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
   return (
     <button
       onClick={copy}
-      className={`flex items-center gap-1.5 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg transition-all ${
-        copied
+      className={`flex items-center gap-1.5 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg transition-all ${copied
           ? 'bg-emerald-500 text-white border border-emerald-600 shadow-md'
           : 'bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white border border-white/10 backdrop-blur-sm'
-      }`}
+        }`}
     >
       {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
       {copied ? 'Copied' : (label ?? 'Copy')}
@@ -68,14 +65,17 @@ export default function PortalPage() {
   const statusColor = org.status === 'active'
     ? 'text-emerald-700 bg-emerald-100 border-emerald-200'
     : org.status === 'pending'
-    ? 'text-amber-700 bg-amber-100 border-amber-200'
-    : 'text-red-700 bg-red-100 border-red-200';
+      ? 'text-amber-700 bg-amber-100 border-amber-200'
+      : 'text-red-700 bg-red-100 border-red-200';
 
   const isApproved = org.status === 'active';
 
-  const linuxCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
-  
-  const windowsCommand = `curl -sO https://raw.githubusercontent.com/amdevworks/AegisOne/main/docker-compose.yml\n\n$env:ORG_ID="${org.org_id}"\n$env:LICENSE_KEY="${org.license_key}"\n$env:DEPLOYMENT_TOKEN="${org.deployment_token}"\n$env:ADMIN_EMAIL="${org.admin_email}"\n\ndocker compose up -d`;
+  // ── Deploy commands ────────────────────────────────────────────────────────
+  // Linux/macOS
+  const linuxCommand = `mkdir -p AegisOne && cd AegisOne && curl -sSL https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml -o docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
+
+  // Windows PowerShell — Single line execution without folder nesting
+  const windowsCommand = `mkdir AegisOne -ErrorAction SilentlyContinue; Set-Location AegisOne; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml" -OutFile "docker-compose.yml"; $env:ORG_ID="${org.org_id}"; $env:LICENSE_KEY="${org.license_key}"; $env:DEPLOYMENT_TOKEN="${org.deployment_token}"; $env:ADMIN_EMAIL="${org.admin_email}"; docker compose up -d`;
 
   const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 
@@ -108,8 +108,8 @@ export default function PortalPage() {
 
       {/* Main Content */}
       <div className="max-w-5xl mx-auto w-full px-4 py-16 relative z-10 flex flex-col gap-12">
-        
-        {/* Header Title */}
+
+        {/* Header */}
         <div className="text-center space-y-4 mb-4">
           <span className={`inline-flex items-center text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider mb-2 ${statusColor}`}>
             {org.status === 'active' && <CheckCircle2 className="w-3 h-3 mr-1" />}
@@ -119,8 +119,8 @@ export default function PortalPage() {
           </span>
           <h1 className="text-4xl md:text-5xl font-bold text-[#0F172A] tracking-tight">Welcome to AegisOne, {org.name}</h1>
           <p className="text-base text-slate-500 max-w-2xl mx-auto leading-relaxed">
-            Your deployment credentials have been securely generated and bound to your account. 
-            Follow the zero-friction onboarding flow below to spin up your sovereign infrastructure instantly.
+            Your deployment credentials have been securely generated and bound to your account.
+            Run the command below on your own machine to start your private AegisOne services.
           </p>
         </div>
 
@@ -133,7 +133,8 @@ export default function PortalPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-[#0F172A]">Your request is under review</h2>
                 <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
-                  Your registration has been successfully published. Our team is currently reviewing your enterprise application. Once approved, your deployment command will unlock here automatically.
+                  Your registration has been successfully published. Our team is currently reviewing your enterprise application.
+                  Once approved, your deployment command will unlock here automatically.
                 </p>
               </>
             ) : (
@@ -145,23 +146,16 @@ export default function PortalPage() {
                 <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
                   Unfortunately, we are unable to approve your organization at this time.
                 </p>
-                {org.product_version !== '1.0.0' && (
-                  <div className="mt-4 p-5 bg-red-50 border border-red-200 rounded-xl inline-block text-left w-full max-w-md">
-                    <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Reason for Rejection</p>
-                    <p className="text-sm text-red-600">{org.product_version}</p>
-                  </div>
-                )}
               </>
             )}
           </div>
         ) : (
           <div className="animate-fadeIn max-w-4xl mx-auto w-full relative">
-            
-            {/* The Connecting Line */}
+            {/* Connecting line */}
             <div className="absolute left-6 top-8 bottom-16 w-0.5 bg-gradient-to-b from-blue-200 via-slate-200 to-emerald-200 hidden md:block" />
 
             <div className="space-y-16">
-              
+
               {/* Step 1: Install Docker */}
               <div className="flex flex-col md:flex-row gap-6 md:gap-10 relative z-10">
                 <div className="shrink-0 flex justify-center md:block">
@@ -173,8 +167,8 @@ export default function PortalPage() {
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Install Docker Engine</h3>
                   <p className="text-base text-slate-600 mb-5 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    AegisOne operates entirely inside a secure container to ensure zero data leaves your network. 
-                    Before continuing, ensure Docker is installed and running on your host server.
+                    The landing site stays online independently. Docker runs your private backend, setup wizard,
+                    and dashboard on your own machine. Before continuing, ensure Docker is installed and running.
                   </p>
                   <a
                     href="https://docs.docker.com/get-docker/"
@@ -198,31 +192,32 @@ export default function PortalPage() {
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Run the Start Command</h3>
                   <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    There are no configuration files to manually download. We have automatically injected your 
-                    <strong className="text-slate-800"> Organization ID</strong>, <strong className="text-slate-800">License Key</strong>, and <strong className="text-slate-800">Deployment Token</strong> into the command below. 
-                    Simply paste this into your server's terminal.
+                    The command automatically <strong className="text-slate-800">stops any old containers</strong> first,
+                    then pulls the latest compose file and spins up fresh services with your{' '}
+                    <strong className="text-slate-800">Organization ID</strong>,{' '}
+                    <strong className="text-slate-800">License Key</strong>, and{' '}
+                    <strong className="text-slate-800">Deployment Token</strong> pre-injected.
                   </p>
-                  
-                  {/* Premium Terminal Block */}
+
+                  {/* Terminal Block */}
                   <div className="bg-[#0F172A] rounded-2xl shadow-2xl relative group overflow-hidden border border-slate-800 text-left">
-                    {/* Decorative glow */}
                     <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#0A5ED6]/30 rounded-full blur-[80px] pointer-events-none" />
-                    
-                    <div className="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex items-center justify-between relative z-10 overflow-x-auto">
+
+                    <div className="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex items-center justify-between relative z-10">
                       <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                         <div className="hidden sm:flex gap-2 mr-2">
                           <div className="w-3 h-3 rounded-full bg-red-500" />
                           <div className="w-3 h-3 rounded-full bg-amber-500" />
                           <div className="w-3 h-3 rounded-full bg-emerald-500" />
                         </div>
-                        <button 
-                          onClick={() => setOsTab('linux')} 
+                        <button
+                          onClick={() => setOsTab('linux')}
                           className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${osTab === 'linux' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
                         >
                           Linux / macOS (Bash)
                         </button>
-                        <button 
-                          onClick={() => setOsTab('windows')} 
+                        <button
+                          onClick={() => setOsTab('windows')}
                           className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${osTab === 'windows' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
                         >
                           Windows (PowerShell)
@@ -232,9 +227,9 @@ export default function PortalPage() {
                         <CopyButton value={activeCommand} label="Copy Script" />
                       </div>
                     </div>
-                    
-                    <div className="p-6 md:p-8 overflow-x-auto relative z-10">
-                      <pre className="text-emerald-400 font-mono text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
+
+                    <div className="p-4 md:p-6 overflow-x-auto relative z-10 custom-scrollbar">
+                      <pre className="text-emerald-400 font-mono text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-all font-bold">
                         {activeCommand}
                       </pre>
                     </div>
@@ -250,28 +245,19 @@ export default function PortalPage() {
                   </div>
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Boot Up Local Dashboard</h3>
+                  <h3 className="text-2xl font-bold text-[#0F172A] mb-3">Start Organization Setup</h3>
                   <p className="text-base text-slate-600 mb-6 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    Once the terminal finishes downloading the images and booting the container (this usually takes 30 to 60 seconds), 
-                    your isolated instance of AegisOne is live. Proceed to the local setup wizard to configure your network.
+                    Your AegisOne instance is initialized and ready. Click below to launch the step-by-step setup engine and configure your organization.
                   </p>
-                  
+
                   <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                     <a
-                      href={`http://localhost:3001?orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}`}
+                      href={`http://localhost:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.admin_name || org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-4 rounded-xl text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                     >
-                      Open Setup Wizard <ChevronRight className="w-4 h-4" />
-                    </a>
-                    <a
-                      href={DASHBOARD_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-8 py-4 rounded-xl text-sm transition-all border border-emerald-200 shadow-sm"
-                    >
-                      Go to Local Dashboard <ArrowRight className="w-4 h-4" />
+                      Start Setup Engine Now <ChevronRight className="w-4 h-4" />
                     </a>
                   </div>
                 </div>

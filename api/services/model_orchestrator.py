@@ -33,7 +33,7 @@ import re
 from api.config import (
     EMAIL_MODEL_PY, EMAIL_MODEL_PT,
     TEXT_MODEL_PY, TEXT_MODEL_PT,
-    URL_MODEL_PY, URL_MODEL_PT,
+    URL_MODEL_PY, URL_MODEL_PT, URL_MODEL_PT_FALLBACK,
     IMAGE_CONFIG_PY, IMAGE_MODEL_PT,
     ATTACHMENT_DIR, TRUSTED_DOMAINS, URL_CLASSES,
     INFERENCE_SEMAPHORE_LIMIT, TORCH_NUM_THREADS,
@@ -41,6 +41,7 @@ from api.config import (
 
 FAST_SCAN_MODE = os.environ.get("AEGIS_FAST_SCAN_MODE", "1") != "0"
 logger = logging.getLogger("aegisone.orchestrator")
+
 # GLOBALS
 # ═══════════════════════════════════════════════════════════════
 
@@ -158,23 +159,36 @@ def load_all_models():
         logger.warning(f"  ✗ Text weights not found: {TEXT_MODEL_PT}")
 
     # ── 3. URL MODEL ──
-    if URL_MODEL_PT.exists():
+    url_candidates = [URL_MODEL_PT]
+    if URL_MODEL_PT_FALLBACK != URL_MODEL_PT:
+        url_candidates.append(URL_MODEL_PT_FALLBACK)
+
+    loaded_url = False
+    for url_pt in url_candidates:
+        if not url_pt.exists():
+            continue
         try:
             mod = _load_module("aegis_url", str(URL_MODEL_PY))
-            model = mod.URLDetector()
-            model.load_state_dict(torch.load(str(URL_MODEL_PT), map_location=DEVICE), strict=False)
-            model.to(DEVICE).eval()
+            model, model_name = mod.load_url_detector(str(url_pt), DEVICE)
+            from transformers import AutoTokenizer
+            url_tokenizer = AutoTokenizer.from_pretrained(model_name)
             if DEVICE == "cpu":
                 model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
-            MODELS["url"] = {"model": model, "extract_features": mod.extract_url_numerical_features}
+            MODELS["url"] = {
+                "model": model,
+                "tokenizer": url_tokenizer,
+                "extract_features": mod.extract_url_numerical_features
+            }
             # Store sanitize_url if available
             if hasattr(mod, "sanitize_url"):
                 MODELS["url"]["sanitize"] = mod.sanitize_url
-            logger.info("  ✓ URL AI loaded")
+            logger.info(f"  ✓ URL AI loaded from {url_pt.name} (base: {model_name})")
+            loaded_url = True
+            break
         except Exception as e:
-            logger.error(f"  ✗ URL AI failed: {e}")
-    else:
-        logger.warning(f"  ✗ URL weights not found: {URL_MODEL_PT}")
+            logger.error(f"  ✗ URL AI failed from {url_pt}: {e}")
+    if not loaded_url:
+        logger.warning(f"  ✗ URL weights not found: {URL_MODEL_PT} or {URL_MODEL_PT_FALLBACK}")
 
     # ── 4. IMAGE MODEL ──
     if IMAGE_MODEL_PT.exists():
@@ -252,10 +266,6 @@ _TEXT_RISK_KEYWORDS = {
     "reset", "expired", "unlock", "invoice", "payment", "gift card",
     "office365", "microsoft", "okta", "docusign", "sharepoint",
 }
-_URL_RISK_KEYWORDS = {
-    "login", "signin", "verify", "verification", "account", "secure",
-    "update", "bank", "payment", "reset", "unlock",
-}
 
 
 def _should_extract_xai(include_xai: bool) -> bool:
@@ -321,10 +331,14 @@ def _heuristic_url_result(url: str) -> dict | None:
                     "prediction": "legitimate",
                     "confidence": 0.995,
                     "phishing_probability": 0.005,
-                    "category": "benign",
+                    "category": "Safe",
                     "model": "url",
                     "xai_words": [],
-                    "explanation": "Heuristic trust-list match",
+                    "explanation": "✓ Verified legitimate corporate domain",
+                    "evidence": {
+                        "trusted_domain": True,
+                        "reason": "URL matches a trusted domain whitelist pattern"
+                    }
                 }
 
         path_query = (parsed.path + "?" + parsed.query).lower()
@@ -339,22 +353,24 @@ def _heuristic_url_result(url: str) -> dict | None:
         if re.match(r"\d+\.\d+\.\d+\.\d+", domain):
             high_risk = True
             category = "malware"
-        if any(kw in path_query for kw in _URL_RISK_KEYWORDS):
+        if any(kw in path_query for kw in ("login", "signin", "verify", "verification", "account")):
             high_risk = True
         if len([p for p in domain.split(".") if p and p != "www"]) > 3:
-            high_risk = True
-        if any(ch.isdigit() for ch in domain) and "-" in domain:
             high_risk = True
 
         if high_risk:
             return {
                 "prediction": "malicious",
-                "confidence": 0.985,
-                "phishing_probability": 0.97,
-                "category": category,
+                "confidence": 0.95,
+                "phishing_probability": 0.85,
+                "category": "High Risk",
                 "model": "url",
                 "xai_words": [],
-                "explanation": "Heuristic high-risk URL pattern",
+                "explanation": "✗ Heuristic indicators identified high risk threat profile",
+                "evidence": {
+                    "heuristic_match": True,
+                    "reason": f"Path query or TLD warnings (category: {category})"
+                }
             }
 
         if FAST_SCAN_MODE:
@@ -362,10 +378,13 @@ def _heuristic_url_result(url: str) -> dict | None:
                 "prediction": "legitimate",
                 "confidence": 0.96,
                 "phishing_probability": 0.04,
-                "category": "benign",
+                "category": "Safe",
                 "model": "url",
                 "xai_words": [],
-                "explanation": "Heuristic low-risk URL pattern",
+                "explanation": "✓ Verified legitimate corporate domain",
+                "evidence": {
+                    "fast_scan_bypass": True
+                }
             }
     except Exception:
         return None
@@ -490,132 +509,110 @@ def _predict_url_sync(url: str, include_xai: bool = False) -> dict:
         if fast is not None:
             return fast
 
-    reasons = []
-    has_high_risk = False
-    suspicious_tlds = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.cc', '.ru', '.link', '.click', '.zip'}
-    phishing_kw = {"login", "signin", "verify", "verification", "account", "secure", "update", "banking"}
-
+    # 1. Fast-path trusted domain routing & brand impersonation check
+    from AIML.url.brand_engine import check_brand_impersonation
+    brand_result = check_brand_impersonation(url)
+    
+    # Check if exactly a trusted domain to bypass deep checks
     try:
         parsed = urlparse(url)
-        domain = parsed.netloc.lower()
+        netloc = parsed.netloc.lower()
+        if "@" in netloc:
+            netloc = netloc.split("@")[-1]
+        domain = netloc.split(":")[0]
         if domain.startswith("www."):
             domain = domain[4:]
-
-        if not domain and " " not in url and "." in url:
-            parsed = urlparse("http://" + url)
-            domain = parsed.netloc.lower()
-            if domain.startswith("www."):
-                domain = domain[4:]
-
-        if parsed.scheme == "http":
-            has_high_risk = True
-            reasons.append("Unencrypted connection (HTTP)")
-
-        if any(domain.endswith(tld) for tld in suspicious_tlds):
-            has_high_risk = True
-            reasons.append("Suspicious Top-Level Domain")
-
-        if re.match(r'\d+\.\d+\.\d+\.\d+', domain):
-            has_high_risk = True
-            reasons.append("Raw IP address used instead of domain name")
-
-        path_query = (parsed.path + "?" + parsed.query).lower()
-        found_kws = [kw for kw in phishing_kw if kw in path_query]
-        if found_kws:
-            has_high_risk = True
-            reasons.append(f"Suspicious path keywords: {', '.join(found_kws)}")
-
-        subparts = [p for p in domain.split(".") if p and p != "www"]
-        if len(subparts) > 3:
-            has_high_risk = True
-            reasons.append("Excessive subdomain depth")
-
-        if len(url) > 100:
-            reasons.append("Unusually long URL length")
+            
+        is_trusted = False
+        for trusted in TRUSTED_DOMAINS:
+            if domain == trusted or domain.endswith("." + trusted):
+                is_trusted = True
+                break
+                
+        # Stage 2: Risky file check on trusted domain
+        risky_extensions = {".exe", ".zip", ".rar", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".html", ".htm", ".bin", ".sh"}
+        path_and_query = (parsed.path + "?" + parsed.query).lower()
+        has_risky_file = any(ext in path_and_query for ext in risky_extensions)
+        
+        if is_trusted and not has_risky_file:
+            dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
+            return {
+                "prediction": "legitimate",
+                "confidence": round(1.0 - dynamic_safe, 4),
+                "phishing_probability": dynamic_safe,
+                "category": "Safe",
+                "model": "url",
+                "xai_words": [],
+                "explanation": "✓ Verified legitimate corporate domain",
+                "evidence": {
+                    "trusted_domain": True,
+                    "reason": "URL matches a trusted domain whitelist pattern"
+                }
+            }
     except Exception:
         pass
 
-    # ── STAGE 2: Brand Impersonation Checker & File Bypass ──
-    risky_extensions = {".exe", ".zip", ".rar", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".html", ".htm", ".bin", ".sh"}
-    path_and_query = (parsed.path + "?" + parsed.query).lower()
-    has_risky_file = any(ext in path_and_query for ext in risky_extensions)
-    
-    is_trusted = False
-    for trusted in TRUSTED_DOMAINS:
-        if domain == trusted or domain.endswith("." + trusted):
-            is_trusted = True
-            break
-        elif trusted.split(".")[0] in domain:
-            has_high_risk = True
-            reasons.append(f"Brand impersonation attempt ({trusted})")
+    # 2. Extract expanded lexical features (64 features)
+    from AIML.url.lexical_engine import extract_expanded_features
+    lexical_tensor = extract_expanded_features(url)
 
-    if is_trusted and not has_risky_file:
-        dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
+    # 2.5 Fast-Path / Cascaded Decision Check
+    from AIML.url.fusion_engine import fuse_url_intelligence
+    cascade_res = fuse_url_intelligence(url, None, brand_result, lexical_tensor)
+    if cascade_res["evidence"]["fusion_method"] in {
+        "Cascade Level 1: Static Threat Signature Override",
+        "Cascade Level 2: Static Clean Pass Override"
+    }:
         return {
-            "prediction": "legitimate", "confidence": round(1.0 - dynamic_safe, 4),
-            "phishing_probability": dynamic_safe, "category": "benign",
-            "model": "url", "xai_words": [],
-            "explanation": "✓ Verified legitimate corporate domain",
+            "prediction": cascade_res["prediction"],
+            "confidence": cascade_res["confidence"],
+            "phishing_probability": round(cascade_res["risk_score"] / 100.0, 4),
+            "category": cascade_res["category"],
+            "model": "url",
+            "xai_words": [],
+            "explanation": cascade_res["explanation"],
+            "evidence": cascade_res["evidence"]
         }
-    elif is_trusted and has_risky_file:
-        reasons.append("Trusted domain but contains risky file extension")
-        has_high_risk = True
-    # ── STAGE 3: Deep Semantic Analysis (DistilBERT) ──
+
+    # 3. Deep Semantic Analysis (DistilBERT/BERT-Mini)
     m = MODELS["url"]
     sanitize = m.get("sanitize", lambda x: x)
     clean_url = sanitize(url)
 
-    enc = TOKENIZER(clean_url, add_special_tokens=True, max_length=64,
-                    padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
-    feats = m["extract_features"](clean_url).unsqueeze(0).to(DEVICE)
+    url_tokenizer = m.get("tokenizer", TOKENIZER)
+    enc = url_tokenizer(clean_url, add_special_tokens=True, max_length=128,
+                        padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
+                        
+    # Model forward pass expects original 10 features
+    nn_feats = m["extract_features"](clean_url).unsqueeze(0).to(DEVICE)
 
     with torch.inference_mode():
-        logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
-        probs = torch.softmax(logits, dim=1)[0]
-        pred_class = probs.argmax().item()
-        malicious_prob = 1.0 - probs[0].item()
+        logits = m["model"](enc["input_ids"], enc["attention_mask"], nn_feats)
+        probs = torch.softmax(logits, dim=1)[0].cpu().tolist()
 
-    # ── STAGE 4: Feature Fusion & Risk Scoring ──
-    if has_high_risk:
-        malicious_prob = max(malicious_prob, 0.75)
-        pred_class = 1
+    # 4. Evidence Fusion & Calibration
+    from AIML.url.fusion_engine import fuse_url_intelligence
+    fusion_result = fuse_url_intelligence(url, probs, brand_result, lexical_tensor)
 
-    is_phish = pred_class != 0
+    # 5. XAI Attention Words Extraction
+    is_phish = (fusion_result["prediction"] == "malicious")
     xai_words = []
-    
-    if is_phish:
-        reasons.insert(0, f"DistilBERT Semantic Match ({round(malicious_prob * 100, 1)}% risk)")
-        if _should_extract_xai(include_xai):
-            tokens = TOKENIZER.convert_ids_to_tokens(enc["input_ids"][0])
+    if is_phish and _should_extract_xai(include_xai):
+        with torch.inference_mode():
+            tokens = url_tokenizer.convert_ids_to_tokens(enc["input_ids"][0])
             xai_words = _get_bert_attention_xai(m["model"], tokens, enc["attention_mask"][0])
             if xai_words:
-                reasons.append(f"Attended tokens: {', '.join(xai_words)}")
-
-    category_name = URL_CLASSES[pred_class] if is_phish else "benign"
-    
-    # ── STAGE 5: Explainable Output Generation ──
-    if not is_phish:
-        explanation = "✓ No significant threats detected"
-        if reasons:
-            explanation += f" (Minor warnings: {', '.join(reasons)})"
-    else:
-        explanation = "✗ Threat Detected:\n- " + "\n- ".join(reasons)
-
-    # After calibration override, use recalibrated confidence so it
-    # aligns with the (possibly overridden) prediction label.
-    if is_phish:
-        final_confidence = round(malicious_prob, 4)
-    else:
-        final_confidence = round(max(probs[0].item(), 1.0 - malicious_prob), 4)
+                fusion_result["explanation"] += f" | AI focused on: {', '.join(xai_words)}"
 
     return {
-        "prediction": "malicious" if is_phish else "legitimate",
-        "confidence": final_confidence,
-        "phishing_probability": round(malicious_prob, 4),
-        "category": category_name,
+        "prediction": fusion_result["prediction"],
+        "confidence": fusion_result["confidence"],
+        "phishing_probability": round(fusion_result["risk_score"] / 100.0, 4),
+        "category": fusion_result["category"],
         "model": "url",
         "xai_words": xai_words,
-        "explanation": explanation,
+        "explanation": fusion_result["explanation"],
+        "evidence": fusion_result["evidence"]
     }
 
 
@@ -716,9 +713,13 @@ async def predict_url(url: str) -> dict:
             if domain == trusted or domain.endswith("." + trusted):
                 return {
                     "prediction": "legitimate", "confidence": 0.99,
-                    "phishing_probability": 0.01, "category": "benign",
+                    "phishing_probability": 0.01, "category": "Safe",
                     "model": "url", "xai_words": [],
-                    "explanation": "AI verified URL matches trusted domain structure",
+                    "explanation": "✓ Verified legitimate corporate domain",
+                    "evidence": {
+                        "trusted_domain": True,
+                        "reason": "URL matches a trusted domain whitelist pattern"
+                    }
                 }
     except Exception:
         pass

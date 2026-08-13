@@ -15,7 +15,9 @@ aiosmtplib>=3.0.0
 
 # Database
 sqlalchemy>=2.0.0
-aiosqlite>=0.19.0
+aiosqlite>=0.19.0       # SQLite async driver (dev / local)
+asyncpg>=0.29.0         # PostgreSQL async driver (Docker / production)
+python-dotenv>=1.0.0    # loads .env files via load_dotenv()
 
 # Caching
 cachetools>=5.3.0
@@ -43,3 +45,4 @@ oletools>=0.60.1
 # Performance & Optimization
 slowapi>=0.1.9
 orjson>=3.9.0
+psutil>=5.9.0

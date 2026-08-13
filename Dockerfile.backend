@@ -15,11 +15,12 @@ RUN pip install --no-cache-dir torch torchvision --index-url https://download.py
 
 # Copy requirements file and install remaining dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --extra-index-url https://pypi.org/simple -r requirements.txt
 
 # Copy the rest of the application code
 COPY api/ /app/api/
 COPY AIML/ /app/AIML/
+COPY Extension/ /app/Extension/
 
 # Set environment variables
 ENV PYTHONPATH=/app

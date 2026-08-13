@@ -14,7 +14,7 @@ export default function TimelinePage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:9000/user/timeline?email=${encodeURIComponent(user.email)}`)
+      fetch(`http://localhost:8000/user/timeline?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });
@@ -63,3 +63,4 @@ export default function TimelinePage() {
     </motion.div>
   );
 }
+

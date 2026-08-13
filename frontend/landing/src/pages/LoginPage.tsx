@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
+import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
 import { Shield, Mail, Lock, Loader2, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import { loginOrganization, sendPasswordResetEmail } from '../lib/org-service';
 
@@ -36,6 +37,7 @@ export default function LoginPage() {
     setError('');
     try {
       await loginOrganization(email, password);
+      sessionStorage.setItem('tempAdminPassword', password);
       navigate('/portal');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed. Check your credentials.');
@@ -43,7 +45,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
   const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#0A5ED6] focus:bg-white transition-all";
 
   return (
@@ -59,7 +60,10 @@ export default function LoginPage() {
         
         <div className="w-full max-w-md relative z-10">
 
-          <div className="text-center mb-8 space-y-2">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center mb-3">
+              <img src="/logo.png" alt="AegisOne Logo" className="w-16 h-16 object-contain" />
+            </div>
             <h1 className="text-2xl font-bold text-[#0F172A]">{isForgotPassword ? 'Reset Password' : 'Organization Portal'}</h1>
             <p className="text-sm text-[#45464D]">{isForgotPassword ? 'Enter your email to receive a reset link.' : 'Sign in to access your deployment dashboard.'}</p>
           </div>
@@ -177,6 +181,13 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {loading && (
+        <AuthLoadingOverlay
+          title="Signing you in"
+          steps={['Verifying credentials', 'Contacting secure server', 'Loading your workspace']}
+        />
+      )}
     </div>
   );
 }

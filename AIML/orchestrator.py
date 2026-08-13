@@ -7,7 +7,7 @@ Specialist Endpoints:
   - Email:      http://localhost:8001/predict/email
   - Text:       http://localhost:8002/predict/text
   - URL:        http://localhost:8003/predict/url
-  - Image:      http://localhost:8000/predict/image
+  - Image:      http://100.104.105.20:8000/predict/image
   - Attachment:  Handled internally (extracts → delegates)
 
 Usage: uvicorn orchestrator:app --host 0.0.0.0 --port 9000
@@ -33,7 +33,7 @@ SERVICES = {
     "email": "http://localhost:8001",
     "text":  "http://localhost:8002",
     "url":   "http://localhost:8003",
-    "image": "http://localhost:8000",
+    "image": "http://100.104.105.20:8000",
 }
 
 orchestrator = AttachmentOrchestrator()

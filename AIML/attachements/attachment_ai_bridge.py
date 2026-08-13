@@ -4,6 +4,11 @@ import torch
 import importlib.util
 from transformers import DistilBertTokenizer
 
+try:
+    from AIML.url.model_paths import get_url_model_path
+except ImportError:
+    from ..url.model_paths import get_url_model_path
+
 class AttachmentUnifiedAI:
     def __init__(self):
         print("🔍 Initializing Unified AI Bridge...")
@@ -16,7 +21,7 @@ class AttachmentUnifiedAI:
         self.paths = {
             'email': ('../email/phishing_model_email.py', 'PhishingDetector', '../email/best_phishing_model.pt'),
             'text': ('../text_general/phishing_model_text.py', 'PhishingDetectorText', '../text_general/best_phishing_model_text.pt'),
-            'url': ('../url/phishing_model_url.py', 'URLDetector', '../url/best.pt')
+            'url': ('../url/phishing_model_url.py', 'URLDetector', str(get_url_model_path()))
         }
 
     def _load_module_safely(self, name, filepath):

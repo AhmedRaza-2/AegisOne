@@ -14,7 +14,7 @@ export default function RecommendationsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:9000/user/recommendations?email=${encodeURIComponent(user.email)}`)
+      fetch(`http://localhost:8000/user/recommendations?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });
@@ -38,32 +38,29 @@ export default function RecommendationsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {recs.map((rec: any) => (
           <motion.div key={rec.id} variants={fadeUp} className="stat-card flex flex-col relative overflow-hidden group">
-            <div className={`absolute top-0 right-0 w-32 h-32 blur-[60px] -mr-10 -mt-10 opacity-20 pointer-events-none ${
-              rec.type === 'critical' ? 'bg-red-500' : rec.type === 'action' ? 'bg-brand-500' : 'bg-amber-500'
-            }`} />
-            
+            <div className={`absolute top-0 right-0 w-32 h-32 blur-[60px] -mr-10 -mt-10 opacity-20 pointer-events-none ${rec.type === 'critical' ? 'bg-red-500' : rec.type === 'action' ? 'bg-brand-500' : 'bg-amber-500'
+              }`} />
+
             <div className="flex items-start gap-3 mb-3 relative z-10">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                rec.type === 'critical' ? 'bg-red-500/10 text-red-500' : 
-                rec.type === 'action' ? 'bg-brand-500/10 text-brand-500' : 'bg-amber-500/10 text-amber-500'
-              }`}>
-                {rec.type === 'critical' ? <ShieldAlert className="w-5 h-5" /> : 
-                 rec.type === 'action' ? <Zap className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${rec.type === 'critical' ? 'bg-red-500/10 text-red-500' :
+                  rec.type === 'action' ? 'bg-brand-500/10 text-brand-500' : 'bg-amber-500/10 text-amber-500'
+                }`}>
+                {rec.type === 'critical' ? <ShieldAlert className="w-5 h-5" /> :
+                  rec.type === 'action' ? <Zap className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
               </div>
               <div>
                 <h3 className="font-bold text-surface-900 dark:text-white">{rec.title}</h3>
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                  rec.type === 'critical' ? 'text-red-500' : rec.type === 'action' ? 'text-brand-500' : 'text-amber-500'
-                }`}>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${rec.type === 'critical' ? 'text-red-500' : rec.type === 'action' ? 'text-brand-500' : 'text-amber-500'
+                  }`}>
                   {rec.type} Priority
                 </span>
               </div>
             </div>
-            
+
             <p className="text-sm text-surface-600 dark:text-surface-400 relative z-10 flex-1">
               {rec.desc}
             </p>
-            
+
             <div className="mt-4 pt-3 border-t border-surface-200 dark:border-white/[0.05] relative z-10">
               <button className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">Learn how to fix this &rarr;</button>
             </div>
@@ -73,3 +70,4 @@ export default function RecommendationsPage() {
     </motion.div>
   );
 }
+

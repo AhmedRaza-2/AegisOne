@@ -105,16 +105,30 @@ function _reDownload(url, label) {
 // ──────────────────────────────────────────────
 async function callAPI(endpoint, body, isFormData = false) {
   try {
-    const { user_email } = await chrome.storage.local.get("user_email");
+    let emailToUse = null;
+    try {
+      const configRes = await fetch(chrome.runtime.getURL("config.json"));
+      if (configRes.ok) {
+        const configData = await configRes.json();
+        emailToUse = configData.email || null;
+      }
+    } catch (e) {
+      // config.json not present
+    }
+    if (!emailToUse) {
+      const { user_email } = await chrome.storage.local.get("user_email");
+      emailToUse = user_email;
+    }
+
     const opts = {
       method: "POST",
       signal: AbortSignal.timeout(CONFIG.URL_SCAN_TIMEOUT_MS),
       headers: {}
     };
-    if (user_email) {
-      opts.headers["X-User-Email"] = user_email;
+    if (emailToUse) {
+      opts.headers["X-User-Email"] = emailToUse;
       if (isFormData && body instanceof FormData) {
-        if (!body.has("user_email")) body.append("user_email", user_email);
+        if (!body.has("user_email")) body.append("user_email", emailToUse);
       }
     }
     if (isFormData) {
@@ -145,6 +159,41 @@ function isInternalURL(url) {
     );
   } catch {
     return true;
+  }
+}
+
+// ── Trusted domain allowlist — never flag these as phishing ──────────────────
+// These are established, globally-recognized domains with very low phishing risk.
+// Model false positives on these domains are suppressed at the extension level.
+const TRUSTED_DOMAINS = new Set([
+  "wikipedia.org", "wikimedia.org",
+  "google.com", "google.co.uk", "google.com.pk", "google.co.in",
+  "googleapis.com", "gstatic.com", "gmail.com", "youtube.com",
+  "github.com", "github.io", "githubusercontent.com", "gitlab.com",
+  "microsoft.com", "live.com", "outlook.com", "office.com", "microsoftonline.com", "azure.com",
+  "apple.com", "icloud.com",
+  "amazon.com", "aws.amazon.com", "awsstatic.com",
+  "stackoverflow.com", "stackexchange.com",
+  "npmjs.com", "pypi.org", "nuget.org",
+  "mozilla.org", "firefox.com",
+  "cloudflare.com", "cloudflare.net",
+  "linkedin.com", "twitter.com", "x.com", "facebook.com", "instagram.com",
+  "reddit.com", "medium.com", "dev.to",
+  "gov.pk", "punjab.gov.pk", "gov.uk", "gov.us", ".edu",
+]);
+
+function isTrustedDomain(url) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    // Check exact match or suffix match (e.g. "en.wikipedia.org" → "wikipedia.org")
+    for (const trusted of TRUSTED_DOMAINS) {
+      if (hostname === trusted || hostname.endsWith("." + trusted) || trusted.startsWith(".") && hostname.endsWith(trusted)) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
   }
 }
 
@@ -306,7 +355,7 @@ function _initDownloadIntercept() {
         if (isPhishing) {
           const signals = contentResult?.phishing_signals ||
             (quickRisk > CONFIG.PHISHING_THRESHOLD ? ["URL flagged as malicious"] : ["Attachment contents flagged"]);
-            
+
           // User MUST decide. We CANCEL the current download stream instantly.
           chrome.downloads.cancel(downloadItem.id, () => { const e = chrome.runtime.lastError; });
           suggest(); // Release Chrome's hold on the UI
@@ -557,10 +606,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           })(),
         ]);
 
-        const textResult    = textRes.status === "fulfilled"   ? textRes.value    : null;
-        const urlResults    = urlsRes.status === "fulfilled"   ? urlsRes.value    : [];
-        const imageResults  = imgsRes.status === "fulfilled"   ? imgsRes.value    : [];
-        const attachResults = attachRes.status === "fulfilled" ? attachRes.value  : [];
+        const textResult = textRes.status === "fulfilled" ? textRes.value : null;
+        const urlResults = urlsRes.status === "fulfilled" ? urlsRes.value : [];
+        const imageResults = imgsRes.status === "fulfilled" ? imgsRes.value : [];
+        const attachResults = attachRes.status === "fulfilled" ? attachRes.value : [];
 
         // Composite risk calculation:
         // Only count URL/image scores ≥ 0.85 to suppress model false positives.
@@ -749,3 +798,4 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   })();
   return true; // Keep channel open for async response
 });
+

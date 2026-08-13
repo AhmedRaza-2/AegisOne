@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -12,32 +13,36 @@ const fadeUp = {
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function AdminDashboard() {
-  const { user, theme } = useAuth();
+  const { user, theme, fetchWithCache } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const isGlobalAdmin = user?.role === "global_admin" || user?.role === "super_admin";
 
+  const [departments, setDepartments] = useState<any[]>([]);
+
   useEffect(() => {
+    let isMounted = true;
     const fetchStats = async () => {
       try {
-        const token = localStorage.getItem("aegis_access_token");
-        const res = await fetch("http://localhost:8000/admin/stats", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
+        const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+        const headers = { Authorization: `Bearer ${token || ""}` };
+        const [data, dData] = await Promise.all([
+          fetchWithCache("http://localhost:8000/admin/stats", { headers }),
+          fetchWithCache("http://localhost:8000/admin/departments", { headers })
+        ]);
+        if (isMounted && data) setStats(data);
+        if (isMounted && dData) setDepartments(dData.departments || []);
       } catch (e) {
         console.error("Failed to fetch stats", e);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     if (user) {
       fetchStats();
     }
+    return () => { isMounted = false; };
   }, [user]);
 
   if (!user) return null;
@@ -50,16 +55,18 @@ export default function AdminDashboard() {
 
   const modelIcons: Record<string, typeof Mail> = { email: Mail, url: Globe, text: FileText, image: Image, document: FileText, attachment: Cpu };
 
-  // Generate placeholder trend data since backend doesn't provide historical timeseries yet
-  const trendData = [
-    { date: "Mon", safe: Math.floor((stats?.total_scans || 10) * 0.1), threats: Math.floor((stats?.threats_detected || 2) * 0.05) },
-    { date: "Tue", safe: Math.floor((stats?.total_scans || 10) * 0.15), threats: Math.floor((stats?.threats_detected || 2) * 0.1) },
-    { date: "Wed", safe: Math.floor((stats?.total_scans || 10) * 0.2), threats: Math.floor((stats?.threats_detected || 2) * 0.15) },
-    { date: "Thu", safe: Math.floor((stats?.total_scans || 10) * 0.12), threats: Math.floor((stats?.threats_detected || 2) * 0.2) },
-    { date: "Fri", safe: Math.floor((stats?.total_scans || 10) * 0.18), threats: Math.floor((stats?.threats_detected || 2) * 0.1) },
-    { date: "Sat", safe: Math.floor((stats?.total_scans || 10) * 0.05), threats: Math.floor((stats?.threats_detected || 2) * 0.05) },
-    { date: "Sun", safe: stats?.scans_today || 0, threats: stats?.threats_today || 0 },
-  ];
+  // Dynamic Trend Data from Backend API
+  const trendData = (stats?.daily_trend && stats.daily_trend.length > 0)
+    ? stats.daily_trend
+    : [
+      { date: "Mon", safe: 0, threats: 0 },
+      { date: "Tue", safe: 0, threats: 0 },
+      { date: "Wed", safe: 0, threats: 0 },
+      { date: "Thu", safe: 0, threats: 0 },
+      { date: "Fri", safe: 0, threats: 0 },
+      { date: "Sat", safe: 0, threats: 0 },
+      { date: "Sun", safe: 0, threats: 0 },
+    ];
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -69,9 +76,9 @@ export default function AdminDashboard() {
             {isGlobalAdmin ? "Platform Operations Command" : "Organization Admin Center"}
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            {isGlobalAdmin 
-              ? "Global multi-tenant system statistics and model health metrics" 
-              : `Security policies, threat feeds, and employee directory for ${user.department || "your organization"}`}
+            {isGlobalAdmin
+              ? "Global multi-tenant system statistics and model health metrics"
+              : `Security policies, threat feeds, and enterprise employee directory`}
           </p>
         </div>
       </motion.div>
@@ -84,7 +91,7 @@ export default function AdminDashboard() {
           { label: "Total Scans", value: stats?.total_scans?.toLocaleString() || "0", icon: BarChart3, color: "text-brand-600 dark:text-brand-400" },
           { label: "Threats Blocked", value: stats?.threats_detected || 0, icon: Shield, color: "text-red-650 dark:text-red-400" },
           { label: "Open Incidents", value: stats?.threat_reports_pending || 0, icon: AlertTriangle, color: "text-amber-650 dark:text-amber-400" },
-        ].map((s, i) => (
+        ].map((s) => (
           <motion.div key={s.label} variants={fadeUp} className="stat-card">
             <s.icon className={`w-5 h-5 ${s.color} mb-3`} />
             <div className="text-2xl font-bold text-surface-900 dark:text-white">{loading ? "-" : s.value}</div>
@@ -98,7 +105,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold flex items-center gap-2 text-surface-900 dark:text-white"><Activity className="w-4 h-4 text-brand-600 dark:text-brand-400" /> AI Inference Engine Nodes</h3>
           {!isGlobalAdmin && (
-            <button onClick={() => window.location.href = "/dashboard/admin/models"} className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors">Details →</button>
+            <Link href="/dashboard/admin/models" className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors">Details →</Link>
           )}
         </div>
         <div className="grid md:grid-cols-5 gap-3">
@@ -142,7 +149,7 @@ export default function AdminDashboard() {
 
         <motion.div variants={fadeUp} className="stat-card flex flex-col">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-surface-900 dark:text-white">
-            <Building2 className="w-4 h-4 text-brand-650 dark:text-brand-400" /> 
+            <Building2 className="w-4 h-4 text-brand-650 dark:text-brand-400" />
             Top Threat Types
           </h3>
           <div className="flex-1 space-y-3">
@@ -168,6 +175,45 @@ export default function AdminDashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Department Snapshots Row */}
+      <motion.div variants={fadeUp} className="stat-card space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2 text-surface-900 dark:text-white">
+            <Building2 className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Department Breakdown & Member Distribution
+          </h3>
+          <Link
+            href="/dashboard/admin/analytics"
+            className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors font-medium"
+          >
+            View Full Analytics →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {departments.length === 0 ? (
+            <div className="col-span-4 text-center py-6 text-xs text-surface-400">Loading department snapshots...</div>
+          ) : (
+            departments.map((dept) => (
+              <Link
+                key={dept.id}
+                href="/dashboard/admin/analytics"
+                className="p-3.5 rounded-xl bg-surface-50 dark:bg-white/[0.02] border border-surface-100 dark:border-white/[0.04] hover:border-brand-500/30 transition-all cursor-pointer block"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-surface-900 dark:text-white truncate">{dept.name}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
+                    {dept.employee_count} members
+                  </span>
+                </div>
+                <p className="text-[11px] text-surface-500 truncate">
+                  Lead: <span className="font-medium text-surface-700 dark:text-surface-300">{dept.manager_name || "Unassigned"}</span>
+                </p>
+              </Link>
+            ))
+          )}
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
+

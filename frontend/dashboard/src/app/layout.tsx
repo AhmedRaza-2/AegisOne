@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   keywords: ["phishing", "cybersecurity", "AI", "detection", "prevention", "email security"],
 };
 
+import { ToastContainer } from "@/components/ui/toast";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -28,7 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="bg-surface-50 text-surface-900 dark:bg-surface-950 dark:text-white antialiased min-h-screen transition-colors duration-300">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <ToastContainer />
+        </AuthProvider>
       </body>
     </html>
   );

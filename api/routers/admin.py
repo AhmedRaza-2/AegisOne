@@ -6,12 +6,17 @@ Uses DashboardStatistic for fast today-view; falls back to live queries.
 """
 import json
 from datetime import date, datetime, timezone
-from fastapi import APIRouter, Depends, BackgroundTasks
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, cast, Date
+from sqlalchemy import select, func, update, cast, Date, or_, and_, case
 
 from api.database.db import get_db
 from api.database.models import (
+    Organization,
     Department,
     User,
     Device,
@@ -43,20 +48,20 @@ def _org_scope(query, model, user):
         # RBAC: Manager can only access their own department
         if user.role == Role.MANAGER.value:
             dept_id = getattr(user, "department_id", None)
-            dept_str = getattr(user, "department", None) or "IT"
+            dept_str = getattr(user, "department", None)
             
             # If the model has department directly (like User)
             if hasattr(model, "department_id") or hasattr(model, "department"):
                 condition = None
-                if hasattr(model, "department"):
-                    condition = (getattr(model, "department") == dept_str) | (getattr(model, "department") == None) | (getattr(model, "department") == "") | (getattr(model, "department") == "General")
+                if hasattr(model, "department") and dept_str:
+                    condition = getattr(model, "department") == dept_str
                 elif hasattr(model, "department_id") and dept_id is not None:
                     condition = getattr(model, "department_id") == dept_id
                     
                 if condition is not None:
                     query = query.where(condition)
                     # Filter out higher privileged roles for managers
-                    if user.role == Role.MANAGER.value and hasattr(model, "role"):
+                    if hasattr(model, "role"):
                         query = query.where(getattr(model, "role").in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
                 else:
                     query = query.where(False)
@@ -64,14 +69,18 @@ def _org_scope(query, model, user):
             # If the model has user_id but no department, we must join the User table to filter!
             elif hasattr(model, "user_id"):
                 from api.database.models import User
-                condition = (User.department == dept_str) | (User.department == None) | (User.department == "") | (User.department == "General")
-                if condition is not None:
-                    # Use a subquery or join depending on how the query was built.
-                    # A safer approach for existing simple select() queries is to filter on user_id IN (subquery)
-                    from sqlalchemy import select as sa_select
-                    from sqlalchemy import cast, String
+                from sqlalchemy import select as sa_select
+                from sqlalchemy import cast, String
+                
+                user_condition = None
+                if dept_str:
+                    user_condition = User.department == dept_str
+                elif dept_id is not None:
+                    user_condition = User.department_id == dept_id
+                
+                if user_condition is not None:
                     query = query.where(cast(getattr(model, "user_id"), String).in_(
-                        sa_select(cast(User.id, String)).where(condition)
+                        sa_select(cast(User.id, String)).where(user_condition)
                     ))
                 else:
                     query = query.where(False)
@@ -201,6 +210,7 @@ async def _compute_and_store_daily_stats(db: AsyncSession, org_id: str, target_d
 
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_stats(
+    time_range: str = Query("24h"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(Role.MANAGER)),
 ):
@@ -213,135 +223,166 @@ async def get_stats(
     is_super = current_user.role == Role.SUPER_ADMIN.value
     is_manager = current_user.role == Role.MANAGER.value
 
-    # ── 1. Today's stats — from pre-aggregated table if available ─────────────
-    # Managers must compute live stats because DashboardStatistic is organization-wide.
-    today_row = None
-    if not is_manager:
-        today_row = await db.scalar(
-            select(DashboardStatistic)
-            .where(DashboardStatistic.organization_id == org_id)
-            .where(DashboardStatistic.date == date.today())
-        )
-
-    if today_row:
-        scans_today   = today_row.total_scans
-        threats_today = today_row.threats_blocked + today_row.threats_warned
+    from datetime import datetime, timedelta, date
+    now = datetime.utcnow()
+    
+    if time_range == "24h":
+        start_time = now - timedelta(hours=24)
+    elif time_range == "7d":
+        start_time = now - timedelta(days=7)
+    elif time_range == "30d":
+        start_time = now - timedelta(days=30)
     else:
-        # Live fallback — first request of the day, or scoped queries for Managers
-        scans_today = await db.scalar(
-            _org_scope(
-                select(func.count(WebsiteScan.id))
-                .where(cast(WebsiteScan.created_at, Date) == date.today()),
-                WebsiteScan, current_user,
-            )
-        ) or 0
+        start_time = None
 
-        ev_today = await db.scalar(
-            _org_scope(
-                select(func.count(SecurityEvent.id))
-                .where(cast(SecurityEvent.timestamp, Date) == date.today()),
-                SecurityEvent, current_user,
-            )
-        ) or 0
+    import asyncio
+    
+    # Execute independent queries concurrently
+    scans_q = select(func.count(WebsiteScan.id))
+    ev_q = select(func.count(SecurityEvent.id))
+    threats_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"]))
+    total_users_q = select(func.count(User.id))
+    total_scans_q = select(func.count(WebsiteScan.id))
+    threats_det_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"]))
+    active_dev_q = select(func.count(Device.id)).where(Device.status == "active")
+    reports_pend_q = select(func.count(ThreatReport.id)).where(ThreatReport.status == "submitted")
+    cred_q = select(func.count(CredentialEvent.id))
+    dl_q = select(func.count(DownloadEvent.id))
 
-        scans_today   = scans_today + ev_today
-        threats_today = await db.scalar(
-            _org_scope(
-                select(func.count(WebsiteScan.id))
-                .where(WebsiteScan.decision.in_(["warn", "block"]))
-                .where(cast(WebsiteScan.created_at, Date) == date.today()),
-                WebsiteScan, current_user,
-            )
-        ) or 0
+    if start_time:
+        scans_q = scans_q.where(WebsiteScan.created_at >= start_time)
+        ev_q = ev_q.where(SecurityEvent.timestamp >= start_time)
+        threats_q = threats_q.where(WebsiteScan.created_at >= start_time)
+        cred_q = cred_q.where(CredentialEvent.created_at >= start_time)
+        dl_q = dl_q.where(DownloadEvent.created_at >= start_time)
 
-    # ── 2. All-time totals ────────────────────────────────────────────────────
-    total_users = await db.scalar(
-        _org_scope(select(func.count(User.id)), User, current_user)
-    ) or 0
-
-    total_scans = await db.scalar(
-        _org_scope(select(func.count(WebsiteScan.id)), WebsiteScan, current_user)
-    ) or 0
-
-    threats_detected = await db.scalar(
-        _org_scope(
-            select(func.count(WebsiteScan.id))
-            .where(WebsiteScan.decision.in_(["warn", "block"])),
-            WebsiteScan, current_user,
-        )
-    ) or 0
-
-    active_devices = await db.scalar(
-        _org_scope(
-            select(func.count(Device.id)).where(Device.status == "active"),
-            Device, current_user,
-        )
-    ) or 0
-
-    threat_reports_pending = await db.scalar(
-        _org_scope(
-            select(func.count(ThreatReport.id))
-            .where(ThreatReport.status == "submitted"),
-            ThreatReport, current_user,
-        )
-    ) or 0
-
-    # ── 3. Top threat types ───────────────────────────────────────────────────
-    ev_type_q = _org_scope(
-        select(SecurityEvent.event_type, func.count(SecurityEvent.id).label("cnt"))
-        .where(SecurityEvent.severity.in_(["medium", "high"]))
-        .group_by(SecurityEvent.event_type)
-        .order_by(func.count(SecurityEvent.id).desc())
-        .limit(8),
-        SecurityEvent, current_user,
+    (
+        scans_count_res,
+        ev_today_res,
+        threats_today_res,
+        total_users_res,
+        total_scans_res,
+        threats_detected_res,
+        active_devices_res,
+        threat_reports_pending_res,
+        cred_total_res,
+        dl_total_res
+    ) = await asyncio.gather(
+        db.scalar(_org_scope(scans_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(ev_q, SecurityEvent, current_user)),
+        db.scalar(_org_scope(threats_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(total_users_q, User, current_user)),
+        db.scalar(_org_scope(total_scans_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(threats_det_q, WebsiteScan, current_user)),
+        db.scalar(_org_scope(active_dev_q, Device, current_user)),
+        db.scalar(_org_scope(reports_pend_q, ThreatReport, current_user)),
+        db.scalar(_org_scope(cred_q, CredentialEvent, current_user)),
+        db.scalar(_org_scope(dl_q, DownloadEvent, current_user))
     )
-    ev_rows = (await db.execute(ev_type_q)).all()
 
-    scan_type_q = (
-        select(WebsiteScan.threat_type, func.count(WebsiteScan.id).label("cnt"))
-        .where(WebsiteScan.decision.in_(["warn", "block"]))
-        .where(WebsiteScan.threat_type.isnot(None))
-        .group_by(WebsiteScan.threat_type)
-        .order_by(func.count(WebsiteScan.id).desc())
-        .limit(8)
+    scans_today = (scans_count_res or 0) + (ev_today_res or 0)
+    threats_today = threats_today_res or 0
+    total_users = total_users_res or 0
+    total_scans = total_scans_res or 0
+    threats_detected = threats_detected_res or 0
+    active_devices = active_devices_res or 0
+    threat_reports_pending = threat_reports_pending_res or 0
+    cred_total = cred_total_res or 0
+    dl_total = dl_total_res or 0
+
+    # ── Threat Distribution & Severity Distribution ──────────────────────────
+    from sqlalchemy import case
+    threat_dist_q = select(
+        func.sum(case(((WebsiteScan.decision == "safe") | (WebsiteScan.decision == "allow"), 1), else_=0)).label("safe"),
+        func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type == "phishing"), 1), else_=0)).label("phishing"),
+        func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type.in_(["malware", "defacement", "malicious"])), 1), else_=0)).label("malware")
     )
-    if not is_super:
-        scan_type_q = scan_type_q.where(WebsiteScan.organization_id == org_id)
-    scan_rows = (await db.execute(scan_type_q)).all()
+    sev_q = select(SecurityEvent.severity, func.count(SecurityEvent.id).label("cnt")).group_by(SecurityEvent.severity)
 
-    top_threat_types: dict[str, int] = {}
-    for event_type, cnt in ev_rows:
-        if event_type:
-            top_threat_types[event_type] = top_threat_types.get(event_type, 0) + cnt
-    for threat_type, cnt in scan_rows:
-        if threat_type:
-            top_threat_types[threat_type] = top_threat_types.get(threat_type, 0) + cnt
+    if start_time:
+        threat_dist_q = threat_dist_q.where(WebsiteScan.created_at >= start_time)
+        sev_q = sev_q.where(SecurityEvent.timestamp >= start_time)
 
-    top_threat_types = dict(
-        sorted(top_threat_types.items(), key=lambda x: x[1], reverse=True)[:10]
-    ) or {"no_threats_recorded": 0}
-
-    # ── 4. Events by severity ─────────────────────────────────────────────────
-    sev_q = _org_scope(
-        select(SecurityEvent.severity, func.count(SecurityEvent.id).label("cnt"))
-        .group_by(SecurityEvent.severity),
-        SecurityEvent, current_user,
+    threat_res, sev_rows_res = await asyncio.gather(
+        db.execute(_org_scope(threat_dist_q, WebsiteScan, current_user)),
+        db.execute(_org_scope(sev_q, SecurityEvent, current_user))
     )
-    sev_rows = (await db.execute(sev_q)).all()
+
+    threat_row = threat_res.first()
+    top_threat_types = {
+        "Safe Scans": getattr(threat_row, "safe", 0) or 0 if threat_row else 0,
+        "Phishing": getattr(threat_row, "phishing", 0) or 0 if threat_row else 0,
+        "Malware": getattr(threat_row, "malware", 0) or 0 if threat_row else 0
+    }
+
+    sev_rows = sev_rows_res.all()
     events_by_severity: dict[str, int] = {row[0]: row[1] for row in sev_rows if row[0]}
-
-    # ── 5. Supplementary counters ─────────────────────────────────────────────
-    cred_total = await db.scalar(
-        _org_scope(select(func.count(CredentialEvent.id)), CredentialEvent, current_user)
-    ) or 0
-
-    dl_total = await db.scalar(
-        _org_scope(select(func.count(DownloadEvent.id)), DownloadEvent, current_user)
-    ) or 0
 
     # ── 6. Model status ───────────────────────────────────────────────────────
     statuses     = get_model_status()
     model_status = {k: v["loaded"] for k, v in statuses.items()}
+
+    # ── 7. Daily Trend (Dynamic based on time_range) ──────────────────────────
+    daily_trend = []
+    if time_range == "24h":
+        start_time = datetime.utcnow() - timedelta(hours=24)
+        trend_q = select(
+            WebsiteScan.created_at,
+            WebsiteScan.decision
+        ).where(WebsiteScan.created_at >= start_time)
+        trend_q = _org_scope(trend_q, WebsiteScan, current_user)
+        scans_list = (await db.execute(trend_q)).all()
+
+        # Pre-populate 24 hourly buckets
+        hourly_buckets = {}
+        for i in range(23, -1, -1):
+            t = datetime.utcnow() - timedelta(hours=i)
+            key = t.replace(minute=0, second=0, microsecond=0)
+            hourly_buckets[key] = {"scans": 0, "threats": 0}
+
+        for scan in scans_list:
+            dt = scan.created_at.replace(minute=0, second=0, microsecond=0)
+            if dt in hourly_buckets:
+                hourly_buckets[dt]["scans"] += 1
+                if scan.decision in ["warn", "block"]:
+                    hourly_buckets[dt]["threats"] += 1
+
+        for dt, bucket in sorted(hourly_buckets.items()):
+            daily_trend.append({
+                "date": dt.strftime("%I %p"),
+                "scans": bucket["scans"],
+                "safe": max(0, bucket["scans"] - bucket["threats"]),
+                "threats": bucket["threats"],
+                "phishing": bucket["threats"],
+                "malware": 0
+            })
+    else:
+        days_count = 7 if time_range == "7d" else 30
+        start_date = date.today() - timedelta(days=days_count)
+        from sqlalchemy import case
+
+        trend_q = select(
+            cast(WebsiteScan.created_at, Date).label("day"),
+            func.count(WebsiteScan.id).label("scans"),
+            func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label("threats")
+        ).where(cast(WebsiteScan.created_at, Date) >= start_date).group_by(cast(WebsiteScan.created_at, Date))
+        
+        trend_q = _org_scope(trend_q, WebsiteScan, current_user)
+        trend_rows = (await db.execute(trend_q)).all()
+        trend_map = {row.day: (row.scans, int(row.threats or 0)) for row in trend_rows}
+
+        for i in range(days_count - 1, -1, -1):
+            target_d = date.today() - timedelta(days=i)
+            scans_count, threats_count = trend_map.get(target_d, (0, 0))
+            
+            daily_trend.append({
+                "date": target_d.strftime("%b %d") if time_range == "30d" else target_d.strftime("%a"),
+                "scans": scans_count,
+                "safe": max(0, scans_count - threats_count),
+                "threats": threats_count,
+                "phishing": threats_count,
+                "malware": 0
+            })
 
     return AdminStatsResponse(
         total_users=total_users,
@@ -357,6 +398,7 @@ async def get_stats(
         credential_events_total=cred_total,
         download_events_total=dl_total,
         hover_scans_total=0,  # queried separately via /admin/events
+        daily_trend=daily_trend,
     )
 
 
@@ -400,6 +442,14 @@ async def get_events(
 
     rows = (await db.execute(q.offset((page - 1) * page_size).limit(page_size))).scalars().all()
 
+    # Map user_id to user names
+    user_ids = list(set([int(r.user_id) for r in rows if r.user_id and r.user_id.isdigit()]))
+    user_map = {}
+    if user_ids:
+        users_q = select(User).where(User.id.in_(user_ids))
+        users_rows = (await db.execute(users_q)).scalars().all()
+        user_map = {u.id: u.full_name for u in users_rows}
+
     return {
         "page": page,
         "page_size": page_size,
@@ -416,6 +466,7 @@ async def get_events(
                 "threat_type": r.threat_type,
                 "timestamp":  str(r.timestamp),
                 "device_id":  r.device_id,
+                "user_name":  user_map.get(int(r.user_id)) if r.user_id and r.user_id.isdigit() else "System"
             }
             for r in rows
         ],
@@ -576,9 +627,9 @@ async def get_audit_logs(
     page:      int = 1,
     page_size: int = 100,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.SUPER_ADMIN)),
+    current_user: User = Depends(require_role(Role.MANAGER)),
 ):
-    """Immutable audit log. Super admin only (Module 19)."""
+    """Immutable audit log for company admins and managers."""
     org_id = getattr(current_user, "organization_id", None) or "org_default"
 
     rows = (await db.execute(
@@ -642,6 +693,39 @@ async def get_pending_users(
     }
 
 
+@router.get("/system/status")
+async def get_system_status(db: AsyncSession = Depends(get_db)):
+    """Return system and container health metrics for dashboard."""
+    # Check Postgres DB connection
+    db_status = "offline"
+    try:
+        from sqlalchemy import text
+        await db.execute(text("SELECT 1"))
+        db_status = "online"
+    except Exception:
+        pass
+        
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=0.1)
+        ram = psutil.virtual_memory().percent
+    except ImportError:
+        cpu = 0
+        ram = 0
+    
+    return {
+        "status": "ok",
+        "backend": "online",
+        "postgres": db_status,
+        "cpu_utilization": cpu,
+        "ram_utilization": ram,
+        "docker_containers": {
+            "aegisone-backend": "running",
+            "aegisone-postgres": "running" if db_status == "online" else "exited"
+        }
+    }
+
+
 @router.patch("/users/{user_id}/status")
 async def update_user_status(
     user_id: int,
@@ -696,10 +780,93 @@ async def get_departments(
     db: AsyncSession = Depends(get_db),
     manager: User = Depends(require_role(Role.MANAGER))
 ):
-    """List departments. Admin sees all, Manager sees all (View only)."""
-    q = select(Department).where(Department.organization_id == manager.organization_id)
+    """List departments with manager details and member counts."""
+    org_id = getattr(manager, "organization_id", None) or "org_default"
+    q = select(Department).where(Department.organization_id == org_id)
     rows = (await db.execute(q)).scalars().all()
-    return {"departments": [{"id": r.id, "name": r.name, "manager_id": r.manager_id} for r in rows]}
+    
+    # Department code alias map
+    code_map = {"Human Resources": "HR", "Finance": "FIN", "IT": "IT", "HR": "Human Resources", "FIN": "Finance"}
+
+    depts_data = []
+    for r in rows:
+        mgr_name = "Unassigned"
+        mgr_email = ""
+        
+        # 1. Try to find assigned manager or auto-discover department manager
+        mgr = None
+        if r.manager_id:
+            m_res = await db.execute(select(User).where(User.id == r.manager_id))
+            mgr = m_res.scalars().first()
+            
+        if not mgr:
+            # Auto-discover manager assigned to this department
+            m_res = await db.execute(
+                select(User).where(
+                    User.organization_id == org_id,
+                    User.role.in_(["manager", "department_admin", "office_admin"]),
+                    or_(
+                        User.department_id == r.id,
+                        User.department == r.name,
+                        User.department == code_map.get(r.name, r.name)
+                    )
+                )
+            )
+            mgr = m_res.scalars().first()
+            if mgr and not r.manager_id:
+                r.manager_id = mgr.id
+                await db.commit()
+
+        if mgr:
+            mgr_name = mgr.full_name
+            mgr_email = mgr.email
+                
+        # 2. Query department members and calculate real-time analytics
+        alias_code = code_map.get(r.name, r.name)
+        dept_users = (await db.execute(
+            select(User.id).where(
+                User.organization_id == org_id,
+                or_(
+                    User.department_id == r.id,
+                    User.department == r.name,
+                    User.department == alias_code
+                )
+            )
+        )).scalars().all()
+        
+        emp_count = len(dept_users)
+        total_scans = 0
+        threats_count = 0
+        avg_risk_score = 0
+        
+        if dept_users:
+            from api.database.models import WebsiteScan
+            stats = (await db.execute(
+                select(
+                    func.count(WebsiteScan.id).label("total_scans"),
+                    func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label("threats"),
+                    func.avg(WebsiteScan.risk_score).label("avg_risk")
+                ).where(WebsiteScan.user_id.in_(dept_users))
+            )).first()
+            
+            if stats:
+                total_scans = stats.total_scans or 0
+                threats_count = stats.threats or 0
+                avg_risk_score = round(float(stats.avg_risk or 0), 1)
+        
+        depts_data.append({
+            "id": r.id,
+            "name": r.name,
+            "manager_id": r.manager_id,
+            "manager_name": mgr_name,
+            "manager_email": mgr_email,
+            "employee_count": emp_count,
+            "total_scans": total_scans,
+            "threats_count": threats_count,
+            "avg_risk_score": avg_risk_score
+        })
+        
+    return {"departments": depts_data}
 
 @router.post("/departments")
 async def create_department(
@@ -714,11 +881,23 @@ async def create_department(
         manager_id=req.manager_id
     )
     db.add(new_dept)
+    await db.flush()
+
+    if req.manager_id:
+        m_q = select(User).where(User.id == req.manager_id, User.organization_id == admin.organization_id)
+        mgr_user = (await db.execute(m_q)).scalar_one_or_none()
+        if mgr_user:
+            mgr_user.department_id = new_dept.id
+            mgr_user.department = req.name
+            if mgr_user.role != Role.ADMIN.value and mgr_user.role != Role.SUPER_ADMIN.value:
+                mgr_user.role = Role.MANAGER.value
+
     await db.commit()
     return {"status": "success", "department_id": new_dept.id}
 
 @router.get("/users")
 async def get_users(
+    time_range: str = Query("24h"),
     db: AsyncSession = Depends(get_db),
     manager: User = Depends(require_role(Role.MANAGER))
 ):
@@ -726,13 +905,20 @@ async def get_users(
     org_id = getattr(manager, "organization_id", None) or "org_default"
     q = select(User).where(User.organization_id == org_id)
     if manager.role == Role.MANAGER.value:
-        dept = manager.department or "IT"
-        q = q.where(
-            (User.department == dept) | 
-            (User.department == None) | 
-            (User.department == "") | 
-            (User.department == "General")
-        )
+        dept_id = manager.department_id
+        dept_str = manager.department
+        
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
+            
         q = q.where(User.role.in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
     
     rows = (await db.execute(q)).scalars().all()
@@ -740,28 +926,72 @@ async def get_users(
     # Fetch real stats for these users
     user_ids = [r.id for r in rows]
     scan_stats = {}
+    creds_map = {}
     if user_ids:
         from sqlalchemy import func, case
-        from api.database.models import WebsiteScan
+        from api.database.models import WebsiteScan, SecurityEvent
+        from datetime import datetime, timezone, timedelta
+        
+        now = datetime.utcnow()
+        if time_range == "24h":
+            start_time = now - timedelta(hours=24)
+        elif time_range == "7d":
+            start_time = now - timedelta(days=7)
+        elif time_range == "30d":
+            start_time = now - timedelta(days=30)
+        else:
+            start_time = None
+            
+        today_start = start_time if start_time else (now - timedelta(days=30))
+        
         stats_q = select(
             WebsiteScan.user_id,
             func.count(WebsiteScan.id).label('total_scans'),
-            func.sum(case((WebsiteScan.verdict != 'safe', 1), else_=0)).label('threats')
-        ).where(WebsiteScan.user_id.in_(user_ids)).group_by(WebsiteScan.user_id)
+            func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label('threats'),
+            func.sum(case((WebsiteScan.risk_score >= 75, 1), else_=0)).label('critical_count'),
+            func.sum(case(((WebsiteScan.created_at >= today_start) & (WebsiteScan.decision == "warn"), 1), else_=0)).label('today_warns')
+        ).where(WebsiteScan.user_id.in_(user_ids))
+        
+        if start_time:
+            stats_q = stats_q.where(WebsiteScan.created_at >= start_time)
+            
+        stats_q = stats_q.group_by(WebsiteScan.user_id)
         
         stats_rows = (await db.execute(stats_q)).all()
         for s in stats_rows:
             scan_stats[s.user_id] = {
                 "total_scans": s.total_scans,
-                "threats": s.threats or 0
+                "threats": s.threats or 0,
+                "critical_count": s.critical_count or 0,
+                "today_warns": s.today_warns or 0
             }
+            
+        creds_q = select(
+            SecurityEvent.user_id,
+            func.count(SecurityEvent.id).label('today_creds')
+        ).where(
+            SecurityEvent.timestamp >= today_start,
+            SecurityEvent.event_type == "credential_intercept",
+            SecurityEvent.user_id.in_([str(uid) for uid in user_ids])
+        ).group_by(SecurityEvent.user_id)
+        
+        creds_rows = (await db.execute(creds_q)).all()
+        creds_map = {int(row.user_id): row.today_creds for row in creds_rows if row.user_id and row.user_id.isdigit()}
 
     users_response = []
     for r in rows:
-        stats = scan_stats.get(r.id, {"total_scans": 0, "threats": 0})
+        stats = scan_stats.get(r.id, {"total_scans": 0, "threats": 0, "critical_count": 0, "today_warns": 0})
         total_scans = stats["total_scans"]
         threats = stats["threats"]
-        risk_score = int(round((threats / max(total_scans, 1)) * 100)) if threats > 0 else 0
+        critical_count = stats["critical_count"]
+        today_warns = stats["today_warns"]
+        today_creds = creds_map.get(r.id, 0)
+        
+        # Match employee dashboard health score logic exactly
+        health_score = max(0, 100 - (threats * 2))
+        
+        # Risk score is the inverse of health score for UI mapping (100 - health_score)
+        risk_score = 100 - health_score
         
         users_response.append({
             "id": r.id, 
@@ -778,32 +1008,259 @@ async def get_users(
         
     return {"users": users_response}
 
+def send_welcome_email(email: str, name: str, password: str, department: str, role: str, org_smtp: dict = None):
+    smtp_user = (org_smtp.get("smtp_user") if org_smtp else None) or os.getenv("SMTP_USER")
+    smtp_pass = (org_smtp.get("smtp_pass") if org_smtp else None) or os.getenv("SMTP_PASS")
+    smtp_host = (org_smtp.get("smtp_host") if org_smtp else None) or os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int((org_smtp.get("smtp_port") if org_smtp else None) or os.getenv("SMTP_PORT", 587))
+
+    if not smtp_user or not smtp_pass:
+        print("SMTP credentials missing. Cannot send welcome email.")
+        return
+    smtp_user = smtp_user.strip()
+    smtp_pass = smtp_pass.replace(" ", "")
+    
+    display_dept = "IT" if department == "Information Technology" else department
+    display_role = role.capitalize()
+    
+    try:
+        from email.utils import formatdate, make_msgid
+        
+        text_content = f"""Hello {name},
+
+Welcome to AegisOne Enterprise Security!
+
+Your administrator has created a new account for you. Below are your temporary credentials:
+
+Role: {display_role}
+Department: {display_dept}
+Temporary Password: {password}
+
+Log in to your AegisOne Portal at: http://localhost:3002/login
+
+For security reasons, please change your password upon your first login.
+
+Best regards,
+AegisOne Security Team
+"""
+
+        html_content = f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to AegisOne Enterprise Security</title>
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; line-height: 1.6; padding: 20px; margin: 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px;">
+      <tr>
+        <td style="text-align: center; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: inline-block; background-color: #3b82f6; color: #ffffff; width: 44px; height: 44px; line-height: 44px; border-radius: 10px; font-weight: bold; font-size: 20px; text-align: center; margin-bottom: 8px;">Æ</div>
+          <div style="font-size: 20px; font-weight: 700; color: #0f172a;">AegisOne Unified Security</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-top: 24px;">
+          <h2 style="color: #0f172a; font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 12px;">Welcome to the team, {name}!</h2>
+          <p style="color: #475569; font-size: 14px; margin-bottom: 20px;">Your administrator has created a new account for you. Below are your account details and temporary login credentials:</p>
+          
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 6px;">
+            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; tracking: 0.5px; color: #64748b; margin-bottom: 12px;">ACCOUNT DETAILS</div>
+            <div style="font-size: 14px; margin-bottom: 8px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Allocated Role:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_role}</span></div>
+            <div style="font-size: 14px; margin-bottom: 8px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Department:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_dept}</span></div>
+            <div style="font-size: 14px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Temporary Password:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{password}</span></div>
+          </div>
+          
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="http://localhost:3002/login" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; text-decoration: none; font-weight: 600; padding: 12px 24px; border-radius: 8px; font-size: 14px;">Log In to AegisOne Portal</a>
+          </div>
+          
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 24px;">For security reasons, you will be prompted to change this temporary password upon your first login.</p>
+
+          <div style="text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+            <p style="margin: 4px 0;">&copy; 2026 AegisOne UTM. All rights reserved.</p>
+            <p style="margin: 4px 0;">This is an automated system email. Please do not reply directly to this message.</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Welcome to AegisOne Enterprise Security"
+        msg["From"] = f"AegisOne Security <{smtp_user}>"
+        msg["To"] = email
+        msg["Reply-To"] = smtp_user
+        msg["Date"] = formatdate(localtime=True)
+        msg["Message-ID"] = make_msgid(domain=smtp_user.split('@')[-1] if '@' in smtp_user else 'aegisone.com')
+        
+        part1 = MIMEText(text_content, "plain", "utf-8")
+        part2 = MIMEText(html_content, "html", "utf-8")
+        msg.attach(part1)
+        msg.attach(part2)
+
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, email, msg.as_string())
+        server.quit()
+        print(f"Welcome email successfully sent to {email}")
+    except Exception as e:
+        print(f"Failed to send welcome email: {e}")
+
 @router.post("/users")
 async def create_user(
     req: UserCreate,
+    force_transfer: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Create a user. Managers can only create in their own department."""
-    target_dept = req.department_id
+    target_dept_id = req.department_id
     
     if admin.role == Role.MANAGER.value:
-        target_dept = admin.department_id
+        target_dept_id = admin.department_id
         if req.role in [Role.ADMIN.value, Role.SUPER_ADMIN.value]:
             raise HTTPException(status_code=403, detail="Managers cannot create admin accounts.")
             
+    # Resolve target department name
+    target_dept_name = "General"
+    if target_dept_id:
+        dept_q = select(Department).where(Department.id == target_dept_id)
+        dept = (await db.execute(dept_q)).scalar_one_or_none()
+        if dept:
+            target_dept_name = dept.name
+
+    # Check duplicates
+    q = select(User).where(User.email == req.email)
+    existing_user = (await db.execute(q)).scalar_one_or_none()
+    if existing_user:
+        if existing_user.role in [Role.ADMIN.value, Role.SUPER_ADMIN.value]:
+            raise HTTPException(status_code=403, detail="This email belongs to a system administrator. Access denied.")
+            
+        if existing_user.organization_id != admin.organization_id:
+            raise HTTPException(status_code=400, detail="This email is registered under a different organization.")
+            
+        if existing_user.department_id == target_dept_id:
+            raise HTTPException(status_code=400, detail="User is already registered in this department.")
+            
+        if not force_transfer:
+            return {
+                "status": "exists_elsewhere",
+                "department": "IT" if existing_user.department == "Information Technology" else (existing_user.department or "Another Department"),
+                "message": f"This employee is already registered in the '{existing_user.department or 'another'}' department."
+            }
+        else:
+            # Transfer existing user to target department
+            existing_user.department_id = target_dept_id
+            existing_user.department = target_dept_name
+            # If the user is suspended or disabled, reactivate them on transfer
+            existing_user.account_status = "active"
+            await db.commit()
+            return {"status": "success", "user_id": existing_user.id, "transferred": True}
+
     new_user = User(
         organization_id=admin.organization_id,
         email=req.email,
         full_name=req.full_name,
         password_hash=hash_password(req.password),
         role=req.role,
-        department_id=target_dept,
+        department_id=target_dept_id,
+        department=target_dept_name,
         account_status="active"
     )
     db.add(new_user)
     await db.commit()
+    
+    # Fetch Org SMTP settings if available
+    org_stmt = select(Organization).where(Organization.id == admin.organization_id)
+    org_obj = (await db.execute(org_stmt)).scalar_one_or_none()
+    org_smtp = {
+        "smtp_host": getattr(org_obj, "smtp_host", None),
+        "smtp_port": getattr(org_obj, "smtp_port", None),
+        "smtp_user": getattr(org_obj, "smtp_user", None),
+        "smtp_pass": getattr(org_obj, "smtp_pass", None)
+    } if org_obj else None
+
+    # Send email notifications
+    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role, org_smtp=org_smtp)
+    
     return {"status": "success", "user_id": new_user.id}
+
+class UserDepartmentUpdate(BaseModel):
+    department_id: int | None = None
+
+@router.put("/users/{user_id}/department")
+async def update_user_department(
+    user_id: int,
+    req: UserDepartmentUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Update user's department."""
+    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    target_user = (await db.execute(q)).scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    dept_name = None
+    if req.department_id is not None:
+        dept_q = select(Department).where(Department.id == req.department_id)
+        dept = (await db.execute(dept_q)).scalar_one_or_none()
+        if dept:
+            dept_name = dept.name
+            
+    target_user.department_id = req.department_id
+    target_user.department = dept_name
+    await db.commit()
+    return {"status": "success", "department_id": req.department_id, "department": dept_name}
+
+class SmtpSettingsUpdate(BaseModel):
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str
+    smtp_pass: str
+
+@router.get("/smtp-settings")
+async def get_smtp_settings(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Fetch current organization's SMTP settings."""
+    org_stmt = select(Organization).where(Organization.id == admin.organization_id)
+    org_obj = (await db.execute(org_stmt)).scalar_one_or_none()
+    return {
+        "smtp_host": getattr(org_obj, "smtp_host", None) or os.getenv("SMTP_HOST", "smtp.gmail.com"),
+        "smtp_port": getattr(org_obj, "smtp_port", None) or int(os.getenv("SMTP_PORT", 587)),
+        "smtp_user": getattr(org_obj, "smtp_user", None) or os.getenv("SMTP_USER", ""),
+        "smtp_pass": getattr(org_obj, "smtp_pass", None) or os.getenv("SMTP_PASS", "")
+    }
+
+@router.put("/smtp-settings")
+async def update_smtp_settings(
+    req: SmtpSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Update organization SMTP settings."""
+    org_stmt = select(Organization).where(Organization.id == admin.organization_id)
+    org_obj = (await db.execute(org_stmt)).scalar_one_or_none()
+    if not org_obj:
+        org_obj = Organization(id=admin.organization_id, name="Organization", plan="standard")
+        db.add(org_obj)
+        
+    org_obj.smtp_host = req.smtp_host
+    org_obj.smtp_port = req.smtp_port
+    org_obj.smtp_user = req.smtp_user.strip()
+    org_obj.smtp_pass = req.smtp_pass.replace(" ", "")
+    await db.commit()
+    return {"status": "success"}
 
 @router.put("/users/{user_id}/password")
 async def reset_user_password(
@@ -813,14 +1270,314 @@ async def reset_user_password(
     admin: User = Depends(require_role(Role.MANAGER))
 ):
     """Force reset user password. Managers can only reset their own department."""
-    q = select(User).where(User.id == user_id, User.organization_id == admin.organization_id)
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
     if admin.role == Role.MANAGER.value:
-        q = q.where(User.department_id == admin.department_id)
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
         
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found or access denied")
         
+    from api.auth.password import hash_password
     user.password_hash = hash_password(new_password)
+    await db.commit()
+
+    # Dispatch email notification to the user in background
+    from api.database.models import Organization
+    res_org = await db.execute(select(Organization).where(Organization.id == user.organization_id))
+    org = res_org.scalar_one_or_none()
+    
+    smtp_user = (org.smtp_user if org else None) or os.getenv("SMTP_USER") or ""
+    smtp_pass = (org.smtp_pass if org else None) or os.getenv("SMTP_PASS") or ""
+    smtp_host = (org.smtp_host if org else None) or os.getenv("SMTP_HOST") or "smtp.gmail.com"
+    smtp_port = (org.smtp_port if org else None) or os.getenv("SMTP_PORT") or 587
+
+    if smtp_user and smtp_pass:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "AegisOne — Your Password Has Been Updated"
+            msg["From"] = f"AegisOne Security <{smtp_user}>"
+            msg["To"] = user.email
+            
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+              <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b;">
+                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0;">
+                  <h2 style="color: #0A5ED6; margin-top: 0;">🛡️ AegisOne Security Update</h2>
+                  <p>Hello <strong>{user.full_name}</strong>,</p>
+                  <p>Your AegisOne enterprise login password has been updated by an administrator.</p>
+                  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 14px; margin: 20px 0; text-align: center;">
+                    <strong>Temporary Password:</strong> <span style="color: #0A5ED6; font-weight: bold; font-size: 16px;">{new_password}</span>
+                  </div>
+                  <p style="color: #64748b; font-size: 13px;">For security reasons, please log in and change this temporary password immediately inside your account settings.</p>
+                  <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+                  <p style="font-size: 11px; color: #94a3b8; text-align: center;">&copy; 2026 AegisOne. All rights reserved.</p>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(html, "html"))
+            
+            if int(smtp_port) == 465:
+                server = smtplib.SMTP_SSL(smtp_host, int(smtp_port))
+            else:
+                server = smtplib.SMTP(smtp_host, int(smtp_port), timeout=10)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+            server.login(smtp_user, smtp_pass.replace(" ", ""))
+            server.sendmail(smtp_user, user.email, msg.as_string())
+            server.quit()
+        except Exception as e:
+            print(f"[SMTP ERROR] Failed to send password update email to {user.email}: {e}")
+
+    return {"status": "success"}
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Delete a user. Managers can only delete in their own department."""
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
+    if admin.role == Role.MANAGER.value:
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+        
+    # Unset manager_id in departments where this user is currently the manager
+    await db.execute(
+        update(Department)
+        .where(Department.manager_id == user.id)
+        .values(manager_id=None)
+    )
+        
+    await db.delete(user)
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/users/{user_id}/promote")
+async def promote_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Promote an employee to manager. Managers can only promote in their own department."""
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
+    if admin.role == Role.MANAGER.value:
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    user.role = Role.MANAGER.value
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/users/{user_id}/demote")
+async def demote_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Demote a manager/admin to employee."""
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+    user.role = Role.EMPLOYEE.value
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/users/{user_id}/status")
+async def update_user_status(
+    user_id: int,
+    status: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Enable/disable a user account. Managers can only modify their own department."""
+    if status not in ["active", "suspended", "disabled"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+        
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
+    if admin.role == Role.MANAGER.value:
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot disable your own account")
+        
+    user.account_status = status
+    await db.commit()
+    return {"status": "success", "account_status": status}
+
+@router.put("/users/{user_id}/role")
+async def update_user_role(
+    user_id: int,
+    role: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.MANAGER))
+):
+    """Update user role. Managers can only modify their own department."""
+    if role not in ["employee", "manager"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+        
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    q = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        q = q.where(User.organization_id == admin_org_id)
+    if admin.role == Role.MANAGER.value:
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
+        
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or access denied")
+        
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot modify your own role")
+        
+    user.role = role
+    await db.commit()
+    return {"status": "success", "role": role}
+
+@router.get("/organizations")
+async def get_all_organizations(db: AsyncSession = Depends(get_db)):
+    """Fetch all tenant organizations in the database."""
+    from api.database.models import Organization
+    res = await db.execute(select(Organization).order_by(Organization.created_at.desc()))
+    orgs = res.scalars().all()
+    return [
+        {
+            "id": getattr(o, "id", ""),
+            "org_id": getattr(o, "id", ""),
+            "name": getattr(o, "name", "Unnamed Organization"),
+            "industry": getattr(o, "plan", "Enterprise"),
+            "employee_count": 50,
+            "country": "Pakistan",
+            "admin_name": "Admin",
+            "admin_email": f"admin@{getattr(o, 'domain', 'aegisone.com') or 'aegisone.com'}",
+            "phone": "+923000000000",
+            "status": "active" if getattr(o, "is_active", True) else "suspended",
+            "license_key": f"AEGIS-{getattr(o, 'id', 'KEY')}",
+            "deployment_token": f"TOKEN-{getattr(o, 'id', 'TKN')}",
+            "allowed_users": 100,
+            "product_version": "1.0.0",
+            "created_at": o.created_at.isoformat() if getattr(o, "created_at", None) else None
+        }
+        for o in orgs
+    ]
+
+@router.put("/organizations/{org_id}/status")
+async def update_organization_status(
+    org_id: str,
+    status: str = Query(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update organization status in local PostgreSQL database."""
+    from api.database.models import Organization
+    res = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = res.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    org.is_active = (status == "active")
+    await db.commit()
+    return {"status": "success", "org_status": status}
+
+@router.delete("/organizations/{org_id}")
+async def delete_organization(
+    org_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete organization in local PostgreSQL database."""
+    from api.database.models import Organization
+    res = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = res.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    await db.delete(org)
     await db.commit()
     return {"status": "success"}

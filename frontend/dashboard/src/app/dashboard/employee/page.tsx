@@ -17,29 +17,30 @@ const fadeUp = {
 };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
-
-const fallbackTrendData = [
-  { name: 'Jul 01', scans: 120 }, { name: 'Jul 02', scans: 140 }, { name: 'Jul 03', scans: 110 }, { name: 'Jul 04', scans: 90 },
-  { name: 'Jul 05', scans: 180 }, { name: 'Jul 06', scans: 250 }, { name: 'Jul 07', scans: 290 }, { name: 'Jul 08', scans: 310 },
-  { name: 'Jul 09', scans: 340 }, { name: 'Jul 10', scans: 280 }, { name: 'Jul 11', scans: 260 }, { name: 'Jul 12', scans: 390 },
-  { name: 'Jul 13', scans: 420 }, { name: 'Jul 14', scans: 380 }, { name: 'Jul 15', scans: 450 }, { name: 'Jul 16', scans: 480 },
-  { name: 'Jul 17', scans: 500 }, { name: 'Jul 18', scans: 470 }, { name: 'Jul 19', scans: 520 }, { name: 'Jul 20', scans: 550 },
-];
-
 export default function EmployeeDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState<"7d" | "14d" | "30d" | "all">("14d");
-  const [analyticsTime, setAnalyticsTime] = useState<"today" | "all">("all");
+  const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all">("24h");
+  const [distType, setDistType] = useState<"scans" | "blocked" | "safe">("scans");
 
   useEffect(() => {
     if (user?.email) {
+      const cacheKey = `emp_stats_${user.email}`;
+      const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null;
+      if (cached) {
+        try {
+          setData(JSON.parse(cached));
+          setLoading(false);
+        } catch (e) { }
+      }
+
       const fetchData = async () => {
         try {
           const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
           const json = await res.json();
           setData(json);
+          sessionStorage.setItem(cacheKey, JSON.stringify(json));
           setLoading(false);
         } catch (err) {
           console.error(err);
@@ -53,71 +54,158 @@ export default function EmployeeDashboard() {
     }
   }, [user]);
 
-  if (!user) return null;
-  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-emerald-500 animate-spin" /></div>;
+  const recentScans = data?.scans || [];
+  const filteredScans = recentScans.filter((scan: any) => {
+    const scanTime = new Date(scan.timestamp).getTime();
+    const now = new Date().getTime();
+    const diff = now - scanTime;
+    if (timeRange === "24h") return diff <= 24 * 60 * 60 * 1000;
+    if (timeRange === "7d") return diff <= 7 * 24 * 60 * 60 * 1000;
+    if (timeRange === "30d") return diff <= 30 * 24 * 60 * 60 * 1000;
+    return true; // all
+  });
 
-  const score = data?.healthScore || 98;
-  const isProtected = score > 80;
+  const totalScans = filteredScans.length;
+  const blockedScans = filteredScans.filter((s: any) => s.decision === 'block').length;
+  const securityScore = Math.max(0, 100 - (blockedScans * 2));
+  const isProtected = securityScore > 80;
 
-  // Map backend stats to graphs
+  const urlScans = filteredScans.filter((s: any) => s.scanType === 'url' || !s.scanType || s.scanType === 'text' || s.scanType === 'email');
+  const webScans = filteredScans.filter((s: any) => s.scanType === 'website');
+  const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
+  const imageScans = filteredScans.filter((s: any) => s.scanType === 'image');
+
+  const stats = {
+    urls: {
+      total: urlScans.length,
+      blocked: urlScans.filter((s: any) => s.decision === 'block').length
+    },
+    websites: {
+      total: webScans.length,
+      blocked: webScans.filter((s: any) => s.decision === 'block').length
+    },
+    files: {
+      total: fileScans.length,
+      blocked: fileScans.filter((s: any) => s.decision === 'block').length
+    },
+    images: {
+      total: imageScans.length,
+      blocked: imageScans.filter((s: any) => s.decision === 'block').length
+    }
+  };
+
+  const scanBreakdown = useMemo(() => {
+    if (distType === "blocked") {
+      return {
+        url: urlScans.filter((s: any) => s.decision === 'block').length,
+        image: imageScans.filter((s: any) => s.decision === 'block').length,
+        attachment: fileScans.filter((s: any) => s.decision === 'block').length,
+        website: webScans.filter((s: any) => s.decision === 'block').length
+      };
+    } else if (distType === "safe") {
+      return {
+        url: urlScans.filter((s: any) => s.decision !== 'block').length,
+        image: imageScans.filter((s: any) => s.decision !== 'block').length,
+        attachment: fileScans.filter((s: any) => s.decision !== 'block').length,
+        website: webScans.filter((s: any) => s.decision !== 'block').length
+      };
+    }
+    return {
+      url: urlScans.length,
+      image: imageScans.length,
+      attachment: fileScans.length,
+      website: webScans.length
+    };
+  }, [urlScans, imageScans, fileScans, webScans, distType]);
+
   const rawDistribution = [
-    { name: 'URLs', value: data?.scanBreakdown?.url || 0, color: '#4F84F8' },
-    { name: 'Images', value: data?.scanBreakdown?.image || 0, color: '#F59E0B' },
-    { name: 'Downloads', value: data?.scanBreakdown?.attachment || 0, color: '#EF4444' },
-    { name: 'Websites', value: data?.scanBreakdown?.website || 0, color: '#8B5CF6' }
+    { name: 'URLs', value: scanBreakdown.url, color: '#4F84F8' },
+    { name: 'Images', value: scanBreakdown.image, color: '#F59E0B' },
+    { name: 'Downloads', value: scanBreakdown.attachment, color: '#EF4444' },
+    { name: 'Websites', value: scanBreakdown.website, color: '#8B5CF6' }
   ].filter(d => d.value > 0);
 
   const threatDistribution = rawDistribution.length > 0 ? rawDistribution : [{ name: 'No Scans Yet', value: 1, color: '#334155' }];
 
-  const recentScans = data?.scans || [];
-  const last24HoursScans = recentScans.filter((scan: any) => {
-    const scanTime = new Date(scan.timestamp).getTime();
-    const now = new Date().getTime();
-    return (now - scanTime) <= 24 * 60 * 60 * 1000;
-  });
+  const chartData = useMemo(() => {
+    const trendMap: Record<string, number> = {};
+    const now = new Date();
 
-  const securityScore = Math.max(0, 100 - (last24HoursScans.filter((s: any) => s.decision === 'block').length * 2));
-
-  const chartData = timeFilter === "7d" ? fallbackTrendData.slice(-7) : timeFilter === "14d" ? fallbackTrendData.slice(-14) : timeFilter === "30d" ? fallbackTrendData : fallbackTrendData;
-
-  const urlScansToday = last24HoursScans.filter((s: any) => s.scanType === 'url' || !s.scanType);
-  const webScansToday = last24HoursScans.filter((s: any) => s.scanType === 'website');
-  const fileScansToday = last24HoursScans.filter((s: any) => s.scanType === 'attachment');
-  const imageScansToday = last24HoursScans.filter((s: any) => s.scanType === 'image');
-
-  const stats = {
-    urls: {
-      total: analyticsTime === 'today' ? urlScansToday.length : (data?.urlStats?.scanned || 0),
-      blocked: analyticsTime === 'today' ? urlScansToday.filter((s: any) => s.decision === 'block').length : (data?.urlStats?.blocked || 0)
-    },
-    websites: {
-      total: analyticsTime === 'today' ? webScansToday.length : (data?.webStats?.scanned || 0),
-      blocked: analyticsTime === 'today' ? webScansToday.filter((s: any) => s.decision === 'block').length : (data?.webStats?.blocked || 0)
-    },
-    files: {
-      total: analyticsTime === 'today' ? fileScansToday.length : (data?.fileStats?.downloaded || 0),
-      blocked: analyticsTime === 'today' ? fileScansToday.filter((s: any) => s.decision === 'block').length : (data?.fileStats?.phishing || 0)
-    },
-    images: {
-      total: analyticsTime === 'today' ? imageScansToday.length : (data?.scanBreakdown?.image || 0),
-      blocked: analyticsTime === 'today' ? imageScansToday.filter((s: any) => s.decision === 'block').length : 0
+    if (timeRange === "24h") {
+      // Group by last 24 hours, hourly
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+        const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        trendMap[label] = 0;
+      }
+      filteredScans.forEach((scan: any) => {
+        const scanTime = new Date(scan.timestamp);
+        const closestHour = new Date(scanTime.setMinutes(0, 0, 0));
+        const hourLabel = closestHour.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (trendMap[hourLabel] !== undefined) {
+          trendMap[hourLabel]++;
+        } else {
+          // fallback to nearest active key
+          const keys = Object.keys(trendMap);
+          if (keys.length > 0) trendMap[keys[keys.length - 1]]++;
+        }
+      });
+    } else {
+      // Group by day for 7d, 30d, all
+      const daysCount = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 30;
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const label = d.toLocaleDateString([], { month: 'short', day: '2-digit' });
+        trendMap[label] = 0;
+      }
+      filteredScans.forEach((scan: any) => {
+        const scanTime = new Date(scan.timestamp);
+        const label = scanTime.toLocaleDateString([], { month: 'short', day: '2-digit' });
+        if (trendMap[label] !== undefined) {
+          trendMap[label]++;
+        }
+      });
     }
-  };
+
+    return Object.entries(trendMap).map(([name, scans]) => ({
+      name,
+      scans
+    }));
+  }, [filteredScans, timeRange]);
+
+  if (!user) return null;
+  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-emerald-500 animate-spin" /></div>;
 
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto pb-10">
 
       {/* Header */}
-      <motion.div variants={fadeUp} className="mb-8 flex justify-between items-end">
+      <motion.div variants={fadeUp} className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">Personal Security Workspace</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Real-time protection and contextual AI analysis.</p>
         </div>
+        <div className="flex bg-surface-100 dark:bg-white/[0.04] p-1 rounded-lg border border-surface-200 dark:border-white/[0.08] shrink-0">
+          {[
+            { id: "24h", label: "24 Hours" },
+            { id: "7d", label: "7 Days" },
+            { id: "30d", label: "30 Days" },
+            { id: "all", label: "All Time" }
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTimeRange(t.id as any)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </motion.div>
 
-      {/* 1. Security Snapshot - Sleek 4 Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* 1. Security Snapshot - Sleek 2 Card Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Status */}
         <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
@@ -129,28 +217,6 @@ export default function EmployeeDashboard() {
             <h3 className="text-xl font-bold text-surface-900 dark:text-white">
               {securityScore >= 80 ? 'Protected' : securityScore >= 50 ? 'Active Threats' : 'At Risk'}
             </h3>
-          </div>
-        </motion.div>
-
-        {/* Total Scans (24h) */}
-        <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#4F84F8]/10 text-[#4F84F8] flex items-center justify-center shrink-0">
-            <Scan className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-surface-500 mb-1">24h Scans</p>
-            <h3 className="text-xl font-bold text-surface-900 dark:text-white">{last24HoursScans.length}</h3>
-          </div>
-        </motion.div>
-
-        {/* Threats Blocked (24h) */}
-        <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-surface-500 mb-1">24h Blocked</p>
-            <h3 className="text-xl font-bold text-surface-900 dark:text-white">{last24HoursScans.filter((s: any) => s.decision === 'block').length}</h3>
           </div>
         </motion.div>
 
@@ -176,11 +242,26 @@ export default function EmployeeDashboard() {
 
       {/* Detailed Scan Analytics (Moved Up) */}
       <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-          <h3 className="text-lg font-bold text-surface-900 dark:text-white">Detailed Scan Analytics</h3>
-          <div className="flex items-center gap-1 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
-            <button onClick={() => setAnalyticsTime("today")} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${analyticsTime === "today" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500 hover:text-surface-900 dark:hover:text-white"}`}>Today</button>
-            <button onClick={() => setAnalyticsTime("all")} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${analyticsTime === "all" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500 hover:text-surface-900 dark:hover:text-white"}`}>All Time</button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 border-b border-surface-200 dark:border-white/[0.04] pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-surface-900 dark:text-white">Detailed Scan Analytics</h3>
+            <p className="text-xs text-surface-500 mt-1">Breakdown of all scanned telemetry</p>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <span className="text-xs font-semibold text-surface-500 uppercase tracking-wider block">Total Scans</span>
+              <span className="text-lg font-black text-surface-900 dark:text-white">{totalScans}</span>
+            </div>
+            <div className="w-px h-8 bg-surface-250 dark:bg-white/[0.08]" />
+            <div className="text-right">
+              <span className="text-xs font-semibold text-surface-500 uppercase tracking-wider block text-emerald-500">Total Safe</span>
+              <span className="text-lg font-black text-emerald-500">{totalScans - blockedScans}</span>
+            </div>
+            <div className="w-px h-8 bg-surface-250 dark:bg-white/[0.08]" />
+            <div className="text-right">
+              <span className="text-xs font-semibold text-surface-500 uppercase tracking-wider block text-red-500">Total Blocked</span>
+              <span className="text-lg font-black text-red-500">{blockedScans}</span>
+            </div>
           </div>
         </div>
 
@@ -250,12 +331,6 @@ export default function EmployeeDashboard() {
         <motion.div variants={fadeUp} className="lg:col-span-2 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col h-80">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-surface-900 dark:text-white">Complete Scan Trend</h3>
-            <div className="flex items-center gap-1 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
-              <button onClick={() => setTimeFilter("7d")} className={`px-3 py-1 text-xs font-bold rounded ${timeFilter === "7d" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500"}`}>7D</button>
-              <button onClick={() => setTimeFilter("14d")} className={`px-3 py-1 text-xs font-bold rounded ${timeFilter === "14d" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500"}`}>14D</button>
-              <button onClick={() => setTimeFilter("30d")} className={`px-3 py-1 text-xs font-bold rounded ${timeFilter === "30d" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500"}`}>30D</button>
-              <button onClick={() => setTimeFilter("all")} className={`px-3 py-1 text-xs font-bold rounded ${timeFilter === "all" ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]" : "text-surface-500"}`}>ALL</button>
-            </div>
           </div>
           <div className="w-full flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
@@ -278,7 +353,24 @@ export default function EmployeeDashboard() {
 
         {/* Threat Distribution */}
         <motion.div variants={fadeUp} className="lg:col-span-1 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col h-80">
-          <h3 className="text-sm font-bold text-surface-900 dark:text-white mb-4">Threat Distribution</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-surface-900 dark:text-white">Distribution</h3>
+            <div className="flex bg-surface-100 dark:bg-white/[0.02] p-0.5 rounded-md border border-surface-200 dark:border-white/[0.05] shrink-0">
+              {[
+                { id: "scans", label: "Scans" },
+                { id: "safe", label: "Safe" },
+                { id: "blocked", label: "Blocked" }
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setDistType(opt.id as any)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${distType === opt.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 hover:text-surface-900 dark:hover:text-white'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="w-full flex-1 relative min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -302,7 +394,9 @@ export default function EmployeeDashboard() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h3 className="text-lg font-bold text-surface-900 dark:text-white">Real-Time Threat Feed</h3>
-              <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Showing all scans from the last 24 hours</p>
+              <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
+                {timeRange === "24h" ? "Showing all scans from the last 24 hours" : timeRange === "7d" ? "Showing all scans from the last 7 days" : timeRange === "30d" ? "Showing all scans from the last 30 days" : "Showing all scans"}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -312,10 +406,10 @@ export default function EmployeeDashboard() {
 
           <div className="flex-1 overflow-y-auto pr-2 space-y-6 relative before:absolute before:inset-0 before:ml-[15px] before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-surface-200 dark:before:via-white/[0.05] before:to-transparent">
 
-            {last24HoursScans.length === 0 ? (
+            {filteredScans.length === 0 ? (
               <div className="text-center text-sm text-surface-500 py-4">Waiting for incoming activity...</div>
             ) : (
-              last24HoursScans.map((scan: any, i: number) => {
+              filteredScans.map((scan: any, i: number) => {
                 const isBlock = scan.decision === 'block';
                 const isSafe = scan.decision === 'allow' || scan.decision === 'safe';
                 const isDownload = scan.scanType === 'attachment';
@@ -350,3 +444,4 @@ export default function EmployeeDashboard() {
     </motion.div>
   );
 }
+

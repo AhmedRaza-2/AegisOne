@@ -33,7 +33,7 @@
 | 12 | `DEBUG_MODE = false` — no production console leaks | `utils/constants.js`, all files |
 | 13 | `_sanitize()` HTML escaping in popup event list | `popup/popup.js` |
 | 14 | Replaced hardcoded `?email=employee` with `device_id` | `popup/popup.js` |
-| 15 | Fixed hardcoded `http://localhost:8000` in telemetry | `content/main.js` (uses `API_BASE`) |
+| 15 | Fixed hardcoded `http://100.104.105.20:8000` in telemetry | `content/main.js` (uses `API_BASE`) |
 
 ### Credential Guard
 | # | Enhancement | File(s) |

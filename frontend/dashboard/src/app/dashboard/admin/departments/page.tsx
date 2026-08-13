@@ -1,151 +1,884 @@
 "use client";
-import { Building2, Plus, Users, Trash2, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import {
+  Building2, Plus, Users, Trash2, X, Key, ShieldCheck,
+  CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle, Mail, Settings, Save, Eye, EyeOff
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "@/components/ui/toast";
+
+const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
+const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function DepartmentsPage() {
-  const { user } = useAuth();
+  const { user, fetchWithCache } = useAuth();
   const [departments, setDepartments] = useState<any[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [userList, setUserList] = useState<any[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState<number | "all">("all");
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [loading, setLoading] = useState(true);
 
-  // Form States
-  const [name, setName] = useState("");
-  const [managerId, setManagerId] = useState("");
+  // Modals state
+  const [showAddDeptModal, setShowAddDeptModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showSmtpModal, setShowSmtpModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [deptReassignWarning, setDeptReassignWarning] = useState<{
+    show: boolean;
+    assignedUser: any;
+    targetDeptName: string;
+    managerId: string;
+  }>({ show: false, assignedUser: null, targetDeptName: "", managerId: "" });
+
+  // Department Form
+  const [deptName, setDeptName] = useState("");
+  const [deptManagerId, setDeptManagerId] = useState("");
+
+  // User Form
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"manager" | "employee">("employee");
+  const [targetDeptId, setTargetDeptId] = useState("");
+
+  // SMTP Settings Form
+  const [smtpHost, setSmtpHost] = useState("smtp.gmail.com");
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
+
+  // Quick Action States
+  const [newPwInput, setNewPwInput] = useState("");
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const getHeaders = () => {
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    return { "Authorization": `Bearer ${token || ""}`, "Content-Type": "application/json" };
+  };
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem("aegis_access_token");
-      if (!token) return;
+      const [dData, uData, sData] = await Promise.all([
+        fetchWithCache("http://localhost:8000/admin/departments", { headers: getHeaders() }),
+        fetchWithCache("http://localhost:8000/admin/users", { headers: getHeaders() }),
+        fetchWithCache("http://localhost:8000/admin/smtp-settings", { headers: getHeaders() })
+      ]);
 
-      const res = await fetch("http://localhost:8000/admin/departments", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDepartments(data.departments || []);
+      if (dData) setDepartments(dData.departments || []);
+      if (uData) setUserList(uData.users || []);
+      if (sData) {
+        setSmtpHost(sData.smtp_host || "smtp.gmail.com");
+        setSmtpPort(sData.smtp_port || 587);
+        setSmtpUser(sData.smtp_user || "");
+        setSmtpPass(sData.smtp_pass || "");
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      showToast("Failed to load organization data", "error");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
-  const handleAddDepartment = async (e: React.FormEvent) => {
+  // Filtered list of users based on selected department tab & search
+  const filteredUsers = useMemo(() => {
+    return userList.filter((u) => {
+      // Department filter
+      if (selectedDeptId !== "all") {
+        const deptObj = departments.find(d => d.id === selectedDeptId);
+        const matchesId = u.department_id === selectedDeptId;
+        const matchesName = deptObj && u.department === deptObj.name;
+        if (!matchesId && !matchesName) return false;
+      }
+      // Search filter
+      if (deferredSearch.trim()) {
+        const q = deferredSearch.toLowerCase();
+        const nameMatch = u.full_name?.toLowerCase().includes(q);
+        const emailMatch = u.email?.toLowerCase().includes(q);
+        const roleMatch = u.role?.toLowerCase().includes(q);
+        return nameMatch || emailMatch || roleMatch;
+      }
+      return true;
+    });
+  }, [userList, selectedDeptId, deferredSearch, departments]);
+
+  // Department Manager selection handler with reassign check
+  const handleManagerSelect = (selectedId: string) => {
+    setDeptManagerId(selectedId);
+    if (!selectedId) return;
+
+    const mgrUser = userList.find(u => u.id === parseInt(selectedId));
+    // Check if user is already a manager of another department
+    const existingDept = departments.find(d => d.manager_id === parseInt(selectedId) || d.manager_email === mgrUser?.email);
+    if (existingDept) {
+      setDeptReassignWarning({
+        show: true,
+        assignedUser: mgrUser,
+        targetDeptName: existingDept.name,
+        managerId: selectedId
+      });
+    }
+  };
+
+  // Create Department Handler
+  const handleCreateDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return;
+    if (!deptName.trim()) return;
 
     try {
-      const token = localStorage.getItem("aegis_access_token");
       const res = await fetch("http://localhost:8000/admin/departments", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: getHeaders(),
         body: JSON.stringify({
-          name,
-          manager_id: managerId ? parseInt(managerId) : null
+          name: deptName.trim(),
+          manager_id: deptManagerId ? parseInt(deptManagerId) : null
         })
       });
 
       if (res.ok) {
-        await fetchData();
-        setName("");
-        setManagerId("");
-        setShowAddModal(false);
+        showToast("Department created successfully", "success");
+        setDeptName("");
+        setDeptManagerId("");
+        setShowAddDeptModal(false);
+        setDeptReassignWarning({ show: false, assignedUser: null, targetDeptName: "", managerId: "" });
+        fetchData();
       } else {
-        const error = await res.json();
-        alert(error.detail || "Failed to create department");
+        const err = await res.json();
+        showToast(err.detail || "Failed to create department", "error");
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Add User Handler
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName || !email || !password) return;
+
+    try {
+      const res = await fetch("http://localhost:8000/admin/users", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          email: email.trim(),
+          password: password,
+          role: role,
+          department_id: targetDeptId ? parseInt(targetDeptId) : null
+        })
+      });
+
+      if (res.ok) {
+        showToast("User account created & credentials emailed", "success");
+        setFullName(""); setEmail(""); setPassword("");
+        setShowAddUserModal(false);
+        fetchData();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to create user", "error");
+      }
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Reset Password Handler
+  const handleResetPassword = async (userId: number) => {
+    if (!newPwInput || newPwInput.length < 6) {
+      showToast("Password must be at least 6 characters", "error");
+      return;
+    }
+    try {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/reset-password`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ new_password: newPwInput })
+      });
+      if (res.ok) {
+        showToast("Password reset successfully", "success");
+        setNewPwInput("");
+        setSelectedUser(null);
+      } else {
+        showToast("Failed to reset password", "error");
+      }
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Confirm & Delete User Handler
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      const res = await fetch(`http://localhost:8000/admin/users/${userToDelete.id}`, {
+        method: "DELETE",
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        showToast("User account deleted successfully", "success");
+        setUserToDelete(null);
+        setSelectedUser(null);
+        fetchData();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to delete user", "error");
+      }
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Change User Department Handler
+  const handleDepartmentChange = async (userId: number, newDeptId: string) => {
+    const parsedDeptId = newDeptId ? parseInt(newDeptId) : null;
+    try {
+      const res = await fetch(`http://localhost:8000/admin/users/${userId}/department`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({ department_id: parsedDeptId })
+      });
+      if (res.ok) {
+        showToast("User department updated", "success");
+        fetchData();
+      } else {
+        showToast("Failed to update user department", "error");
+      }
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Save SMTP Settings Handler
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("http://localhost:8000/admin/smtp-settings", {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          smtp_host: smtpHost,
+          smtp_port: parseInt(smtpPort as any),
+          smtp_user: smtpUser,
+          smtp_pass: smtpPass
+        })
+      });
+      if (res.ok) {
+        showToast("SMTP email credentials updated", "success");
+        setShowSmtpModal(false);
+      } else {
+        showToast("Failed to save SMTP settings", "error");
+      }
+    } catch {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Toggle Account Status
+  const handleToggleStatus = async (userObj: any) => {
+    const nextStatus = userObj.account_status === "disabled" || userObj.account_status === "suspended" ? "approved" : "disabled";
+    try {
+      const res = await fetch(`http://localhost:8000/admin/users/${userObj.id}/status`, {
+        method: "PATCH",
+        headers: getHeaders(),
+        body: JSON.stringify({ status: nextStatus, reason: "Admin status update" })
+      });
+      if (res.ok) {
+        showToast(`Account status updated to ${nextStatus}`, "success");
+        fetchData();
+      }
+    } catch {
+      showToast("Network error", "error");
     }
   };
 
   if (!user) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto">
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium z-[999] text-sm ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
+              }`}
+          >
+            {toast.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
+      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
-            <Building2 className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Department Management
+            <Building2 className="w-6 h-6 text-brand-600 dark:text-brand-400" /> Department & User Management
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Manage organization structure and department leads
+            Organize departments, assign managers, and manage employee credentials across your organization.
           </p>
         </div>
-        {user.role === "admin" || user.role === "super_admin" || user.role === "global_admin" ? (
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSmtpModal(true)}
+            className="px-4 py-2 bg-surface-100 dark:bg-white/[0.04] text-surface-900 dark:text-white text-xs font-semibold rounded-xl hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Add Department
+            <Mail className="w-4 h-4 text-amber-500" /> SMTP Config
           </button>
-        ) : null}
-      </div>
+          <button
+            onClick={() => setShowAddDeptModal(true)}
+            className="px-4 py-2 bg-surface-100 dark:bg-white/[0.04] text-surface-900 dark:text-white text-xs font-semibold rounded-xl hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4 text-brand-500" /> Add Department
+          </button>
+          <button
+            onClick={() => setShowAddUserModal(true)}
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <UserPlus className="w-4 h-4" /> Add User / Manager
+          </button>
+        </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="col-span-full p-8 text-center text-surface-500">Loading departments...</div>
-        ) : departments.length === 0 ? (
-          <div className="col-span-full p-8 text-center text-surface-500">No departments found.</div>
-        ) : (
-          departments.map(dept => (
-            <div key={dept.id} className="glass-card p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold text-lg text-surface-900 dark:text-white">{dept.name}</h3>
-                </div>
-                <div className="text-sm text-surface-500 flex items-center gap-2 mt-4">
-                  <Users className="w-4 h-4" /> Manager ID: {dept.manager_id || "Unassigned"}
-                </div>
-              </div>
+      {/* Department Quick Filter Grid */}
+      <motion.div variants={fadeUp} className="space-y-3">
+        <div className="flex items-center justify-between text-xs text-surface-500 font-medium px-1">
+          <span className="font-semibold text-surface-700 dark:text-surface-300">Filter Employees by Department</span>
+          <span className="bg-surface-100 dark:bg-white/[0.06] px-2.5 py-0.5 rounded-full text-[11px] font-bold text-surface-600 dark:text-surface-400">{departments.length} Departments</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <button
+            onClick={() => setSelectedDeptId("all")}
+            className={`p-3.5 rounded-xl border text-left transition-all ${selectedDeptId === "all"
+                ? "bg-brand-50/70 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 dark:border-brand-500/60 shadow-sm ring-1 ring-brand-500/20"
+                : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+              }`}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider opacity-75">Entire Organization</span>
+              <Building2 className="w-4 h-4 text-brand-500 shrink-0" />
             </div>
-          ))
-        )}
-      </div>
+            <p className="text-xl font-extrabold text-surface-900 dark:text-white">{userList.length}</p>
+            <p className="text-[10px] text-surface-500 mt-0.5">Total Members Across All Depts</p>
+          </button>
 
-      {/* Modal: Add Department */}
+          {departments.map((dept) => {
+            const isSelected = selectedDeptId === dept.id;
+            return (
+              <button
+                key={dept.id}
+                onClick={() => setSelectedDeptId(dept.id)}
+                className={`p-3.5 rounded-xl border text-left transition-all ${isSelected
+                    ? "bg-brand-50/70 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 dark:border-brand-500/60 shadow-sm ring-1 ring-brand-500/20"
+                    : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+                  }`}
+              >
+                <div className="flex items-start justify-between mb-1 gap-2">
+                  <span className="text-xs font-bold text-surface-900 dark:text-white leading-snug truncate">{dept.name}</span>
+                  <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-100 dark:bg-white/[0.06] text-surface-500">
+                    {dept.employee_count}
+                  </span>
+                </div>
+                <p className="text-[11px] text-surface-500 truncate mt-1">
+                  Manager: <span className="text-surface-800 dark:text-surface-200 font-semibold">{dept.manager_name || "Unassigned"}</span>
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Main Employee & Manager Table Section - Vertical Scrollable Container */}
+      <motion.div variants={fadeUp} className="stat-card space-y-4">
+        {/* Table Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-surface-100 dark:border-white/[0.06] pb-4">
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-surface-400 absolute left-3 top-3" />
+            <input
+              type="text"
+              placeholder="Search user name, email, or role..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl pl-9 pr-4 py-2 text-xs text-surface-900 dark:text-white placeholder:text-surface-400 focus:outline-none focus:border-brand-500"
+            />
+          </div>
+
+          <div className="text-xs text-surface-500 font-medium">
+            Showing <span className="font-bold text-surface-900 dark:text-white">{filteredUsers.length}</span> employees
+          </div>
+        </div>
+
+        {/* User Table with Max Height Scroll */}
+        <div className="overflow-x-auto max-h-[520px] overflow-y-auto custom-scrollbar">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-white dark:bg-surface-900 shadow-sm">
+              <tr className="border-b border-surface-200 dark:border-white/[0.06] text-surface-500 uppercase tracking-wider">
+                <th className="py-3 px-2">Member</th>
+                <th className="py-3 px-2">Role</th>
+                <th className="py-3 px-2">Department</th>
+                <th className="py-3 px-2">Status</th>
+                <th className="py-3 px-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-100 dark:divide-white/[0.04]">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-surface-400">Loading employees...</td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-surface-400">No employees found matching your filter</td>
+                </tr>
+              ) : (
+                filteredUsers.map((u) => {
+                  const isAdmin = u.role === "admin" || u.role === "super_admin";
+                  return (
+                    <tr key={u.id} className="hover:bg-surface-50 dark:hover:bg-white/[0.01] transition-colors">
+                      <td className="py-3 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 font-bold flex items-center justify-center shrink-0">
+                            {u.full_name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-surface-900 dark:text-white">{u.full_name}</p>
+                            <p className="text-[11px] text-surface-500">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${isAdmin
+                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                            : u.role === "manager" || u.role === "department_admin"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
+                          }`}>
+                          {u.role === "department_admin" ? "Manager" : u.role}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2">
+                        {isAdmin ? (
+                          <span className="font-medium text-surface-700 dark:text-surface-300">Organization</span>
+                        ) : (
+                          <select
+                            value={u.department_id || ""}
+                            onChange={(e) => handleDepartmentChange(u.id, e.target.value)}
+                            className="px-2 py-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                          >
+                            <option value="">General / Unassigned</option>
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.account_status === "disabled" || u.account_status === "suspended"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          }`}>
+                          {u.account_status || "Approved"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        {isAdmin ? (
+                          <span className="text-[11px] font-semibold text-surface-400 italic px-3 py-1 bg-surface-100 dark:bg-white/[0.04] rounded-lg inline-flex items-center gap-1">
+                            <Lock className="w-3 h-3 text-purple-500" /> Protected Admin
+                          </span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Status Toggle Button */}
+                            <button
+                              onClick={() => handleToggleStatus(u)}
+                              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${u.account_status === "disabled" || u.account_status === "suspended"
+                                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-100"
+                                  : "bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 border-surface-200 dark:border-white/[0.08] hover:bg-surface-200"
+                                }`}
+                            >
+                              {u.account_status === "disabled" || u.account_status === "suspended" ? "Enable" : "Disable"}
+                            </button>
+
+                            {/* Role Selector Dropdown */}
+                            <select
+                              value={u.role}
+                              onChange={async (e) => {
+                                const newRole = e.target.value;
+                                try {
+                                  const endpoint = newRole === "manager" || newRole === "department_admin" ? `http://localhost:8000/admin/users/${u.id}/promote` : `http://localhost:8000/admin/users/${u.id}/demote`;
+                                  const res = await fetch(endpoint, { method: "PUT", headers: getHeaders() });
+                                  if (res.ok) {
+                                    showToast(`Role updated to ${newRole}`, "success");
+                                    fetchData();
+                                  }
+                                } catch {
+                                  showToast("Failed to update role", "error");
+                                }
+                              }}
+                              className="px-2 py-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-surface-900 dark:text-white focus:outline-none"
+                            >
+                              <option value="employee">Employee</option>
+                              <option value="manager">Manager</option>
+                            </select>
+
+                            {/* Password Reset Icon */}
+                            <button
+                              onClick={() => setSelectedUser(u)}
+                              title="Reset Password"
+                              className="p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                            >
+                              <Key className="w-4 h-4" />
+                            </button>
+
+                            {/* Delete User Icon */}
+                            <button
+                              onClick={() => setUserToDelete(u)}
+                              title="Delete Account"
+                              className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+
+      {/* Confirmation Modal for Delete User */}
       <AnimatePresence>
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-lg relative z-10 overflow-hidden">
-              <div className="p-6 border-b border-surface-200 dark:border-white/[0.06]">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Add Department</h3>
-                  <button onClick={() => setShowAddModal(false)} className="text-surface-400 hover:text-surface-600"><X className="w-4 h-4" /></button>
+        {userToDelete && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.1] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-surface-900 dark:text-white">Confirm User Deletion</h3>
+                  <p className="text-xs text-surface-500">Are you sure you want to permanently delete this user account?</p>
                 </div>
               </div>
-              <form onSubmit={handleAddDepartment} className="p-6 space-y-4">
+
+              <div className="p-3 bg-surface-50 dark:bg-surface-950 rounded-xl border border-surface-200 dark:border-white/[0.06] text-xs space-y-1">
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Name:</span> {userToDelete.full_name}</p>
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Email:</span> {userToDelete.email}</p>
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Role:</span> {userToDelete.role}</p>
+                <p><span className="font-semibold text-surface-700 dark:text-surface-300">Department:</span> {userToDelete.department || "General"}</p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setUserToDelete(null)} className="px-4 py-2 bg-surface-100 dark:bg-white/[0.06] hover:bg-surface-200 text-surface-700 dark:text-surface-300 text-xs font-semibold rounded-xl transition-colors">
+                  Cancel
+                </button>
+                <button onClick={confirmDeleteUser} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm">
+                  <Trash2 className="w-4 h-4" /> Yes, Delete User
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Department Modal */}
+      <AnimatePresence>
+        {showAddDeptModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-brand-500" /> Create New Department
+                </h3>
+                <button onClick={() => setShowAddDeptModal(false)} className="text-surface-400 hover:text-surface-700"><X className="w-5 h-5" /></button>
+              </div>
+              <form onSubmit={handleCreateDepartment} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Department Name</label>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">Department Name</label>
                   <input
                     type="text"
+                    placeholder="e.g. Cybersecurity, HR, Finance"
+                    value={deptName}
+                    onChange={(e) => setDeptName(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
                     required
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="e.g. Finance"
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
                   />
                 </div>
-                <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors">Create</button>
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">Assign Manager (All Organization Members)</label>
+                  <select
+                    value={deptManagerId}
+                    onChange={(e) => handleManagerSelect(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                  >
+                    <option value="">No Manager Assigned</option>
+                    {userList.filter(u => u.role !== "admin" && u.role !== "super_admin").map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.full_name} ({m.email}) - Current: {m.department || "Unassigned"} ({m.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Manager Reassignment Notice */}
+                {deptReassignWarning.show && (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" /> Manager Reassignment Notice
+                    </p>
+                    <p>
+                      <strong>{deptReassignWarning.assignedUser?.full_name}</strong> is currently managing the <strong>{deptReassignWarning.targetDeptName}</strong> department. Assigning them here will transfer their management role to this new department.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" onClick={() => setShowAddDeptModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
+                  <button type="submit" className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl">Create Department</button>
                 </div>
               </form>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
-    </div>
+
+      {/* Add User / Manager Modal */}
+      <AnimatePresence>
+        {showAddUserModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-brand-500" /> Add Member / Manager
+                </h3>
+                <button onClick={() => setShowAddUserModal(false)} className="text-surface-400 hover:text-surface-700"><X className="w-5 h-5" /></button>
+              </div>
+              <form onSubmit={handleAddUser} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1">Role</label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as any)}
+                      className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    >
+                      <option value="employee">Employee</option>
+                      <option value="manager">Manager</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1">Department</label>
+                    <select
+                      value={targetDeptId}
+                      onChange={(e) => setTargetDeptId(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    >
+                      <option value="">General</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-3">
+                  <button type="button" onClick={() => setShowAddUserModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
+                  <button type="submit" className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl">Create Account</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SMTP Credentials Modal */}
+      <AnimatePresence>
+        {showSmtpModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-surface-100 dark:border-white/[0.06] pb-3">
+                <h3 className="text-base font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-amber-500" /> Organization SMTP Credentials
+                </h3>
+                <button onClick={() => setShowSmtpModal(false)} className="text-surface-400 hover:text-surface-700"><X className="w-5 h-5" /></button>
+              </div>
+
+              <form onSubmit={handleSaveSmtp} className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-surface-500 mb-1">SMTP Host</label>
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                      placeholder="smtp.gmail.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1">Port</label>
+                    <input
+                      type="number"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                      placeholder="587"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">SMTP Email Address</label>
+                  <input
+                    type="email"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                    placeholder="admin@yourorg.com"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-surface-500 mb-1">SMTP App Password</label>
+                  <div className="relative">
+                    <input
+                      type={showSmtpPass ? "text" : "password"}
+                      value={smtpPass}
+                      onChange={(e) => setSmtpPass(e.target.value)}
+                      className="w-full px-3.5 py-2 pr-10 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                      placeholder="••••••••••••••••"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpPass(!showSmtpPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors p-1"
+                    >
+                      {showSmtpPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" onClick={() => setShowSmtpModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
+                  <button type="submit" className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded-xl flex items-center gap-1.5">
+                    <Save className="w-3.5 h-3.5" /> Save Credentials
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Selected User Management Modal Options */}
+      <AnimatePresence>
+        {selectedUser && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white dark:bg-surface-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-surface-100 dark:border-white/[0.06] pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-surface-900 dark:text-white">{selectedUser.full_name}</h3>
+                  <p className="text-xs text-surface-500">{selectedUser.email} · {selectedUser.department || "General"}</p>
+                </div>
+                <button onClick={() => setSelectedUser(null)} className="text-surface-400 hover:text-surface-700"><X className="w-5 h-5" /></button>
+              </div>
+
+              {/* Reset Password Form */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-medium text-surface-500">Reset User Password</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="Enter new password"
+                    value={newPwInput}
+                    onChange={(e) => setNewPwInput(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+                  />
+                  <button
+                    onClick={() => handleResetPassword(selectedUser.id)}
+                    className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded-xl flex items-center gap-1"
+                  >
+                    <Key className="w-3.5 h-3.5" /> Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-center gap-2 pt-2 border-t border-surface-100 dark:border-white/[0.06]">
+                <button
+                  onClick={() => handleToggleStatus(selectedUser)}
+                  className="flex-1 py-2 bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 text-xs font-medium rounded-xl hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors"
+                >
+                  {selectedUser.account_status === "disabled" ? "Enable Account" : "Disable Account"}
+                </button>
+                <button
+                  onClick={() => {
+                    const u = selectedUser;
+                    setSelectedUser(null);
+                    setUserToDelete(u);
+                  }}
+                  className="py-2 px-4 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-xl flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

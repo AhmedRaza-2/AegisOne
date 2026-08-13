@@ -1,0 +1,49 @@
+{
+  "evaluated_at": "2026-08-03 19:21:35",
+  "dataset": {
+    "total_samples": 600,
+    "benign": 200,
+    "phishing": 400,
+    "source_files": [
+      "D:\\Coding Projects\\AegisOne\\AIML\\url\\urls.csv",
+      "D:\\Coding Projects\\AegisOne\\AIML\\url\\verified_online.csv"
+    ]
+  },
+  "models": [
+    {
+      "model_path": "D:\\Coding Projects\\AegisOne\\AIML\\url\\best.pt",
+      "samples": 600,
+      "accuracy": 0.6666666666666666,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1": 0.8,
+      "false_positive_rate": 1.0,
+      "false_negative_rate": 0.0,
+      "avg_latency_ms": 57.96359459559123,
+      "confusion": {
+        "tn": 0,
+        "fp": 200,
+        "fn": 0,
+        "tp": 400
+      }
+    },
+    {
+      "model_path": "D:\\Coding Projects\\AegisOne\\AIML\\url\\best (3).pt",
+      "samples": 600,
+      "accuracy": 0.6666666666666666,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1": 0.8,
+      "false_positive_rate": 1.0,
+      "false_negative_rate": 0.0,
+      "avg_latency_ms": 76.4381476243337,
+      "confusion": {
+        "tn": 0,
+        "fp": 200,
+        "fn": 0,
+        "tp": 400
+      }
+    }
+  ],
+  "recommended_model": "D:\\Coding Projects\\AegisOne\\AIML\\url\\best (3).pt"
+}

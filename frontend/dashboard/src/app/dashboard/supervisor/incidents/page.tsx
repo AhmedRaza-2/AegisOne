@@ -61,8 +61,8 @@ export default function IncidentsPage() {
             key={f}
             onClick={() => setFilter(f)}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all capitalize ${filter === f
-                ? "bg-brand-600/10 text-brand-650 dark:text-brand-400 border border-brand-500/20"
-                : "text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white border border-transparent hover:bg-surface-100 dark:hover:bg-white/[0.04]"
+              ? "bg-brand-600/10 text-brand-650 dark:text-brand-400 border border-brand-500/20"
+              : "text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white border border-transparent hover:bg-surface-100 dark:hover:bg-white/[0.04]"
               }`}
           >
             {f === "all" ? "All Incidents" : f.replace("_", " ")}
@@ -90,12 +90,12 @@ export default function IncidentsPage() {
               <div key={inc.id} className="glass-card p-5 hover:border-surface-300 dark:hover:border-white/[0.12] transition-all">
                 <div className="flex items-start gap-3">
                   <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${inc.severity === "critical"
-                      ? "bg-red-500 animate-pulse"
-                      : inc.severity === "high"
-                        ? "bg-amber-500"
-                        : inc.severity === "medium"
-                          ? "bg-blue-500"
-                          : "bg-surface-400"
+                    ? "bg-red-500 animate-pulse"
+                    : inc.severity === "high"
+                      ? "bg-amber-500"
+                      : inc.severity === "medium"
+                        ? "bg-blue-500"
+                        : "bg-surface-400"
                     }`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -103,18 +103,18 @@ export default function IncidentsPage() {
                         {isGlobalAdmin ? `Anonymized Threat Pattern ID: ${inc.id.toUpperCase()}` : inc.title}
                       </h3>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${inc.status === "open"
-                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                          : inc.status === "investigating"
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            : inc.status === "resolved"
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-450"
-                              : "bg-surface-200 text-surface-600 dark:bg-surface-800 dark:text-surface-400"
+                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        : inc.status === "investigating"
+                          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          : inc.status === "resolved"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-450"
+                            : "bg-surface-200 text-surface-600 dark:bg-surface-800 dark:text-surface-400"
                         }`}>{inc.status.replace("_", " ")}</span>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${inc.severity === "critical"
-                          ? "bg-red-500/10 text-red-650 dark:text-red-400"
-                          : inc.severity === "high"
-                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                            : "bg-surface-250 text-surface-700 dark:bg-surface-800 dark:text-surface-400"
+                        ? "bg-red-500/10 text-red-650 dark:text-red-400"
+                        : inc.severity === "high"
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : "bg-surface-250 text-surface-700 dark:bg-surface-800 dark:text-surface-400"
                         }`}>{inc.severity} priority</span>
                     </div>
                     <p className="text-sm text-surface-600 dark:text-surface-300">
