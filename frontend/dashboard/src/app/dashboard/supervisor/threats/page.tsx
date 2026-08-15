@@ -85,11 +85,15 @@ export default function ThreatCenterPage() {
         .catch(err => console.error("Users load error:", err));
 
       // Fetch Live Events
-      fetch("http://localhost:8000/admin/events?page=1&page_size=20", { headers })
+      fetch("http://localhost:8000/admin/events?page=1&page_size=100", { headers })
         .then(res => res.json())
         .then(data => {
           if (data.events) {
-            setEvents(data.events);
+            // Filter events that match the supervisor's department name
+            const deptFiltered = data.events.filter((evt: any) => 
+              evt.department?.toLowerCase() === user.department?.toLowerCase()
+            );
+            setEvents(deptFiltered.slice(0, 20));
           }
         })
         .catch(err => console.error("Events load error:", err));
@@ -106,15 +110,17 @@ export default function ThreatCenterPage() {
   const router = require("next/navigation").useRouter();
   const [assigningTraining, setAssigningTraining] = useState<any>(null);
 
-  // Compute high-risk employees based on real database scores
-  const highRiskEmployees = dbUsers.map(emp => {
-    return {
-      id: emp.id,
-      name: emp.full_name || emp.fullName || "Unknown",
-      riskScore: emp.risk_score || 0,
-      reason: (emp.risk_score || 0) > 50 ? "Multiple suspicious threats blocked by extension." : "Recent credential warning.",
-    };
-  }).sort((a, b) => b.riskScore - a.riskScore).slice(0, 5);
+  // Compute high-risk employees based on real database scores > 0
+  const highRiskEmployees = dbUsers
+    .filter(emp => (emp.risk_score || 0) > 0)
+    .map(emp => {
+      return {
+        id: emp.id,
+        name: emp.full_name || emp.fullName || "Unknown",
+        riskScore: emp.risk_score || 0,
+        reason: (emp.risk_score || 0) > 50 ? "Multiple suspicious threats blocked by extension." : "Recent credential warning.",
+      };
+    }).sort((a, b) => b.riskScore - a.riskScore).slice(0, 5);
 
   if (!user) return null;
 

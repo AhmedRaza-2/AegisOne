@@ -65,17 +65,11 @@ interface ContactItemProps {
 }
 
 export function ContactItem({ contact, isActive, onClick, accentColor = "brand" }: ContactItemProps) {
-  const activeBg = accentColor === "amber" 
-    ? "bg-surface-100 dark:bg-white/[0.02] border-l-amber-500" 
-    : "bg-surface-100 dark:bg-white/[0.02] border-l-brand-500";
+  const activeBg = "bg-[#F0F6FA] dark:bg-white/[0.03] border-l-[#4A7FA7]";
     
-  const avatarActive = accentColor === "amber"
-    ? "bg-amber-500 text-white"
-    : "bg-brand-500 text-white";
+  const avatarActive = "bg-[#4A7FA7] text-white";
     
-  const avatarInactive = accentColor === "amber"
-    ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
-    : "bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400";
+  const avatarInactive = "bg-[#E4EEF6] dark:bg-white/[0.04] text-[#3D6C90] dark:text-[#A9C2D6]";
 
   return (
     <button
@@ -126,18 +120,15 @@ export function ChatView({ currentUserId, activeContact, thread, accentColor = "
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const bgSent   = accentColor === "amber" ? "bg-amber-600" : "bg-brand-600";
-
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Chat Header */}
-      <div className="px-5 py-3 border-b border-surface-200 dark:border-white/[0.06] flex items-center gap-3 bg-surface-50/50 dark:bg-white/[0.01] shrink-0">
-        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm
-          ${accentColor === "amber" ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400" : "bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400"}`}>
+      <div className="px-5 py-3 border-b border-surface-200 dark:border-white/[0.06] flex items-center gap-3 bg-[#F6FAFD] dark:bg-white/[0.01] shrink-0">
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-[#E4EEF6] dark:bg-white/[0.04] text-[#3D6C90] dark:text-[#A9C2D6]`}>
           {activeContact.full_name.charAt(0).toUpperCase()}
         </div>
         <div>
-          <p className="text-sm font-semibold text-surface-900 dark:text-white">{activeContact.full_name}</p>
+          <p className="text-sm font-semibold text-[#0A1931] dark:text-white">{activeContact.full_name}</p>
           <p className="text-[10px] text-emerald-500 font-medium">
             {roleLabel(activeContact.role)}
             {activeContact.department ? <span className="text-surface-400"> · {activeContact.department}</span> : null}
@@ -209,8 +200,7 @@ export function ChatView({ currentUserId, activeContact, thread, accentColor = "
           whileTap={{ scale: 0.92 }}
           onClick={handleSend}
           disabled={!text.trim() || sending}
-          className={`w-10 h-10 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center shrink-0 transition-colors
-            ${accentColor === "amber" ? "bg-amber-600 hover:bg-amber-500" : "bg-brand-600 hover:bg-brand-500"}`}
+          className={`w-10 h-10 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center shrink-0 transition-colors bg-[#4A7FA7] hover:bg-[#3D6C90]`}
         >
           <Send className="w-4 h-4" />
         </motion.button>

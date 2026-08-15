@@ -577,12 +577,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
 
         {/* Dashboard Centered Luxury Footer */}
-        <footer className="px-6 py-3 shrink-0 border-t border-blue-200/50 dark:border-blue-900/30 bg-gradient-to-r from-blue-50/80 via-indigo-50/80 to-blue-50/80 dark:from-[#0B1528] dark:via-[#0F1C38] dark:to-[#0B1528] backdrop-blur-xs flex items-center justify-center gap-3 text-xs text-blue-800 dark:text-blue-200 text-center font-medium">
-          <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+        <footer className="px-6 py-2.5 shrink-0 bg-[#0A1931] flex items-center justify-center text-xs text-[#B3CFE5] font-medium tracking-wide">
           <span>Powered by AegisOne</span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] border border-emerald-500/20">
-            No Data Shared To Us
-          </span>
         </footer>
 
         {/* First Time Extension Setup Reminder Modal */}

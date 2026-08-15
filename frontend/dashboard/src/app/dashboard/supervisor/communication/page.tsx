@@ -188,9 +188,9 @@ export default function ManagerCommunicationPage() {
             {admins.length > 0 && (
               <>
                 <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] border-t mt-1 sticky top-0 bg-white dark:bg-[#141A29] z-10">
-                  <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Organization Admins</span>
+                  <span className="text-[10px] font-bold text-[#4A7FA7] uppercase tracking-widest">Organization Admins</span>
                 </div>
-                {admins.map(c => <ContactItem key={c.id} contact={c} isActive={activeContact?.id === c.id} onClick={() => setActiveContact(c)} accentColor="amber" />)}
+                {admins.map(c => <ContactItem key={c.id} contact={c} isActive={activeContact?.id === c.id} onClick={() => setActiveContact(c)} />)}
               </>
             )}
             {contacts.length === 0 && <div className="text-center py-12 text-surface-400 text-sm px-4">No contacts</div>}

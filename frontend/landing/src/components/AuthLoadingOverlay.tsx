@@ -43,7 +43,7 @@ export default function AuthLoadingOverlay({
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 backdrop-blur-md transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-[#0A1931]/75 backdrop-blur-md transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
       role="status"
       aria-live="polite"
     >
@@ -51,9 +51,9 @@ export default function AuthLoadingOverlay({
         <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl p-8 text-center animate-scaleIn">
           {/* Animated shield logo */}
           <div className="relative w-20 h-20 mx-auto mb-5">
-            <div className="absolute inset-0 rounded-2xl bg-[#0A5ED6]/20 animate-ping" />
-            <div className="absolute inset-0 rounded-2xl bg-[#0A5ED6]/10 animate-pulse" />
-            <div className="relative w-20 h-20 bg-[#0A5ED6] rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="absolute inset-0 rounded-2xl bg-[#4A7FA7]/20 animate-ping" />
+            <div className="absolute inset-0 rounded-2xl bg-[#4A7FA7]/10 animate-pulse" />
+            <div className="relative w-20 h-20 bg-[#4A7FA7] rounded-2xl flex items-center justify-center shadow-lg">
               <ShieldCheck className="w-10 h-10 text-white" />
             </div>
           </div>
@@ -75,7 +75,7 @@ export default function AuthLoadingOverlay({
                       done
                         ? 'bg-emerald-500 text-white'
                         : active
-                          ? 'bg-[#0A5ED6] text-white'
+                          ? 'bg-[#4A7FA7] text-white'
                           : 'bg-slate-200 text-slate-400'
                     }`}
                   >
@@ -91,7 +91,7 @@ export default function AuthLoadingOverlay({
                   </div>
                   <span
                     className={`font-sans text-sm transition-all duration-300 ${
-                      done ? 'text-slate-400 line-through' : active ? 'text-[#0F172A] font-semibold' : 'text-slate-400'
+                      done ? 'text-slate-400 line-through' : active ? 'text-[#0A1931] font-semibold' : 'text-slate-400'
                     }`}
                   >
                     {step}
@@ -100,7 +100,7 @@ export default function AuthLoadingOverlay({
                         {[0, 1, 2].map((d) => (
                           <span
                             key={d}
-                            className="animate-bounce text-[#0A5ED6] font-bold"
+                            className="animate-bounce text-[#4A7FA7] font-bold"
                             style={{ animationDelay: `${d * 150}ms` }}
                           >
                             .
@@ -113,10 +113,10 @@ export default function AuthLoadingOverlay({
               );
             })}
           </div>
-
+ 
           {/* Indeterminate progress bar */}
           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-[#0A5ED6] rounded-full animate-indeterminate" />
+            <div className="h-full bg-[#4A7FA7] rounded-full animate-indeterminate" />
           </div>
         </div>
       </div>

@@ -1,138 +1,306 @@
-  # AegisOne — Luxury & Unified Design System Specification (`design.md`)
+# AegisOne — Design System v2 (`design.md`)
+**Codename: Sovereign Blue.** One visual language across Landing, Auth, Setup Engine, and Dashboards — light and dark.
 
-  ## 1. Executive Vision & Core Aesthetics
-  AegisOne's visual identity embodies **Cyber Precision**, **Luxury Enterprise Elegance**, and **Glassmorphic Depth**. 
-  Every component, card, button, and layout across the **Landing Page**, **Onboarding Portal**, **Setup Engine**, and **Admin/Employee Dashboards** follows a synchronized, state-of-the-art visual standard.
+---
 
-  ---
+## 0. Design Principles (read this before touching any component)
 
-  ## 2. Typography & Font Hierarchy
+1. **One accent, many depths.** We use ONE blue family, expressed through depth (navy → mid → sky → white) instead of multiple competing colors (no violet, no indigo, no red-for-non-error uses).
+2. **Quiet surfaces, loud data.** Chrome (sidebars, headers, cards) stays muted and low-contrast. Charts, numbers, status badges are where color and contrast are allowed to pop.
+3. **Depth via elevation, not decoration.** Depth comes from shadow + blur + 1px hairline borders — never heavy gradients slapped on every element.
+4. **No flat white dashboards.** Light mode uses a soft off-white canvas (`#F6FAFD`) with pure-white elevated cards — never white-on-white with only borders to separate them (this is AegisOne's current #1 problem).
+5. **Dark mode is a first-class citizen**, not an inverted afterthought — built on true navy (`#0A1931`), not generic slate/black.
 
-  ### Font Family
-  - **Primary Body & Interface**: `Inter`, `-apple-system`, `BlinkMacSystemFont`, `Segoe UI`, `sans-serif`
-  - **Display & Headlines**: `Outfit`, `Plus Jakarta Sans`, `Inter`, `sans-serif`
-  - **Monospace & Code**: `JetBrains Mono`, `Fira Code`, `ui-monospace`, `monospace`
+---
 
-  ### Font Sizes & Weight Mapping
-  | Token | Size | Weight | Tracking | Usage |
-  | :--- | :--- | :--- | :--- | :--- |
-  | `display-xl` | 3rem (48px) | 800 (ExtraBold) | `-0.025em` | Main Landing Hero Headline |
-  | `display-lg` | 2.25rem (36px) | 700 (Bold) | `-0.02em` | Portal / Section Titles |
-  | `heading-md` | 1.5rem (24px) | 700 (Bold) | `-0.015em` | Card & Header Titles |
-  | `heading-sm` | 1.125rem (18px) | 600 (SemiBold) | `-0.01em` | Modal & Widget Titles |
-  | `body-base` | 0.875rem (14px) | 400/500 (Regular/Medium) | `normal` | Standard Body & Form Inputs |
-  | `body-sm` | 0.75rem (12px) | 500/600 (Medium/SemiBold) | `normal` | Badges, Subtitles, Tooltips |
-  | `caption-xs` | 0.625rem (10px) | 700 (Bold) | `0.05em UPPERCASE` | Micro Badges, Table Headers |
+## 1. Color System
 
-  ---
+### 1.1 Core Palette (source: brand navy set)
+```css
+--navy-950:  #0A1931;  /* Deepest navy — dark mode canvas, light-mode headline text */
+--navy-800:  #1A3D63;  /* Deep blue — dark mode elevated surfaces, sidebar (light mode) */
+--blue-600:  #4A7FA7;  /* Mid blue — PRIMARY BRAND / buttons / links / active states */
+--sky-300:   #B3CFE5;  /* Soft sky — tints, hover backgrounds, chart secondary series */
+--frost-50:  #F6FAFD;  /* Off-white canvas — light mode background */
+--white:     #FFFFFF;  /* Pure white — elevated cards only, light mode */
+```
 
-  ## 3. Color System & Swatches
+### 1.2 Extended Ramp (derived — for hover/active/disabled states)
+```css
+--blue-700: #3D6C90;  /* button hover / active */
+--blue-500: #5C93BE;  /* lighter interactive, disabled-adjacent */
+--blue-100: #E4EEF6;  /* badge backgrounds, subtle fills (light mode) */
+--blue-50:  #F0F6FA;  /* faintest tint, table row hover (light mode) */
+--navy-700: #24466E;  /* dark mode card hover border */
+--navy-600: #2E5580;  /* dark mode secondary elevated surface */
+```
 
-  ### 3.1 Primary Sapphire & Royal Blue Palette (Brand Core)
-  ```css
-  /* Blue Hierarchy */
-  --blue-50:  #EFF6FF; /* Ultra Light Tint / Active Hover Backdrops */
-  --blue-100: #DBEAFE; /* Soft Highlight Borders */
-  --blue-200: #BFDBFE; /* Subtle Divider Lines */
-  --blue-300: #93C5FD; /* Secondary Active State */
-  --blue-400: #60A5FA; /* Neon Glow Accents */
-  --blue-500: #3B82F6; /* Primary Vivid Blue */
-  --blue-600: #0A5ED6; /* Aegis Royal Blue (Primary Brand Button) */
-  --blue-700: #1D4ED8; /* Hover Active Primary Blue */
-  --blue-800: #1E40AF; /* Dark Accent Gradient Endpoint */
-  --blue-900: #1E3A8A; /* Deep Ocean Background Tint */
-  --blue-950: #172554; /* Deepest Midnight Blue Accent */
-  ```
+### 1.3 Light Mode Surfaces
+```css
+--bg-canvas:        #F6FAFD;              /* page background */
+--bg-sidebar:        #0A1931;              /* sidebar is DARK even in light mode — anchor element, see 4.1 */
+--bg-card:            #FFFFFF;
+--bg-card-hover:      #FFFFFF;              /* hover changes shadow/border, not fill */
+--border-subtle:      #E1EBF2;
+--border-strong:      #C7DAE8;
+--text-primary:       #0A1931;
+--text-secondary:     #4A6D8C;
+--text-muted:         #8CA3B8;
+```
 
-  ### 3.2 Dark Mode Base (Slate & Obsidian Surface)
-  ```css
-  /* Dark Surfaces */
-  --surface-dark-bg:      #030712; /* Canvas Base (Slate 950 / Darkest Void) */
-  --surface-dark-card:    #0F172A; /* Card Glass background (Slate 900) */
-  --surface-dark-elevated:#1E293B; /* Hover / Modal Elevated Glass (Slate 800) */
-  --surface-dark-border:  rgba(255, 255, 255, 0.08); /* Subtle 8% White Border */
-  --surface-dark-hover:   rgba(255, 255, 255, 0.12); /* Interactive Hover Border */
-  ```
+### 1.4 Dark Mode Surfaces
+```css
+--bg-canvas:        #071426;              /* slightly deeper than navy-950 for max contrast with cards */
+--bg-sidebar:        #050D1B;
+--bg-card:            #0F2038;              /* navy-950 lifted one step */
+--bg-card-hover:      #14284A;
+--border-subtle:      rgba(179, 207, 229, 0.10);   /* sky-300 @ 10% */
+--border-strong:      rgba(179, 207, 229, 0.20);
+--text-primary:       #F6FAFD;
+--text-secondary:     #A9C2D6;
+--text-muted:         #6B87A0;
+```
 
-  ### 3.3 Light Mode Base (Crisp Snow & Pure White)
-  ```css
-  /* Light Surfaces */
-  --surface-light-bg:     #F8FAFC; /* Canvas Base (Slate 50) */
-  --surface-light-card:   #FFFFFF; /* Pure White Card Box */
-  --surface-light-border: #E2E8F0; /* Slate 200 Subtle Border */
-  --surface-light-hover:  #CBD5E1; /* Slate 300 Interactive Border */
-  ```
+### 1.5 Status Colors (semantic — used ONLY for status, never decoration)
+```css
+--success:      #2FA97E;   /* light */  /--success-dark:  #4ADE9E; /* dark */
+--warning:      #D9A441;   /* light */  /--warning-dark:  #F3C567; /* dark */
+--danger:       #D65C5C;   /* light */  /--danger-dark:   #F08787; /* dark */
+--info:         var(--blue-600);          /* re-use brand blue, don't add a 4th hue */
 
-  ### 3.4 Status & Severity Colors
-  - **Emerald (Safe / Active / Approved)**:
-    - Text/Icon: `#059669` (Light) / `#34D399` (Dark)
-    - Badge Background: `rgba(16, 185, 129, 0.1)` | Border: `rgba(16, 185, 129, 0.2)`
-  - **Amber (Warning / Suspended / Pending)**:
-    - Text/Icon: `#D97706` (Light) / `#FBBF24` (Dark)
-    - Badge Background: `rgba(245, 158, 11, 0.1)` | Border: `rgba(245, 158, 11, 0.2)`
-  - **Crimson (Threat / Blocked / Error)**:
-    - Text/Icon: `#DC2626` (Light) / `#F87171` (Dark)
-    - Badge Background: `rgba(239, 68, 68, 0.1)` | Border: `rgba(239, 68, 68, 0.2)`
-  - **Purple / Indigo (Enterprise Tier / AI Engine)**:
-    - Text/Icon: `#7C3AED` (Light) / `#A78BFA` (Dark)
-    - Badge Background: `rgba(139, 92, 246, 0.1)` | Border: `rgba(139, 92, 246, 0.2)`
+/* Badge pattern (both modes): 10% bg tint + 20% border + solid text */
+--badge-bg:    color-mix(in srgb, var(--status-color) 12%, transparent);
+--badge-border: color-mix(in srgb, var(--status-color) 25%, transparent);
+```
 
-  ---
+### 1.6 What to remove from the current build
+- Delete the unused Navy/Teal/Beige/SkyBlue/White exploration palette — not used anywhere, causes confusion.
+- Delete indigo/violet from the landing page entirely.
+- Delete the red lock icon on Super Admin login — replace with navy shield icon; red is reserved for `--danger` only.
 
-  ## 4. Luxury UI Components & Specifications
+---
 
-  ### 4.1 Glassmorphic Cards & Elevate Hovers
-  All cards utilize subtle border glows, backdrop blurs, and soft multi-layered shadows.
-  ```tsx
-  /* Standard Luxury Card Class */
-  bg-white dark:bg-slate-900 
-  border border-slate-200/80 dark:border-white/[0.08] 
-  shadow-sm hover:shadow-xl hover:border-blue-500/30 dark:hover:border-blue-400/30 
-  transition-all duration-300 ease-out rounded-2xl p-6
-  ```
+## 2. Typography
 
-  ### 4.2 Buttons & Interactive Elements
-  1. **Primary Luxury Button**:
-    - Background: `bg-[#0A5ED6] hover:bg-[#0B63E0]`
-    - Text: `text-white font-bold text-xs uppercase tracking-wider`
-    - Shadow: `shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/35`
-    - Scale: `active:scale-[0.98] transition-all`
-  2. **Secondary Ghost Glass Button**:
-    - Background: `bg-slate-100 dark:bg-white/[0.04] hover:bg-slate-200 dark:hover:bg-white/[0.08]`
-    - Text: `text-slate-700 dark:text-slate-200 font-semibold text-xs`
-    - Border: `border border-slate-200 dark:border-white/[0.08]`
+```css
+--font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;   /* headlines only */
+--font-body:    'Inter', -apple-system, sans-serif;          /* everything else */
+--font-mono:    'JetBrains Mono', ui-monospace, monospace;   /* IDs, codes, logs */
+```
 
-  ### 4.3 Form Inputs & Selects
-  - Background: `bg-slate-50 dark:bg-slate-950`
-  - Border: `border border-slate-200 dark:border-slate-800`
-  - Focus State: `focus:border-[#0A5ED6] focus:ring-2 focus:ring-[#0A5ED6]/20 focus:bg-white dark:focus:bg-slate-900`
-  - Border Radius: `rounded-xl` (`12px`)
-  - Padding: `px-4 py-3 text-sm`
+| Token | Size | Weight | Font | Usage |
+|---|---|---|---|---|
+| `display-xl` | 3rem / 48px | 700 | Outfit | Landing hero only |
+| `display-lg` | 2.25rem / 36px | 600 | Outfit | Portal/section titles |
+| `heading-md` | 1.375rem / 22px | 600 | Inter | Card headers |
+| `heading-sm` | 1rem / 16px | 600 | Inter | Widget/modal titles |
+| `body-base` | 0.875rem / 14px | 400 | Inter | Body copy, inputs |
+| `body-sm` | 0.8125rem / 13px | 500 | Inter | Secondary text, table cells |
+| `caption` | 0.6875rem / 11px | 600 | Inter | Badges, table headers — `letter-spacing: 0.04em; uppercase` |
+| `mono-sm` | 0.75rem / 12px | 500 | JetBrains Mono | Employee IDs, dept codes, audit log hashes |
 
-  ### 4.4 Sleek Micro Progress Bars & Steppers
-  - Stepper Container: Compact horizontal container with line connectors (`h-0.5`).
-  - Progress Bar Fill: `bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500`
-  - Capped Cap: `Math.min(100, Math.round(val))` to ensure progress bar never overflows 100%.
+**Rule:** No more than 2 font families visible on any single screen (Outfit for the one hero headline, Inter for everything else). Never mix in a 3rd display font (this killed the old landing page).
 
-  ### 4.5 Compact Luxury Footer
-  - Height: Compact (`py-4 px-6`)
-  - Divider: `border-t border-slate-200 dark:border-white/[0.06]`
-  - Text: `text-xs text-slate-400 font-medium`
-  - Elements: Flex layout with Brand Logo, Security Status Dot (`bg-emerald-500 animate-pulse`), Copyright, and Quick Links.
+---
 
-  ---
+## 3. Spacing, Radius, Elevation
 
-  ## 5. Lucide Icon Standard
-  Icon sets across all modules use consistent sizing and stroke weights:
-  - **Navigation Links**: `w-4 h-4` (Stroke width: 2px)
-  - **Card Header Icons**: `w-5 h-5` (Stroke width: 2px) inside a `p-2.5 rounded-xl bg-blue-50 dark:bg-blue-500/10` container.
-  - **Micro Badges**: `w-3 h-3`
+```css
+--radius-sm: 8px;   /* badges, small buttons */
+--radius-md: 12px;  /* inputs, secondary buttons */
+--radius-lg: 16px;  /* cards */
+--radius-xl: 20px;  /* modals, hero panels */
 
-  ---
+--space unit: 4px base — use 4/8/12/16/24/32/48/64 only.
 
-  ## 6. Global Implementation Checklist
-  - [x] Unified Color Palette & Gradients
-  - [x] Persistent Glassmorphism & Borders across Landing, Portal, Setup, & Dashboards
-  - [x] Monitored Micro-Animations (`framer-motion` & `transition-all duration-300`)
-  - [x] Capped Progress Bar Mechanics (100% Maximum)
-  - [x] Compact Responsive Footers across all views
+/* Elevation — light mode */
+--shadow-sm: 0 1px 2px rgba(10,25,49,0.04);
+--shadow-md: 0 4px 12px rgba(10,25,49,0.06), 0 1px 2px rgba(10,25,49,0.04);
+--shadow-lg: 0 12px 32px rgba(10,25,49,0.10), 0 2px 6px rgba(10,25,49,0.05);
+--shadow-glow-blue: 0 0 0 1px rgba(74,127,167,0.15), 0 8px 24px rgba(74,127,167,0.15);
+
+/* Elevation — dark mode (softer, no black shadows — use navy glow instead) */
+--shadow-sm-dark: 0 1px 2px rgba(0,0,0,0.3);
+--shadow-md-dark: 0 4px 16px rgba(0,0,0,0.35);
+--shadow-glow-blue-dark: 0 0 0 1px rgba(179,207,229,0.12), 0 8px 28px rgba(74,127,167,0.25);
+```
+
+---
+
+## 4. Core Components
+
+### 4.1 Sidebar (Dashboard/Admin) — the anchor element
+The current sidebar is plain white text-links — this reads thin/generic. Fix:
+```
+Background: var(--bg-sidebar)   /* deep navy in BOTH light and dark mode — this is the brand anchor */
+Width: 248px, collapsible to 72px (icon-only)
+Logo area: 64px height, bottom border rgba(255,255,255,0.06)
+Nav item (default): text-secondary equivalent on dark = #A9C2D6, icon w-4.5 h-4.5, stroke 2px
+Nav item (active): bg rgba(74,127,167,0.16), left border 3px solid var(--blue-600),
+                    text #FFFFFF, icon color var(--sky-300)
+Nav item (hover):  bg rgba(255,255,255,0.04)
+Section labels: caption token, color #4A6D8C, margin-top 24px
+User footer: avatar + name + role pill, top border rgba(255,255,255,0.06)
+```
+This single change (dark sidebar in light mode too, like Innova/CrypCoin reference) will do more for "premium feel" than any other single fix.
+
+### 4.2 Cards
+```css
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.card--stat {
+  /* KPI cards: Overdue / Total Employees / etc, per Innova reference */
+  display: flex; flex-direction: column; gap: 8px;
+}
+.card--stat .value { font: 700 1.75rem Inter; color: var(--text-primary); }
+.card--stat .delta.positive { color: var(--success); }
+.card--stat .delta.negative { color: var(--danger); }
+.card--stat .icon-badge {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  background: var(--blue-100); /* dark: rgba(74,127,167,.18) */
+  display: grid; place-items: center;
+}
+```
+
+### 4.3 Buttons
+```css
+.btn-primary {
+  background: linear-gradient(135deg, var(--blue-600), var(--blue-700));
+  color: #FFFFFF; font: 600 0.8125rem Inter; letter-spacing: 0.01em;
+  padding: 10px 20px; border-radius: var(--radius-md);
+  box-shadow: 0 1px 2px rgba(10,25,49,0.08), 0 4px 10px rgba(74,127,167,0.25);
+  transition: all 180ms ease;
+}
+.btn-primary:hover { box-shadow: 0 4px 16px rgba(74,127,167,0.4); transform: translateY(-1px); }
+.btn-primary:active { transform: scale(0.98) translateY(0); }
+
+.btn-secondary {
+  background: var(--blue-50);      /* dark: rgba(255,255,255,.04) */
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font: 600 0.8125rem Inter;
+  border-radius: var(--radius-md); padding: 10px 20px;
+}
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+```
+**No more uppercase-tracking-wider on every button** — reserve that treatment for badges/caption text only, buttons use normal case + semibold (matches the CrypCoin/Innova reference feel — softer, more premium, less "corporate SaaS default").
+
+### 4.4 Inputs
+```css
+.input {
+  background: var(--bg-canvas);          /* dark: rgba(255,255,255,.03) */
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 11px 14px; font: 400 0.875rem Inter;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.input:focus {
+  border-color: var(--blue-600);
+  box-shadow: 0 0 0 3px rgba(74,127,167,0.15);
+  background: var(--bg-card);
+}
+```
+
+### 4.5 Status Badges
+```css
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  font: 600 0.6875rem Inter; letter-spacing: 0.02em;
+  background: var(--badge-bg); border: 1px solid var(--badge-border);
+  color: var(--status-color);
+}
+/* dot variant for table rows */
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status-color); }
+```
+
+### 4.6 Data Tables
+```
+Row height: 52px
+Header: caption token, text-muted, border-bottom 1px var(--border-subtle), no background fill
+Row hover: background var(--blue-50) / dark: rgba(255,255,255,.02)
+Row border: border-bottom 1px var(--border-subtle) — no vertical borders, no zebra striping
+Avatar: 32px circle, bg var(--blue-100), initials in var(--blue-700)
+Action icons: 16px, text-muted default, text-primary on hover, individual 32px hit-area with radius-sm hover bg
+```
+
+### 4.7 Charts (see §6 for library) — visual spec regardless of library
+```
+Line/area charts: single primary line in var(--blue-600), area fill = gradient
+  linear-gradient(180deg, rgba(74,127,167,0.25), rgba(74,127,167,0))
+Grid lines: var(--border-subtle), dashed, only horizontal
+Tooltip: bg-card + shadow-lg + radius-md, never default browser tooltip
+Multi-series: blue-600 (primary) → sky-300 (secondary) → navy-800 (tertiary) — stay in-family,
+  do not introduce green/orange/purple for chart series (reserve those for status only)
+```
+
+### 4.8 Progress / Stepper (Setup Engine)
+```css
+.stepper-track { height: 3px; background: var(--border-subtle); border-radius: 2px; }
+.stepper-fill  { background: linear-gradient(90deg, var(--blue-600), var(--sky-300)); }
+.step-badge.complete { background: var(--success); color: #fff; }
+.step-badge.active   { background: var(--blue-600); color: #fff; box-shadow: 0 0 0 4px rgba(74,127,167,0.2); }
+.step-badge.pending  { background: var(--bg-canvas); border: 1px solid var(--border-strong); color: var(--text-muted); }
+```
+
+### 4.9 Login / Auth (unify into ONE template — currently 3 exist)
+```
+Layout: centered card, max-width 400px, on canvas background with a very subtle
+  radial gradient glow behind it: radial-gradient(circle at 50% 0%, rgba(74,127,167,0.12), transparent 60%)
+Card: bg-card, radius-xl, shadow-lg, padding 40px 32px
+Logo: shield icon (Lucide `shield-check`), 40px, color var(--blue-600), NOT red, NOT a lock
+Title: heading-md, text-primary
+Subtitle: body-sm, text-muted
+Inputs: standard .input spec above with icon prefix (mail/lock icons, w-4 h-4, text-muted)
+Submit: .btn-primary, full width
+Footer link: body-sm, var(--blue-600), no underline until hover
+```
+Delete the other two login variants (dark-browser-chrome "Super Admin" red-lock version, and the split "Organization Portal" version) — every auth entry point (org login, admin login, employee login) uses this ONE template with only the title/subtitle copy changing.
+
+### 4.10 Icons
+- Library: **Lucide** only (already in use — keep it, just standardize sizing).
+- Sidebar nav: 18px, stroke 2
+- Card header icons: 20px inside 36px rounded-sm badge container (`--blue-100` bg / dark `rgba(74,127,167,.18)`)
+- Inline/table action icons: 16px, stroke 2
+- Never mix in emoji, never mix in a second icon set (Heroicons/Feather) even for one-off pieces
+
+---
+
+## 5. Dark Mode Toggle Behavior
+- Toggle lives top-right, sun/moon icon swap, animate icon rotation 200ms.
+- Respect `prefers-color-scheme` on first load, persist user override in localStorage.
+- Every color token above is a CSS variable — dark mode is a `[data-theme="dark"]` attribute on `<html>` that swaps the variable block, not a Tailwind `dark:` class scattered on every element (far easier to keep consistent, and matches how the CrypCoin/Innova references clearly do it — one coherent dark surface system, not per-component overrides).
+
+---
+
+## 6. Recommended Libraries (additive only — none of these require touching business logic)
+
+| Need | Library | Why |
+|---|---|---|
+| Charts | **Tremor** (`@tremor/react`) or **Recharts** | Tremor gives you dashboard-grade cards+charts pre-styled to Tailwind tokens fast; Recharts if you want full control to match §4.7 spec exactly |
+| Animation / micro-interactions | **Framer Motion** | Card hover lift, stepper transitions, modal enter/exit — already partially used, extend it |
+| Icons | **lucide-react** | Already standard, keep |
+| Skeleton loading states | **react-loading-skeleton** or Tremor's built-in | Dashboards with 0-state (like your current "0 Total Employees") should show skeletons while fetching, not static zeros |
+| Toasts/notifications | **sonner** | Minimal, matches "elegant" direction better than default browser alerts |
+| Command palette (optional, premium touch) | **cmdk** | "⌘K search logs/threats/endpoints" — you already have a search bar in the header, this makes it functional and feels very premium (Linear/Vercel-style) |
+| Data tables (if not custom) | **TanStack Table** headless + your own styling per §4.6 | Keeps your exact visual spec instead of a pre-styled table lib fighting your design |
+
+---
+
+## 7. Page-Specific Notes
+
+- **Landing page:** rebuild hero in Outfit + `--blue-600`/`--navy-950`, remove violet/black condensed font entirely. Stat cards (99.8%, Zero, 15m, 100%) should become small `.card--stat`-style elements, not bare text, for consistency with dashboard.
+- **Setup Engine:** already closest to on-brand — apply sidebar (§4.1), badge (§4.5), and stepper (§4.8) specs; remove uppercase-bold-wide button styling.
+- **Dashboard (Admin/Employee):** apply dark sidebar even in light mode, restyle KPI row as `.card--stat`, add skeleton states for the current all-zero metrics, restyle "Threat Trends" chart per §4.7.
+- **Employee table / Departments:** apply §4.6 exactly — remove any striping, tighten row height, restyle role/status pills as `.badge`.

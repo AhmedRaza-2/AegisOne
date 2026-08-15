@@ -1,18 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Tomorrow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @import "tailwindcss";
 
 @theme {
-  --color-gradient-border: #4e54c8;
-  --font-headings: "Tomorrow", sans-serif;
+  --color-gradient-border: #4A7FA7;
+  --font-headings: "Outfit", sans-serif;
 }
 
 @layer base {
 
   :root {
-    --text-color: #171717;
-    --background-color: #fff;
-    --font-primary: "Tomorrow", sans-serif;
+    --text-color: #0A1931;
+    --background-color: #F6FAFD;
+    --font-primary: "Outfit", sans-serif;
   }
 
   html {
@@ -20,7 +20,7 @@
   }
 
   body {
-    font-family: "Tomorrow", sans-serif;
+    font-family: "Outfit", sans-serif;
     color: var(--text-color);
     background-color: var(--background-color);
   }
@@ -43,19 +43,16 @@
 
   input,
   textarea {
-    @apply w-full border border-zinc-500 rounded-md p-2 py-4 focus:outline-none focus:ring-2 focus:ring-gradient-border placeholder:text-zinc-500;
+    @apply w-full border border-zinc-300 rounded-md p-2 py-4 focus:outline-none focus:ring-2 focus:ring-gradient-border placeholder:text-zinc-500 bg-white;
   }
 }
 
 @utility text-gradient {
-  background-image: -webkit-linear-gradient(to right, #8f94fb, #4e54c8);
-  background-image: linear-gradient(to right, #8f94fb, #4e54c8);
+  background-image: linear-gradient(to right, #4A7FA7, #1A3D63);
 }
 
 @utility bg-gradient {
-  background-image: #ECE9E6;
-  background-image: -webkit-linear-gradient(to top, #FFFFFF, #ECE9E6);
-  background-image: linear-gradient(to top, #FFFFFF, #ECE9E6);
+  background-image: linear-gradient(to top, #FFFFFF, #F6FAFD);
 }
 
 /* Globally reduce the font size of the website by 5% */
