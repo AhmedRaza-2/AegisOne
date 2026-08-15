@@ -151,6 +151,7 @@ function SidebarContent({
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
+              prefetch={true}
               className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${active
                 ? "bg-surface-100 dark:bg-white/[0.02] text-surface-900 dark:text-white border-l-2 border-brand-500 dark:border-[#4F84F8]"
                 : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02] border-l-2 border-transparent"

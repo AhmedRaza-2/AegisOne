@@ -1,7 +1,7 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor, BrainCircuit } from "lucide-react";
+import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor, BrainCircuit, X } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 
@@ -49,6 +49,18 @@ export default function ThreatCenterPage() {
   const avgScore = recent.length
     ? (recent.reduce((acc: number, t: any) => acc + (t.riskScore || 0), 0) / recent.length).toFixed(1)
     : "0.0";
+
+  const filteredRecent = recent.filter((threat: any) => {
+    if (filter === "All") return true;
+    const isCritical = threat.riskScore >= 80;
+    const isHigh = threat.riskScore >= 60 && threat.riskScore < 80;
+    const isMedium = threat.riskScore >= 30 && threat.riskScore < 60;
+    let severity = "Low";
+    if (isCritical) severity = "Critical";
+    else if (isHigh) severity = "High";
+    else if (isMedium) severity = "Medium";
+    return severity === filter;
+  });
 
   const handleExport = () => {
     if (!recent.length) return alert("No data to export");
@@ -105,13 +117,13 @@ export default function ThreatCenterPage() {
         {/* Main Incident List */}
         <div className="xl:col-span-2 space-y-4">
 
-          {recent.length === 0 && (
+          {filteredRecent.length === 0 && (
             <div className="p-8 text-center text-surface-500 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04]">
               No recent threats found matching the current filter.
             </div>
           )}
 
-          {recent.map((threat: any) => {
+          {filteredRecent.map((threat: any) => {
             const isCritical = threat.riskScore >= 80;
             const isHigh = threat.riskScore >= 60 && threat.riskScore < 80;
             const isMedium = threat.riskScore >= 30 && threat.riskScore < 60;
@@ -241,69 +253,106 @@ export default function ThreatCenterPage() {
       {/* Threat Details Modal */}
       <AnimatePresence>
         {selectedThreat && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-2xl p-6 max-w-lg w-full shadow-2xl overflow-hidden relative"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="bg-white dark:bg-[#0B101E] border border-surface-200 dark:border-white/[0.08] rounded-3xl p-0 max-w-2xl w-full shadow-2xl overflow-hidden relative flex flex-col"
             >
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${(selectedThreat.decision || '').toLowerCase().includes('block') ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                    {(selectedThreat.decision || '').toLowerCase().includes('block') ? <AlertCircle className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Threat Details</h3>
-                    <p className="text-xs text-surface-500 font-mono">#{selectedThreat.id.split('-')[0].toUpperCase()}</p>
-                  </div>
-                </div>
-                <button onClick={() => setSelectedThreat(null)} className="text-surface-400 hover:text-surface-900 dark:hover:text-white transition-colors">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                </button>
-              </div>
+              {/* Top Accent Bar */}
+              <div className={`h-2 w-full ${(selectedThreat.decision || '').toLowerCase().includes('block') ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gradient-to-r from-amber-400 to-orange-500'}`} />
 
-              <div className="space-y-4">
-                <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] p-4 rounded-xl">
-                  <div className="text-xs font-bold text-surface-500 uppercase tracking-widest mb-1">Target URL / Domain</div>
-                  <div className="text-sm text-surface-900 dark:text-white break-all font-mono">{selectedThreat.target}</div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] p-4 rounded-xl">
-                    <div className="text-xs font-bold text-surface-500 uppercase tracking-widest mb-1">Category</div>
-                    <div className="text-sm font-semibold text-surface-900 dark:text-white">{selectedThreat.category}</div>
+              <div className="p-6 sm:p-8">
+                {/* Header */}
+                <div className="flex justify-between items-start mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${(selectedThreat.decision || '').toLowerCase().includes('block') ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-500 border border-red-100 dark:border-red-500/20' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-100 dark:border-amber-500/20'}`}>
+                      {(selectedThreat.decision || '').toLowerCase().includes('block') ? <AlertCircle className="w-7 h-7" /> : <ShieldAlert className="w-7 h-7" />}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-extrabold text-surface-900 dark:text-white tracking-tight">Threat Details</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs font-medium text-surface-500 bg-surface-100 dark:bg-white/[0.05] px-2 py-0.5 rounded-md font-mono">#{selectedThreat.id.split('-')[0].toUpperCase()}</span>
+                        <span className="text-xs text-surface-400">•</span>
+                        <span className="text-xs text-surface-500">{new Date(selectedThreat.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] p-4 rounded-xl">
-                    <div className="text-xs font-bold text-surface-500 uppercase tracking-widest mb-1">AI Risk Score</div>
-                    <div className="text-sm font-semibold text-surface-900 dark:text-white">{selectedThreat.riskScore}%</div>
-                  </div>
+                  <button onClick={() => setSelectedThreat(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-100 dark:bg-white/[0.05] text-surface-500 hover:bg-surface-200 dark:hover:bg-white/[0.1] hover:text-surface-900 dark:hover:text-white transition-all">
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
 
-                <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] p-4 rounded-xl flex items-center justify-between">
-                  <span className="text-xs font-bold text-surface-500 uppercase tracking-widest">AegisOne Status</span>
-                  <span className={`text-sm font-black uppercase tracking-wider ${(selectedThreat.decision || '').toLowerCase().includes('block') ? 'text-red-500' : 'text-amber-500'}`}>{selectedThreat.decision}</span>
+                <div className="space-y-6">
+                  {/* Status & Stats Row */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Action Taken</span>
+                      <span className={`text-sm font-black uppercase tracking-wider ${(selectedThreat.decision || '').toLowerCase().includes('block') ? 'text-red-500' : 'text-amber-500'}`}>
+                        {selectedThreat.decision}
+                      </span>
+                    </div>
+                    <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Risk Score</span>
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-surface-400" />
+                        <span className="text-lg font-bold text-surface-900 dark:text-white leading-none">{selectedThreat.riskScore}<span className="text-sm text-surface-500">%</span></span>
+                      </div>
+                    </div>
+                    <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Category</span>
+                      <span className="text-sm font-bold text-surface-700 dark:text-surface-200 leading-tight">
+                        {selectedThreat.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Target URL */}
+                  <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-5 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ExternalLink className="w-4 h-4 text-surface-400" />
+                      <span className="text-xs font-bold text-surface-500 uppercase tracking-widest">Target URL / Domain</span>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-black/20 border border-surface-200 dark:border-white/[0.05] rounded-xl text-sm text-surface-800 dark:text-surface-300 font-mono break-all leading-relaxed shadow-inner max-h-32 overflow-y-auto custom-scrollbar">
+                      {selectedThreat.target}
+                    </div>
+                  </div>
+
+                  {/* AI Explanation */}
+                  <div className="relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-purple-500/30 to-brand-500/30">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-brand-500/10" />
+                    <div className="relative bg-white dark:bg-[#111727] p-6 rounded-[15px] h-full">
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-5 pointer-events-none">
+                         <BrainCircuit className="w-32 h-32" />
+                      </div>
+                      
+                      <div className="flex items-center gap-2.5 mb-4 relative z-10">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-brand-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                          <BrainCircuit className="w-4 h-4 text-white" />
+                        </div>
+                        <h4 className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-brand-600 dark:from-purple-400 dark:to-brand-400">
+                          Aegis AI Analysis
+                        </h4>
+                      </div>
+                      
+                      <p className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed relative z-10">
+                        Based on deep behavioral analysis, <span className="font-semibold text-surface-900 dark:text-white px-1 py-0.5 rounded bg-surface-100 dark:bg-white/[0.05] mx-0.5">{selectedThreat.target.substring(0, 35)}{selectedThreat.target.length > 35 ? '...' : ''}</span> was flagged because it exhibits classic indicators of a <strong className="text-surface-900 dark:text-white">{selectedThreat.category}</strong> attack. The domain reputation is extremely low and the content structure matches known malicious patterns. I automatically <strong className={`px-1.5 py-0.5 rounded ${ (selectedThreat.decision || '').toLowerCase().includes('block') ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' }`}>{(selectedThreat.decision || '').toLowerCase().includes('block') ? 'blocked' : 'warned about'}</strong> this connection to secure your environment.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-500/5 to-[#4F84F8]/5 border border-purple-500/20 p-5 rounded-xl mt-4 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" strokeWidth="1"><defs><linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#A855F7" /><stop offset="100%" stopColor="#4F84F8" /></linearGradient></defs><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2" /></svg>
-                  </div>
-                  <div className="flex items-center gap-2 mb-3 relative z-10">
-                    <BrainCircuit className="w-5 h-5 text-purple-500" />
-                    <h4 className="text-sm font-bold text-surface-900 dark:text-white">Aegis AI Explanation</h4>
-                  </div>
-                  <p className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed relative z-10">
-                    Based on my analysis, <span className="font-semibold text-surface-900 dark:text-white">{selectedThreat.target}</span> was flagged because it exhibits classic indicators of a <strong>{selectedThreat.category}</strong> attack. The domain reputation is extremely low and the content structure matches known malicious patterns. I automatically <strong>{(selectedThreat.decision || '').toLowerCase().includes('block') ? 'blocked' : 'warned about'}</strong> this connection to secure your environment.
+                {/* Footer */}
+                <div className="mt-8 pt-6 border-t border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
+                  <p className="text-xs font-semibold tracking-wide text-surface-400 flex items-center gap-1.5 uppercase">
+                    <ShieldCheck className="w-4 h-4" /> Protected by AegisOne
                   </p>
+                  <button onClick={() => setSelectedThreat(null)} className="px-8 py-2.5 bg-surface-900 dark:bg-white text-white dark:text-surface-900 hover:bg-surface-800 dark:hover:bg-surface-100 text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
+                    Acknowledge
+                  </button>
                 </div>
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <button onClick={() => setSelectedThreat(null)} className="px-6 py-2 bg-[#4F84F8] hover:bg-[#3D6CE5] text-white text-sm font-bold rounded-lg transition-colors">
-                  Acknowledge
-                </button>
               </div>
             </motion.div>
           </div>
