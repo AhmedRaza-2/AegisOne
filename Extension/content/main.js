@@ -35,6 +35,22 @@
     return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
   }
 
+  // Expose telemetry data to DOM to cross JS execution worlds (isolated content script -> page test crawler)
+  function _exposeTelemetryToDOM(id, data) {
+    if (!document.body) {
+      document.addEventListener("DOMContentLoaded", () => _exposeTelemetryToDOM(id, data));
+      return;
+    }
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = id;
+      el.style.display = "none";
+      document.body.appendChild(el);
+    }
+    el.textContent = JSON.stringify(data);
+  }
+
   // ── Step 1: Create widget immediately ─────────────────
   async function init() {
     try {
@@ -45,7 +61,7 @@
         { initLinkScanner, applyDangerBadges },
         { initFormGuard, setCurrentRisk },
         { showWarningModal, showXAIModal, showDownloadModal, showRightClickResult, showTextScanResult },
-        { getRootDomain },
+        { getRootDomain, isTrusted },
       ] = await Promise.all([
         import(chrome.runtime.getURL("utils/constants.js")),  // imports API_BASE, DEBUG_MODE, etc.
         import(chrome.runtime.getURL("content/widget.js")),
@@ -76,10 +92,12 @@
 
       // ── DOM Feature Extraction ──────────────────────
       const features = _extractPageFeatures();
+      _exposeTelemetryToDOM("aegis-page-features", features);
 
       // ── Form Guard ──────────────────────────────────
       initFormGuard((formFeatures) => {
         Object.assign(features, formFeatures);
+        _exposeTelemetryToDOM("aegis-page-features", features);
       });
 
       // ── Send features to background ─────────────────
@@ -91,9 +109,28 @@
 
       if (scanResult?.result) {
         _currentScanData = scanResult.result;
+        _exposeTelemetryToDOM("aegis-scan-data", scanResult.result);
         setCurrentRisk(scanResult.result.score);
         updateWidget(scanResult.result);
       }
+
+      // ── Diagnostic channel (test harness only — no scoring impact) ───
+      // Fires unconditionally so run_diagnostic.py can capture L3 state
+      // even when scanResult is null (e.g. background service worker restart).
+      console.info("[AEGIS:L3]", JSON.stringify({
+        url: window.location.href,
+        scan_result: scanResult?.result ?? null,
+        features: {
+          login_form_found: features.login_form_found,
+          brand_impersonation: features.brand_impersonation ?? null,
+          brand_impersonation_score: features.brand_impersonation_score ?? null,
+          brand_impersonation_role: features.brand_impersonation_role ?? null,
+          hidden_iframe: features.hidden_iframe,
+          js_obfuscated: features.js_obfuscated,
+          has_password: features.has_password,
+          has_email: features.has_email,
+        },
+      }));
 
       // ── Search Badges ───────────────────────────────
       const isSearchPage = /google\.|bing\.com|duckduckgo\.com/.test(location.hostname);
@@ -102,8 +139,6 @@
       // ── Link Scanner ────────────────────────────────
       initLinkScanner();
 
-      // ── Auto Deep Page Scan (text + links, images skipped) ──
-      // Runs 2.5s after page load to let DOM settle. Images are only scanned on right-click.
       _scheduleDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal, 2500);
       if (isAllowlistedPage) {
         clearTimeout(_deepScanTimer);
@@ -114,6 +149,12 @@
         switch (msg.type) {
           case "SCAN_RESULT":
             _currentScanData = msg;
+            _exposeTelemetryToDOM("aegis-scan-data", msg);
+            console.info("[AEGIS:L3]", JSON.stringify({
+              url: window.location.href,
+              scan_result: msg,
+              features: _extractPageFeatures(),
+            }));
             setCurrentRisk(msg.score);
             updateWidget(msg);
             if (msg.score >= 80) {
@@ -128,6 +169,7 @@
             break;
 
           case "SHOW_WARNING":
+            _exposeTelemetryToDOM("aegis-scan-data", msg);
             if (msg.score >= 80) {
               showWarningModal({
                 score: msg.score,
@@ -201,6 +243,7 @@
               threat_type: mergedScore >= 80 ? "phishing" : (_currentScanData?.threat_type || "suspicious_activity"),
             };
             _currentScanData = { ...( _currentScanData || {} ), ...currentResult };
+            _exposeTelemetryToDOM("aegis-scan-data", _currentScanData);
             updateWidget(currentResult);
             if (badUrls?.length > 0) {
               applyDangerBadges(badUrls.map(u => u.url));
@@ -263,6 +306,7 @@
         }).then(r => {
           if (r?.result) {
             _currentScanData = r.result;
+            _exposeTelemetryToDOM("aegis-scan-data", r.result);
             setCurrentRisk(r.result.score);
             updateWidget(r.result);
           }
@@ -379,10 +423,10 @@
     const text_snippet = (document.body?.innerText || "").slice(0, 300).replace(/\s+/g, " ");
     const full_text    = (document.body?.innerText || "").slice(0, 3000);
 
-    // Login form — search engines always have a <form> but NEVER a password field for the user
+    // Login form
     const passwordInputs   = document.querySelectorAll('input[type="password"]');
-    const login_form_found = !isKnownSafeHost && passwordInputs.length > 0;
-    const form_count       = isKnownSafeHost ? 0 : forms.filter(f => f.querySelector('input[type="password"]')).length;
+    const login_form_found = passwordInputs.length > 0;
+    const form_count       = forms.filter(f => f.querySelector('input[type="password"]')).length;
 
     return {
       text_snippet,

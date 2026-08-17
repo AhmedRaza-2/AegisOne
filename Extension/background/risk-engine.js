@@ -111,7 +111,10 @@ export function computeRisk(signals = {}) {
   }
 
   // ── 7. Brand Mismatch / Impersonation ──────────────────
-  if (signals.brand_mismatch != null || signals.brand_impersonation != null) {
+  const isPrimaryImp = signals.brand_impersonation != null && signals.brand_impersonation_role === "primary_identity_impersonation";
+  const isOauth = signals.brand_impersonation != null && signals.brand_impersonation_role === "third_party_oauth";
+
+  if (!isOauth && (signals.brand_mismatch != null || signals.brand_impersonation != null)) {
     const isImp = signals.brand_impersonation != null;
     const s = isImp ? (signals.brand_impersonation_score || 96) : (signals.brand_mismatch ? 88 : 0);
     breakdown.brand_mismatch = {
@@ -155,7 +158,12 @@ export function computeRisk(signals = {}) {
   // ── Composite Score ───────────────────────────────────
   // Normalize by actual weight used (handles missing features gracefully)
   const normalizer = weight_used > 0 ? (1 / weight_used) : 1;
-  const score = Math.min(100, Math.round(weighted_sum * normalizer));
+  let score = Math.min(100, Math.round(weighted_sum * normalizer));
+
+  // Assert minimum floor score for active brand impersonations
+  if (isPrimaryImp) {
+    score = Math.max(score, 85);
+  }
 
   // ── Verdict ───────────────────────────────────────────
   let verdict = VERDICT.SAFE;
@@ -175,6 +183,9 @@ export function computeRisk(signals = {}) {
     breakdown,
     top_factors,
     threat_type: signals.threat_type || _inferThreatType(breakdown, score),
+    context: {
+      known_domain: signals.known_domain === true
+    },
     computed_at: Date.now(),
   };
 }

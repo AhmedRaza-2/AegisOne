@@ -1,0 +1,7 @@
+2026/08/18-01:13:45.091 744 Reusing MANIFEST D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\IndexedDB\https_www.youtube.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/18-01:13:45.091 744 Recovering log #3
+2026/08/18-01:13:45.092 744 Reusing old log D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\IndexedDB\https_www.youtube.com_0.indexeddb.leveldb/000003.log 
+2026/08/18-01:13:45.146 581c Level-0 table #5: started
+2026/08/18-01:13:45.154 581c Level-0 table #5: 12111 bytes OK
+2026/08/18-01:13:45.157 581c Delete type=0 #3
+2026/08/18-01:13:45.157 744 Manual compaction at level-0 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)

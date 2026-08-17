@@ -1,0 +1,10 @@
+{
+  "name": "aegisone-root",
+  "version": "2.1.0",
+  "description": "AegisOne AI Security Copilot Platform",
+  "scripts": {
+    "test:extension": "python tests/run_extension_tests.py --sweep",
+    "test:extension:real": "python tests/run_real_extension_tests.py --sweep"
+  },
+  "dependencies": {}
+}

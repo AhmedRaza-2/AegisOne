@@ -46,6 +46,8 @@
         "utils/constants.js",
         "utils/trusted-domains.js",
         "config.json",
+        "test_runner.html",
+        "test_runner.js",
         "icons/*.png"
       ],
       "matches": ["<all_urls>"]

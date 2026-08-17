@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mixed Signals Test Page</title>
+</head>
+<body style="font-family:sans-serif; padding:40px; background:#f4f4f5;">
+  <h2>Normal Document Content</h2>
+  <p>This page contains standard text articles about computer networking and cybersecurity best practices. It should be safe under normal classification conditions.</p>
+  
+  <hr style="border:1px solid #ddd; margin:30px 0;">
+  
+  <h3>Feedback Form</h3>
+  <!-- Mismatch and HTTP action triggers warning signals -->
+  <form action="http://insecure-form-target.xyz/feedback" method="POST">
+    <label>Your Name</label><br>
+    <input type="text" name="name" style="width:250px; padding:6px; margin:5px 0;"><br><br>
+    
+    <label>Choose a password to secure your feedback account</label><br>
+    <input type="password" name="password" style="width:250px; padding:6px; margin:5px 0;"><br><br>
+    
+    <input type="submit" value="Submit Feedback" style="padding:8px 16px; cursor:pointer;">
+  </form>
+</body>
+</html>

@@ -102,13 +102,18 @@ export function checkBrandImpersonation() {
     
     hasText = brand.keywords.some(kw => relevantText.includes(kw));
 
-    // Search logo element but exclude footer icons
+    // Search logo element inside form or its parent container, excluding footer icons
     hasLogo = brand.selectors.some(sel => {
       try {
-        const logo = document.querySelector(sel);
-        if (!logo) return false;
-        const footer = logo.closest("footer, .footer, #footer, [class*='footer'], [id*='footer']");
-        return !footer;
+        return loginForms.some(form => {
+          let logo = form.querySelector(sel);
+          if (!logo && form.parentElement) {
+            logo = form.parentElement.querySelector(sel);
+          }
+          if (!logo) return false;
+          const footer = logo.closest("footer, .footer, #footer, [class*='footer'], [id*='footer']");
+          return !footer;
+        });
       } catch (_) { return false; }
     });
 
@@ -132,8 +137,31 @@ export function checkBrandImpersonation() {
     const matchesCount = (hasText ? 1 : 0) + (hasLogo ? 1 : 0) + (hasColors ? 1 : 0);
     
     if (formSignals && matchesCount >= 2) {
+      // Determine if there is an OAuth-like button for this brand in the forms
+      const hasOauthBtn = loginForms.some(form => {
+        const buttons = [...form.querySelectorAll("button, input[type='submit'], div[role='button'], a, [class*='btn'], [class*='button']")];
+        return buttons.some(btn => {
+          const btnText = (btn.textContent || btn.value || "").toLowerCase();
+          return brand.keywords.some(kw => {
+            const regex = new RegExp(`(continue|sign|log|connect|with|using)\\s+${kw}`, "i");
+            return regex.test(btnText) || btnText.trim() === kw;
+          });
+        });
+      });
+
+      if (hasOauthBtn) {
+        return {
+          brand: brand.name,
+          role: "third_party_oauth",
+          confidence: 15,
+          threat_type: "safe",
+          score: 15
+        };
+      }
+
       return {
         brand: brand.name,
+        role: "primary_identity_impersonation",
         confidence: brand.confidence,
         threat_type: "credential_harvesting",
         score: brand.confidence
@@ -150,24 +178,12 @@ export function checkBrandImpersonation() {
 export function initFormGuard(onFormDetected) {
   const features = _analyzePageForms();
   
-  // Instant Brand Impersonation Warning
+  // Store Brand Impersonation features to be sent to Risk Engine via PAGE_FEATURES
   const impersonation = checkBrandImpersonation();
   if (impersonation) {
     features.brand_impersonation = impersonation.brand;
     features.brand_impersonation_score = impersonation.score;
-
-    import(chrome.runtime.getURL("content/modals.js")).then(({ showWarningModal }) => {
-      showWarningModal({
-        score: impersonation.score,
-        verdict: "danger",
-        threat_type: "credential_harvesting",
-        top_factors: [
-          { label: `Detected Fake login portal impersonating ${impersonation.brand}` },
-          { label: `Suspicious domain and brand asset match (Confidence: ${impersonation.confidence}%)` }
-        ],
-        url: window.location.href
-      });
-    });
+    features.brand_impersonation_role = impersonation.role;
   }
 
   if (onFormDetected) onFormDetected(features);
@@ -184,6 +200,7 @@ export function initFormGuard(onFormDetected) {
     if (imp) {
       updated.brand_impersonation = imp.brand;
       updated.brand_impersonation_score = imp.score;
+      updated.brand_impersonation_role = imp.role;
     }
     if (updated.login_form_found && !_formGuardActive) {
       if (onFormDetected) onFormDetected(updated);

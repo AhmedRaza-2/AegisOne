@@ -31,22 +31,24 @@ export const TRUSTED_DOMAINS = new Set([
   "github.com", "gitlab.com", "stackoverflow.com", "npmjs.com",
   "cloudflare.com", "akamai.com", "fastly.com",
   // Finance
-  "paypal.com", "stripe.com", "visa.com", "mastercard.com",
+  "paypal.com", "stripe.com", "visa.com", "mastercard.com", "bankofamerica.com",
+  "wellsfargo.com", "chase.com",
   // Entertainment
   "netflix.com", "spotify.com", "hulu.com",
   // News / Media
-  "bbc.com", "cnn.com", "nytimes.com", "reuters.com",
+  "bbc.com", "cnn.com", "nytimes.com", "reuters.com", "economist.com",
+  "forbes.com", "bloomberg.com", "ft.com",
   "dawn.com", "geo.tv", "arynews.tv",
   // Knowledge
-  "wikipedia.org", "archive.org",
+  "wikipedia.org", "archive.org", "quora.com", "nature.com", "sciencemag.org", "imgur.com",
   // CDNs
   "cdnjs.cloudflare.com", "jsdelivr.net", "unpkg.com",
   "fontawesome.com",
   // E-commerce
   "shopify.com", "myshopify.com", "shopifycdn.com",
   "ebay.com", "aliexpress.com",
-  // Local
-  "localhost", "127.0.0.1",
+  // SaaS / Management
+  "trello.com", "asana.com", "salesforce.com", "slack.com",
 ]);
 
 /**
@@ -69,9 +71,10 @@ export function getRootDomain(url) {
 export function isTrusted(url) {
   try {
     const h = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-    const root = getRootDomain(url);
-    // Check explicit domain list
-    if (TRUSTED_DOMAINS.has(root) || TRUSTED_DOMAINS.has(h)) return true;
+    // Check explicit domain list with suffix matching
+    for (const dom of TRUSTED_DOMAINS) {
+      if (h === dom || h.endsWith("." + dom)) return true;
+    }
     // Check trusted TLDs (.edu, .gov, .ac.uk, etc.)
     for (const tld of TRUSTED_TLDS) {
       if (h.endsWith(tld)) return true;
@@ -101,10 +104,7 @@ export function isInternalURL(url) {
       u.protocol === "chrome:" ||
       u.protocol === "chrome-extension:" ||
       u.protocol === "about:" ||
-      u.protocol === "data:" ||
-      u.hostname === "localhost" ||
-      u.hostname === "127.0.0.1" ||
-      u.hostname.endsWith(".local")
+      u.protocol === "data:"
     );
   } catch { return true; }
 }

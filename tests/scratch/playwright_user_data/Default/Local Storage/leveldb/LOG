@@ -1,0 +1,14 @@
+2026/08/18-01:10:07.563 26d4 Creating DB D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\Local Storage\leveldb since it was missing.
+2026/08/18-01:10:07.583 26d4 Reusing MANIFEST D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\Local Storage\leveldb/MANIFEST-000001
+2026/08/18-01:11:07.604 3ebc Level-0 table #5: started
+2026/08/18-01:11:07.621 3ebc Level-0 table #5: 130819 bytes OK
+2026/08/18-01:11:07.625 3ebc Delete type=0 #3
+2026/08/18-01:11:29.084 3ebc Level-0 table #7: started
+2026/08/18-01:11:29.094 3ebc Level-0 table #7: 26001 bytes OK
+2026/08/18-01:11:29.100 3ebc Delete type=0 #4
+2026/08/18-01:12:09.067 3ebc Level-0 table #9: started
+2026/08/18-01:12:09.084 3ebc Level-0 table #9: 133719 bytes OK
+2026/08/18-01:12:09.087 3ebc Delete type=0 #6
+2026/08/18-01:12:09.578 3044 Level-0 table #11: started
+2026/08/18-01:12:09.606 3044 Level-0 table #11: 78373 bytes OK
+2026/08/18-01:12:09.612 3044 Delete type=0 #8

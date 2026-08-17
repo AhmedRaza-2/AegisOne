@@ -266,13 +266,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // ── Deep Page Scan (text + links — no images) ─────
         case "DEEP_PAGE_SCAN": {
-          const { pageText, allLinks = [] } = msg;
+          const { pageUrl = sender.tab?.url, pageText, allLinks = [] } = msg;
           const tabId = sender.tab?.id;
           const signal = _tabControllers.get(tabId)?.signal;
 
           const [textRes, urlsRes] = await Promise.allSettled([
             pageText ? scanPageText(pageText, signal) : Promise.resolve(null),
-            scanURLBatch(allLinks.slice(0, 30), 5, signal),
+            scanURLBatch(allLinks.slice(0, 30), 5, signal, pageUrl),
           ]);
 
           const textResult = textRes.status === "fulfilled" ? textRes.value : null;
@@ -324,7 +324,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
           const [textRes, urlsRes] = await Promise.allSettled([
             pageText ? scanPageText(pageText, signal) : Promise.resolve(null),
-            scanURLBatch(allLinks.slice(0, 30), 5, signal),
+            scanURLBatch(allLinks.slice(0, 30), 5, signal, pageUrl),
           ]);
 
           const textResult = textRes.status === "fulfilled" ? textRes.value : null;

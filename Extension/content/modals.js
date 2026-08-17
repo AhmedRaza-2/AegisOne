@@ -9,7 +9,7 @@
  *  5. Right-Click Scan Result Modal
  */
 
-import { MSG } from "../../utils/constants.js";
+import { MSG, THRESHOLD } from "../../utils/constants.js";
 import { shortURL } from "../../utils/trusted-domains.js";
 
 export function showWarningModal({ score, verdict, threat_type, top_factors, url, onContinue }) {
@@ -22,11 +22,14 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     `<li style="margin-bottom:5px; color:#94a3b8; font-size:11px;">⚠ ${f.label}</li>`
   ).join("");
 
+  const isBlocking = score >= (THRESHOLD.DANGER * 100);
+
   _createModal("aegis-warning-overlay", `
     <div style="
       width:460px; max-width:92%;
       background:#0f0a0a; border:1px solid rgba(239,68,68,0.35);
       border-radius:16px; overflow:hidden;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.8) !important;
       animation: aegisEntrance 0.35s cubic-bezier(0.16,1,0.3,1);
     ">
       <div style="padding:14px 20px; background:rgba(239,68,68,0.12); border-bottom:1px solid rgba(239,68,68,0.2); display:flex; align-items:center; justify-content:space-between;">
@@ -51,7 +54,7 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
         <button id="aegis-warn-continue" style="flex:1;min-width:45%;padding:10px;background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Proceed at Risk</button>
       </div>
     </div>
-  `);
+  `, isBlocking);
 
   document.getElementById("aegis-warn-close")?.addEventListener("click", () => {
     document.getElementById("aegis-warning-overlay")?.remove();
@@ -500,23 +503,34 @@ function _showCompactResult({ title, subtitle, score, factors, id, contextUrl })
 
 
 // ── Internal helpers ──────────────────────────────────────
-function _createModal(id, contentHtml) {
+function _createModal(id, contentHtml, isBlocking = true) {
   _ensureModalStyles();
   const overlay = document.createElement("div");
   overlay.id = id;
-  overlay.style.cssText = `
-    position: fixed !important; inset: 0 !important; z-index: 2147483647 !important;
-    background: rgba(10,15,30,0.75) !important; backdrop-filter: blur(12px) !important;
-    display: flex !important; align-items: center !important; justify-content: center !important;
-    font-family: 'Inter', -apple-system, sans-serif !important;
-  `;
+  if (isBlocking) {
+    overlay.style.cssText = `
+      position: fixed !important; inset: 0 !important; z-index: 2147483647 !important;
+      background: rgba(10,15,30,0.75) !important; backdrop-filter: blur(12px) !important;
+      display: flex !important; align-items: center !important; justify-content: center !important;
+      font-family: 'Inter', -apple-system, sans-serif !important;
+    `;
+  } else {
+    overlay.style.cssText = `
+      position: fixed !important; bottom: 24px !important; left: 24px !important; z-index: 2147483647 !important;
+      display: flex !important; align-items: center !important; justify-content: center !important;
+      font-family: 'Inter', -apple-system, sans-serif !important;
+      pointer-events: auto !important;
+    `;
+  }
   overlay.innerHTML = contentHtml;
   document.body.appendChild(overlay);
 
-  // Click outside to close
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
+  if (isBlocking) {
+    // Click outside to close
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+  }
 }
 
 function _removeModal(id) {

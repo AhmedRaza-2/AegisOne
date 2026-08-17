@@ -1,0 +1,11 @@
+2026/08/18-01:10:08.072 26d4 Creating DB D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\Session Storage since it was missing.
+2026/08/18-01:10:08.087 26d4 Reusing MANIFEST D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\Session Storage/MANIFEST-000001
+2026/08/18-01:11:17.649 3ebc Level-0 table #5: started
+2026/08/18-01:11:17.660 3ebc Level-0 table #5: 16131 bytes OK
+2026/08/18-01:11:17.663 3ebc Delete type=0 #3
+2026/08/18-01:12:09.586 26d4 Level-0 table #7: started
+2026/08/18-01:12:09.611 26d4 Level-0 table #7: 17052 bytes OK
+2026/08/18-01:12:09.615 26d4 Delete type=0 #4
+2026/08/18-01:13:03.092 3ebc Level-0 table #9: started
+2026/08/18-01:13:03.135 3ebc Level-0 table #9: 1116228 bytes OK
+2026/08/18-01:13:03.140 3ebc Delete type=0 #6

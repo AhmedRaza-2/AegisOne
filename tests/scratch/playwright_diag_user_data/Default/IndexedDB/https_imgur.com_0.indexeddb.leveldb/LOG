@@ -1,0 +1,6 @@
+2026/08/18-00:28:44.261 35ec Creating DB D:\Coding Projects\AegisOne\tests\scratch\playwright_diag_user_data\Default\IndexedDB\https_imgur.com_0.indexeddb.leveldb since it was missing.
+2026/08/18-00:28:44.275 35ec Reusing MANIFEST D:\Coding Projects\AegisOne\tests\scratch\playwright_diag_user_data\Default\IndexedDB\https_imgur.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/18-00:28:44.892 3c48 Level-0 table #5: started
+2026/08/18-00:28:44.928 3c48 Level-0 table #5: 1607 bytes OK
+2026/08/18-00:28:44.932 3c48 Delete type=0 #3
+2026/08/18-00:28:44.938 5634 Manual compaction at level-0 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
