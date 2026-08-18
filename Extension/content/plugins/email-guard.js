@@ -165,6 +165,7 @@ export function initEmailGuard() {
           type: "XAI_REQUEST",
           url: location.href,
           score: emailScore,
+          factors: attachSignals.length > 0 ? attachSignals : [subject ? `Subject: "${subject}"` : "Email header analysis"],
           threat_type: "phishing_email",
         }).catch(() => null);
 

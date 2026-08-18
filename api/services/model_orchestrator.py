@@ -643,6 +643,8 @@ def _process_attachment_sync(file_path: str) -> dict:
 
     extraction = ATTACHMENT_ORCH.process_file(file_path)
 
+    signals = list(extraction.get("signals", []))
+
     results = {
         "file_type": extraction.get("file_type", "unknown"),
         "macros_found": extraction.get("macros_found", False),
@@ -654,7 +656,11 @@ def _process_attachment_sync(file_path: str) -> dict:
     # Delegate text
     extracted_text = extraction.get("text", "")
     if extracted_text.strip() and extracted_text != "[ZIP CONTENT]":
-        results["sub_results"]["text"] = _predict_text_sync(extracted_text[:2000])
+        text_res = _predict_text_sync(extracted_text[:2000])
+        results["sub_results"]["text"] = text_res
+        if text_res.get("prediction") == "phishing":
+            text_prob = round((text_res.get("phishing_probability", 0.95)) * 100)
+            signals.append(f"🤖 Text Model AI: Phishing language detected in attachment content ({text_prob}% risk)")
 
     # Delegate URLs
     url_results = []
@@ -662,6 +668,8 @@ def _process_attachment_sync(file_path: str) -> dict:
         r = _predict_url_sync(url)
         r["url"] = url
         url_results.append(r)
+        if r.get("phishing_probability", 0) > 0.5:
+            signals.append(f"🔗 Malicious link inside file: {url[:50]}…")
     results["sub_results"]["urls"] = url_results
 
     # Final verdict
@@ -675,6 +683,7 @@ def _process_attachment_sync(file_path: str) -> dict:
     if results["macros_found"]:
         is_phishing = True
 
+    results["phishing_signals"] = list(dict.fromkeys(signals))
     results["prediction"] = "phishing" if is_phishing else "legitimate"
     results["phishing_probability"] = max(
         results["heuristic_risk"],

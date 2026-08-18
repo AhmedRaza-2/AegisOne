@@ -82,7 +82,7 @@ class AttachmentOrchestrator:
         return list(set(self.URL_REGEX.findall(text)))
 
     def extract_pdf(self, file_path):
-        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0}
+        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0, 'signals': []}
         if not fitz:
             result['error'] = "PyMuPDF (pymupdf) not installed."
             return result
@@ -99,15 +99,20 @@ class AttachmentOrchestrator:
             result['text'] = text
             result['urls'].extend(self.extract_urls_from_text(text))
             result['urls'] = list(set(result['urls']))
+            
             # Check for JS in PDF
-            if b"/JS" in doc.write() or b"/JavaScript" in doc.write():
+            doc_bytes = doc.write()
+            if b"/JS" in doc_bytes or b"/JavaScript" in doc_bytes:
                 result['heuristic_risk'] += 0.5
+                result['signals'].append("⚠️ PDF Executable Action: Contains embedded JavaScript stream")
+            if len(result['urls']) > 3:
+                result['signals'].append(f"🔗 PDF contains {len(result['urls'])} external links")
         except Exception as e:
             result['error'] = str(e)
         return result
 
     def extract_office(self, file_path):
-        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0, 'vba_analysis': None}
+        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0, 'vba_analysis': None, 'signals': []}
         # 1. Macro Analysis
         if VBA_Parser:
             try:
@@ -115,12 +120,15 @@ class AttachmentOrchestrator:
                 if vbaparser.detect_vba_macros():
                     result['macros_found'] = True
                     result['heuristic_risk'] += 0.4
+                    result['signals'].append("📝 Embedded VBA Macro code detected in Office document")
                     analysis = vbaparser.analyze_macros()
                     if analysis:
                         suspicious = [kw for typ, kw, desc in analysis if typ in ('AutoExec', 'Suspicious', 'IOC')]
                         if suspicious:
                             result['heuristic_risk'] += 0.5
-                            result['vba_analysis'] = f"Suspicious Keywords: {', '.join(suspicious[:5])}"
+                            susp_str = ", ".join(suspicious[:5])
+                            result['vba_analysis'] = f"Suspicious Keywords: {susp_str}"
+                            result['signals'].append(f"🚨 Dangerous Macro Routine: {susp_str}")
                 vbaparser.close()
             except: pass
         # 2. Text Extraction
@@ -136,7 +144,7 @@ class AttachmentOrchestrator:
         return result
 
     def extract_html(self, file_path):
-        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0}
+        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0, 'signals': []}
         if not BeautifulSoup:
             result['error'] = "beautifulsoup4 not installed."
             return result
@@ -149,16 +157,37 @@ class AttachmentOrchestrator:
             result['urls'].extend([s['src'] for s in soup.find_all('script', src=True)])
             result['urls'].extend([f['action'] for f in soup.find_all('form', action=True)])
             result['urls'].extend(self.extract_urls_from_text(content))
-            # Flag password inputs (Credential Harvesting)
-            if soup.find_all('input', type='password') or 'password' in result['text'].lower():
+
+            # Forensic Signal 1: Password / Login Form
+            pwd_inputs = soup.find_all('input', type='password')
+            if pwd_inputs or 'password' in result['text'].lower() or 'login' in result['text'].lower():
                 result['heuristic_risk'] += 0.8
+                result['signals'].append("🔑 Credential Harvester: HTML file contains password input form")
+
+            # Forensic Signal 2: Obfuscated JS
+            content_lower = content.lower()
+            if any(k in content_lower for k in ("unescape(", "eval(", "document.write(unescape", "btoa(", "atob(")):
+                result['heuristic_risk'] += 0.4
+                result['signals'].append("⚠️ Obfuscated Script: Contains encoded unescape / eval routine")
+
+            # Forensic Signal 3: Hidden IFrames
+            if soup.find_all('iframe'):
+                result['heuristic_risk'] += 0.3
+                result['signals'].append("🪄 Hidden IFrame: HTML attempts to embed external frame")
+
+            # Forensic Signal 4: Form Actions
+            for form in soup.find_all('form', action=True):
+                act = form['action']
+                if act.startswith("http") or "@" in act:
+                    result['signals'].append(f"🔗 External Form Action: Submits data to {act[:45]}")
+
             result['urls'] = list(set(result['urls']))
         except Exception as e:
             result['error'] = str(e)
         return result
 
     def extract_txt(self, file_path):
-        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0}
+        result = {'text': '', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0, 'signals': []}
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 text = f.read()
@@ -170,7 +199,7 @@ class AttachmentOrchestrator:
 
     def extract_zip(self, file_path):
         """Recursive ZIP extraction and scanning."""
-        result = {'text': '[ZIP CONTENT]', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0, 'files_scanned': 0}
+        result = {'text': '[ZIP CONTENT]', 'urls': [], 'macros_found': False, 'heuristic_risk': 0.0, 'files_scanned': 0, 'signals': []}
         temp_dir = tempfile.mkdtemp()
         try:
             with zipfile.ZipFile(file_path, 'r') as zref:
@@ -181,14 +210,17 @@ class AttachmentOrchestrator:
                     full_path = os.path.join(root, file)
                     inner_result = self.process_file(full_path)
                     
-                    # Aggregate results
                     result['urls'].extend(inner_result.get('urls', []))
+                    if inner_result.get('signals'):
+                        result['signals'].extend(inner_result['signals'])
                     if inner_result.get('macros_found'):
                         result['macros_found'] = True
+                        result['signals'].append(f"📝 Archive contains Macro-enabled file: {file}")
                     result['heuristic_risk'] = max(result['heuristic_risk'], inner_result.get('heuristic_risk', 0.0))
                     result['files_scanned'] += 1
                     
             result['urls'] = list(set(result['urls']))
+            result['signals'] = list(set(result['signals']))
             result['text'] += f" Scanned {result['files_scanned']} files inside ZIP."
             
         except Exception as e:

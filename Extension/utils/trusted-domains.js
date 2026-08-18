@@ -103,10 +103,9 @@ export function isInternalURL(url) {
     return (
       u.protocol === "chrome:" ||
       u.protocol === "chrome-extension:" ||
-      u.protocol === "about:" ||
-      u.protocol === "data:"
+      u.protocol === "about:"
     );
-  } catch { return true; }
+  } catch { return false; }
 }
 
 /**
