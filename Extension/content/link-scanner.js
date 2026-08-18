@@ -83,7 +83,11 @@ async function _onLinkClick(e) {
 // ── Danger badges (called from background) ─────────────
 export function applyDangerBadges(dangerUrls) {
   if (!dangerUrls?.length) return;
-  const urlSet = new Set(dangerUrls);
+  const urlSet = new Set(
+    dangerUrls.map(u => (typeof u === "string" ? u : u?.url || "")).filter(Boolean)
+  );
+  if (!urlSet.size) return;
+
   document.querySelectorAll("a[href]").forEach(a => {
     try {
       const href = new URL(a.href, location.href).href;

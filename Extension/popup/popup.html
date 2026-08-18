@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AegisOne Security Copilot</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0a0e1a;
+      --bg: #090d16;
       --card: #111827;
-      --card2: #161f33;
-      --border: #1e2a45;
-      --border2: #243050;
-      --text: #e2e8f0;
+      --card2: #162032;
+      --border: rgba(255,255,255,0.08);
+      --border2: #1f2d47;
+      --text: #f1f5f9;
       --muted: #64748b;
       --muted2: #475569;
       --cyan: #06b6d4;
@@ -26,30 +26,31 @@
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      width: 310px;
+      width: 340px;
       font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
       font-size: 11px;
+      overflow-x: hidden;
     }
 
     /* ── Header ───────────────────────────────────────── */
     .header {
-      background: var(--card2);
-      padding: 10px 12px;
+      background: linear-gradient(180deg, #162032 0%, #0d1525 100%);
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
     }
-    .brand { display: flex; align-items: center; gap: 6px; }
-    .brand-logo { font-size: 16px; }
-    .brand-name { font-weight: 700; font-size: 12px; }
-    .brand-sub  { font-size: 8px; color: var(--muted); margin-top: 1px; display: none; }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-logo { font-size: 18px; line-height: 1; }
+    .brand-name { font-weight: 800; font-size: 13px; letter-spacing: -0.3px; color: #ffffff; }
+    .brand-tag { font-size: 8px; font-weight: 700; color: var(--cyan); background: rgba(6,182,212,0.12); padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(6,182,212,0.25); }
 
-    .header-right { display: flex; align-items: center; gap: 8px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
 
-    .shield-toggle { display: flex; align-items: center; gap: 4px; }
-    .toggle-label { font-size: 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
-    .toggle-switch { position: relative; width: 26px; height: 14px; cursor: pointer; }
+    .shield-toggle { display: flex; align-items: center; gap: 5px; }
+    .toggle-label { font-size: 8px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+    .toggle-switch { position: relative; width: 28px; height: 15px; cursor: pointer; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-slider {
       position: absolute; inset: 0; background: var(--border2);
@@ -57,86 +58,99 @@
     }
     .toggle-slider:before {
       content: ''; position: absolute;
-      width: 10px; height: 10px; left: 2px; top: 2px;
+      width: 11px; height: 11px; left: 2px; top: 2px;
       background: white; border-radius: 50%; transition: 0.25s;
     }
     input:checked + .toggle-slider { background: var(--green); }
-    input:checked + .toggle-slider:before { transform: translateX(12px); }
+    input:checked + .toggle-slider:before { transform: translateX(13px); }
 
     .server-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--muted); transition: background 0.3s;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted); transition: background 0.3s, box-shadow 0.3s;
       cursor: help;
     }
-    .server-dot.online  { background: var(--green); box-shadow: 0 0 4px var(--green); }
-    .server-dot.offline { background: var(--red); }
+    .server-dot.online  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .server-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
-    /* ── Verdict Section ──────────────────────────────── */
+    /* ── Overview Section ─────────────────────────────── */
     .verdict-section {
-      padding: 10px 12px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
     }
     .section-label {
-      font-size: 8px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px;
+      font-size: 8px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--muted); margin-bottom: 8px;
     }
     .verdict-box {
-      display: flex; align-items: center; gap: 8px;
-      background: transparent; border-radius: 6px;
-      padding: 8px; border: 1px solid var(--border2);
-      transition: border-color 0.3s, background 0.3s;
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(17,24,39,0.5); border-radius: 10px;
+      padding: 10px 12px; border: 1px solid var(--border2);
+      transition: all 0.3s ease;
     }
-    .verdict-icon { font-size: 20px; flex-shrink: 0; }
-    .verdict-text .status { font-size: 12px; font-weight: 700; }
-    .verdict-text .detail { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
-    .verdict-box.safe    { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.05); }
+    .verdict-icon { font-size: 22px; flex-shrink: 0; }
+    .verdict-text { flex: 1; min-width: 0; }
+    .verdict-text .status { font-size: 13px; font-weight: 800; }
+    .verdict-text .detail { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: capitalize; word-break: break-all; }
+    
+    .verdict-box.safe    { border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.06); }
     .verdict-box.safe    .status { color: var(--green); }
-    .verdict-box.caution { border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.05); }
+    .verdict-box.caution { border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.06); }
     .verdict-box.caution .status { color: var(--amber); }
-    .verdict-box.warning { border-color: rgba(249,115,22,0.4); background: rgba(249,115,22,0.05); }
+    .verdict-box.warning { border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.06); }
     .verdict-box.warning .status { color: var(--orange); }
-    .verdict-box.danger  { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
+    .verdict-box.danger  { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.06); }
     .verdict-box.danger  .status { color: var(--red); }
     .verdict-box.unknown { border-color: var(--border2); }
     .verdict-box.unknown .status { color: var(--muted); }
 
     .risk-bar-container { margin-top: 10px; }
-    .risk-bar-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 4px; }
+    .risk-bar-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
     .risk-bar { height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
     .risk-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
     .risk-fill.low  { background: var(--green); }
     .risk-fill.med  { background: var(--amber); }
     .risk-fill.high { background: var(--red); }
 
-    /* ── Tabs ─────────────────────────────────────────── */
-    .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--card); }
+    /* ── Tabs Navigation ──────────────────────────────── */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); background: #0c1220; }
     .tab-btn {
-      flex: 1; padding: 8px 4px; text-align: center; font-size: 10px; font-weight: 600;
+      flex: 1; padding: 8px 2px; text-align: center; font-size: 9px; font-weight: 700;
       color: var(--muted); cursor: pointer; border: none; background: transparent;
       border-bottom: 2px solid transparent; transition: all 0.2s;
       font-family: inherit;
     }
     .tab-btn:hover { color: var(--text); }
-    .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); background: rgba(6,182,212,0.04); }
 
     /* ── Panels ───────────────────────────────────────── */
-    .panel { display: none; padding: 10px 14px; max-height: 200px; overflow-y: auto; }
+    .panel { display: none; padding: 12px 14px; max-height: 220px; overflow-y: auto; }
     .panel.active { display: block; }
     .panel::-webkit-scrollbar { width: 3px; }
     .panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-    .empty { text-align: center; padding: 18px 0; color: var(--muted); font-size: 10px; }
+    .empty { text-align: center; padding: 20px 0; color: var(--muted); font-size: 10px; }
 
-    /* ── Breakdown Panel ──────────────────────────────── */
-    .breakdown-item { margin-bottom: 9px; }
+    /* ── Breakdown Items ──────────────────────────────── */
+    .breakdown-item { margin-bottom: 10px; }
     .breakdown-label { font-size: 10px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-    .breakdown-bar-wrap { display: flex; align-items: center; gap: 7px; }
-    .breakdown-bar { flex: 1; height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+    .breakdown-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .breakdown-bar { flex: 1; height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
     .breakdown-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
     .breakdown-pct { font-size: 10px; font-weight: 700; min-width: 28px; text-align: right; }
     .breakdown-desc { font-size: 9px; color: var(--muted); margin-top: 2px; }
 
-    /* ── Events Panel ─────────────────────────────────── */
+    /* ── Plugin & Model Rows ──────────────────────────── */
+    .model-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+    }
+    .model-row:last-child { border-bottom: none; }
+    .model-name { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .model-badge { font-size: 9px; padding: 2px 7px; border-radius: 8px; font-weight: 700; }
+    .model-badge.ok  { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
+    .model-badge.err { background: rgba(239,68,68,0.12);  color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+
+    /* ── Events Log ──────────────────────────────────── */
     .event-item {
       display: flex; align-items: center; gap: 8px;
       padding: 7px 0; border-bottom: 1px solid var(--border);
@@ -144,35 +158,33 @@
     .event-item:last-child { border-bottom: none; }
     .event-icon { font-size: 14px; flex-shrink: 0; }
     .event-info { flex: 1; min-width: 0; }
-    .event-domain { font-size: 11px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .event-meta { font-size: 9px; color: var(--muted); margin-top: 1px; text-transform: capitalize; }
-    .event-score { font-size: 11px; font-weight: 700; flex-shrink: 0; }
+    .event-domain { font-size: 10px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event-meta { font-size: 8px; color: var(--muted); margin-top: 1px; text-transform: capitalize; }
+    .event-score { font-size: 10px; font-weight: 800; flex-shrink: 0; }
 
-    /* ── Models Panel ─────────────────────────────────── */
-    .model-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 0; border-bottom: 1px solid var(--border);
+    /* ── xAI Copilot Drawer Panel ─────────────────────── */
+    .xai-card {
+      background: rgba(30,41,59,0.35); border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 10px; padding: 12px; margin-bottom: 10px;
     }
-    .model-row:last-child { border-bottom: none; }
-    .model-name { font-size: 11px; font-weight: 500; }
-    .model-badge { font-size: 9px; padding: 2px 7px; border-radius: 8px; font-weight: 700; }
-    .model-badge.ok  { background: rgba(16,185,129,0.12); color: var(--green); }
-    .model-badge.err { background: rgba(239,68,68,0.12);  color: var(--red); }
+    .xai-title { font-size: 10px; font-weight: 800; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+    .xai-body { font-size: 11px; color: var(--text); line-height: 1.5; }
 
     /* ── Footer ───────────────────────────────────────── */
     .footer {
-      padding: 8px 14px; border-top: 1px solid var(--border);
+      padding: 9px 14px; border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
-      background: var(--card);
+      background: #0c1220;
     }
-    .url-display { font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; }
-    .scan-meta { font-size: 8px; color: var(--muted2); margin-top: 2px; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-display { font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; font-weight: 500; }
+    .scan-meta { font-size: 8px; color: var(--muted2); margin-top: 1px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rescan-btn {
       font-size: 9px; color: var(--cyan); cursor: pointer;
-      border: none; background: none; font-family: inherit; font-weight: 600;
-      white-space: nowrap;
+      border: 1px solid rgba(6,182,212,0.3); background: rgba(6,182,212,0.08);
+      padding: 3px 8px; border-radius: 6px; font-family: inherit; font-weight: 700;
+      white-space: nowrap; transition: all 0.2s;
     }
-    .rescan-btn:hover { text-decoration: underline; }
+    .rescan-btn:hover { background: rgba(6,182,212,0.2); border-color: var(--cyan); }
   </style>
 </head>
 <body>
@@ -183,8 +195,8 @@
       <div class="brand-logo">🛡️</div>
       <div>
         <div class="brand-name">AegisOne</div>
-        <div class="brand-sub">AI Security Copilot</div>
       </div>
+      <span class="brand-tag">v2.2 Copilot</span>
     </div>
     <div class="header-right">
       <div class="shield-toggle">
@@ -200,7 +212,7 @@
 
   <!-- Current Page Verdict -->
   <div class="verdict-section">
-    <div class="section-label">Current Page</div>
+    <div class="section-label">Active Protection Overview</div>
     <div class="verdict-box unknown" id="verdictBox">
       <div class="verdict-icon" id="verdictIcon">🔍</div>
       <div class="verdict-text">
@@ -210,78 +222,109 @@
     </div>
     <div class="risk-bar-container" id="riskBarContainer" style="display:none;">
       <div class="risk-bar-label">
-        <span>Phishing Risk</span>
+        <span>Phishing Risk Score</span>
         <span id="riskPct">0%</span>
       </div>
       <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
     </div>
   </div>
 
-  <!-- Tabs -->
+  <!-- Tabs Navigation -->
   <div class="tabs">
-    <button class="tab-btn active" data-tab="controls">🎛️ Controls</button>
+    <button class="tab-btn active" data-tab="overview">🛡️ Overview</button>
     <button class="tab-btn" data-tab="breakdown">📊 Breakdown</button>
-    <button class="tab-btn" data-tab="events">🕐 Events</button>
-    <button class="tab-btn" data-tab="models">🤖 Models</button>
+    <button class="tab-btn" data-tab="plugins">🧩 Plugins</button>
+    <button class="tab-btn" data-tab="xai">🤖 xAI</button>
+    <button class="tab-btn" data-tab="events">🕐 Logs</button>
   </div>
 
-  <!-- Controls Panel -->
-  <div class="panel active" id="panel-controls">
-    <div style="display:flex; justify-content:space-between; margin-bottom: 12px; background: rgba(16,185,129,0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.15);">
+  <!-- Panel 1: Overview Controls -->
+  <div class="panel active" id="panel-overview">
+    <div style="display:flex; justify-content:space-between; margin-bottom: 10px; background: rgba(16,185,129,0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.15);">
       <div style="text-align:center; flex: 1;">
         <div style="font-size: 16px; font-weight: 800; color: var(--green);" id="statsScans">0</div>
-        <div style="font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Total Scans</div>
+        <div style="font-size: 8px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Total Scans</div>
       </div>
       <div style="width:1px; background: var(--border2); margin: 0 10px;"></div>
       <div style="text-align:center; flex: 1;">
         <div style="font-size: 16px; font-weight: 800; color: var(--red);" id="statsBlocked">0</div>
-        <div style="font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Threats Blocked</div>
+        <div style="font-size: 8px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Threats Blocked</div>
       </div>
     </div>
 
-    <div class="section-label" style="margin-top:10px;">Active Protection Modules</div>
+    <div class="section-label" style="margin-top:6px;">Backend AI Models</div>
+    <div class="model-row"><span class="model-name">🔗 URL Phishing AI</span><span class="model-badge" id="m-url">—</span></div>
+    <div class="model-row"><span class="model-name">📝 NLP Text Model</span><span class="model-badge" id="m-text">—</span></div>
+    <div class="model-row"><span class="model-name">📧 Email Classifier</span><span class="model-badge" id="m-email">—</span></div>
+    <div class="model-row"><span class="model-name">🖼️ Visual Phishing Model</span><span class="model-badge" id="m-image">—</span></div>
+  </div>
+
+  <!-- Panel 2: Risk Feature Breakdown -->
+  <div class="panel" id="panel-breakdown">
+    <div class="empty" id="breakdownEmpty" style="display:none;">No breakdown data yet for this site.</div>
+    <div id="breakdownList"></div>
+  </div>
+
+  <!-- Panel 3: Modular Security Plugins -->
+  <div class="panel" id="panel-plugins">
+    <div class="section-label">Pluggable Platform Scanners</div>
     <div class="model-row">
-      <span class="model-name">🌐 Auto-URL Scanning</span>
+      <span class="model-name">💬 WhatsApp Web Guard</span>
       <label class="toggle-switch">
-        <input type="checkbox" id="toggleUrlScan" checked>
+        <input type="checkbox" id="toggleWhatsappGuard" checked>
         <span class="toggle-slider"></span>
       </label>
     </div>
     <div class="model-row">
-      <span class="model-name">🖱️ Hover Link Scanning</span>
+      <span class="model-name">📧 Email Guard (Gmail/Outlook)</span>
       <label class="toggle-switch">
-        <input type="checkbox" id="toggleHoverScan" checked>
+        <input type="checkbox" id="toggleEmailGuard" checked>
         <span class="toggle-slider"></span>
       </label>
     </div>
-    <div class="model-row" style="border-bottom:none;">
-      <span class="model-name">🔐 Form Guard (Passwords)</span>
+    <div class="model-row">
+      <span class="model-name">📥 Download Guard Interceptor</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleDownloadGuard" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="model-row">
+      <span class="model-name">🔐 Form Guard (Password Leak)</span>
       <label class="toggle-switch">
         <input type="checkbox" id="toggleFormGuard" checked>
         <span class="toggle-slider"></span>
       </label>
     </div>
+    <div class="model-row">
+      <span class="model-name">🖱️ Hover Link Scanner</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleHoverScan" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="model-row">
+      <span class="model-name">🌐 Auto-URL Navigation Scan</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleUrlScan" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
   </div>
 
-  <!-- Breakdown Panel -->
-  <div class="panel" id="panel-breakdown">
-    <div class="empty" id="breakdownEmpty" style="display:none;">No scan data yet.</div>
-    <div id="breakdownList"></div>
+  <!-- Panel 4: xAI Copilot Explanation -->
+  <div class="panel" id="panel-xai">
+    <div class="xai-card">
+      <div class="xai-title">✨ Explainable AI Diagnosis</div>
+      <div class="xai-body" id="xaiSummaryText">Click the button below to generate an instant natural language security analysis for the active page.</div>
+    </div>
+    <button id="btnAskXAI" style="width:100%;padding:9px;background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2));border:1px solid rgba(99,102,241,0.4);border-radius:8px;color:#c7d2fe;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;">✨ Generate AI Explanation</button>
   </div>
 
-  <!-- Events Panel -->
+  <!-- Panel 5: Event Logs -->
   <div class="panel" id="panel-events">
-    <div class="empty" id="eventsEmpty">No security events recorded.</div>
+    <div class="empty" id="eventsEmpty">No security events recorded yet.</div>
     <div id="eventsList"></div>
-  </div>
-
-  <!-- Models Panel -->
-  <div class="panel" id="panel-models">
-    <div class="model-row"><span class="model-name">📧 Email AI</span><span class="model-badge" id="m-email">—</span></div>
-    <div class="model-row"><span class="model-name">📝 Text AI</span><span class="model-badge" id="m-text">—</span></div>
-    <div class="model-row"><span class="model-name">🔗 URL AI</span><span class="model-badge" id="m-url">—</span></div>
-    <div class="model-row"><span class="model-name">🖼️ Image AI</span><span class="model-badge" id="m-image">—</span></div>
-    <div class="model-row"><span class="model-name">📎 Attachment</span><span class="model-badge ok">Built-in</span></div>
   </div>
 
   <!-- Footer -->

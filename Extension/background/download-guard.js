@@ -204,22 +204,36 @@ async function _promptUser(downloadId, filename, scanResult) {
       _pending.delete(downloadId);
     });
 
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: "icons/icon48.png",
+    safeNotify({
       title: "⚠️ AegisOne: Risky File Intercepted",
       message: `${filename} is under deep attachment analysis.`,
+      iconUrl: "icons/icon48.png",
       priority: 2,
     });
   } else {
     _markProcessed(scanResult.url);
     _pending.delete(downloadId);
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: "icons/icon48.png",
+    safeNotify({
       title: "🚨 AegisOne: Download Blocked",
       message: `Auto-blocked ${filename} (${scanResult.risk_score}% risk, no active tab)`,
+      iconUrl: "icons/icon48.png",
       priority: 2,
     });
   }
+}
+
+function safeNotify({ title, message, iconUrl = "icons/icon48.png", type = "basic", priority = 2 }) {
+  try {
+    const fullIconUrl = chrome.runtime.getURL(iconUrl || "icons/icon48.png");
+    chrome.notifications.create(
+      {
+        type: type || "basic",
+        iconUrl: fullIconUrl,
+        title: title || "AegisOne Security Alert",
+        message: message || "",
+        priority: priority || 2,
+      },
+      () => { if (chrome.runtime.lastError) {} }
+    );
+  } catch (_) {}
 }

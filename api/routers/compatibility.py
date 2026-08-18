@@ -10,11 +10,11 @@ import json
 import uuid
 import httpx
 import asyncio
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query, Body
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query, Body, Request
 from typing import Dict, Any, List
 from sqlalchemy import select, desc, func, update, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel as BaseModel_
+from pydantic import BaseModel
 
 from api.database.db import get_db
 from api.database.models import (
@@ -217,7 +217,7 @@ async def api_document(file: UploadFile = File(...)):
         raw = await file.read()
         with os.fdopen(fd, "wb") as f:
             f.write(raw)
-        raw_result = await asyncio.to_thread(process_attachment, temp_path)
+        raw_result = await process_attachment(temp_path)
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -258,7 +258,7 @@ async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_
             result["note"] = f"Local file not found: {local_path}"
             return result
 
-        extraction = await asyncio.to_thread(process_attachment, local_path)
+        extraction = await process_attachment(local_path)
         file_bytes_len = os.path.getsize(local_path)
         results = {
             "source_url": url,
@@ -313,7 +313,7 @@ async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_
         try:
             with os.fdopen(fd, "wb") as f:
                 f.write(file_bytes)
-            extraction = await asyncio.to_thread(process_attachment, temp_path)
+            extraction = await process_attachment(temp_path)
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -446,6 +446,34 @@ async def get_current_policy(
         warninglist=warninglist,
         risk_thresholds=risk_thresholds,
     )
+
+
+class AllowlistRequest(BaseModel):
+    domain: str
+
+@router.post("/policy/allowlist")
+async def add_policy_allowlist(payload: AllowlistRequest, db: AsyncSession = Depends(get_db)):
+    domain = payload.domain.strip().lower()
+    if not domain:
+        return {"ok": False, "reason": "empty domain"}
+
+    existing = await db.execute(select(Policy).where(Policy.policy_type == "allowlist", Policy.value == domain))
+    if not existing.scalar_one_or_none():
+        db.add(Policy(
+            policy_id=str(uuid.uuid4()),
+            organization_id=DEFAULT_POLICY["org_id"],
+            name=f"Allowlist {domain}",
+            policy_type="allowlist",
+            value=domain,
+            enabled=True,
+            priority=10
+        ))
+        await db.commit()
+
+    if domain not in DEFAULT_POLICY["allowlist"]:
+        DEFAULT_POLICY["allowlist"].append(domain)
+
+    return {"ok": True, "domain": domain}
 
 
 @router.post("/devices/register")
@@ -581,14 +609,16 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
                 risk_score=event.risk_score or 0,
                 decision=str(details.get("decision", event.verdict or "allow"))[:32],
             ))
-        elif event.type == "threat_report":
+        elif event.type in {"threat_report", "false_positive_reported"}:
+            status_val = "false_positive" if event.type == "false_positive_reported" else "submitted"
+            reason_val = details.get("user_note") or details.get("reason") or ("User reported False Positive" if event.type == "false_positive_reported" else "Threat reported by user")
             db.add(ThreatReport(
                 report_id=event_id,
                 organization_id=event.org_id or DEFAULT_POLICY["org_id"],
                 user_id=event.user_id,
                 website=event.url or event.domain or "",
-                reason=details.get("reason", ""),
-                status="submitted",
+                reason=reason_val,
+                status=status_val,
             ))
         elif event.type == "xai_session":
             db.add(XAIReport(
@@ -648,7 +678,7 @@ async def report_threat(payload: ThreatReportRequest, db: AsyncSession = Depends
 
 # ─── Module 7: JavaScript Analysis Telemetry ───────────────────────────────
 
-class ScriptTelemetryRequest(BaseModel_):
+class ScriptTelemetryRequest(BaseModel):
     website_scan_id: str | None = None
     script_count: int = 0
     obfuscated: bool = False
@@ -698,7 +728,7 @@ async def ingest_script_telemetry(payload: ScriptTelemetryRequest, db: AsyncSess
 
 # ─── Module 8: Cookie Analysis Telemetry ───────────────────────────────────
 
-class CookieTelemetryRequest(BaseModel_):
+class CookieTelemetryRequest(BaseModel):
     website_scan_id: str | None = None
     cookie_count: int = 0
     third_party: int = 0
@@ -744,7 +774,7 @@ async def ingest_cookie_telemetry(payload: CookieTelemetryRequest, db: AsyncSess
 
 # ─── Module 11: Hover Scan Persistence ─────────────────────────────────────
 
-class HoverScanRequest(BaseModel_):
+class HoverScanRequest(BaseModel):
     website_scan_id: str | None = None
     destination: str
     risk_score: int = 0

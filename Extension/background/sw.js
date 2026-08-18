@@ -99,11 +99,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       }).catch(() => {});
 
       if (result.score >= THRESHOLD.DANGER * 100) {
-        chrome.notifications.create({
-          type: "basic",
-          iconUrl: "icons/icon48.png",
+        safeNotify({
           title: "🚨 AegisOne: Phishing URL Detected!",
           message: `${tab.url.slice(0, 60)}\nRisk: ${result.score}% — ${result.threat_type || "phishing"}`,
+          iconUrl: "icons/icon48.png",
           priority: 2,
         });
       }
@@ -395,11 +394,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case "SCAN_CLIPBOARD_URL": {
           const result = await scanURL(msg.url);
           if (result && result.score >= 50) {
-            chrome.notifications.create({
-              type: "basic",
-              iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+            safeNotify({
               title: "🚨 AegisOne Clipboard Warning",
               message: `The copied link (${getRootDomain(msg.url)}) is flagged as ${result.verdict.toUpperCase()} (${result.score}% risk).`,
+              iconUrl: "icons/icon128.png",
               priority: 2
             });
             sendResponse({ ok: true, unsafe: true, result });
@@ -469,6 +467,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
+        // ── Search Results Batch Scan ─────────────────────
+        case MSG.SEARCH_SCAN: {
+          const urls = Array.isArray(msg.urls) ? msg.urls : [];
+          const results = await Promise.all(
+            urls.map(async (url) => {
+              const res = await scanURL(url).catch(() => null);
+              return res ? {
+                url,
+                score: res.score ?? 0,
+                verdict: res.verdict || "safe",
+                threat_type: res.threat_type || "safe",
+                phishing_probability: (res.score || 0) / 100
+              } : { url, score: 0, verdict: "safe" };
+            })
+          );
+          sendResponse({ ok: true, results });
+          break;
+        }
+
         // ── Threat Report ─────────────────────────────────
         case MSG.REPORT_THREAT: {
           await storeEvent({
@@ -481,6 +498,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             user_note: msg.note || null,
           });
           await flushNow();
+          sendResponse({ ok: true });
+          break;
+        }
+
+        // ── False Positive Report ─────────────────────────
+        case "REPORT_FALSE_POSITIVE": {
+          const domain = getRootDomain(msg.url || "");
+          if (domain) {
+            const stored = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
+            const currentAllowlist = Array.isArray(stored[STORE_KEYS.ALLOWLIST]) ? stored[STORE_KEYS.ALLOWLIST] : [];
+            if (!currentAllowlist.includes(domain)) {
+              currentAllowlist.push(domain);
+              await chrome.storage.local.set({ [STORE_KEYS.ALLOWLIST]: currentAllowlist });
+            }
+          }
+
+          await storeEvent({
+            type: "false_positive_reported",
+            url: msg.url,
+            domain: domain,
+            risk_score: msg.score || 0,
+            verdict: VERDICT.SAFE,
+            action: "false_positive",
+            user_note: msg.note || "User reported False Positive",
+          });
+
+          await flushNow();
+
+          try {
+            const { user_email } = await chrome.storage.local.get("user_email");
+            await fetch(`${API_BASE}/policy/allowlist`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(user_email ? { "X-User-Email": user_email } : {}),
+              },
+              body: JSON.stringify({ domain }),
+              signal: AbortSignal.timeout(5000),
+            });
+          } catch (_) {}
+
           sendResponse({ ok: true });
           break;
         }
@@ -603,4 +661,32 @@ function _mergeDeepScanData(tabData) {
     breakdown: mergedBreakdown,
     deepReport: deep,
   };
+}
+
+export function safeNotify({ title, message, iconUrl = "icons/icon48.png", type = "basic", priority = 2 }) {
+  try {
+    const fullIconUrl = chrome.runtime.getURL(iconUrl || "icons/icon48.png");
+    chrome.notifications.create(
+      {
+        type: type || "basic",
+        iconUrl: fullIconUrl,
+        title: title || "AegisOne Security Alert",
+        message: message || "",
+        priority: priority || 2,
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          try {
+            chrome.notifications.create({
+              type: "basic",
+              iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+              title: title || "AegisOne Security Alert",
+              message: message || "",
+              priority: priority || 2,
+            }, () => { if (chrome.runtime.lastError) {} });
+          } catch (_) {}
+        }
+      }
+    );
+  } catch (_) {}
 }

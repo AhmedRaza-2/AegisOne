@@ -62,6 +62,8 @@
         { initFormGuard, setCurrentRisk },
         { showWarningModal, showXAIModal, showDownloadModal, showRightClickResult, showTextScanResult },
         { getRootDomain, isTrusted },
+        { initEmailGuard },
+        { initWhatsappGuard },
       ] = await Promise.all([
         import(chrome.runtime.getURL("utils/constants.js")),  // imports API_BASE, DEBUG_MODE, etc.
         import(chrome.runtime.getURL("content/widget.js")),
@@ -70,6 +72,8 @@
         import(chrome.runtime.getURL("content/form-guard.js")),
         import(chrome.runtime.getURL("content/modals.js")),
         import(chrome.runtime.getURL("utils/trusted-domains.js")),
+        import(chrome.runtime.getURL("content/plugins/email-guard.js")),
+        import(chrome.runtime.getURL("content/plugins/whatsapp-guard.js")),
       ]);
 
       const policy = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
@@ -145,6 +149,14 @@
       }
 
 
+      const TRUSTED_APP_HOSTS = [
+        "mail.google.com", "outlook.office.com", "outlook.live.com", "web.whatsapp.com",
+        "google.com", "github.com", "microsoft.com", "facebook.com", "instagram.com",
+        "twitter.com", "x.com", "linkedin.com", "youtube.com", "reddit.com", "amazon.com",
+        "wikipedia.org", "apple.com", "netflix.com", "spotify.com"
+      ];
+      const isTrustedApp = TRUSTED_APP_HOSTS.some(h => location.hostname.toLowerCase() === h || location.hostname.toLowerCase().endsWith("." + h));
+
       chrome.runtime.onMessage.addListener((msg) => {
         switch (msg.type) {
           case "SCAN_RESULT":
@@ -157,7 +169,7 @@
             }));
             setCurrentRisk(msg.score);
             updateWidget(msg);
-            if (msg.score >= 80) {
+            if (msg.score >= 80 && !isTrustedApp && !isAllowlistedPage) {
               showWarningModal({
                 score: msg.score,
                 verdict: msg.verdict,
@@ -170,7 +182,7 @@
 
           case "SHOW_WARNING":
             _exposeTelemetryToDOM("aegis-scan-data", msg);
-            if (msg.score >= 80) {
+            if (msg.score >= 80 && !isTrustedApp && !isAllowlistedPage) {
               showWarningModal({
                 score: msg.score,
                 verdict: msg.verdict,
@@ -228,19 +240,19 @@
           case "DEEP_PAGE_RESULT": {
             const { composite, textProb, textSignals, badUrls, urlCount } = msg;
             
-            // The final score should be the maximum of the base URL scan and the deep scan
+            // On trusted hosts (Facebook, Gmail, etc.), deep scan highlights embedded external links without altering host page safety
             const baseScore = _currentScanData?.score || 0;
-            const mergedScore = Math.max(baseScore, composite);
+            const mergedScore = isTrustedApp ? baseScore : Math.max(baseScore, composite);
             
             const currentResult = {
               score: mergedScore,
               verdict: mergedScore >= 80 ? "danger" : mergedScore >= 50 ? "warning" : mergedScore >= 20 ? "caution" : "safe",
               top_factors: [
-                ...(badUrls || []).slice(0, 2).map(u => ({ label: `Malicious link: ${u.url.slice(0, 40)}…` })),
+                ...(badUrls || []).slice(0, 2).map(u => ({ label: `In-page link flagged: ${u.url.slice(0, 40)}…` })),
                 ...(textSignals || []).slice(0, 2).map(w => ({ label: `Phishing keyword: "${w}"` })),
                 ...(_currentScanData?.top_factors || []),
               ].slice(0, 4),
-              threat_type: mergedScore >= 80 ? "phishing" : (_currentScanData?.threat_type || "suspicious_activity"),
+              threat_type: mergedScore >= 80 ? "phishing" : (_currentScanData?.threat_type || "safe"),
             };
             _currentScanData = { ...( _currentScanData || {} ), ...currentResult };
             _exposeTelemetryToDOM("aegis-scan-data", _currentScanData);
@@ -249,8 +261,8 @@
               applyDangerBadges(badUrls.map(u => u.url));
               updateThreatCount(badUrls.length);
             }
-            // Show phishing warning dialog only if composite is very high
-            if (composite >= 75 && !window.__AEGIS_WARNING_DISMISSED__) {
+            // Show phishing warning dialog ONLY on un-trusted non-allowlisted pages
+            if (composite >= 75 && !window.__AEGIS_WARNING_DISMISSED__ && !isTrustedApp && !isAllowlistedPage) {
               const factors = [
                 ...badUrls.slice(0, 2).map(u => ({ label: `Malicious link: ${u.url.slice(0,40)}…` })),
                 ...(textSignals || []).slice(0, 2).map(w => ({ label: `Phishing keyword: "${w}"` })),
@@ -336,8 +348,14 @@
         };
       })();
 
-      // ── Gmail / Outlook email detection ─────────────
-      _watchForEmails();
+      // ── Pluggable Platform Adapters (Email & WhatsApp) ─────
+      const storedPlugins = await chrome.storage.local.get(["enableEmailGuard", "enableWhatsappGuard"]);
+      if (storedPlugins.enableEmailGuard !== false) {
+        initEmailGuard();
+      }
+      if (storedPlugins.enableWhatsappGuard !== false) {
+        initWhatsappGuard();
+      }
 
       // ── Clipboard Protection ────────────────────────
       _initClipboardProtection();

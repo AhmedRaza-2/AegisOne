@@ -212,13 +212,16 @@ function setBadge(tabId, verdict, probability) {
 }
 
 function sendNotification(title, message) {
-  chrome.notifications.create({
-    type: "basic",
-    iconUrl: "icons/icon48.png",
-    title,
-    message,
-    priority: 2,
-  });
+  try {
+    const icon = chrome.runtime.getURL("icons/icon48.png");
+    chrome.notifications.create({
+      type: "basic",
+      iconUrl: icon,
+      title: title || "AegisOne Alert",
+      message: message || "",
+      priority: 2,
+    }, () => { if (chrome.runtime.lastError) {} });
+  } catch (_) {}
 }
 
 // ──────────────────────────────────────────────
