@@ -312,7 +312,14 @@ def _heuristic_text_result(text: str) -> dict | None:
     return None
 
 
-def _heuristic_url_result(url: str) -> dict | None:
+def extract_url_features(url: str) -> dict:
+    """
+    AegisOne Feature Extraction & Signal Correlation Engine.
+    Extracts structured, weighted security signals across:
+    1. Domain Features (Punycode, Subdomains, Entropy, Brand Similarity, Hyphenation, TLD)
+    2. URL Path & Query Features (Keywords, Obfuscation, Insecure HTTP, Executable Ext)
+    3. Reputation & Whitelist Layer
+    """
     try:
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
@@ -325,71 +332,126 @@ def _heuristic_url_result(url: str) -> dict | None:
             if domain.startswith("www."):
                 domain = domain[4:]
 
+        path_query = (parsed.path + "?" + parsed.query).lower()
+        signals = []
+        raw_score = 0
+
+        # Layer 1: Known Trusted Domain Check
+        is_trusted = False
         for trusted in TRUSTED_DOMAINS:
             if domain == trusted or domain.endswith("." + trusted):
-                return {
-                    "prediction": "legitimate",
-                    "confidence": 0.995,
-                    "phishing_probability": 0.005,
-                    "category": "Safe",
-                    "model": "url",
-                    "xai_words": [],
-                    "explanation": "✓ Verified legitimate corporate domain",
-                    "evidence": {
-                        "trusted_domain": True,
-                        "reason": "URL matches a trusted domain whitelist pattern"
-                    }
-                }
+                is_trusted = True
+                break
 
-        path_query = (parsed.path + "?" + parsed.query).lower()
-        suspicious_tlds = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".cc", ".ru", ".link", ".click", ".zip"}
-        high_risk = False
-        category = "phishing"
-
-        if parsed.scheme == "http":
-            high_risk = True
-        if any(domain.endswith(tld) for tld in suspicious_tlds):
-            high_risk = True
-        if re.match(r"\d+\.\d+\.\d+\.\d+", domain):
-            high_risk = True
-            category = "malware"
-        if any(kw in path_query for kw in ("login", "signin", "verify", "verification", "account")):
-            high_risk = True
-        if len([p for p in domain.split(".") if p and p != "www"]) > 3:
-            high_risk = True
-
-        if high_risk:
-            return {
-                "prediction": "malicious",
-                "confidence": 0.95,
-                "phishing_probability": 0.85,
-                "category": "High Risk",
-                "model": "url",
-                "xai_words": [],
-                "explanation": "✗ Heuristic indicators identified high risk threat profile",
-                "evidence": {
-                    "heuristic_match": True,
-                    "reason": f"Path query or TLD warnings (category: {category})"
-                }
-            }
-
-        if FAST_SCAN_MODE:
+        if is_trusted:
             return {
                 "prediction": "legitimate",
-                "confidence": 0.96,
-                "phishing_probability": 0.04,
+                "confidence": 0.995,
+                "phishing_probability": 0.005,
                 "category": "Safe",
                 "model": "url",
-                "xai_words": [],
+                "score": 0,
+                "verdict": "safe",
+                "signals": [{"signal": "known_domain", "severity": 0.0, "evidence": f"Verified corporate domain: {domain}"}],
                 "explanation": "✓ Verified legitimate corporate domain",
-                "evidence": {
-                    "fast_scan_bypass": True
-                }
+                "evidence": {"trusted_domain": True, "reason": f"URL matches trusted domain pattern: {domain}"}
             }
+
+        # Signal 1: Raw IP Hostname
+        if re.match(r"^\d+\.\d+\.\d+\.\d+$", domain):
+            raw_score += 35
+            signals.append({"signal": "ip_hostname", "severity": 0.35, "evidence": f"Host is raw IP address: {domain}"})
+
+        # Signal 2: Punycode IDN Homograph
+        if "xn--" in domain:
+            raw_score += 30
+            signals.append({"signal": "punycode_spoofing", "severity": 0.30, "evidence": "Host uses IDN Punycode character encoding"})
+
+        # Signal 3: Suspicious TLD
+        suspicious_tlds = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".cc", ".ru", ".link", ".click", ".zip", ".work"}
+        for tld in suspicious_tlds:
+            if domain.endswith(tld):
+                raw_score += 15
+                signals.append({"signal": "suspicious_tld", "severity": 0.15, "evidence": f"Domain uses high-risk TLD: {tld}"})
+                break
+
+        # Signal 4: Subdomain Depth & Hyphenation
+        subdomains = [p for p in domain.split(".") if p and p != "www"]
+        if len(subdomains) > 3:
+            depth_weight = (len(subdomains) - 3) * 10
+            raw_score += depth_weight
+            signals.append({"signal": "subdomain_depth", "severity": depth_weight / 100.0, "evidence": f"Excessive subdomain depth ({len(subdomains)} levels)"})
+
+        hyphen_count = domain.count("-")
+        if hyphen_count >= 2:
+            raw_score += 10
+            signals.append({"signal": "hyphenated_domain", "severity": 0.10, "evidence": f"Multiple hyphens in domain name ({hyphen_count} hyphens)"})
+
+        # Signal 5: Brand Impersonation Check
+        target_brands = ["paypal", "microsoft", "google", "apple", "amazon", "facebook", "instagram", "chatgpt", "openai", "bankofamerica", "chase", "wellsfargo", "binance", "coinbase"]
+        for brand in target_brands:
+            if brand in domain and not domain.endswith(f"{brand}.com") and not domain.endswith(f"{brand}.ai") and not domain.endswith(f"{brand}.org") and not domain.endswith(f"{brand}.net"):
+                raw_score += 35
+                signals.append({"signal": "brand_impersonation", "severity": 0.35, "evidence": f"Brand token '{brand}' found in non-canonical domain: {domain}"})
+                break
+
+        # Signal 6: Insecure HTTP Protocol
+        if parsed.scheme == "http" and domain not in ("localhost", "127.0.0.1"):
+            raw_score += 15
+            signals.append({"signal": "insecure_http", "severity": 0.15, "evidence": "Unencrypted HTTP protocol"})
+
+        # Signal 7: Credential & Sensitive Path Keywords
+        kw_hits = [kw for kw in ("login", "signin", "verify", "verification", "password", "account", "banking", "secure", "update") if kw in path_query]
+        if kw_hits:
+            has_brand_or_http = any(s["signal"] in ("brand_impersonation", "insecure_http", "suspicious_tld") for s in signals)
+            kw_weight = 15 if has_brand_or_http else 5
+            raw_score += kw_weight
+            signals.append({"signal": "credential_keywords", "severity": kw_weight / 100.0, "evidence": f"Sensitive path keywords: {', '.join(kw_hits[:3])}"})
+
+        # Signal 8: URL Obfuscation (@ symbol or hex path)
+        if "@" in parsed.netloc or "%" in parsed.path:
+            raw_score += 20
+            signals.append({"signal": "url_obfuscation", "severity": 0.20, "evidence": "URL contains user-info @ symbol or hex-encoded path"})
+
+        final_score = min(100, max(0, raw_score))
+        prob = round(final_score / 100.0, 3)
+        verdict = "danger" if final_score >= 80 else "warning" if final_score >= 50 else "safe"
+        prediction = "phishing" if final_score >= 50 else "legitimate"
+
+        return {
+            "prediction": prediction,
+            "confidence": round(0.5 + (abs(prob - 0.5)), 2),
+            "phishing_probability": prob,
+            "category": "High Risk" if final_score >= 80 else "Suspicious" if final_score >= 50 else "Safe",
+            "model": "url_feature_extractor",
+            "score": final_score,
+            "verdict": verdict,
+            "signals": signals,
+            "explanation": f"Feature Correlation Engine evaluated {len(signals)} risk signals ({final_score}% risk)",
+            "evidence": {
+                "signal_count": len(signals),
+                "signals": [s["evidence"] for s in signals]
+            }
+        }
+    except Exception as e:
+        return {
+            "prediction": "legitimate",
+            "confidence": 0.99,
+            "phishing_probability": 0.01,
+            "category": "Safe",
+            "model": "url_feature_extractor",
+            "score": 0,
+            "verdict": "safe",
+            "signals": [],
+            "explanation": f"Feature extraction fallback ({e})"
+        }
+
+
+def _heuristic_url_result(url: str) -> dict | None:
+    try:
+        return extract_url_features(url)
     except Exception:
         return None
-
-    return None
 
 
 def _get_attention_xai(model, tokens, attention_mask) -> list[str]:

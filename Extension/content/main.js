@@ -153,7 +153,8 @@
         "mail.google.com", "outlook.office.com", "outlook.live.com", "web.whatsapp.com",
         "google.com", "github.com", "microsoft.com", "facebook.com", "instagram.com",
         "twitter.com", "x.com", "linkedin.com", "youtube.com", "reddit.com", "amazon.com",
-        "wikipedia.org", "apple.com", "netflix.com", "spotify.com"
+        "wikipedia.org", "apple.com", "netflix.com", "spotify.com", "chatgpt.com", "openai.com",
+        "claude.ai", "anthropic.com", "huggingface.co", "perplexity.ai", "deepseek.com", "notion.so"
       ];
       const isTrustedApp = TRUSTED_APP_HOSTS.some(h => location.hostname.toLowerCase() === h || location.hostname.toLowerCase().endsWith("." + h));
 
