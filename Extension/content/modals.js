@@ -19,7 +19,7 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
   const scoreColor = score >= 80 ? "#ef4444" : "#f97316";
   const threatLabel = _threatLabel(threat_type);
   const factorsHtml = (top_factors || []).slice(0, 4).map(f =>
-    `<li style="margin-bottom:5px; color:#94a3b8; font-size:11px;">⚠ ${f.label}</li>`
+    `<li style="margin-bottom:5px; color:#94a3b8; font-size:11px;">[!] ${f.label}</li>`
   ).join("");
 
   const isBlocking = score >= (THRESHOLD.DANGER * 100);
@@ -33,11 +33,11 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
       animation: aegisEntrance 0.35s cubic-bezier(0.16,1,0.3,1);
     ">
       <div style="padding:14px 20px; background:rgba(239,68,68,0.12); border-bottom:1px solid rgba(239,68,68,0.2); display:flex; align-items:center; justify-content:space-between;">
-        <span style="font-weight:800;font-size:12px;color:#f87171;text-transform:uppercase;letter-spacing:1px;">🛡️ AegisOne — Security Alert</span>
-        <button id="aegis-warn-close" style="background:none;border:none;color:#64748b;font-size:18px;cursor:pointer;">✕</button>
+        <span style="font-weight:800;font-size:12px;color:#f87171;text-transform:uppercase;letter-spacing:1px;">[A] AegisOne — Security Alert</span>
+        <button id="aegis-warn-close" style="background:none;border:none;color:#64748b;font-size:18px;cursor:pointer;">X</button>
       </div>
       <div style="padding:24px 28px; text-align:center;">
-        <div style="width:64px;height:64px;margin:0 auto 16px;background:rgba(239,68,68,0.1);border:2px solid #ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;animation:aegisPulseRing 2s infinite;">🚨</div>
+        <div style="width:64px;height:64px;margin:0 auto 16px;background:rgba(239,68,68,0.1);border:2px solid #ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;animation:aegisPulseRing 2s infinite;">[!]</div>
         <h2 style="font-size:20px;font-weight:800;color:${scoreColor};margin:0 0 8px;">${score}% Phishing Risk</h2>
         <p style="font-size:13px;color:#94a3b8;margin:0 0 6px;">${shortURL(url, 55)}</p>
         <p style="font-size:11px;color:#64748b;margin:0 0 20px;">Threat Type: <strong style="color:#f87171;">${threatLabel}</strong></p>
@@ -48,9 +48,9 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
         </div>` : ""}
       </div>
       <div style="display:flex;gap:10px;padding:14px 20px;background:rgba(15,10,10,0.5);border-top:1px solid rgba(239,68,68,0.12); flex-wrap: wrap;">
-        <button id="aegis-warn-explain" style="flex:1;min-width:45%;padding:10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">✨ Explain with AI</button>
-        <button id="aegis-warn-leave" style="flex:1;min-width:45%;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">← Leave Page</button>
-        <button id="aegis-warn-falsepos" style="flex:1;min-width:45%;padding:10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s;">✅ Report False Positive</button>
+        <button id="aegis-warn-explain" style="flex:1;min-width:45%;padding:10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Explain with AI</button>
+        <button id="aegis-warn-leave" style="flex:1;min-width:45%;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Leave Page</button>
+        <button id="aegis-warn-falsepos" style="flex:1;min-width:45%;padding:10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s;">Report False Positive</button>
         <button id="aegis-warn-continue" style="flex:1;min-width:45%;padding:10px;background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Proceed at Risk</button>
       </div>
     </div>
@@ -74,7 +74,7 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
 
   document.getElementById("aegis-warn-falsepos")?.addEventListener("click", async () => {
     const btn = document.getElementById("aegis-warn-falsepos");
-    if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; }
+    if (btn) { btn.textContent = "Reported!"; btn.disabled = true; }
     await chrome.runtime.sendMessage({
       type: "REPORT_FALSE_POSITIVE",
       url: window.location.href,
@@ -94,7 +94,7 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
   document.getElementById("aegis-warn-explain")?.addEventListener("click", async () => {
     const btn = document.getElementById("aegis-warn-explain");
     if (!btn) return;
-    btn.textContent = "⏳ Loading...";
+    btn.textContent = "Loading...";
     btn.disabled = true;
 
     const res = await chrome.runtime.sendMessage({
@@ -120,7 +120,7 @@ export function showXAIModal(xai, context = {}) {
   const scoreLabel = s >= 80 ? "High Phishing Risk" : s >= 50 ? "Suspicious Activity" : s >= 20 ? "Low Risk" : "Safe";
 
   const isEmailTarget = context.targetType === "email" || context.threat_type?.includes("email") || (context.url && context.url.includes("Email"));
-  const headerIcon = isEmailTarget ? "📧" : "🛡️";
+  const headerIcon = isEmailTarget ? "[Email]" : "[A]";
   const headerTitle = isEmailTarget ? "Email Security Report" : "Security Report";
 
   // Normalize any score mismatch inside summary text
@@ -135,12 +135,11 @@ export function showXAIModal(xai, context = {}) {
     }
   }
 
-  const formatItem = (r) => {
     const rawText = typeof r === 'string' ? r : r.label || String(r);
     // Strip leading question marks or junk chars
     const cleanedText = rawText.replace(/^\?+/, '').trim();
     const hasInitialEmoji = /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}]/u.test(cleanedText);
-    const icon = hasInitialEmoji ? "" : "⚠️ ";
+    const icon = hasInitialEmoji ? "" : "[!] ";
     return `<li style="margin-bottom:8px;color:#f8fafc;font-size:12px;display:flex;align-items:flex-start;gap:8px;line-height:1.55;text-align:left !important;direction:ltr !important;">
       <span style="flex-shrink:0;">${icon}</span>
       <span style="text-align:left !important;">${cleanedText}</span>
@@ -152,7 +151,7 @@ export function showXAIModal(xai, context = {}) {
 
   const aiLabel = xai.generated_locally
     ? `<span style="font-size:9px;font-weight:800;color:#94a3b8;background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);">Local Guard</span>`
-    : `<span style="font-size:9px;font-weight:800;color:#38bdf8;background:rgba(56,189,248,0.15);padding:2px 8px;border-radius:6px;border:1px solid rgba(56,189,248,0.3);">✨ AI Model</span>`;
+    : `<span style="font-size:9px;font-weight:800;color:#38bdf8;background:rgba(56,189,248,0.15);padding:2px 8px;border-radius:6px;border:1px solid rgba(56,189,248,0.3);">AI Model</span>`;
 
   _ensureModalStyles();
   _ensureCompactStyles();
@@ -199,7 +198,7 @@ export function showXAIModal(xai, context = {}) {
         background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;font-size:13px;
         cursor:pointer;line-height:1;padding:5px 9px;border-radius:7px;
         transition:all 0.15s;margin-left:auto;
-      ">✕</button>
+      ">X</button>
     </div>
 
     <!-- Score row -->

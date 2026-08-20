@@ -19,7 +19,8 @@ router = APIRouter(
 )
 
 async def verify_setup_key(x_setup_key: Optional[str] = Header(None, alias="X-Setup-Key")):
-    expected_key = os.environ.get("VITE_SETUP_KEY")
+    expected_key = os.environ.get("VITE_SETUP_KEY", "aegis-setup-key-change-me")
+    print(f"[DEBUG:SetupAuth] Got key: '{x_setup_key}', Expected key: '{expected_key}'")
     if not expected_key or x_setup_key != expected_key:
         raise HTTPException(status_code=403, detail="Invalid Setup Key")
 

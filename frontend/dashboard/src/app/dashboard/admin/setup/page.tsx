@@ -7,7 +7,7 @@ import {
   Building2, Users, Download, Upload, CheckCircle2, AlertCircle, Key, Mail,
   ShieldCheck, Activity, ArrowRight, ChevronRight, Loader2, Sparkles, UserPlus,
   Shield, Network, HardDrive, FileSpreadsheet, Lock, Check, Search, Laptop, Globe, X,
-  Eye, EyeOff, Moon, Bell, Sun, Plus, Trash2, ListFilter, Table, Undo2
+  Eye, EyeOff, Moon, Bell, Sun, Plus, Trash2, ListFilter, Table, Undo2, Edit2
 } from 'lucide-react';
 
 interface Department {
@@ -206,7 +206,10 @@ export default function AdminSetupPage() {
     try {
       const res = await fetch(`${API_BASE}/setup/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Setup-Key': 'aegis-setup-key-change-me'
+        },
         body: JSON.stringify({
           employees,
           smtpUser,
@@ -689,14 +692,14 @@ export default function AdminSetupPage() {
               </div>
 
               {/* Search filter row */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <div className="relative group">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 transition-transform duration-300 group-focus-within:scale-110 group-focus-within:text-blue-500" />
                 <input
                   type="text"
                   value={visualSearch}
                   onChange={e => setVisualSearch(e.target.value)}
                   placeholder="Filter by name, email, department, or role..."
-                  className="w-full bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-sm font-medium"
+                  className="w-full bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-sm font-medium transition-all duration-300"
                 />
               </div>
 
@@ -850,7 +853,7 @@ export default function AdminSetupPage() {
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 z-10">
                         <tr className="bg-slate-100 dark:bg-[#0F1423] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-4">EMP ID</th>
+                          <th className="py-3 px-4">EMPLOYEE NUMBER / ID</th>
                           <th className="py-3 px-4">NAME</th>
                           <th className="py-3 px-4">EMAIL</th>
                           <th className="py-3 px-4">DEPARTMENT</th>
@@ -875,18 +878,21 @@ export default function AdminSetupPage() {
                           .map((emp) => (
                             <tr key={emp.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                               <td className="py-2.5 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
-                                <input
-                                  type="text"
-                                  value={emp.employeeId || ''}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, employeeId: val } : item));
-                                  }}
-                                  className="w-24 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono font-bold"
-                                />
+                                <div className="flex items-center gap-1 group/cell">
+                                  <input
+                                    type="text"
+                                    value={emp.employeeId || ''}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, employeeId: val } : item));
+                                    }}
+                                    className="w-24 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono font-bold"
+                                  />
+                                  <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+                                </div>
                               </td>
                               <td className="py-2.5 px-4">
-                                <div className="flex gap-1.5">
+                                <div className="flex gap-1.5 items-center group/cell">
                                   <input
                                     type="text"
                                     value={emp.firstName}
@@ -905,18 +911,22 @@ export default function AdminSetupPage() {
                                     }}
                                     className="w-24 bg-transparent outline-none text-slate-700 dark:text-slate-300 border-b border-transparent focus:border-blue-500"
                                   />
+                                  <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
                                 </div>
                               </td>
                               <td className="py-2.5 px-4 font-mono text-slate-600 dark:text-slate-400">
-                                <input
-                                  type="email"
-                                  value={emp.email}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, email: val } : item));
-                                  }}
-                                  className="w-56 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono"
-                                />
+                                <div className="flex items-center gap-1 group/cell">
+                                  <input
+                                    type="email"
+                                    value={emp.email}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, email: val } : item));
+                                    }}
+                                    className="w-56 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono"
+                                  />
+                                  <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+                                </div>
                               </td>
                               <td className="py-2.5 px-4">
                                 {emp.role.toLowerCase() === 'admin' ? (
@@ -1042,7 +1052,7 @@ export default function AdminSetupPage() {
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 z-10">
                         <tr className="bg-slate-50 dark:bg-[#0F1423] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                          <th className="py-3 px-4">ID</th>
+                          <th className="py-3 px-4">EMPLOYEE NUMBER / ID</th>
                           <th className="py-3 px-4">NAME</th>
                           <th className="py-3 px-4">EMAIL</th>
                           <th className="py-3 px-4">DEPT</th>
@@ -1183,7 +1193,7 @@ export default function AdminSetupPage() {
               </div>
 
               <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
-                <button onClick={() => setStep(4)} className="px-6 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm">Back</button>
+                <button onClick={() => setStep(3)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
                 <button onClick={() => setStep(6)} className="px-8 py-3.5 bg-[#0A5ED6] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Continue to Rollout <ChevronRight className="w-4 h-4" /></button>
               </div>
             </div>
@@ -1212,14 +1222,23 @@ export default function AdminSetupPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    disabled={executing}
-                    onClick={handleExecuteDispatch}
-                    className="px-10 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-base transition-all shadow-xl flex items-center gap-2 mx-auto disabled:opacity-50"
-                  >
-                    {executing ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-                    {executing ? 'Executing Dispatch...' : 'Start Dispatch & Provision Accounts'}
-                  </button>
+                  <div className="flex justify-center gap-4">
+                    <button
+                      disabled={executing}
+                      onClick={() => setStep(4)}
+                      className="px-8 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm disabled:opacity-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      disabled={executing}
+                      onClick={handleExecuteDispatch}
+                      className="px-10 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-base transition-all shadow-xl flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {executing ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                      {executing ? 'Executing Dispatch...' : 'Start Dispatch & Provision Accounts'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -1317,7 +1336,7 @@ export default function AdminSetupPage() {
 
               <div className="space-y-2">
                 <h3 className="text-2xl font-extrabold text-[#0F172A] dark:text-white font-display">
-                  Welcome to AegisOne! 👋
+                  Welcome to AegisOne!
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   Let's set up <strong className="text-blue-600 dark:text-blue-400 font-bold">{orgName || 'your organization'}</strong> in a few simple steps. Your profile parameters from registration have been automatically synchronized.

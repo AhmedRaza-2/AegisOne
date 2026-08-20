@@ -47,7 +47,7 @@ export function initWhatsappGuard() {
       user-select: none;
     `;
     badge.title = "AegisOne Security Guard flagged this message/link for security review";
-    badge.innerHTML = `<span>${isHighRisk ? '🚨' : '⚠️'}</span><span>${label}</span>`;
+    badge.innerHTML = `<span>[!]</span><span>${label}</span>`;
     return badge;
   }
 
@@ -67,7 +67,7 @@ export function initWhatsappGuard() {
       user-select: none;
     `;
     badge.title = "AegisOne Security Guard verified this link is safe";
-    badge.innerHTML = `<span>🛡️</span><span>${label}</span>`;
+    badge.innerHTML = `<span>[✓]</span><span>${label}</span>`;
     return badge;
   }
 

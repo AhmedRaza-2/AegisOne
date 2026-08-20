@@ -651,7 +651,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </button>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                     <Puzzle className="w-6 h-6" />
                   </div>
                   <div>
@@ -664,7 +664,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   Welcome! To enable real-time URL scanning, credential exfiltration blocking, and threat telemetry, please install the official <strong>AegisOne Browser Extension</strong>.
                 </p>
 
-                <div className="p-3 bg-brand-50/60 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/40 rounded-xl text-xs text-brand-800 dark:text-brand-300 space-y-1">
+                <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40 rounded-xl text-xs text-blue-800 dark:text-blue-300 space-y-1">
                   <p className="font-semibold">Why install the extension?</p>
                   <ul className="list-disc list-inside space-y-0.5 opacity-90">
                     <li>Instant phishing & malicious link blocking</li>
@@ -676,7 +676,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
                   <button
                     onClick={handleGoToExtensionPage}
-                    className="flex-1 py-2.5 px-4 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
                   >
                     <Puzzle className="w-4 h-4" /> Install Extension Now
                   </button>

@@ -20,21 +20,21 @@ export function createWidget() {
   const widget = document.createElement("div");
   widget.id = WIDGET_ID;
   widget.innerHTML = `
-    <div id="aegis-mini-bubble" title="AegisOne — Click to expand">🛡️</div>
+    <div id="aegis-mini-bubble" title="AegisOne — Click to expand">[A]</div>
     <div id="aegis-widget-main">
       <div id="aegis-header">
         <div class="aegis-brand">
-          <span class="aegis-shield-icon">🛡️</span>
+          <span class="aegis-shield-icon">[A]</span>
           <span class="aegis-brand-name">AegisOne</span>
         </div>
         <div class="aegis-header-controls">
-          <button id="aegis-btn-min" title="Minimize" class="aegis-ctrl-btn">—</button>
-          <button id="aegis-btn-off" title="Turn off" class="aegis-ctrl-btn">✕</button>
+          <button id="aegis-btn-min" title="Minimize" class="aegis-ctrl-btn">[-]</button>
+          <button id="aegis-btn-off" title="Turn off" class="aegis-ctrl-btn">[X]</button>
         </div>
       </div>
       <div id="aegis-body">
         <div id="aegis-status-card" class="aegis-status scanning">
-          <div id="aegis-status-icon" class="aegis-s-icon">🔍</div>
+          <div id="aegis-status-icon" class="aegis-s-icon">[..]</div>
           <div class="aegis-s-info">
             <div id="aegis-s-title" class="aegis-s-title">Scanning...</div>
           </div>
@@ -48,7 +48,7 @@ export function createWidget() {
         </div>
         <div id="aegis-actions" class="aegis-actions hidden">
           <button id="aegis-action-details" class="aegis-btn-secondary" title="View Threat Breakdown">Details</button>
-          <button id="aegis-action-xai" class="aegis-btn-primary" title="Explain with AI">✨ Explain AI</button>
+          <button id="aegis-action-xai" class="aegis-btn-primary" title="Explain with AI">Explain AI</button>
         </div>
       </div>
     </div>
@@ -77,7 +77,7 @@ export function updateWidget(data) {
   if (score == null) {
     widget.style.setProperty("display", "none", "important");
     statusCard.className = "aegis-status scanning";
-    icon.textContent = "🔍";
+    icon.textContent = "[..]";
     title.textContent = "Scanning...";
     return;
   }
@@ -87,13 +87,13 @@ export function updateWidget(data) {
 
   let cls, iconText, titleText;
   if (score >= 80) {
-    cls = "danger";  iconText = "🚨"; titleText = "Phishing Detected";
+    cls = "danger";  iconText = "[!]"; titleText = "Phishing Detected";
   } else if (score >= 50) {
-    cls = "warning"; iconText = "⚠️"; titleText = "Suspicious Page";
+    cls = "warning"; iconText = "[!]"; titleText = "Suspicious Page";
   } else if (score >= 20) {
-    cls = "caution"; iconText = "🔶"; titleText = "Low Risk";
+    cls = "caution"; iconText = "[!]"; titleText = "Low Risk";
   } else {
-    cls = "safe";    iconText = "✅"; titleText = "Page Safe";
+    cls = "safe";    iconText = "[✓]"; titleText = "Page Safe";
   }
 
   statusCard.className = `aegis-status ${cls}`;
@@ -115,8 +115,8 @@ export function updateThreatCount(count) {
   const note = document.getElementById("aegis-threat-count");
   if (!note) return;
   note.textContent = count > 0
-    ? `⚠️ ${count} malicious link${count > 1 ? "s" : ""} found`
-    : count === 0 ? "✓ All links safe" : "";
+    ? `[!] ${count} malicious link${count > 1 ? "s" : ""} found`
+    : count === 0 ? "[✓] All links safe" : "";
   note.style.color = count > 0 ? "#ef4444" : "#10b981";
 
   if (count > 0 && widget) {
@@ -152,7 +152,7 @@ function _setupControls(widget) {
 
   document.getElementById("aegis-action-xai")?.addEventListener("click", async () => {
     const btn = document.getElementById("aegis-action-xai");
-    btn.textContent = "⏳ Loading...";
+    btn.textContent = "[..] Loading...";
     btn.disabled = true;
 
     let res = null;
@@ -167,7 +167,7 @@ function _setupControls(widget) {
       console.warn("[AegisOne] Extension context invalidated. Please refresh the page.", err);
     }
 
-    btn.textContent = "✨ Explain AI";
+    btn.textContent = "Explain AI";
     btn.disabled = false;
 
     if (res?.xai) {
