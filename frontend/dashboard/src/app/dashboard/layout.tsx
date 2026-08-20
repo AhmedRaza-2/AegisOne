@@ -2,7 +2,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
   Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
@@ -75,6 +75,7 @@ function SidebarContent({
   setMobileOpen,
   theme,
   toggleTheme,
+  unreadCount,
 }: any) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -152,14 +153,24 @@ function SidebarContent({
               href={item.href}
               onClick={() => setMobileOpen(false)}
               prefetch={true}
-              className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${active
+              className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all relative ${active
                 ? "bg-surface-100 dark:bg-white/[0.02] text-surface-900 dark:text-white border-l-2 border-brand-500 dark:border-[#4F84F8]"
                 : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02] border-l-2 border-transparent"
                 }`}
               title={collapsed ? item.label : undefined}
             >
               <item.icon className={`shrink-0 ${active ? 'w-4 h-4' : 'w-[15px] h-[15px]'}`} />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+              
+              {item.label === "Communication" && unreadCount > 0 && (
+                collapsed ? (
+                  <div className="absolute top-3 right-4 w-2 h-2 rounded-full bg-brand-500"></div>
+                ) : (
+                  <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )
+              )}
             </Link>
           );
         })}
@@ -283,6 +294,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [activityOpen, setActivityOpen] = useState(false);
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
+  const [systemHealth, setSystemHealth] = useState<any>(null);
+  const [apiOffline, setApiOffline] = useState(false);
+
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const activityRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setNotificationsOpen(false);
+      }
+      if (activityRef.current && !activityRef.current.contains(target)) {
+        setActivityOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const checkHealth = () => {
+      fetch("http://localhost:8000/health")
+        .then(res => res.json())
+        .then(data => {
+          setSystemHealth(data);
+          setApiOffline(false);
+        })
+        .catch(err => {
+          console.error("Health fetch failed", err);
+          setApiOffline(true);
+        });
+    };
+
+    // Check immediately on mount
+    checkHealth();
+
+    // Then poll every 10 seconds
+    const interval = setInterval(checkHealth, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -378,7 +430,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push(extPath);
   };
 
-  const unreadCount = inboxMessages.filter(m => !seenIds.has(m.id)).length;
+  const unreadCount = inboxMessages.filter(m => !m.is_read && !seenIds.has(m.id)).length;
   const commPath = user?.role === "department_admin" || user?.role === "manager" || user?.role === "office_admin"
     ? "/dashboard/supervisor/communication"
     : "/dashboard/employee/communication";
@@ -417,6 +469,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           setMobileOpen={setMobileOpen}
           theme={theme}
           toggleTheme={toggleTheme}
+          unreadCount={unreadCount}
         />
         <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#1A2133] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
@@ -442,20 +495,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={toggleTheme} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors">
               {theme === "dark" ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-surface-600" />}
             </button>
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-bold flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+            <div className="relative" ref={notificationsRef}>
+                <button
+                  onClick={() => setNotificationsOpen(!notificationsOpen)}
+                  className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center"
+                >
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
 
-              {notificationsOpen && (
+                {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-xl rounded-xl overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
                     <span className="text-sm font-semibold text-surface-900 dark:text-white">Messages</span>
@@ -482,22 +535,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           }}
                           className="w-full p-4 border-b border-surface-100 dark:border-white/[0.04] hover:bg-surface-50 dark:hover:bg-white/[0.02] transition-colors text-left flex gap-3 items-start"
                         >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${!seenIds.has(msg.id) ? 'bg-brand-100 dark:bg-brand-900/30' : 'bg-surface-100 dark:bg-surface-800'
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${(!msg.is_read && !seenIds.has(msg.id)) ? 'bg-brand-100 dark:bg-brand-900/30' : 'bg-surface-100 dark:bg-surface-800'
                             }`}>
-                            <MessageSquare className={`w-4 h-4 ${!seenIds.has(msg.id) ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400'
+                            <MessageSquare className={`w-4 h-4 ${(!msg.is_read && !seenIds.has(msg.id)) ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400'
                               }`} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-medium truncate ${!seenIds.has(msg.id) ? 'text-surface-900 dark:text-white' : 'text-surface-500'
+                            <p className={`text-xs font-medium truncate ${(!msg.is_read && !seenIds.has(msg.id)) ? 'text-surface-900 dark:text-white' : 'text-surface-500'
                               }`}>
-                              {msg.title || (msg.msg_type === 'broadcast' ? 'Department Broadcast' : 'Direct Message')}
+                              {msg.title || (msg.msg_type === 'broadcast' ? 'Department Broadcast' : (msg.sender_name ? `Message from ${msg.sender_name}` : 'Direct Message'))}
                             </p>
                             <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-2">{msg.content}</p>
                             <p className="text-[10px] text-surface-400 mt-1">
                               {new Date(msg.created_at).toLocaleString()}
                             </p>
                           </div>
-                          {!seenIds.has(msg.id) && (
+                          {(!msg.is_read && !seenIds.has(msg.id)) && (
                             <span className="w-2 h-2 rounded-full bg-brand-500 mt-1 shrink-0"></span>
                           )}
                         </button>
@@ -523,7 +576,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               )}
             </div>
-            <div className="relative">
+            <div className="relative" ref={activityRef}>
               <button onClick={() => setActivityOpen(!activityOpen)} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center">
                 <Activity className="w-4 h-4" />
               </button>
@@ -537,28 +590,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div>
                       <div className="flex justify-between text-xs mb-1">
                         <span className="text-surface-600 dark:text-surface-400">AI Models</span>
-                        <span className="text-emerald-500 font-medium">Optimal</span>
+                        <span className={apiOffline ? "text-red-500 font-medium" : (systemHealth?.models?.email?.status === "online" ? "text-emerald-500 font-medium" : "text-amber-500 font-medium")}>
+                          {apiOffline ? "Offline" : (systemHealth ? (systemHealth.models?.email?.status === "online" ? "Optimal" : "Degraded") : "Checking...")}
+                        </span>
                       </div>
                       <div className="w-full h-1.5 bg-surface-100 dark:bg-white/[0.04] rounded-full overflow-hidden">
-                        <div className="w-full h-full bg-emerald-500 rounded-full"></div>
+                        <div className={`h-full rounded-full transition-all duration-1000 ${apiOffline ? "w-1/3 bg-red-500" : (systemHealth?.models?.email?.status === "online" ? "w-full bg-emerald-500" : (systemHealth ? "w-2/3 bg-amber-500" : "w-0 bg-emerald-500"))}`}></div>
                       </div>
                     </div>
                     <div>
                       <div className="flex justify-between text-xs mb-1">
                         <span className="text-surface-600 dark:text-surface-400">Ingestion Pipelines</span>
-                        <span className="text-emerald-500 font-medium">Operational</span>
+                        <span className={apiOffline ? "text-red-500 font-medium" : (systemHealth?.status === "ok" ? "text-emerald-500 font-medium" : "text-amber-500 font-medium")}>
+                          {apiOffline ? "Offline" : (systemHealth ? (systemHealth.status === "ok" ? "Operational" : "Degraded") : "Checking...")}
+                        </span>
                       </div>
                       <div className="w-full h-1.5 bg-surface-100 dark:bg-white/[0.04] rounded-full overflow-hidden">
-                        <div className="w-full h-full bg-emerald-500 rounded-full"></div>
+                        <div className={`h-full rounded-full transition-all duration-1000 ${apiOffline ? "w-1/3 bg-red-500" : (systemHealth?.status === "ok" ? "w-full bg-emerald-500" : (systemHealth ? "w-2/3 bg-amber-500" : "w-0 bg-emerald-500"))}`}></div>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
             </div>
-            <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1] hidden sm:block"></div>
-            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-surface-700 dark:text-surface-400">
-              System Status: <span className="flex items-center gap-1.5 text-surface-900 dark:text-white"><span className="w-1.5 h-1.5 rounded-full bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]"></span> Operational</span>
+            <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1]"></div>
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-surface-500 dark:text-surface-400">
+              System Status: <span className={`flex items-center gap-1.5 ${apiOffline ? 'text-red-500' : 'text-surface-900 dark:text-white'}`}><span className={`w-1.5 h-1.5 rounded-full ${apiOffline ? 'bg-red-500' : 'bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]'}`}></span> {apiOffline ? 'Offline' : 'Operational'}</span>
             </div>
             <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1]"></div>
             <button
@@ -577,7 +634,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
 
         {/* Dashboard Centered Luxury Footer */}
-        <footer className="px-6 py-2.5 shrink-0 bg-[#0A1931] flex items-center justify-center text-xs text-[#B3CFE5] font-medium tracking-wide">
+        <footer className="px-6 py-2.5 shrink-0 bg-white dark:bg-[#0A1931] border-t border-surface-200 dark:border-white/[0.04] flex items-center justify-center text-xs text-surface-500 dark:text-[#B3CFE5] font-medium tracking-wide transition-colors duration-300">
           <span>Powered by AegisOne</span>
         </footer>
 

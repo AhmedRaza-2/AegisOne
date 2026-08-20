@@ -11,6 +11,8 @@ export interface ChatContact {
   role: string;
   department?: string;
   department_id?: number;
+  unread_count?: number;
+  last_message_at?: string;
 }
 
 export interface ChatMessage {
@@ -86,6 +88,11 @@ export function ContactItem({ contact, isActive, onClick, accentColor = "brand" 
           {roleLabel(contact.role)}{contact.department ? ` · ${contact.department}` : ""}
         </p>
       </div>
+      {contact.unread_count && contact.unread_count > 0 ? (
+        <div className="w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-sm">
+          {contact.unread_count > 9 ? "9+" : contact.unread_count}
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -106,7 +113,7 @@ export function ChatView({ currentUserId, activeContact, thread, accentColor = "
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [thread]);
+  }, [thread.length, thread[thread.length - 1]?.id]);
 
   const handleSend = async () => {
     if (!text.trim() || sending) return;
