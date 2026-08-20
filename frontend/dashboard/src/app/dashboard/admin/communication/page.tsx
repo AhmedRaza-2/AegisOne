@@ -42,12 +42,31 @@ export default function AdminCommunicationPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch("http://localhost:8000/communication/contacts", { headers: getHeaders() })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) { setContacts(data); if (data.length > 0) setActiveContact(data[0]); }
-      }).catch(console.error);
-  }, [user, getHeaders]);
+    const fetchContacts = () => {
+      fetch("http://localhost:8000/communication/contacts", { headers: getHeaders() })
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            data.sort((a, b) => {
+              if (a.last_message_at && b.last_message_at) {
+                return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+              }
+              if (a.last_message_at) return -1;
+              if (b.last_message_at) return 1;
+              return a.full_name.localeCompare(b.full_name);
+            });
+            setContacts(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(data)) return data;
+              return prev;
+            });
+            if (data.length > 0 && !activeContact) setActiveContact(data[0]);
+          }
+        }).catch(console.error);
+    };
+    fetchContacts();
+    const interval = setInterval(fetchContacts, 5000);
+    return () => clearInterval(interval);
+  }, [user, getHeaders, activeContact]);
 
   useEffect(() => {
     if (!user) return;
@@ -64,7 +83,14 @@ export default function AdminCommunicationPage() {
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
       fetch(`http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
-        .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => { });
+        .then(r => r.json()).then(d => {
+          if (Array.isArray(d)) {
+            setThread(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(d)) return d;
+              return prev;
+            });
+          }
+        }).catch(() => { });
     load();
     pollRef.current = setInterval(load, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -165,15 +191,24 @@ export default function AdminCommunicationPage() {
         <div className="flex flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#141A29] shadow-sm min-h-0">
           {/* Sidebar */}
           <div className="w-64 shrink-0 border-r border-surface-200 dark:border-white/[0.06] flex flex-col overflow-y-auto custom-scrollbar">
-            <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] sticky top-0 bg-white dark:bg-[#141A29] z-10">
-              <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Department Managers</span>
-            </div>
-            {contacts.length === 0
-              ? <div className="text-center py-12 text-surface-400 text-sm px-4">No managers found</div>
-              : contacts.map(c => (
-                <ContactItem key={c.id} contact={c} isActive={activeContact?.id === c.id} onClick={() => setActiveContact(c)} accentColor="amber" />
-              ))
-            }
+            {contacts.length > 0 ? (
+              <>
+                <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] sticky top-0 bg-white dark:bg-[#141A29] z-10 shadow-sm">
+                  <span className="text-[10px] font-bold text-[#F59E0B] uppercase tracking-widest">Recent Chats</span>
+                </div>
+                {contacts.map(c => (
+                  <ContactItem 
+                    key={c.id} 
+                    contact={{...c, unread_count: activeContact?.id === c.id ? 0 : c.unread_count}} 
+                    isActive={activeContact?.id === c.id} 
+                    onClick={() => setActiveContact(c)} 
+                    accentColor="amber"
+                  />
+                ))}
+              </>
+            ) : (
+              <div className="text-center py-12 text-surface-400 text-sm px-4">No managers found</div>
+            )}
           </div>
 
           {activeContact ? (

@@ -296,6 +296,7 @@ class MessageOut(BaseModel):
     priority: str
     created_at: datetime
     is_read: bool
+    sender_name: Optional[str] = None
 
     class Config:
         orm_mode = True

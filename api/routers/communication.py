@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -46,6 +46,26 @@ async def get_contacts(
     )
     contacts = result.scalars().all()
 
+    # Get unread counts from current_user
+    unread_result = await db.execute(
+        select(Message.sender_id, func.count(Message.id))
+        .where(Message.receiver_id == current_user.id, Message.is_read == False)
+        .group_by(Message.sender_id)
+    )
+    unread_counts = dict(unread_result.all())
+
+    # Get last interaction time
+    msgs_result = await db.execute(
+        select(Message.sender_id, Message.receiver_id, Message.created_at)
+        .where(or_(Message.sender_id == current_user.id, Message.receiver_id == current_user.id))
+    )
+    last_interaction = {}
+    for s_id, r_id, created_at in msgs_result.all():
+        other_id = r_id if s_id == current_user.id else s_id
+        if other_id:
+            if other_id not in last_interaction or created_at > last_interaction[other_id]:
+                last_interaction[other_id] = created_at
+
     # Deduplicate contacts by user ID
     seen_ids = set()
     unique_contacts = []
@@ -59,6 +79,8 @@ async def get_contacts(
                 "role": u.role,
                 "department": u.department,
                 "department_id": u.department_id,
+                "unread_count": unread_counts.get(u.id, 0),
+                "last_message_at": last_interaction[u.id].isoformat() if u.id in last_interaction else None
             })
 
     return unique_contacts
@@ -186,7 +208,8 @@ async def get_inbox(
     - Org-wide broadcasts (everyone sees these)
     """
     result = await db.execute(
-        select(Message)
+        select(Message, User.full_name)
+        .outerjoin(User, Message.sender_id == User.id)
         .where(
             or_(
                 Message.receiver_id == current_user.id,
@@ -196,7 +219,26 @@ async def get_inbox(
         )
         .order_by(Message.created_at.desc())
     )
-    return result.scalars().all()
+    
+    rows = result.all()
+    messages = []
+    for msg, sender_name in rows:
+        msg_dict = {
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "receiver_id": msg.receiver_id,
+            "department_id": msg.department_id,
+            "msg_type": msg.msg_type,
+            "title": msg.title,
+            "content": msg.content,
+            "priority": msg.priority,
+            "created_at": msg.created_at,
+            "is_read": msg.is_read,
+            "sender_name": sender_name
+        }
+        messages.append(msg_dict)
+        
+    return messages
 
 
 # ─────────────────────────────────────────────────────────────────────────────

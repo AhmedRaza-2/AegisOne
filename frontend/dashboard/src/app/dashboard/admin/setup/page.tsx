@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import {
@@ -39,6 +40,13 @@ const STEPS = [
   { num: 4, title: 'Security' },
   { num: 5, title: 'Rollout' },
 ];
+
+const ModalPortal = ({ children }: { children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+};
 
 export default function AdminSetupPage() {
   const { user, invalidateCache } = useAuth();
@@ -399,7 +407,7 @@ export default function AdminSetupPage() {
   const progressPercentage = Math.min(100, Math.round((step / 5) * 100));
 
   return (
-    <div className={`space-y-8 bg-[#F8FAFC] dark:bg-slate-950 text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
+    <div className={`space-y-8 bg-transparent text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
 
       {toast && (
         <div className={`fixed bottom-6 right-6 z-[999] px-4 py-3 rounded-xl shadow-2xl text-xs font-bold text-white flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
@@ -413,7 +421,7 @@ export default function AdminSetupPage() {
         <div className="max-w-6xl mx-auto space-y-8 pb-12">
 
           {isSetupCompleted && !isEditingSetup && (
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-slate-900 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-[#141A29] border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
@@ -440,7 +448,7 @@ export default function AdminSetupPage() {
           )}
 
           {/* Stepper Header with Horizontal Progress Bar */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white">Organization Setup Engine</h3>
@@ -527,8 +535,8 @@ export default function AdminSetupPage() {
               </div>
 
               {/* Form Card */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-sm space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 md:p-8 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.08] pb-4">
                   <div>
                     <h3 className="text-base font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
                       <Building2 className="w-5 h-5 text-[#0A5ED6] dark:text-[#4F84F8]" /> Company Identity Details
@@ -548,7 +556,7 @@ export default function AdminSetupPage() {
                       value={orgName}
                       onChange={e => setOrgName(e.target.value)}
                       placeholder="INARA"
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6]"
+                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6]"
                     />
                   </div>
 
@@ -559,7 +567,7 @@ export default function AdminSetupPage() {
                       value={industry}
                       onChange={e => setIndustry(e.target.value)}
                       placeholder="e.g. Technology / Information Systems"
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6]"
+                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6]"
                     />
                   </div>
 
@@ -568,7 +576,7 @@ export default function AdminSetupPage() {
                     <select
                       value={timezone}
                       onChange={e => setTimezone(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[#0F172A] dark:text-white rounded-xl px-4 py-3 text-sm font-semibold outline-none cursor-pointer"
+                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] text-[#0F172A] dark:text-white rounded-xl px-4 py-3 text-sm font-semibold outline-none cursor-pointer"
                     >
                       <option value="UTC+00:00 (GMT - Universal Time)">UTC+00:00 (GMT - Universal Time)</option>
                       <option value="UTC+05:00 (PKT - Pakistan Standard Time)">UTC+05:00 (PKT - Pakistan Standard Time)</option>
@@ -578,7 +586,7 @@ export default function AdminSetupPage() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Default Security Policy</label>
-                    <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs font-semibold">
+                    <div className="bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl p-3 flex items-center justify-between text-xs font-semibold">
                       <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Strict Real-time Scanning
                       </span>
@@ -587,7 +595,7 @@ export default function AdminSetupPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/[0.08]">
                   <span className="text-xs text-slate-400 font-medium">Changes are automatically saved as you configure your organization.</span>
                   <button
                     disabled={!isStep1Valid}
@@ -604,7 +612,7 @@ export default function AdminSetupPage() {
           {/* STEP 2: REVIEW & EDIT STRUCTURE */}
           {step === 2 && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+              <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
                 <div className="flex items-center gap-3">
                   <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white shrink-0">Organization Hierarchy</h3>
                   <span className="text-xs font-bold px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-800 shrink-0">
@@ -620,7 +628,7 @@ export default function AdminSetupPage() {
                       onClick={() => setStructureViewMode('visual')}
                       className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
                         structureViewMode === 'visual'
-                          ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                          ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
                           : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
@@ -631,7 +639,7 @@ export default function AdminSetupPage() {
                       onClick={() => setStructureViewMode('table')}
                       className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
                         structureViewMode === 'table'
-                          ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                          ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
                           : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
@@ -688,7 +696,7 @@ export default function AdminSetupPage() {
                   value={visualSearch}
                   onChange={e => setVisualSearch(e.target.value)}
                   placeholder="Filter by name, email, department, or role..."
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-sm font-medium"
+                  className="w-full bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-sm font-medium"
                 />
               </div>
 
@@ -710,7 +718,7 @@ export default function AdminSetupPage() {
                             key={emp.id}
                             draggable
                             onDragStart={() => setDraggedEmployeeId(emp.id)}
-                            className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-1.5 shadow-sm cursor-grab active:cursor-grabbing text-xs font-bold text-slate-800 dark:text-white hover:border-amber-500"
+                            className="flex items-center gap-2 bg-white dark:bg-[#141A29] border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-1.5 shadow-sm cursor-grab active:cursor-grabbing text-xs font-bold text-slate-800 dark:text-white hover:border-amber-500"
                           >
                             <span>{emp.firstName} {emp.lastName}</span>
                             <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 font-bold uppercase">{emp.role}</span>
@@ -729,7 +737,7 @@ export default function AdminSetupPage() {
                       return (
                         <div
                           key={dept.id}
-                          className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-blue-400 transition-all flex flex-col justify-between"
+                          className="bg-white dark:bg-[#141A29] border-2 border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 shadow-sm hover:border-blue-400 transition-all flex flex-col justify-between"
                           onDragOver={e => e.preventDefault()}
                           onDrop={() => {
                             if (draggedEmployeeId) {
@@ -739,7 +747,7 @@ export default function AdminSetupPage() {
                           }}
                         >
                           <div>
-                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.08] pb-3 mb-4">
                               <input
                                 value={dept.name}
                                 onChange={e => {
@@ -771,7 +779,7 @@ export default function AdminSetupPage() {
                                 <div
                                   draggable
                                   onDragStart={() => setDraggedEmployeeId(manager.id)}
-                                  className="relative flex items-center justify-between gap-2 bg-gradient-to-r from-blue-50 to-indigo-50/30 dark:from-blue-950/40 dark:to-slate-900 border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing"
+                                  className="relative flex items-center justify-between gap-2 bg-gradient-to-r from-blue-50 to-indigo-50/30 dark:from-blue-950/40 dark:to-[#141A29] border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing"
                                 >
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5">
@@ -808,7 +816,7 @@ export default function AdminSetupPage() {
                                       key={emp.id}
                                       draggable
                                       onDragStart={() => setDraggedEmployeeId(emp.id)}
-                                      className="flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2"
+                                      className="flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing bg-slate-50 dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-xl p-2"
                                     >
                                       <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{emp.firstName} {emp.lastName}</span>
                                       <select
@@ -817,7 +825,7 @@ export default function AdminSetupPage() {
                                           const newRole = e.target.value === 'manager' ? 'Manager' : 'Employee';
                                           setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, role: newRole } : item));
                                         }}
-                                        className="text-[10px] font-bold bg-white dark:bg-slate-950 border border-slate-200 rounded px-1.5 py-0.5 outline-none cursor-pointer"
+                                        className="text-[10px] font-bold bg-white dark:bg-[#0F1423] border border-slate-200 rounded px-1.5 py-0.5 outline-none cursor-pointer"
                                       >
                                         <option value="employee">Employee</option>
                                         <option value="manager">Manager</option>
@@ -837,11 +845,11 @@ export default function AdminSetupPage() {
 
               {/* VIEW 2: HIGH-CAPACITY EDITABLE TABULAR VIEW */}
               {structureViewMode === 'table' && (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto max-h-[520px] custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 z-10">
-                        <tr className="bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        <tr className="bg-slate-100 dark:bg-[#0F1423] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
                           <th className="py-3 px-4">EMP ID</th>
                           <th className="py-3 px-4">NAME</th>
                           <th className="py-3 px-4">EMAIL</th>
@@ -968,7 +976,7 @@ export default function AdminSetupPage() {
                 </div>
               )}
 
-              <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
                 <button onClick={() => setStep(1)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
                 <button onClick={() => setStep(3)} className="px-8 py-3.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Verify & Continue <ChevronRight className="w-4 h-4" /></button>
               </div>
@@ -1007,7 +1015,7 @@ export default function AdminSetupPage() {
 
             return (
               <div className="space-y-6 animate-fadeIn">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1">Preview Import & Verification</h2>
                     <p className="text-xs text-slate-500">Review data integrity and department manager assignments before writing to PostgreSQL.</p>
@@ -1029,11 +1037,11 @@ export default function AdminSetupPage() {
                 </div>
 
                 {/* Data Verification Table (Scrollable after 10 items) */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 z-10">
-                        <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <tr className="bg-slate-50 dark:bg-[#0F1423] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                           <th className="py-3 px-4">ID</th>
                           <th className="py-3 px-4">NAME</th>
                           <th className="py-3 px-4">EMAIL</th>
@@ -1088,7 +1096,7 @@ export default function AdminSetupPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-slate-800">
+                <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
                   <button onClick={() => setStep(2)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
                   <button
                     onClick={() => {
@@ -1127,19 +1135,19 @@ export default function AdminSetupPage() {
                 </button>
               </div>
 
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
+              <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Host</label>
-                    <input type="text" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border rounded-xl text-sm mt-1" />
+                    <input type="text" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Port</label>
-                    <input type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border rounded-xl text-sm mt-1" />
+                    <input type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Sender Email / Username</label>
-                    <input type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="e.g. admin@company.com" className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium mt-1 outline-none focus:border-[#0A5ED6]" />
+                    <input type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="e.g. admin@company.com" className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-medium mt-1 outline-none focus:border-[#0A5ED6]" />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP App Password</label>
@@ -1149,7 +1157,7 @@ export default function AdminSetupPage() {
                         value={smtpPass}
                         onChange={e => setSmtpPass(e.target.value)}
                         placeholder="Enter 16-character App Password"
-                        className="w-full px-4 py-2.5 pr-11 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold outline-none focus:border-[#0A5ED6]"
+                        className="w-full px-4 py-2.5 pr-11 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-semibold outline-none focus:border-[#0A5ED6]"
                       />
                       <button
                         type="button"
@@ -1174,7 +1182,7 @@ export default function AdminSetupPage() {
                 )}
               </div>
 
-              <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
                 <button onClick={() => setStep(4)} className="px-6 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm">Back</button>
                 <button onClick={() => setStep(6)} className="px-8 py-3.5 bg-[#0A5ED6] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Continue to Rollout <ChevronRight className="w-4 h-4" /></button>
               </div>
@@ -1222,118 +1230,124 @@ export default function AdminSetupPage() {
 
       {/* Add Dept Modal */}
       {isAddDeptModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
-            <h4 className="text-base font-bold text-[#0F172A] dark:text-white">Add New Department</h4>
-            <input
-              type="text"
-              value={newDeptNameInput}
-              onChange={e => setNewDeptNameInput(e.target.value)}
-              placeholder="Department Name"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 rounded-xl text-sm"
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setIsAddDeptModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
-              <button onClick={() => addDepartment(newDeptNameInput)} className="px-4 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg">Add Department</button>
+        <ModalPortal>
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4" style={{ zIndex: 9999 }}>
+            <div className="bg-white dark:bg-[#141A29] p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
+              <h4 className="text-base font-bold text-[#0F172A] dark:text-white">Add New Department</h4>
+              <input
+                type="text"
+                value={newDeptNameInput}
+                onChange={e => setNewDeptNameInput(e.target.value)}
+                placeholder="Department Name"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 rounded-xl text-sm"
+              />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setIsAddDeptModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
+                <button onClick={() => addDepartment(newDeptNameInput)} className="px-4 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg">Add Department</button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Add Employee Modal */}
       {isAddEmpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-2xl">
-            <h4 className="text-base font-bold text-[#0F172A] dark:text-white">Add New Employee</h4>
+        <ModalPortal>
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4" style={{ zIndex: 9999 }}>
+            <div className="bg-white dark:bg-[#141A29] p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-2xl">
+              <h4 className="text-base font-bold text-[#0F172A] dark:text-white">Add New Employee</h4>
 
-            <input
-              type="text"
-              placeholder="Employee ID (Optional, e.g. EMP102)"
-              value={newEmpCustomId}
-              onChange={e => setNewEmpCustomId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold"
-            />
+              <input
+                type="text"
+                placeholder="Employee ID (Optional, e.g. EMP102)"
+                value={newEmpCustomId}
+                onChange={e => setNewEmpCustomId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-semibold"
+              />
 
-            <div className="grid grid-cols-2 gap-3">
-              <input type="text" placeholder="First Name *" value={newEmpFirstName} onChange={e => setNewEmpFirstName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm" />
-              <input type="text" placeholder="Last Name" value={newEmpLastName} onChange={e => setNewEmpLastName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm" />
-            </div>
-
-            <input type="email" placeholder="Email Address *" value={newEmpEmail} onChange={e => setNewEmpEmail(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-mono" />
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Role Assignment</label>
-                <select value={newEmpRole} onChange={e => setNewEmpRole(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-800 dark:text-white">
-                  <option value="Employee">Employee Role</option>
-                  <option value="Manager">Manager Role</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="text" placeholder="First Name *" value={newEmpFirstName} onChange={e => setNewEmpFirstName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm" />
+                <input type="text" placeholder="Last Name" value={newEmpLastName} onChange={e => setNewEmpLastName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm" />
               </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Department Assignment</label>
-                <select value={newEmpDeptCode} onChange={e => setNewEmpDeptCode(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold truncate">
-                  <option value="">Unassigned (Select Department Later)</option>
-                  {departments.map(d => <option key={d.code} value={d.code}>{d.name} ({d.code})</option>)}
-                </select>
-              </div>
-            </div>
+              <input type="email" placeholder="Email Address *" value={newEmpEmail} onChange={e => setNewEmpEmail(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-mono" />
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button onClick={() => setIsAddEmpModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700">Cancel</button>
-              <button onClick={addEmployee} className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all shadow-sm">Add Member</button>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Role Assignment</label>
+                  <select value={newEmpRole} onChange={e => setNewEmpRole(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-bold text-slate-800 dark:text-white">
+                    <option value="Employee">Employee Role</option>
+                    <option value="Manager">Manager Role</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Department Assignment</label>
+                  <select value={newEmpDeptCode} onChange={e => setNewEmpDeptCode(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-semibold truncate">
+                    <option value="">Unassigned (Select Department Later)</option>
+                    {departments.map(d => <option key={d.code} value={d.code}>{d.name} ({d.code})</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.08]">
+                <button onClick={() => setIsAddEmpModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+                <button onClick={addEmployee} className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all shadow-sm">Add Member</button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Welcome Setup Popup Modal */}
       {showWelcomeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-3xl max-w-lg w-full space-y-6 shadow-2xl relative text-center">
-            <button
-              onClick={() => setShowWelcomeModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <ModalPortal>
+          <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn" style={{ zIndex: 9999 }}>
+            <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] p-8 rounded-3xl max-w-lg w-full space-y-6 shadow-2xl relative text-center">
+              <button
+                onClick={() => setShowWelcomeModal(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
-              <Sparkles className="w-8 h-8 animate-pulse" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-2xl font-extrabold text-[#0F172A] dark:text-white font-display">
-                Welcome to AegisOne! 👋
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Let's set up <strong className="text-blue-600 dark:text-blue-400 font-bold">{orgName || 'your organization'}</strong> in a few simple steps. Your profile parameters from registration have been automatically synchronized.
-              </p>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-slate-950/60 rounded-2xl p-4 text-left border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 font-medium">Target Organization</span>
-                <span className="font-bold text-slate-800 dark:text-white">{orgName || 'Not specified'}</span>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
+                <Sparkles className="w-8 h-8 animate-pulse" />
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 font-medium">Industry Sector</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">{industry || 'Not specified'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 font-medium">Admin Account</span>
-                <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{employees.find(e => e.role === 'Admin')?.email}</span>
-              </div>
-            </div>
 
-            <button
-              onClick={() => setShowWelcomeModal(false)}
-              className="w-full py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-2xl text-sm transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-2"
-            >
-              Start Setup Engine Now <ArrowRight className="w-4 h-4" />
-            </button>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-extrabold text-[#0F172A] dark:text-white font-display">
+                  Welcome to AegisOne! 👋
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Let's set up <strong className="text-blue-600 dark:text-blue-400 font-bold">{orgName || 'your organization'}</strong> in a few simple steps. Your profile parameters from registration have been automatically synchronized.
+                </p>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-[#0F1423]/60 rounded-2xl p-4 text-left border border-slate-100 dark:border-white/[0.08] space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Target Organization</span>
+                  <span className="font-bold text-slate-800 dark:text-white">{orgName || 'Not specified'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Industry Sector</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{industry || 'Not specified'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Admin Account</span>
+                  <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{employees.find(e => e.role === 'Admin')?.email}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowWelcomeModal(false)}
+                className="w-full py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-2xl text-sm transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-2"
+              >
+                Start Setup Engine Now <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );
