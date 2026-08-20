@@ -89,6 +89,10 @@
             chrome.storage.local.set({ user_email: userObj.email });
           }
         }
+        const token = localStorage.getItem("aegis_access_token");
+        if (token) {
+          chrome.storage.local.set({ aegis_access_token: token });
+        }
       } catch (e) {}
 
       // ── Widget ──────────────────────────────────────

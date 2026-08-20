@@ -737,15 +737,29 @@ async def update_user_status(
     if req.status not in ["approved", "rejected", "disabled", "pending"]:
         raise HTTPException(status_code=400, detail="Invalid status")
         
-    result = await db.execute(select(User).where(User.id == user_id))
+    admin_org_id = getattr(admin, "organization_id", None) or "org_default"
+    stmt = select(User).where(User.id == user_id)
+    if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
+        stmt = stmt.where(User.organization_id == admin_org_id)
+    if admin.role == Role.MANAGER.value:
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            stmt = stmt.where(condition)
+        else:
+            stmt = stmt.where(False)
+            
+    result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    # Check permissions
-    if admin.role not in ["super_admin", "global_admin"] and user.organization_id != admin.organization_id:
-        raise HTTPException(status_code=403, detail="Cannot modify users outside your organization")
+        raise HTTPException(status_code=404, detail="User not found or access denied")
         
     # Prevent standard admins from modifying super admins
     if user.role in ["super_admin", "global_admin"] and admin.role not in ["super_admin", "global_admin"]:
@@ -1235,11 +1249,13 @@ async def get_smtp_settings(
     """Fetch current organization's SMTP settings."""
     org_stmt = select(Organization).where(Organization.id == admin.organization_id)
     org_obj = (await db.execute(org_stmt)).scalar_one_or_none()
+    smtp_pass = getattr(org_obj, "smtp_pass", None) or os.getenv("SMTP_PASS", "")
+    masked_pass = "********" if smtp_pass else ""
     return {
         "smtp_host": getattr(org_obj, "smtp_host", None) or os.getenv("SMTP_HOST", "smtp.gmail.com"),
         "smtp_port": getattr(org_obj, "smtp_port", None) or int(os.getenv("SMTP_PORT", 587)),
         "smtp_user": getattr(org_obj, "smtp_user", None) or os.getenv("SMTP_USER", ""),
-        "smtp_pass": getattr(org_obj, "smtp_pass", None) or os.getenv("SMTP_PASS", "")
+        "smtp_pass": masked_pass
     }
 
 @router.put("/smtp-settings")
@@ -1435,6 +1451,19 @@ async def demote_user(
     q = select(User).where(User.id == user_id)
     if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
         q = q.where(User.organization_id == admin_org_id)
+    if admin.role == Role.MANAGER.value:
+        dept_id = admin.department_id
+        dept_str = admin.department
+        condition = None
+        if dept_str:
+            condition = User.department == dept_str
+        elif dept_id is not None:
+            condition = User.department_id == dept_id
+            
+        if condition is not None:
+            q = q.where(condition)
+        else:
+            q = q.where(False)
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found or access denied")
@@ -1523,7 +1552,10 @@ async def update_user_role(
     return {"status": "success", "role": role}
 
 @router.get("/organizations")
-async def get_all_organizations(db: AsyncSession = Depends(get_db)):
+async def get_all_organizations(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.GLOBAL_ADMIN))
+):
     """Fetch all tenant organizations in the database."""
     from api.database.models import Organization
     res = await db.execute(select(Organization).order_by(Organization.created_at.desc()))
@@ -1553,7 +1585,8 @@ async def get_all_organizations(db: AsyncSession = Depends(get_db)):
 async def update_organization_status(
     org_id: str,
     status: str = Query(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.GLOBAL_ADMIN))
 ):
     """Update organization status in local PostgreSQL database."""
     from api.database.models import Organization
@@ -1569,7 +1602,8 @@ async def update_organization_status(
 @router.delete("/organizations/{org_id}")
 async def delete_organization(
     org_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.GLOBAL_ADMIN))
 ):
     """Delete organization in local PostgreSQL database."""
     from api.database.models import Organization

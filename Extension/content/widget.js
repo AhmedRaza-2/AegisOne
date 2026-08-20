@@ -134,7 +134,11 @@ function _setupControls(widget) {
     widget.classList.remove("minimized");
   });
   document.getElementById("aegis-btn-off")?.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD });
+    try {
+      if (chrome.runtime?.id) {
+        chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD }).catch(() => {});
+      }
+    } catch (_) {}
     document.getElementById("aegis-details-panel")?.remove();
     widget.remove();
   });
@@ -151,10 +155,17 @@ function _setupControls(widget) {
     btn.textContent = "⏳ Loading...";
     btn.disabled = true;
 
-    const res = await chrome.runtime.sendMessage({
-      type: MSG.XAI_REQUEST,
-      url: window.location.href,
-    }).catch(() => null);
+    let res = null;
+    try {
+      if (chrome.runtime?.id) {
+        res = await chrome.runtime.sendMessage({
+          type: MSG.XAI_REQUEST,
+          url: window.location.href,
+        });
+      }
+    } catch (err) {
+      console.warn("[AegisOne] Extension context invalidated. Please refresh the page.", err);
+    }
 
     btn.textContent = "✨ Explain AI";
     btn.disabled = false;
@@ -202,18 +213,26 @@ function _showDetailsPanel(widget, score, top_factors, threat_type) {
   const panel = document.createElement("div");
   panel.id = "aegis-details-panel";
   panel.style.cssText = `
+    position: absolute;
+    bottom: 100%;
+    left: 0;
     width: 100%;
-    background: rgba(13, 18, 30, 0.98);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 12px 14px;
-    animation: aegisDetailsDrop 0.2s ease;
+    margin-bottom: 8px;
+    background: rgba(12, 17, 29, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    animation: aegisDetailsSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     font-family: 'Inter', -apple-system, sans-serif;
+    box-sizing: border-box;
   `;
 
   panel.innerHTML = `
     <style>
-      @keyframes aegisDetailsDrop {
-        from { opacity: 0; transform: translateY(-4px); }
+      @keyframes aegisDetailsSlideUp {
+        from { opacity: 0; transform: translateY(8px); }
         to   { opacity: 1; transform: translateY(0); }
       }
     </style>
@@ -229,8 +248,7 @@ function _showDetailsPanel(widget, score, top_factors, threat_type) {
     </div>
   `;
 
-  const mainBox = document.getElementById("aegis-widget-main");
-  if (mainBox) mainBox.appendChild(panel);
+  if (widget) widget.appendChild(panel);
 }
 
 function _refreshDetailsPanel(score, top_factors, threat_type) {
@@ -329,41 +347,41 @@ function _injectStyles() {
 
     #aegis-widget-main {
       width: 240px !important;
-      background: rgba(12, 17, 29, 0.98);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 14px;
+      background: rgba(12, 17, 29, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
       overflow: hidden;
-      box-shadow: 0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06) inset;
-      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset;
+      backdrop-filter: blur(12px);
       pointer-events: auto !important;
     }
 
     #aegis-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px;
+      padding: 6px 10px;
       background: rgba(22, 30, 46, 0.95);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       cursor: move;
     }
-    .aegis-brand { display: flex; align-items: center; gap: 7px; }
-    .aegis-shield-icon { font-size: 15px; }
-    .aegis-brand-name { font-weight: 800; font-size: 13px; color: #ffffff; letter-spacing: -0.2px; }
+    .aegis-brand { display: flex; align-items: center; gap: 5px; }
+    .aegis-shield-icon { font-size: 13px; }
+    .aegis-brand-name { font-weight: 800; font-size: 11px; color: #ffffff; letter-spacing: -0.2px; }
     .aegis-header-controls { display: flex; gap: 4px; }
     .aegis-ctrl-btn {
       background: none; border: none; color: #64748b;
-      cursor: pointer; font-size: 12px; padding: 2px 5px;
+      cursor: pointer; font-size: 10px; padding: 2px 4px;
       border-radius: 4px; line-height: 1; transition: all 0.15s;
     }
     .aegis-ctrl-btn:hover { color: #ffffff; background: rgba(255,255,255,0.1); }
 
-    #aegis-body { padding: 12px 14px; }
+    #aegis-body { padding: 8px 10px; }
 
     .aegis-status {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 10px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 8px;
       background: rgba(30,41,59,0.5);
-      border: 1px solid rgba(255,255,255,0.08);
-      margin-bottom: 10px; transition: all 0.3s;
+      border: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 8px; transition: all 0.3s;
     }
     .aegis-status.safe    { border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.08); }
     .aegis-status.caution { border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
@@ -371,37 +389,37 @@ function _injectStyles() {
     .aegis-status.danger  { border-color: rgba(239,68,68,0.45);  background: rgba(239,68,68,0.1); }
     .aegis-status.scanning{ border-color: rgba(99,102,241,0.35); background: rgba(99,102,241,0.08); }
 
-    .aegis-s-icon { font-size: 22px; flex-shrink: 0; }
-    .aegis-s-title { font-weight: 800; font-size: 13px; color: #ffffff; }
+    .aegis-s-icon { font-size: 16px; flex-shrink: 0; }
+    .aegis-s-title { font-weight: 800; font-size: 11px; color: #ffffff; }
 
     #aegis-risk-row {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 8px;
     }
-    .aegis-risk-label { font-size: 9px; text-transform: uppercase; color: #94a3b8; font-weight: 800; letter-spacing: 0.5px; flex-shrink: 0; }
+    .aegis-risk-label { font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: 800; letter-spacing: 0.5px; flex-shrink: 0; }
     #aegis-risk-bar-track {
-      flex: 1; height: 4px; background: #1e293b; border-radius: 2px; overflow: hidden;
+      flex: 1; height: 3px; background: #1e293b; border-radius: 2px; overflow: hidden;
     }
     #aegis-risk-bar-fill { height: 100%; border-radius: 2px; width: 0%; transition: width 0.6s ease, background 0.3s; }
-    .aegis-risk-pct { font-size: 11px; font-weight: 900; flex-shrink: 0; min-width: 28px; text-align: right; }
+    .aegis-risk-pct { font-size: 10px; font-weight: 900; flex-shrink: 0; min-width: 24px; text-align: right; }
 
-    .aegis-actions { display: flex; gap: 8px; }
+    .aegis-actions { display: flex; gap: 6px; }
     .aegis-actions.hidden { display: none; }
     .aegis-btn-primary {
-      flex: 1; padding: 7px 10px; font-size: 11px; font-weight: 800;
+      flex: 1; padding: 5px 8px; font-size: 10px; font-weight: 800;
       background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      color: #ffffff; border: none; border-radius: 8px; cursor: pointer;
+      color: #ffffff; border: none; border-radius: 6px; cursor: pointer;
       transition: all 0.2s; font-family: inherit;
-      box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+      box-shadow: 0 3px 8px rgba(99,102,241,0.25);
     }
-    .aegis-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .aegis-btn-primary:hover { opacity: 0.9; transform: translateY(-0.5px); }
     .aegis-btn-secondary {
-      flex: 1; padding: 7px 10px; font-size: 11px; font-weight: 700;
-      background: rgba(255,255,255,0.08); color: #f1f5f9;
-      border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; cursor: pointer;
+      flex: 1; padding: 5px 8px; font-size: 10px; font-weight: 700;
+      background: rgba(255,255,255,0.06); color: #f1f5f9;
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; cursor: pointer;
       transition: all 0.2s; font-family: inherit;
     }
-    .aegis-btn-secondary:hover { color: #ffffff; background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25); }
+    .aegis-btn-secondary:hover { color: #ffffff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.2); }
   `;
   document.head.appendChild(style);
 }

@@ -4,7 +4,7 @@ import uuid
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Header
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -17,6 +17,12 @@ router = APIRouter(
     prefix="/setup",
     tags=["setup"]
 )
+
+async def verify_setup_key(x_setup_key: Optional[str] = Header(None, alias="X-Setup-Key")):
+    expected_key = os.environ.get("VITE_SETUP_KEY")
+    if not expected_key or x_setup_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid Setup Key")
+
 
 # In-memory store of per-email dispatch results, keyed by run_id.
 # Used by the frontend to poll real delivery status instead of assuming success.
@@ -254,7 +260,7 @@ async def get_structure(org_id: str, db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.post("/structure/save")
+@router.post("/structure/save", dependencies=[Depends(verify_setup_key)])
 async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = Depends(get_db)):
     org = await _get_or_create_org(db, request.orgId, request.orgName)
 
@@ -333,7 +339,7 @@ async def bulk_reassign(request: BulkReassignRequest, db: AsyncSession = Depends
     await db.commit()
     return {"status": "success", "reassigned_count": len(request.employeeIds)}
 
-@router.post("/structure/merge")
+@router.post("/structure/merge", dependencies=[Depends(verify_setup_key)])
 async def merge_departments(request: MergeDepartmentRequest, db: AsyncSession = Depends(get_db)):
     """Merges source department into target department, moving all users."""
     src_code = request.sourceDeptCode.upper()
@@ -370,7 +376,7 @@ async def email_status(run_id: str):
         return {"run_id": run_id, "done": False, "results": []}
     return {"run_id": run_id, "done": entry["done"], "results": entry["results"]}
 
-@router.post("/execute")
+@router.post("/execute", dependencies=[Depends(verify_setup_key)])
 async def execute_setup(request: SetupExecuteRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """
     Executes the final setup steps:
@@ -516,7 +522,7 @@ async def test_smtp(request: SmtpTestRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"SMTP Error: {str(e)}")
 
-@router.post("/session")
+@router.post("/session", dependencies=[Depends(verify_setup_key)])
 async def save_session(request: SetupSessionSaveRequest, db: AsyncSession = Depends(get_db)):
     """Saves the current setup wizard state as a draft."""
     session_id = request.sessionId

@@ -33,18 +33,17 @@ export default function App() {
   const [nodeRegion, setNodeRegion] = useState('Pakistan Edge');
   const [deploymentCloud, setDeploymentCloud] = useState('Local Office PC');
 
-  // Live Demo Booking Modal States
+  const [isSetupSubmitting, setIsSetupSubmitting] = useState(false);
+  const [isDemoSubmitting, setIsDemoSubmitting] = useState(false);
+  const [showCookieConsent, setShowCookieConsent] = useState(!localStorage.getItem('cookieConsentAccepted'));
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [demoStep, setDemoStep] = useState(1);
   const [demoName, setDemoName] = useState('');
   const [demoEmail, setDemoEmail] = useState('');
   const [selectedDate, setSelectedDate] = useState('2026-06-29');
   const [selectedTime, setSelectedTime] = useState('02:00 PM PKT');
-
-  // Privacy Policy & Terms Modal States
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   const availableDates = [
@@ -77,12 +76,24 @@ export default function App() {
     showToast(`Phase ${phaseNum} Interactive configuration simulated successfully.`);
   };
 
-  const handleSetupSubmit = (e: React.FormEvent) => {
+  const validateEmail = (email: string) => {
+    return /\S+@\S+\.\S+/.test(email);
+  };
+
+  const handleSetupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyName || !workEmail) {
       showToast('Please enter both Company Name and Work Email.');
       return;
     }
+    if (!validateEmail(workEmail)) {
+      showToast('Please enter a valid work email address.');
+      return;
+    }
+    setIsSetupSubmitting(true);
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsSetupSubmitting(false);
     setSetupStep(2);
     showToast(`Setup request generated for ${companyName}! Notification emails dispatched.`);
   };
@@ -93,10 +104,14 @@ export default function App() {
       showToast('Please enter both your Name and Email address.');
       return;
     }
-    
+    if (!validateEmail(demoEmail)) {
+      showToast('Please enter a valid email address.');
+      return;
+    }
+    setIsDemoSubmitting(true);
     try {
       // Send real email using FormSubmit API (fire and forget to not block UI)
-      fetch('https://formsubmit.co/ajax/araza2125-012.pgc@gmail.com', {
+      await fetch('https://formsubmit.co/ajax/araza2125-012.pgc@gmail.com', {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
@@ -110,12 +125,11 @@ export default function App() {
             time: selectedTime,
             message: `You have a new live demo request.\n\nName: ${demoName}\nEmail: ${demoEmail}\nDate: ${selectedDate}\nTime: ${selectedTime}`
         })
-      }).catch(err => console.error("Email send error:", err));
-      
+      });
     } catch (err) {
-      console.error(err);
+      console.error("Email send error:", err);
     }
-    
+    setIsDemoSubmitting(false);
     setDemoStep(2);
     showToast(`Live Demo requested! Meeting details sent to your email and Admin.`);
   };
@@ -125,6 +139,38 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900 relative">
       
+      {/* Cookie Consent Banner */}
+      {showCookieConsent && (
+        <div 
+          id="cookie-consent"
+          className="fixed bottom-6 left-6 z-50 max-w-md bg-white border border-slate-200 shadow-2xl rounded-2xl p-5 animate-slideUp text-left"
+        >
+          <h3 className="font-sans font-bold text-sm text-[#0F172A] mb-1 flex items-center gap-2">
+            🍪 Cookie Consent
+          </h3>
+          <p className="font-sans text-xs text-[#45464D] leading-relaxed mb-4">
+            We use cookies to improve your experience and analyze website traffic. By clicking "Accept", you agree to our cookie policies.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => {
+                localStorage.setItem('cookieConsentAccepted', 'true');
+                setShowCookieConsent(false);
+              }}
+              className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-4 py-2 rounded-lg cursor-pointer transition-colors"
+            >
+              Accept
+            </button>
+            <button
+              onClick={() => setShowCookieConsent(false)}
+              className="font-sans text-xs font-semibold text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg cursor-pointer transition-colors"
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {successToast && (
         <div 
@@ -265,9 +311,10 @@ export default function App() {
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
+                    disabled={isDemoSubmitting}
+                    className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6 disabled:opacity-70"
                   >
-                    Confirm Live Demo Booking
+                    {isDemoSubmitting ? 'Scheduling...' : 'Confirm Live Demo Booking'}
                     <Check className="w-4 h-4" />
                   </button>
                 </form>

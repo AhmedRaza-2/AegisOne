@@ -44,9 +44,11 @@ DATABASE_URL = os.environ.get(
 # AUTH
 # ═══════════════════════════════════════════════════════════════
 
-JWT_SECRET_KEY = os.environ.get("AEGIS_JWT_SECRET", "super-secret-development-key-12345")
+JWT_SECRET_KEY = os.environ.get("AEGIS_JWT_SECRET")
+if not JWT_SECRET_KEY:
+    raise RuntimeError("AEGIS_JWT_SECRET environment variable is not defined!")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_MINUTES = 60 * 24 * 30  # 30 days
+JWT_EXPIRY_MINUTES = 60  # 1 hour
 
 # Default super admin (change on first login!)
 DEFAULT_ADMIN_EMAIL = "admin@aegisone.local"

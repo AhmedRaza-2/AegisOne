@@ -130,7 +130,7 @@ async def register(
         email=req.email,
         password_hash=hash_password(req.password),
         full_name=req.full_name,
-        role=req.role.value,
+        role=Role.EMPLOYEE.value,
         department=req.department,
         account_status="pending"
     )

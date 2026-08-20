@@ -17,6 +17,45 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from api.database.db import get_db
+from api.dependencies import get_current_user
+import socket
+import ipaddress
+from urllib.parse import urlparse
+
+def is_private_ip(ip_str: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        return ip.is_private or ip.is_loopback or ip.is_link_local
+    except ValueError:
+        return False
+
+def validate_url_for_ssrf(url: str):
+    if not url:
+        raise HTTPException(status_code=400, detail="URL cannot be empty")
+    url_lower = url.lower().strip()
+    if url_lower.startswith("file://") or url_lower.startswith("localhost") or url_lower.startswith("127."):
+        raise HTTPException(status_code=400, detail="Local file and loopback protocols are not allowed")
+    
+    parsed = urlparse(url)
+    if parsed.scheme and parsed.scheme.lower() not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="Only HTTP/HTTPS protocols are allowed")
+    
+    hostname = parsed.hostname
+    if not hostname:
+        hostname = parsed.path.split('/')[0] if parsed.path else ""
+    
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid URL hostname")
+        
+    try:
+        ips = socket.getaddrinfo(hostname, None)
+        for family, _, _, _, sockaddr in ips:
+            ip = sockaddr[0]
+            if is_private_ip(ip):
+                raise HTTPException(status_code=400, detail="Access to private networks is restricted")
+    except socket.gaierror:
+        pass
+
 from api.database.models import (
     Device,
     Policy,
@@ -75,7 +114,8 @@ async def _get_user_info(db: AsyncSession, user_email: str | None, request: Requ
 # --- Compatibility Endpoints ---
 
 @router.post("/analyze/url")
-async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), user_email: str = Form(None), db: AsyncSession = Depends(get_db)):
+async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    validate_url_for_ssrf(url)
     start = time.time()
     result = await predict_url(url)
     
@@ -83,7 +123,8 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
     score = result.get("phishing_probability", 0) * 100
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
     
-    user_id, org_id = await _get_user_info(db, user_email, request)
+    user_id = current_user.id
+    org_id = current_user.organization_id or "org_default"
     
     scan = WebsiteScan(
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
@@ -105,7 +146,7 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
 
 
 @router.post("/analyze/text")
-async def api_text(request: Request, text: str = Form(...), user_email: str = Form(None), db: AsyncSession = Depends(get_db)):
+async def api_text(request: Request, text: str = Form(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = await predict_text(text)
     
@@ -113,7 +154,8 @@ async def api_text(request: Request, text: str = Form(...), user_email: str = Fo
     score = result.get("phishing_probability", 0) * 100
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
     
-    user_id, org_id = await _get_user_info(db, user_email, request)
+    user_id = current_user.id
+    org_id = current_user.organization_id or "org_default"
     
     scan = WebsiteScan(
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
@@ -133,15 +175,15 @@ async def api_text(request: Request, text: str = Form(...), user_email: str = Fo
     result["latency_ms"] = scan.scan_duration_ms
     return result
 
-
 @router.post("/analyze/email")
-async def api_email(request: Request, sender: str = Form(""), subject: str = Form(""), body: str = Form(""), user_email: str = Form(None), db: AsyncSession = Depends(get_db)):
+async def api_email(request: Request, sender: str = Form(""), subject: str = Form(""), body: str = Form(""), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = await predict_email(sender, subject, body)
     score = result.get("phishing_probability", 0) * 100
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
     
-    user_id, org_id = await _get_user_info(db, user_email, request)
+    user_id = current_user.id
+    org_id = current_user.organization_id or "org_default"
     
     scan = WebsiteScan(
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
@@ -157,13 +199,13 @@ async def api_email(request: Request, sender: str = Form(""), subject: str = For
     )
     db.add(scan)
     await db.commit()
-
+ 
     result["latency_ms"] = scan.scan_duration_ms
     return result
 
 
 @router.post("/analyze/image")
-async def api_image(request: Request, file: UploadFile = File(...), user_email: str = Form(None), db: AsyncSession = Depends(get_db)):
+async def api_image(request: Request, file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     data = await file.read()
     results = await route_image_input(data)
@@ -180,7 +222,8 @@ async def api_image(request: Request, file: UploadFile = File(...), user_email: 
     score = overall_prob * 100
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
     
-    user_id, org_id = await _get_user_info(db, user_email, request)
+    user_id = current_user.id
+    org_id = current_user.organization_id or "org_default"
     
     scan = WebsiteScan(
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
@@ -236,6 +279,7 @@ async def api_document(file: UploadFile = File(...)):
 
 @router.post("/analyze/download_url")
 async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_db)):
+    validate_url_for_ssrf(url)
     start = time.time()
     
     is_local = False
@@ -452,7 +496,7 @@ class AllowlistRequest(BaseModel):
     domain: str
 
 @router.post("/policy/allowlist")
-async def add_policy_allowlist(payload: AllowlistRequest, db: AsyncSession = Depends(get_db)):
+async def add_policy_allowlist(payload: AllowlistRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     domain = payload.domain.strip().lower()
     if not domain:
         return {"ok": False, "reason": "empty domain"}

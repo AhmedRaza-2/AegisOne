@@ -161,9 +161,19 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_SIZE)
 
 # 3. CORS
+cors_allowed_origins = os.environ.get("AEGIS_ALLOWED_ORIGINS", "").split(",")
+cors_allowed_origins = [o.strip() for o in cors_allowed_origins if o.strip()]
+if not cors_allowed_origins:
+    cors_allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:3002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3002",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*",
+    allow_origins=cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -185,7 +195,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-# 4. Request ID + timing middleware
+# 4. Request ID + timing middleware + security headers
 @app.middleware("http")
 async def add_request_metadata(request: Request, call_next):
     """Inject X-Request-ID and X-Process-Time headers for traceability."""
@@ -200,6 +210,10 @@ async def add_request_metadata(request: Request, call_next):
     process_time = round((time.perf_counter() - start) * 1000, 2)
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Process-Time-Ms"] = str(process_time)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
     return response
 
@@ -226,8 +240,12 @@ async def root():
         "health": "/health"
     }
 
+from fastapi import Depends
+from api.database.models import User
+from api.auth.roles import require_role, Role
+
 @app.get("/debug/roles")
-async def debug_roles():
+async def debug_roles(current_user: User = Depends(require_role(Role.SUPER_ADMIN))):
     from api.database.db import async_session
     from api.database.models import User
     from sqlalchemy.future import select

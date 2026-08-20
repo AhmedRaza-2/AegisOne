@@ -51,6 +51,26 @@ export function initWhatsappGuard() {
     return badge;
   }
 
+  function _createSafeBadge(label) {
+    const badge = document.createElement("span");
+    badge.className = "aegis-wa-badge aegis-wa-safe-badge";
+    badge.style.cssText = `
+      display: inline-flex; align-items: center; gap: 3px;
+      margin-left: 6px; padding: 2px 5px;
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 4px;
+      color: #34d399;
+      font-size: 9px; font-weight: 700;
+      font-family: 'Inter', -apple-system, sans-serif;
+      vertical-align: middle;
+      user-select: none;
+    `;
+    badge.title = "AegisOne Security Guard verified this link is safe";
+    badge.innerHTML = `<span>🛡️</span><span>${label}</span>`;
+    return badge;
+  }
+
   function _scanMessageBubble(messageNode) {
     if (_scannedMessages.has(messageNode)) return;
     _scannedMessages.add(messageNode);
@@ -97,6 +117,10 @@ export function initWhatsappGuard() {
         if (res && res.score >= 50) {
           if (!a.querySelector(".aegis-wa-badge")) {
             a.appendChild(_createWarningBadge(`${res.score}% Phishing Risk`, res.score >= 80));
+          }
+        } else {
+          if (!a.querySelector(".aegis-wa-badge")) {
+            a.appendChild(_createSafeBadge("Safe"));
           }
         }
       } catch (_) {}
