@@ -72,6 +72,7 @@ Message:
 import io
 import zipfile
 import json
+import base64
 from fastapi.responses import StreamingResponse
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,19 +80,16 @@ from sqlalchemy import select
 from api.database.db import get_db
 from api.database.models import User
 
+# Import the base64 bundled extension zip
+try:
+    from api.routers.extension_bundle import EXTENSION_ZIP_B64
+except ImportError:
+    EXTENSION_ZIP_B64 = None
+
 @router.get("/download/extension")
 async def download_extension(email: str = None, db: AsyncSession = Depends(get_db)):
-    # Resolve Extension directory — works in: local dev, Docker container, any working dir
-    _here = os.path.dirname(os.path.abspath(__file__))
-    candidates = [
-        os.path.abspath(os.path.join(_here, "..", "..", "Extension")),   # local dev: api/routers/../../Extension
-        os.path.abspath(os.path.join("/app", "Extension")),              # Docker: /app/Extension
-        os.path.abspath(os.path.join(os.getcwd(), "Extension")),         # CWD fallback
-    ]
-    extension_dir = next((p for p in candidates if os.path.exists(p)), None)
-
-    if extension_dir is None:
-        raise HTTPException(status_code=404, detail="Extension folder not found on this server")
+    if not EXTENSION_ZIP_B64:
+        raise HTTPException(status_code=500, detail="Extension bundle not found on this server. Please run the bundle_extension.py script.")
 
     # Fetch employee's mapping details if email parameter is supplied
     config_data = {}
@@ -105,16 +103,14 @@ async def download_extension(email: str = None, db: AsyncSession = Depends(get_d
                 "organization_id": user.organization_id or "org_default"
             }
 
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for root, dirs, files in os.walk(extension_dir):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, extension_dir)
-                zip_file.write(file_path, arcname)
-        
-        # Inject dynamic config.json if we successfully resolved user details
-        if config_data:
+    # Decode the base64 zip bundle
+    zip_bytes = base64.b64decode(EXTENSION_ZIP_B64)
+    zip_buffer = io.BytesIO(zip_bytes)
+
+    # If we need to inject config data, open the existing zip in append mode
+    if config_data:
+        # We must append to the existing zip in the buffer
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
             config_json_bytes = json.dumps(config_data, indent=2).encode("utf-8")
             zip_file.writestr("config.json", config_json_bytes)
 
