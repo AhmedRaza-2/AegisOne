@@ -115,8 +115,8 @@ async function callAPI(endpoint, body, isFormData = false) {
     } catch (e) {
       // config.json not present
     }
-    const { user_email, aegis_access_token } = await chrome.storage.local.get(["user_email", "aegis_access_token"]);
     if (!emailToUse) {
+      const { user_email } = await chrome.storage.local.get("user_email");
       emailToUse = user_email;
     }
 
@@ -125,9 +125,6 @@ async function callAPI(endpoint, body, isFormData = false) {
       signal: AbortSignal.timeout(CONFIG.URL_SCAN_TIMEOUT_MS),
       headers: {}
     };
-    if (aegis_access_token) {
-      opts.headers["Authorization"] = `Bearer ${aegis_access_token}`;
-    }
     if (emailToUse) {
       opts.headers["X-User-Email"] = emailToUse;
       if (isFormData && body instanceof FormData) {

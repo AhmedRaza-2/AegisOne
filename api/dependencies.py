@@ -26,15 +26,15 @@ async def get_current_user(
         if payload is not None:
             email = payload.get("sub")
             if email:
-                result = await db.execute(select(User).where(User.email == email))
+                result = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
                 user = result.scalar_one_or_none()
                 if user and user.is_active and user.account_status not in ("suspended", "disabled", "rejected"):
                     return user
 
     # 2. Fallback: Authenticate via X-User-Email header for extension background client scans
-    email = request.headers.get("X-User-Email")
+    email = request.headers.get("X-User-Email") or request.headers.get("x-user-email")
     if email:
-        result = await db.execute(select(User).where(User.email == email))
+        result = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
         user = result.scalar_one_or_none()
         if user and user.is_active and user.account_status not in ("suspended", "disabled", "rejected"):
             return user

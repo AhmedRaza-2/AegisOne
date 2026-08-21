@@ -47,12 +47,8 @@ export const TRUSTED_DOMAINS = new Set([
   // E-commerce
   "shopify.com", "myshopify.com", "shopifycdn.com",
   "ebay.com", "aliexpress.com",
-  // AI Platforms
-  "openai.com", "chatgpt.com", "claude.ai", "anthropic.com", "huggingface.co",
-  "perplexity.ai", "deepseek.com", "x.ai", "v0.dev", "vercel.app",
-  // SaaS / Productivity
-  "trello.com", "asana.com", "salesforce.com", "slack.com", "notion.so",
-  "figma.com", "canva.com", "atlassian.net", "jira.com", "github.io", "gitlab.io",
+  // SaaS / Management
+  "trello.com", "asana.com", "salesforce.com", "slack.com",
 ]);
 
 /**
@@ -107,9 +103,10 @@ export function isInternalURL(url) {
     return (
       u.protocol === "chrome:" ||
       u.protocol === "chrome-extension:" ||
-      u.protocol === "about:"
+      u.protocol === "about:" ||
+      u.protocol === "data:"
     );
-  } catch { return false; }
+  } catch { return true; }
 }
 
 /**

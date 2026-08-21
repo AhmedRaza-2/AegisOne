@@ -372,10 +372,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const tabData = _mergeDeepScanData(getTabCache(tabId));
           const url = msg.url || tabData?.url;
 
-          let xaiResult = await explainWithAI(tabData, url, msg.score, msg.factors, msg.threat_type);
+          let xaiResult = await explainWithAI(tabData, url, msg.score);
 
           if (xaiResult?.error || !xaiResult?.summary) {
-            const local = generateLocalExplanation(tabData, msg.score);
+            const local = generateLocalExplanation(tabData);
             if (local) xaiResult = local;
           }
 

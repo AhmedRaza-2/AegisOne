@@ -1,29 +1,24 @@
 /**
- * AegisOne - Pre-Download Interceptor v4.0 (onDeterminingFilename)
- * ===================================================================
- * Intercepts all file downloads BEFORE they are written to disk
- * using Chrome's native `onDeterminingFilename` async hold API.
- *
- * Flow:
- * 1. User clicks download link on ANY website.
- * 2. Chrome holds filename determination asynchronously (`return true;`).
- * 3. AegisOne scans the URL/attachment heuristic & AI model risk.
- * 4. If SAFE: calls `suggest()`, file downloads normally.
- * 5. If RISKY: cancels & erases download immediately (0 bytes saved),
- *    and prompts user with "Cancel Download" or "Download Anyway".
+ * AegisOne - Download Guard
+ * ==========================
+ * Intercepts all downloads, cancels immediately,
+ * scans, then re-downloads only if safe or user approves.
  */
 
 import { VERDICT } from "../utils/constants.js";
 import { isInternalURL } from "../utils/trusted-domains.js";
 import { scanDownload } from "./scanner.js";
 
-const _pending = new Map();     // downloadId -> { url, filename, processKey, scanResult }
-const _processed = new Map();   // processKey -> timestamp
+const _pending = new Map();     // downloadId -> { url, filename, scanResult }
 const _bypassOnce = new Map();  // url -> expiresAt
 
+// Persisted record of already-processed downloads (URL|filename -> timestamp).
+// Survives service-worker restarts so downloads are never re-scanned
+// after a browser restart.
+const _processed = new Map();
 const PROCESSED_STORAGE_KEY = "processed_downloads";
-const PROCESSED_MAX = 1000;
-const PROCESSED_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const PROCESSED_MAX = 500;
+const PROCESSED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function initDownloadGuard() {
   chrome.storage.local.get(PROCESSED_STORAGE_KEY, (data) => {
@@ -35,79 +30,51 @@ export function initDownloadGuard() {
       }
     }
 
-    // Pre-seed completed/existing downloads so Chrome restarts never re-trigger old downloads
+    // ── BUG FIX: Pre-seed _processed with ALL downloads currently
+    // known to Chrome (recent history + in-shelf items).
+    //
+    // Problem: The Manifest V3 service worker is NOT persistent. Chrome
+    // terminates it after ~30s of inactivity and restarts it on demand.
+    // On every restart, _processed starts empty. Chrome replays onCreated
+    // for downloads still on the download shelf (in-progress or recent),
+    // which pass the _isProcessed() check and get re-intercepted.
+    //
+    // Fix: Query chrome.downloads.search() before registering the listener.
+    // This gives us every URL Chrome already knows about, so we mark them
+    // all as processed. Legitimate NEW downloads will have IDs not in this
+    // pre-existing set, so they will still be intercepted correctly.
     chrome.downloads.search({}, (existingDownloads) => {
       const now2 = Date.now();
       for (const dl of existingDownloads || []) {
         const url = dl.finalUrl || dl.url || "";
-        const filename = (dl.filename || "").replace(/^.*[\\\/]/, '');
-        const key = `${url}|${filename}`;
-        if (key && !_processed.has(key)) {
-          _processed.set(key, now2);
+        if (url && !_processed.has(url)) {
+          _processed.set(url, now2);
         }
       }
       _persistProcessed();
 
-      // Register pre-download filename determination interceptor
-      if (chrome.downloads.onDeterminingFilename) {
-        chrome.downloads.onDeterminingFilename.addListener(_onDeterminingFilename);
-      } else {
-        chrome.downloads.onCreated.addListener(_onDownloadCreatedFallback);
-      }
+      // Register AFTER both storage AND existing-download pre-seed are done.
+      chrome.downloads.onCreated.addListener(_onDownloadCreated);
     });
   });
-
-  // Handle notification button clicks (Allow / Block)
-  try {
-    chrome.notifications.onButtonClicked.addListener((notifId, buttonIndex) => {
-      if (notifId.startsWith("dl_prompt_")) {
-        const downloadId = parseInt(notifId.replace("dl_prompt_", ""), 10);
-        if (!isNaN(downloadId)) {
-          if (buttonIndex === 0) {
-            handleDownloadDecision(downloadId, "allow");
-          } else {
-            handleDownloadDecision(downloadId, "block");
-          }
-          chrome.notifications.clear(notifId);
-        }
-      }
-    });
-  } catch (_) {}
-}
-
-// ── Bypass Helpers ────────────────────────────────────────────
-function _allowOnce(url, ttlMs = 45000) {
-  if (!url) return;
-  _bypassOnce.set(url, Date.now() + ttlMs);
-}
-
-function _consumeBypass(url) {
-  if (!url) return false;
-  const expiresAt = _bypassOnce.get(url);
-  if (!expiresAt) return false;
-  if (Date.now() > expiresAt) {
-    _bypassOnce.delete(url);
-    return false;
-  }
-  _bypassOnce.delete(url);
-  return true;
 }
 
 // ── Persisted processed-download helpers ──────────────────────
-function _isProcessed(key) {
-  const ts = _processed.get(key);
+// Keyed by URL only (not URL+filename) because re-downloads may
+// get a different filename suffix from Chrome.
+function _isProcessed(url) {
+  const ts = _processed.get(url);
   if (!ts) return false;
   if (Date.now() - ts > PROCESSED_TTL_MS) {
-    _processed.delete(key);
+    _processed.delete(url);
     _persistProcessed();
     return false;
   }
   return true;
 }
 
-function _markProcessed(key) {
-  if (!key) return;
-  _processed.set(key, Date.now());
+function _markProcessed(url) {
+  _processed.set(url, Date.now());
   if (_processed.size > PROCESSED_MAX) {
     const first = _processed.entries().next().value;
     if (first) _processed.delete(first[0]);
@@ -121,109 +88,63 @@ function _persistProcessed() {
   chrome.storage.local.set({ [PROCESSED_STORAGE_KEY]: obj });
 }
 
-// ── Async Pre-Download Interceptor ─────────────────────────────
-function _onDeterminingFilename(item, suggest) {
-  const url = item.finalUrl || item.url || "";
-  if (!url.startsWith("http") && !url.startsWith("file") && !url.startsWith("blob:") && !url.startsWith("data:")) {
-    suggest();
-    return false;
-  }
-  if (isInternalURL(url)) {
-    suggest();
-    return false;
-  }
+async function _onDownloadCreated(item) {
+  try {
+    const url = item.finalUrl || item.url || "";
+    if (!url.startsWith("http") && !url.startsWith("file")) return;
+    if (isInternalURL(url)) return;
 
-  // If user explicitly allowed this download ("Download Anyway"), let Chrome proceed immediately
-  if (_consumeBypass(url)) {
-    suggest();
-    return false;
-  }
-
-  const rawName = item.filename || url.split("/").pop() || "unknown_file";
-  const filename = rawName.replace(/^.*[\\\/]/, '');
-  const processKey = `${url}|${filename}`;
-
-  if (_isProcessed(processKey)) {
-    suggest();
-    return false;
-  }
-
-  // Hold filename determination asynchronously while we run deep AI risk scan
-  (async () => {
-    try {
-      console.log(`[AegisOne:DownloadGuard] Pre-download scanning: ${filename}`);
-
-      _pending.set(item.id, { url, filename, processKey, scanResult: null });
-      const scanResult = await scanDownload(url, filename);
-      _pending.set(item.id, { url, filename, processKey, scanResult });
-
-      if (scanResult.verdict === VERDICT.DANGER || scanResult.verdict === VERDICT.WARNING) {
-        console.warn(`[AegisOne:DownloadGuard] Risky download intercepted (${scanResult.risk_score}%): ${filename}`);
-        
-        // CANCEL & ERASE the download BEFORE it completes or saves to disk
-        _cancelDownload(item.id);
-        suggest(); // release Chrome hold after cancellation
-
-        await _promptUser(item.id, filename, scanResult);
-      } else {
-        // Safe file: Mark processed and let Chrome write file
-        _markProcessed(processKey);
-        suggest();
-        _pending.delete(item.id);
-        console.log(`[AegisOne:DownloadGuard] Safe file allowed: ${filename}`);
-      }
-    } catch (err) {
-      console.error("[AegisOne:DownloadGuard] Error during scan:", err);
-      _markProcessed(processKey);
-      suggest();
+    // Short-term bypass: re-download initiated by this extension
+    if (_consumeBypass(url)) {
+      return;
     }
-  })();
 
-  return true; // Tells Chrome: Hold this download asynchronously!
-}
+    // Long-term persistence: already scanned in a previous session
+    const filename = item.filename || url.split("/").pop() || "unknown_file";
+    if (_isProcessed(url)) {
+      console.log(`[AegisOne:DownloadGuard] Already processed, letting through: ${filename}`);
+      return;
+    }
 
-// ── Fallback Handler for Legacy Engines ───────────────────────
-async function _onDownloadCreatedFallback(item) {
-  const url = item.finalUrl || item.url || "";
-  if (!url.startsWith("http") && !url.startsWith("file") && !url.startsWith("blob:") && !url.startsWith("data:")) return;
-  if (isInternalURL(url) || _consumeBypass(url)) return;
+    console.log(`[AegisOne:DownloadGuard] Intercepting: ${filename}`);
 
-  const rawName = item.filename || url.split("/").pop() || "unknown_file";
-  const filename = rawName.replace(/^.*[\\\/]/, '');
-  const processKey = `${url}|${filename}`;
+    _cancelDownload(item.id);
 
-  if (_isProcessed(processKey)) return;
+    _pending.set(item.id, { url, filename, scanResult: null });
+    const scanResult = await scanDownload(url, filename);
+    _pending.set(item.id, { url, filename, scanResult });
 
-  _cancelDownload(item.id);
-  const scanResult = await scanDownload(url, filename);
-  if (scanResult.verdict === VERDICT.DANGER || scanResult.verdict === VERDICT.WARNING) {
-    await _promptUser(item.id, filename, scanResult);
-  } else {
-    _markProcessed(processKey);
-    _allowOnce(url);
-    chrome.downloads.download({ url });
+    if (scanResult.verdict === VERDICT.DANGER || scanResult.verdict === VERDICT.WARNING) {
+      await _promptUser(item.id, filename, scanResult);
+    } else {
+      _markProcessed(url);
+      _allowOnce(url);
+      _reDownload(item.id, url);
+      console.log(`[AegisOne:DownloadGuard] Safe file re-downloading: ${filename}`);
+    }
+  } catch (err) {
+    console.error("[AegisOne:DownloadGuard] Error:", err);
+    const fallbackUrl = item.finalUrl || item.url;
+    if (fallbackUrl) {
+      _markProcessed(fallbackUrl);
+      _allowOnce(fallbackUrl);
+      chrome.downloads.download({ url: fallbackUrl }, () => chrome.runtime.lastError);
+    }
   }
 }
 
-// ── Decision Handler (Called from Tab Modal or Notification) ────
 export function handleDownloadDecision(downloadId, action) {
   const pending = _pending.get(downloadId);
   _pending.delete(downloadId);
 
   if (action === "allow" && pending?.url) {
-    _markProcessed(pending.processKey || pending.url);
+    _markProcessed(pending.url);
     _allowOnce(pending.url);
-    // Re-trigger download with temporary bypass
-    chrome.downloads.download({ url: pending.url }, () => {
-      if (chrome.runtime.lastError) {
-        console.warn("[AegisOne:DownloadGuard] Re-download error:", chrome.runtime.lastError.message);
-      }
-    });
+    _reDownload(downloadId, pending.url);
     console.log(`[AegisOne:DownloadGuard] User allowed download: ${pending.filename}`);
   } else if (pending?.url) {
-    _markProcessed(pending.processKey || pending.url);
-    _cancelDownload(downloadId);
-    console.log(`[AegisOne:DownloadGuard] User cancelled download: ${pending.filename}`);
+    _markProcessed(pending.url);
+    console.log(`[AegisOne:DownloadGuard] User blocked download: ${pending.filename}`);
   }
 }
 
@@ -234,29 +155,39 @@ function _cancelDownload(id) {
   } catch (_) {}
 }
 
-// ── User Prompt Helper ─────────────────────────────────────────
+function _reDownload(id, url) {
+  chrome.downloads.download({ url }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn("[AegisOne:DownloadGuard] Re-download failed:", chrome.runtime.lastError.message);
+    }
+    _pending.delete(id);
+  });
+}
+
+function _allowOnce(url, ttlMs = 45000) {
+  _bypassOnce.set(url, Date.now() + ttlMs);
+}
+
+function _consumeBypass(url) {
+  const expiresAt = _bypassOnce.get(url);
+  if (!expiresAt) return false;
+  if (Date.now() > expiresAt) {
+    _bypassOnce.delete(url);
+    return false;
+  }
+  _bypassOnce.delete(url);
+  return true;
+}
+
 async function _promptUser(downloadId, filename, scanResult) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const rawSignals = [
+  const signals = [
+    scanResult.vba_analysis ? "Macro / document analysis found suspicious behavior." : null,
+    scanResult.file_type ? `Attachment type: ${scanResult.file_type}` : null,
+    scanResult.heuristic_risk != null ? `Heuristic risk: ${Math.round(scanResult.heuristic_risk * 100)}%` : null,
     ...(scanResult.signals || []),
-    scanResult.vba_analysis ? `VBA Macro: ${scanResult.vba_analysis}` : null,
-    scanResult.file_type ? `Attachment type: .${scanResult.file_type.toUpperCase()}` : null,
-  ].filter(Boolean);
+  ].filter(Boolean).slice(0, 5);
 
-  // Clean and deduplicate generic "Heuristic risk" entries
-  const signals = [...new Set(
-    rawSignals
-      .map(s => String(s).replace(/^Heuristic risk:?\s*\d+%/gi, '').trim())
-      .filter(Boolean)
-  )].slice(0, 5);
-
-  if (signals.length === 0 && scanResult.heuristic_risk != null) {
-    signals.push(`Suspicious structural file pattern detected (${Math.round(scanResult.heuristic_risk * 100)}% risk)`);
-  }
-
-  const notifId = `dl_prompt_${downloadId}`;
-
-  // 1. Send in-tab modal message if tab exists
   if (tab?.id) {
     chrome.tabs.sendMessage(tab.id, {
       type: "PROMPT_DOWNLOAD_DECISION",
@@ -269,22 +200,40 @@ async function _promptUser(downloadId, filename, scanResult) {
       file_type: scanResult.file_type,
       heuristic_risk: scanResult.heuristic_risk,
       vba_analysis: scanResult.vba_analysis,
-    }).catch(() => {});
-  }
+    }).catch(() => {
+      _pending.delete(downloadId);
+    });
 
-  // 2. Always show native interactive notification with Allow/Block buttons
-  try {
-    const icon = chrome.runtime.getURL("icons/icon48.png");
-    chrome.notifications.create(notifId, {
-      type: "basic",
-      iconUrl: icon,
-      title: `🚨 AegisOne: Risky File Intercepted (${scanResult.risk_score}% Risk)`,
-      message: `"${filename}" was blocked from saving to disk. Click below to allow or keep blocked.`,
-      buttons: [
-        { title: "Download Anyway" },
-        { title: "🛡️ Keep Blocked" }
-      ],
+    safeNotify({
+      title: "⚠️ AegisOne: Risky File Intercepted",
+      message: `${filename} is under deep attachment analysis.`,
+      iconUrl: "icons/icon48.png",
       priority: 2,
-    }, () => { if (chrome.runtime.lastError) {} });
+    });
+  } else {
+    _markProcessed(scanResult.url);
+    _pending.delete(downloadId);
+    safeNotify({
+      title: "🚨 AegisOne: Download Blocked",
+      message: `Auto-blocked ${filename} (${scanResult.risk_score}% risk, no active tab)`,
+      iconUrl: "icons/icon48.png",
+      priority: 2,
+    });
+  }
+}
+
+function safeNotify({ title, message, iconUrl = "icons/icon48.png", type = "basic", priority = 2 }) {
+  try {
+    const fullIconUrl = chrome.runtime.getURL(iconUrl || "icons/icon48.png");
+    chrome.notifications.create(
+      {
+        type: type || "basic",
+        iconUrl: fullIconUrl,
+        title: title || "AegisOne Security Alert",
+        message: message || "",
+        priority: priority || 2,
+      },
+      () => { if (chrome.runtime.lastError) {} }
+    );
   } catch (_) {}
 }

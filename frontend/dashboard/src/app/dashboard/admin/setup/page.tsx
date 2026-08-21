@@ -410,7 +410,7 @@ export default function AdminSetupPage() {
   const progressPercentage = Math.min(100, Math.round((step / 5) * 100));
 
   return (
-    <div className={`space-y-8 bg-transparent text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
+    <div className={`space-y-5 bg-transparent text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
 
       {toast && (
         <div className={`fixed bottom-6 right-6 z-[999] px-4 py-3 rounded-xl shadow-2xl text-xs font-bold text-white flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
@@ -495,43 +495,43 @@ export default function AdminSetupPage() {
 
           {/* STEP 1: ORGANIZATION PROFILE */}
           {step === 1 && (
-            <div className="space-y-8 animate-fadeIn">
+            <div className="space-y-5 animate-fadeIn">
               <div>
-                <h2 className="text-3xl font-extrabold text-[#0F172A] dark:text-white mb-2 font-display tracking-tight">Organization Profile & Environment</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">Verify your company profile and deployment environment parameters before structuring your departments.</p>
+                <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1 font-display tracking-tight">Organization Profile & Environment</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-xs">Verify your company profile and deployment environment parameters before structuring your departments.</p>
               </div>
 
               {/* 3 Header Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent border border-blue-200/60 dark:border-blue-800/40 rounded-2xl p-5 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#0A5ED6] dark:bg-[#4F84F8] text-white flex items-center justify-center shrink-0 shadow-md">
-                    <Building2 className="w-6 h-6" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-[#E4EEF6]/60 dark:bg-[#1A3D63]/20 border border-[#C7DAE8] dark:border-[#1A3D63]/40 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#4A7FA7] text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Building2 className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Organization</p>
-                    <p className="text-lg font-extrabold text-[#0F172A] dark:text-white truncate">{orgName || "INARA"}</p>
-                    <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{industry || "Cybersecurity"}</span>
+                    <p className="text-sm font-extrabold text-[#0F172A] dark:text-white truncate">{orgName || "INARA"}</p>
+                    <span className="text-[11px] font-medium text-[#4A7FA7] dark:text-[#B3CFE5]">{industry || "Cybersecurity"}</span>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl p-5 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
-                    <ShieldCheck className="w-6 h-6" />
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Deployment Engine</p>
-                    <p className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">Docker Isolated</p>
+                    <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">Docker Isolated</p>
                     <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">v2.4.0 • Enterprise Edition</span>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent border border-indigo-200/60 dark:border-indigo-800/40 rounded-2xl p-5 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-600 dark:bg-indigo-500 text-white flex items-center justify-center shrink-0 shadow-md">
-                    <Key className="w-6 h-6" />
+                <div className="bg-[#E4EEF6]/60 dark:bg-[#1A3D63]/20 border border-[#C7DAE8] dark:border-[#1A3D63]/40 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#1A3D63] dark:bg-[#4A7FA7] text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Key className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Admin Account</p>
-                    <p className="text-sm font-bold text-[#0F172A] dark:text-white truncate">{employees.find(e => e.role === 'Admin')?.email || 'araza2125012.pgc@gmail.com'}</p>
+                    <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate">{employees.find(e => e.role === 'Admin')?.email || 'araza2125012.pgc@gmail.com'}</p>
                     <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5"><CheckCircle2 className="w-3 h-3" /> Credentials Provisioned</span>
                   </div>
                 </div>
@@ -1322,45 +1322,45 @@ export default function AdminSetupPage() {
       {showWelcomeModal && (
         <ModalPortal>
           <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn" style={{ zIndex: 9999 }}>
-            <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] p-8 rounded-3xl max-w-lg w-full space-y-6 shadow-2xl relative text-center">
+            <div className="bg-white dark:bg-[#0F2038] border border-[#E1EBF2] dark:border-[#1A3D63]/60 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl relative text-center">
               <button
                 onClick={() => setShowWelcomeModal(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-[#1A3D63]/40 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
 
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
-                <Sparkles className="w-8 h-8 animate-pulse" />
+              <div className="w-11 h-11 rounded-xl bg-[#4A7FA7]/10 dark:bg-[#4A7FA7]/20 border border-[#4A7FA7]/20 text-[#4A7FA7] flex items-center justify-center mx-auto">
+                <Sparkles className="w-5 h-5" />
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-2xl font-extrabold text-[#0F172A] dark:text-white font-display">
+              <div className="space-y-1">
+                <h3 className="text-lg font-extrabold text-[#0A1931] dark:text-white font-display">
                   Welcome to AegisOne!
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Let's set up <strong className="text-blue-600 dark:text-blue-400 font-bold">{orgName || 'your organization'}</strong> in a few simple steps. Your profile parameters from registration have been automatically synchronized.
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Let's set up <strong className="text-[#4A7FA7] font-bold">{orgName || 'your organization'}</strong> in a few simple steps. Your profile parameters from registration have been automatically synchronized.
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-[#0F1423]/60 rounded-2xl p-4 text-left border border-slate-100 dark:border-white/[0.08] space-y-2 text-xs">
+              <div className="bg-[#F6FAFD] dark:bg-[#071426] rounded-xl p-3 text-left border border-[#E1EBF2] dark:border-[#1A3D63]/40 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Target Organization</span>
-                  <span className="font-bold text-slate-800 dark:text-white">{orgName || 'Not specified'}</span>
+                  <span className="font-bold text-[#0A1931] dark:text-white">{orgName || 'Not specified'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Industry Sector</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{industry || 'Not specified'}</span>
+                  <span className="font-bold text-[#4A7FA7]">{industry || 'Not specified'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Admin Account</span>
-                  <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{employees.find(e => e.role === 'Admin')?.email}</span>
+                  <span className="font-mono font-bold text-[#0A1931] dark:text-[#B3CFE5] text-[11px]">{employees.find(e => e.role === 'Admin')?.email}</span>
                 </div>
               </div>
 
               <button
                 onClick={() => setShowWelcomeModal(false)}
-                className="w-full py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-2xl text-sm transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-[#4A7FA7] hover:bg-[#3D6C90] text-white font-bold rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2"
               >
                 Start Setup Engine Now <ArrowRight className="w-4 h-4" />
               </button>

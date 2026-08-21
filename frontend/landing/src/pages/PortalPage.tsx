@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Shield, Copy, CheckCircle2, LogOut,
+  Copy, CheckCircle2, LogOut,
   AlertCircle, Loader2, ArrowRight, X, ChevronRight, Download, ArrowDown
 } from 'lucide-react';
 import { getMyOrganization, logoutOrganization } from '../lib/org-service';
@@ -86,24 +86,31 @@ export default function PortalPage() {
         <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-cyan-600/5 rounded-full blur-[120px]" />
       </div>
 
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white/90 backdrop-blur-sm shadow-sm">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[#4A7FA7]/10 border border-[#4A7FA7]/20 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-[#4A7FA7]" />
-          </div>
-          <span className="font-bold text-[#0A1931] text-sm tracking-tight">AegisOne Onboarding</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <span className="hidden sm:block text-xs text-slate-500 font-semibold">{org.admin_email}</span>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 border border-transparent hover:border-red-200"
+      {/* Nav — identical style to main Header */}
+      <header className="sticky top-0 z-50 bg-[#F8FAFC]/90 backdrop-blur-md border-b border-[#E2E8F0] px-6 py-4 transition-all duration-300">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+
+          {/* Logo — same as Header.tsx */}
+          <div
+            className="flex items-center gap-2.5 cursor-pointer group"
+            onClick={() => navigate('/')}
           >
-            <LogOut className="w-3.5 h-3.5" /> Sign Out
-          </button>
+            <img src="/logo.png" alt="AegisOne" className="h-7 w-auto shrink-0 transition-transform duration-200 group-hover:scale-105" />
+            <span className="font-sans font-bold text-lg text-[#0A1931] tracking-tight">AegisOne</span>
+          </div>
+
+          {/* Right side — email + sign out */}
+          <div className="flex items-center gap-5">
+            <span className="hidden sm:block text-sm font-medium text-[#45464D]">{org.admin_email}</span>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-sm font-semibold text-[#45464D] hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 border border-transparent hover:border-red-100"
+            >
+              <LogOut className="w-4 h-4" /> Sign Out
+            </button>
+          </div>
         </div>
-      </nav>
+      </header>
 
       {/* Main Content */}
       <div className="max-w-5xl mx-auto w-full px-4 py-16 relative z-10 flex flex-col gap-12">

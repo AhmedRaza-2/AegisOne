@@ -52,7 +52,7 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
   if (!isBackendOnline()) return null;
 
   try {
-    const { user_email, aegis_access_token } = await chrome.storage.local.get(["user_email", "aegis_access_token"]);
+    const { user_email } = await chrome.storage.local.get("user_email");
     const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
     // Compose the caller's signal with the timeout signal if both provided
     const combinedSignal = signal
@@ -64,10 +64,6 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
       signal: combinedSignal,
       headers: {}
     };
-
-    if (aegis_access_token) {
-      opts.headers["Authorization"] = `Bearer ${aegis_access_token}`;
-    }
 
     if (user_email) {
       opts.headers["X-User-Email"] = user_email;

@@ -20,8 +20,8 @@ import { getCachedResult } from "./cache.js";
  * @param {string} url
  * @returns {Promise<XAIResult>}
  */
-export async function explainWithAI(tabData, url, explicitScore, explicitFactors = null, explicitThreatType = null) {
-  let scanData = tabData || {};
+export async function explainWithAI(tabData, url, explicitScore) {
+  let scanData = tabData;
   if (url && url !== tabData?.url) {
     const cached = await getCachedResult(url);
     if (cached) {
@@ -29,16 +29,17 @@ export async function explainWithAI(tabData, url, explicitScore, explicitFactors
     }
   }
 
-  // ── Build compact evidence payload ───────────────────
-  const finalScore = explicitScore !== undefined ? explicitScore : (scanData.score || 0);
-  const factors = explicitFactors || scanData.top_factors || [];
+  if (!scanData) return { error: "No scan data available for this page." };
 
+  // ── Build compact evidence payload ───────────────────
+  // We deliberately do NOT send full HTML, all cookies, or full JS.
+  const finalScore = explicitScore !== undefined ? explicitScore : scanData.score;
   const evidence = {
-    url: url || scanData.url,
-    domain: scanData.domain || getRootDomain(url || ""),
+    url,
+    domain: scanData.domain,
     risk_score: finalScore,
     verdict: finalScore >= 80 ? "danger" : finalScore >= 50 ? "warning" : "safe",
-    threat_type: explicitThreatType || scanData.threat_type || "phishing",
+    threat_type: scanData.threat_type,
 
     // Risk breakdown — structured features only
     features: scanData.breakdown
@@ -50,7 +51,11 @@ export async function explainWithAI(tabData, url, explicitScore, explicitFactors
       : {},
 
     // Top risk factors
-    top_factors: factors.map(f => typeof f === 'string' ? { label: f } : { key: f.key, score: f.score, label: f.label || String(f) }),
+    top_factors: (scanData.top_factors || []).map(f => ({
+      key: f.key,
+      score: f.score,
+      label: f.label,
+    })),
 
     // Text summary (300 chars max)
     text_summary: scanData.text_snippet?.slice(0, 300) || null,

@@ -20,21 +20,21 @@ export function createWidget() {
   const widget = document.createElement("div");
   widget.id = WIDGET_ID;
   widget.innerHTML = `
-    <div id="aegis-mini-bubble" title="AegisOne — Click to expand">[A]</div>
+    <div id="aegis-mini-bubble" title="AegisOne — Click to expand">🛡️</div>
     <div id="aegis-widget-main">
       <div id="aegis-header">
         <div class="aegis-brand">
-          <span class="aegis-shield-icon">[A]</span>
+          <span class="aegis-shield-icon">🛡️</span>
           <span class="aegis-brand-name">AegisOne</span>
         </div>
         <div class="aegis-header-controls">
-          <button id="aegis-btn-min" title="Minimize" class="aegis-ctrl-btn">[-]</button>
-          <button id="aegis-btn-off" title="Turn off" class="aegis-ctrl-btn">[X]</button>
+          <button id="aegis-btn-min" title="Minimize" class="aegis-ctrl-btn">—</button>
+          <button id="aegis-btn-off" title="Turn off" class="aegis-ctrl-btn">✕</button>
         </div>
       </div>
       <div id="aegis-body">
         <div id="aegis-status-card" class="aegis-status scanning">
-          <div id="aegis-status-icon" class="aegis-s-icon">[..]</div>
+          <div id="aegis-status-icon" class="aegis-s-icon">🔍</div>
           <div class="aegis-s-info">
             <div id="aegis-s-title" class="aegis-s-title">Scanning...</div>
           </div>
@@ -48,7 +48,7 @@ export function createWidget() {
         </div>
         <div id="aegis-actions" class="aegis-actions hidden">
           <button id="aegis-action-details" class="aegis-btn-secondary" title="View Threat Breakdown">Details</button>
-          <button id="aegis-action-xai" class="aegis-btn-primary" title="Explain with AI">Explain AI</button>
+          <button id="aegis-action-xai" class="aegis-btn-primary" title="Explain with AI">✨ Explain AI</button>
         </div>
       </div>
     </div>
@@ -77,7 +77,7 @@ export function updateWidget(data) {
   if (score == null) {
     widget.style.setProperty("display", "none", "important");
     statusCard.className = "aegis-status scanning";
-    icon.textContent = "[..]";
+    icon.textContent = "🔍";
     title.textContent = "Scanning...";
     return;
   }
@@ -87,13 +87,13 @@ export function updateWidget(data) {
 
   let cls, iconText, titleText;
   if (score >= 80) {
-    cls = "danger";  iconText = "[!]"; titleText = "Phishing Detected";
+    cls = "danger";  iconText = "🚨"; titleText = "Phishing Detected";
   } else if (score >= 50) {
-    cls = "warning"; iconText = "[!]"; titleText = "Suspicious Page";
+    cls = "warning"; iconText = "⚠️"; titleText = "Suspicious Page";
   } else if (score >= 20) {
-    cls = "caution"; iconText = "[!]"; titleText = "Low Risk";
+    cls = "caution"; iconText = "🔶"; titleText = "Low Risk";
   } else {
-    cls = "safe";    iconText = "[✓]"; titleText = "Page Safe";
+    cls = "safe";    iconText = "✅"; titleText = "Page Safe";
   }
 
   statusCard.className = `aegis-status ${cls}`;
@@ -115,8 +115,8 @@ export function updateThreatCount(count) {
   const note = document.getElementById("aegis-threat-count");
   if (!note) return;
   note.textContent = count > 0
-    ? `[!] ${count} malicious link${count > 1 ? "s" : ""} found`
-    : count === 0 ? "[✓] All links safe" : "";
+    ? `⚠️ ${count} malicious link${count > 1 ? "s" : ""} found`
+    : count === 0 ? "✓ All links safe" : "";
   note.style.color = count > 0 ? "#ef4444" : "#10b981";
 
   if (count > 0 && widget) {
@@ -134,11 +134,7 @@ function _setupControls(widget) {
     widget.classList.remove("minimized");
   });
   document.getElementById("aegis-btn-off")?.addEventListener("click", () => {
-    try {
-      if (chrome.runtime?.id) {
-        chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD }).catch(() => {});
-      }
-    } catch (_) {}
+    chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD });
     document.getElementById("aegis-details-panel")?.remove();
     widget.remove();
   });
@@ -152,22 +148,15 @@ function _setupControls(widget) {
 
   document.getElementById("aegis-action-xai")?.addEventListener("click", async () => {
     const btn = document.getElementById("aegis-action-xai");
-    btn.textContent = "[..] Loading...";
+    btn.textContent = "⏳ Loading...";
     btn.disabled = true;
 
-    let res = null;
-    try {
-      if (chrome.runtime?.id) {
-        res = await chrome.runtime.sendMessage({
-          type: MSG.XAI_REQUEST,
-          url: window.location.href,
-        });
-      }
-    } catch (err) {
-      console.warn("[AegisOne] Extension context invalidated. Please refresh the page.", err);
-    }
+    const res = await chrome.runtime.sendMessage({
+      type: MSG.XAI_REQUEST,
+      url: window.location.href,
+    }).catch(() => null);
 
-    btn.textContent = "Explain AI";
+    btn.textContent = "✨ Explain AI";
     btn.disabled = false;
 
     if (res?.xai) {
@@ -213,26 +202,18 @@ function _showDetailsPanel(widget, score, top_factors, threat_type) {
   const panel = document.createElement("div");
   panel.id = "aegis-details-panel";
   panel.style.cssText = `
-    position: absolute;
-    bottom: 100%;
-    left: 0;
     width: 100%;
-    margin-bottom: 8px;
-    background: rgba(12, 17, 29, 0.98);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    padding: 10px 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    backdrop-filter: blur(12px);
-    animation: aegisDetailsSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    background: rgba(13, 18, 30, 0.98);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 14px;
+    animation: aegisDetailsDrop 0.2s ease;
     font-family: 'Inter', -apple-system, sans-serif;
-    box-sizing: border-box;
   `;
 
   panel.innerHTML = `
     <style>
-      @keyframes aegisDetailsSlideUp {
-        from { opacity: 0; transform: translateY(8px); }
+      @keyframes aegisDetailsDrop {
+        from { opacity: 0; transform: translateY(-4px); }
         to   { opacity: 1; transform: translateY(0); }
       }
     </style>
@@ -248,7 +229,8 @@ function _showDetailsPanel(widget, score, top_factors, threat_type) {
     </div>
   `;
 
-  if (widget) widget.appendChild(panel);
+  const mainBox = document.getElementById("aegis-widget-main");
+  if (mainBox) mainBox.appendChild(panel);
 }
 
 function _refreshDetailsPanel(score, top_factors, threat_type) {
@@ -347,41 +329,41 @@ function _injectStyles() {
 
     #aegis-widget-main {
       width: 240px !important;
-      background: rgba(12, 17, 29, 0.96);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
+      background: rgba(12, 17, 29, 0.98);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
       overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset;
-      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06) inset;
+      backdrop-filter: blur(16px);
       pointer-events: auto !important;
     }
 
     #aegis-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 10px;
+      padding: 10px 14px;
       background: rgba(22, 30, 46, 0.95);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       cursor: move;
     }
-    .aegis-brand { display: flex; align-items: center; gap: 5px; }
-    .aegis-shield-icon { font-size: 13px; }
-    .aegis-brand-name { font-weight: 800; font-size: 11px; color: #ffffff; letter-spacing: -0.2px; }
+    .aegis-brand { display: flex; align-items: center; gap: 7px; }
+    .aegis-shield-icon { font-size: 15px; }
+    .aegis-brand-name { font-weight: 800; font-size: 13px; color: #ffffff; letter-spacing: -0.2px; }
     .aegis-header-controls { display: flex; gap: 4px; }
     .aegis-ctrl-btn {
       background: none; border: none; color: #64748b;
-      cursor: pointer; font-size: 10px; padding: 2px 4px;
+      cursor: pointer; font-size: 12px; padding: 2px 5px;
       border-radius: 4px; line-height: 1; transition: all 0.15s;
     }
     .aegis-ctrl-btn:hover { color: #ffffff; background: rgba(255,255,255,0.1); }
 
-    #aegis-body { padding: 8px 10px; }
+    #aegis-body { padding: 12px 14px; }
 
     .aegis-status {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 8px; border-radius: 8px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
       background: rgba(30,41,59,0.5);
-      border: 1px solid rgba(255,255,255,0.06);
-      margin-bottom: 8px; transition: all 0.3s;
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 10px; transition: all 0.3s;
     }
     .aegis-status.safe    { border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.08); }
     .aegis-status.caution { border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
@@ -389,37 +371,37 @@ function _injectStyles() {
     .aegis-status.danger  { border-color: rgba(239,68,68,0.45);  background: rgba(239,68,68,0.1); }
     .aegis-status.scanning{ border-color: rgba(99,102,241,0.35); background: rgba(99,102,241,0.08); }
 
-    .aegis-s-icon { font-size: 16px; flex-shrink: 0; }
-    .aegis-s-title { font-weight: 800; font-size: 11px; color: #ffffff; }
+    .aegis-s-icon { font-size: 22px; flex-shrink: 0; }
+    .aegis-s-title { font-weight: 800; font-size: 13px; color: #ffffff; }
 
     #aegis-risk-row {
-      display: flex; align-items: center; gap: 6px;
-      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px;
     }
-    .aegis-risk-label { font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: 800; letter-spacing: 0.5px; flex-shrink: 0; }
+    .aegis-risk-label { font-size: 9px; text-transform: uppercase; color: #94a3b8; font-weight: 800; letter-spacing: 0.5px; flex-shrink: 0; }
     #aegis-risk-bar-track {
-      flex: 1; height: 3px; background: #1e293b; border-radius: 2px; overflow: hidden;
+      flex: 1; height: 4px; background: #1e293b; border-radius: 2px; overflow: hidden;
     }
     #aegis-risk-bar-fill { height: 100%; border-radius: 2px; width: 0%; transition: width 0.6s ease, background 0.3s; }
-    .aegis-risk-pct { font-size: 10px; font-weight: 900; flex-shrink: 0; min-width: 24px; text-align: right; }
+    .aegis-risk-pct { font-size: 11px; font-weight: 900; flex-shrink: 0; min-width: 28px; text-align: right; }
 
-    .aegis-actions { display: flex; gap: 6px; }
+    .aegis-actions { display: flex; gap: 8px; }
     .aegis-actions.hidden { display: none; }
     .aegis-btn-primary {
-      flex: 1; padding: 5px 8px; font-size: 10px; font-weight: 800;
+      flex: 1; padding: 7px 10px; font-size: 11px; font-weight: 800;
       background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      color: #ffffff; border: none; border-radius: 6px; cursor: pointer;
+      color: #ffffff; border: none; border-radius: 8px; cursor: pointer;
       transition: all 0.2s; font-family: inherit;
-      box-shadow: 0 3px 8px rgba(99,102,241,0.25);
+      box-shadow: 0 4px 12px rgba(99,102,241,0.3);
     }
-    .aegis-btn-primary:hover { opacity: 0.9; transform: translateY(-0.5px); }
+    .aegis-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
     .aegis-btn-secondary {
-      flex: 1; padding: 5px 8px; font-size: 10px; font-weight: 700;
-      background: rgba(255,255,255,0.06); color: #f1f5f9;
-      border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; cursor: pointer;
+      flex: 1; padding: 7px 10px; font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,0.08); color: #f1f5f9;
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; cursor: pointer;
       transition: all 0.2s; font-family: inherit;
     }
-    .aegis-btn-secondary:hover { color: #ffffff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.2); }
+    .aegis-btn-secondary:hover { color: #ffffff; background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25); }
   `;
   document.head.appendChild(style);
 }

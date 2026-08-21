@@ -1195,6 +1195,7 @@
 
     if (emailData?.body?.length > 30) {
       const res = await chrome.runtime.sendMessage({ type: "EMAIL_DATA", ...emailData }).catch(() => null);
+      if (res?.result) updateWidget(res.result.phishing_probability, 0);
       attachImageListeners();
       return;
     }
@@ -1265,15 +1266,6 @@
 
   const hb = setInterval(() => { if (!ctxOk()) { clearInterval(hb); return; } debouncedScan(); }, 30000);
 
-  function escapeHtml(str) {
-    if (!str) return "";
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
 
   // ────────────────────────────────────────────
   // INTERACTIVE XAI MODAL REPORT
@@ -1299,10 +1291,6 @@
       themeBg = "rgba(59, 130, 246, 0.08)";
     }
 
-    const escUrl = escapeHtml(url);
-    const escCategory = escapeHtml(category);
-    const escExplanation = escapeHtml(explanation.split(" | ")[0]);
-
     const modalHtml = `
       <div class="aegis-xai-backdrop"></div>
       <div class="aegis-xai-modal">
@@ -1319,18 +1307,18 @@
             <div class="aegis-xai-meta">
               <div class="aegis-meta-item">
                 <span class="meta-lbl">Target URL</span>
-                <span class="meta-val truncate" title="${escUrl}">${escUrl}</span>
+                <span class="meta-val truncate" title="${url}">${url}</span>
               </div>
               <div class="aegis-meta-item">
                 <span class="meta-lbl">Classification Category</span>
-                <span class="meta-val capitalize" style="color: ${themeColor}; font-weight: 700;">${escCategory}</span>
+                <span class="meta-val capitalize" style="color: ${themeColor}; font-weight: 700;">${category}</span>
               </div>
             </div>
           </div>
           
           <div class="aegis-xai-section">
             <div class="section-title">🔍 Heuristic Analysis Verdict</div>
-            <div class="section-content">${escExplanation}</div>
+            <div class="section-content">${explanation.split(" | ")[0]}</div>
           </div>
 
           <div class="aegis-xai-section">
@@ -1339,12 +1327,12 @@
               ${xaiWords && xaiWords.length > 0
         ? `<p class="xai-desc">The model's classification decision was heavily weighted by the presence of these key semantic features in the URL structure:</p>
                    <div class="xai-tokens">
-                      ${xaiWords.map((word, i) => `
-                        <span class="xai-token-badge" style="opacity: ${1.0 - (i * 0.15)}; background: ${themeColor}15; border-color: ${themeColor}44; color: ${themeColor}">
-                          ${escapeHtml(word)} <span class="xai-weight-tag">Rank #${i + 1}</span>
-                        </span>
-                      `).join("")}
-                    </div>`
+                     ${xaiWords.map((word, i) => `
+                       <span class="xai-token-badge" style="opacity: ${1.0 - (i * 0.15)}; background: ${themeColor}15; border-color: ${themeColor}44; color: ${themeColor}">
+                         ${word} <span class="xai-weight-tag">Rank #${i + 1}</span>
+                       </span>
+                     `).join("")}
+                   </div>`
         : `<p class="xai-desc-neutral">No highly anomaly-correlated NLP features triggered this evaluation. The URL classification relies on standard layout verification.</p>`
       }
             </div>
@@ -1376,83 +1364,6 @@
   document.addEventListener("click", (e) => {
     const badge = e.target.closest(".aegis-google-badge, .aegis-score-badge");
     if (badge && badge.dataset.url) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const url = badge.dataset.url;
-      const score = parseInt(badge.dataset.score || "0", 10);
-      const category = badge.dataset.category || "unknown";
-      const explanation = badge.dataset.explanation || "";
-      let xaiWords = [];
-      try {
-        xaiWords = JSON.parse(badge.dataset.xaiWords || "[]");
-      } catch { }
-
-      showXaiReportModal(url, score, category, explanation, xaiWords);
-    }
-  }, { capture: true });
-
-  // ────────────────────────────────────────────
-  // INTERACTIVE MALICIOUS ATTACHMENT WARNING
-  // ────────────────────────────────────────────
-  function showDownloadWarningModal(downloadId, filename, risk, url) {
-    const existing = document.getElementById("aegis-warning-modal-container");
-    if (existing) existing.remove();
-
-    const container = document.createElement("div");
-    container.id = "aegis-warning-modal-container";
-
-    // Truncate long texts for visual aesthetic and responsiveness
-    const displayFilename = filename.length > 35 ? filename.slice(0, 32) + "..." : filename;
-    const displayUrl = url.length > 50 ? url.slice(0, 47) + "..." : url;
-
-    const escFilename = escapeHtml(filename);
-    const escDisplayFilename = escapeHtml(displayFilename);
-    const escUrl = escapeHtml(url);
-    const escDisplayUrl = escapeHtml(displayUrl);
-
-    const modalHtml = `
-      <div class="aegis-warning-backdrop"></div>
-      <div class="aegis-warning-modal">
-        <div class="aegis-warning-header">
-          <div class="aegis-warning-logo">🚨 AegisOne Threat Shield Alert</div>
-        </div>
-        <div class="aegis-warning-body">
-          <div class="aegis-warning-icon-wrap">
-            <span class="aegis-warning-icon">⚠️</span>
-          </div>
-          <h2 class="aegis-warning-title">Dangerous File Download Blocked</h2>
-          <p class="aegis-warning-desc">
-            AegisOne deep analysis has flagged this attachment as containing potential malware macros or credential harvesting vectors.
-          </p>
-          
-          <div class="aegis-warning-info-card">
-            <div class="info-row">
-              <span class="lbl">File Name:</span>
-              <span class="val truncate" title="${escFilename}">${escDisplayFilename}</span>
-            </div>
-            <div class="info-row">
-              <span class="lbl">Source URL:</span>
-              <span class="val truncate" title="${escUrl}">${escDisplayUrl}</span>
-            </div>
-            <div class="info-row">
-              <span class="lbl">Phishing Risk:</span>
-              <span class="val danger-text">${Math.round(risk * 100)}% Risk</span>
-            </div>
-          </div>
-          
-          <p class="aegis-warning-caution">
-            Warning: Proceeding may compromise your system, execute malicious macros, or harvest sensitive credentials.
-          </p>
-        </div>
-        <div class="aegis-warning-actions">
-          <button class="aegis-btn-cancel">Secure System (Cancel Download)</button>
-          <button class="aegis-btn-proceed">Proceed Anyway (Unsafe)</button>
-        </div>
-      </div>
-    `;
-
-    container.innerHTML = modalHtml;t.url) {
       e.preventDefault();
       e.stopPropagation();
 

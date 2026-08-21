@@ -14,6 +14,11 @@ Tier 2 (Optional, Non-Critical, ~1.5–3 s):
   - Local Ollama (qwen2.5:1.5b) rephrases Tier 1 JSON into natural
     language WITHOUT inventing claims outside the Tier 1 payload.
 
+Tier 2.5 (Built-in HuggingFace Fallback, ~2–5 s first call then ~0.5 s):
+  - google/flan-t5-small runs in-process via the transformers library.
+  - No Ollama install required. Model (~300 MB) downloads once to cache.
+  - Produces real AI-generated text, not hardcoded templates.
+
 Attribution family:
   Captum Integrated Gradients ∈ SHAP axiomatic attribution family.
   Satisfies Completeness and Sensitivity axioms (Sundararajan et al., 2017).
@@ -540,6 +545,67 @@ _CLOUD_OLLAMA_URL = "https://ollama.com/api/generate"
 _LOCAL_MODEL = "qwen2.5:1.5b"
 _CLOUD_MODEL = "gpt-oss:120b-cloud"
 
+# ─── HuggingFace flan-t5-small — lazy singleton ───────────────────────────────
+# Loaded once on first use; cached in memory for all subsequent calls.
+_hf_pipeline = None
+_HF_MODEL_ID = "google/flan-t5-small"   # ~300 MB, CPU-friendly, permissive licence
+
+
+def _get_hf_pipeline():
+    """Return the cached flan-t5-small pipeline, loading it on first call."""
+    global _hf_pipeline
+    if _hf_pipeline is not None:
+        return _hf_pipeline
+    try:
+        from transformers import pipeline as _hf_pipe_fn
+        logger.info(f"Loading HuggingFace model '{_HF_MODEL_ID}' into memory (first call)...")
+        _hf_pipeline = _hf_pipe_fn(
+            "text2text-generation",
+            model=_HF_MODEL_ID,
+            # Keep it light: fp32 on CPU is fine for a 60M-param model
+            device=-1,
+        )
+        logger.info(f"✓ HuggingFace '{_HF_MODEL_ID}' loaded and ready.")
+        return _hf_pipeline
+    except Exception as e:
+        logger.warning(f"Could not load HuggingFace model ({e}). Tier 2.5 unavailable.")
+        return None
+
+
+def _hf_generate_summary(tier1_json: Dict[str, Any]) -> str:
+    """
+    Run flan-t5-small synchronously (it's a small model, <1 s on CPU after warm-up).
+    Returns an empty string on any failure so callers can fall through gracefully.
+    """
+    pipe = _get_hf_pipeline()
+    if pipe is None:
+        return ""
+
+    fired_rules  = [r["reason"] for r in tier1_json.get("signals", {}).get("rules", [])]
+    top_features = [f["label"] for f in tier1_json.get("signals", {}).get("url_features", [])[:3]]
+    top_tokens   = [t["token"] for t in tier1_json.get("signals", {}).get("text_tokens", [])[:5]]
+    risk_score   = tier1_json.get("risk_score", 0)
+    label        = tier1_json.get("label", "Unknown")
+
+    prompt = (
+        f"You are AegisOne, an expert cybersecurity AI assistant. "
+        f"Write 2 plain-English sentences summarising this security alert for an IT administrator. "
+        f"Do not add any facts not listed here.\n"
+        f"Risk score: {risk_score}% ({label}).\n"
+        f"Triggered rules: {', '.join(fired_rules) or 'none'}.\n"
+        f"Top URL signals: {', '.join(top_features) or 'none'}.\n"
+        f"Suspicious tokens: {', '.join(top_tokens) or 'none'}.\n"
+        f"Security summary:"
+    )
+
+    try:
+        result = pipe(prompt, max_new_tokens=80, do_sample=False)
+        text = result[0]["generated_text"].strip()
+        return text if text else ""
+    except Exception as e:
+        logger.warning(f"HuggingFace inference failed ({e}).")
+        return ""
+
 
 def _build_xai_prompt(tier1_json: Dict[str, Any]) -> str:
     fired_rule_reasons = [r["reason"] for r in tier1_json.get("signals", {}).get("rules", [])]
@@ -614,9 +680,25 @@ async def generate_tier2_deep_explanation(
                     "xai_tier": "tier2_deep",
                 }
     except Exception as local_exc:
-        logger.warning(f"Local Ollama unavailable ({local_exc}). Returning Tier 1 summary.")
+        logger.warning(f"Local Ollama unavailable ({local_exc}). Trying HuggingFace built-in model...")
 
-    # ── Stage 3: Tier 1 Captum Summary Fallback ───────────────────────────────
+    # ── Stage 2.5: HuggingFace flan-t5-small (built-in, no Ollama needed) ────
+    import asyncio
+    loop = asyncio.get_event_loop()
+    # Run the synchronous HF inference in a thread so we don't block the event loop
+    hf_text = await loop.run_in_executor(None, _hf_generate_summary, tier1_json)
+    if hf_text:
+        logger.info("Tier 2.5 XAI: used built-in HuggingFace flan-t5-small.")
+        return {
+            "deep_explanation": hf_text,
+            "tier1_evidence": tier1_json,
+            "model": _HF_MODEL_ID,
+            "source": "huggingface_builtin",
+            "xai_tier": "tier2.5_hf",
+        }
+
+    # ── Stage 3: Tier 1 Captum Summary Fallback (last resort) ────────────────
+    logger.warning("All LLM stages unavailable. Returning Tier 1 rule-based summary.")
     return {
         "deep_explanation": tier1_json.get("summary", "No explanation available."),
         "tier1_evidence": tier1_json,
@@ -634,8 +716,15 @@ async def ensure_ollama_model_ready(
     Background worker called on FastAPI startup.
     If OLLAMA_API_KEY is set → uses Cloud Ollama, no local check needed.
     Otherwise, checks if local Ollama service is running and pulls model if missing.
+    Also warms the HuggingFace flan-t5-small model in the background so the
+    first real XAI request is instant.
     """
     import httpx
+    import asyncio
+
+    # ── Warm HuggingFace model in background thread (non-blocking) ────────────
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _get_hf_pipeline)
 
     if _OLLAMA_API_KEY:
         logger.info("✓ OLLAMA_API_KEY detected — Tier 2 XAI will use Ollama Cloud. No local pull needed.")
