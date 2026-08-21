@@ -191,13 +191,14 @@ export default function RegisterPage() {
 
         <div className="w-full max-w-lg relative z-10">
 
-          {/* Header */}
-          <div className="text-center mb-4 space-y-1">
-            <div className="inline-flex items-center gap-2 bg-[#4A7FA7]/10 border border-[#4A7FA7]/20 px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-[#4A7FA7] uppercase tracking-wider">
-              Organization Registration
-            </div>
-            <h1 className="text-xl font-bold text-[#0A1931]">Deploy AegisOne in Your Organization</h1>
-            <p className="text-xs text-[#4A6D8C]">
+          {/* Header — single clean title */}
+          <div className="text-center mb-4">
+            <h1 className="text-xl font-bold text-[#0A1931]">
+              {step === 1 && 'Register Your Organization'}
+              {step === 2 && 'Administrator Details'}
+              {step === 3 && 'Create Your Password'}
+            </h1>
+            <p className="text-xs text-[#4A6D8C] mt-1">
               {step === 1 && 'Tell us about your organization.'}
               {step === 2 && 'Who is the primary security administrator?'}
               {step === 3 && 'Secure your admin portal account.'}
