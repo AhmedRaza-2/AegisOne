@@ -82,6 +82,14 @@ async def lifespan(app: FastAPI):
 
     await init_db()
     
+    import shutil
+    try:
+        shutil.copy(r"d:\Coding Projects\AegisOne\frontend\logo.png", r"d:\Coding Projects\AegisOne\frontend\landing\public\logo.png")
+        shutil.copy(r"d:\Coding Projects\AegisOne\frontend\logo.png", r"d:\Coding Projects\AegisOne\frontend\dashboard\public\logo.png")
+        logger.info("Logo copied to landing and dashboard public folders successfully!")
+    except Exception as e:
+        logger.warning(f"Could not copy logo: {e}")
+
     from api.database.db import async_session, engine
     from api.database.models import Organization, Department, WebsiteScan, Device, AuditLog, Message, ThreatReport
     from sqlalchemy.future import select

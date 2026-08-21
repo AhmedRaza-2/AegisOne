@@ -54,15 +54,7 @@ export default function Header({ onScrollTo }: HeaderProps) {
             }
           }}
         >
-          {/* Custom generated precise vector logo icon matching screenshot */}
-          <svg className="w-6 h-6 shrink-0 transition-transform duration-200 group-hover:scale-105" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="24" height="24" rx="6" fill="#0A1931"/>
-            <path d="M12 5.5L6.5 7.5V11.5C6.5 14.85 8.85 17.95 12 18.5C15.15 17.95 17.5 14.85 17.5 11.5V7.5L12 5.5Z" fill="#4A7FA7"/>
-            <path d="M11.5 8H12.5V14.5H11.5V8ZM12 16C11.5 16 11.25 15.75 11.25 15.25C11.25 14.75 11.5 14.5 12 14.5C12.5 14.5 12.75 14.75 12.75 15.25C12.75 15.75 12.5 16 12 16Z" fill="white"/>
-          </svg>
-          <span className="font-sans font-bold text-xl text-[#0A1931] tracking-tight">
-            Aegis<span className="text-[#4A7FA7]">One</span>
-          </span>
+          <img src="/logo.png" alt="AegisOne" className="h-7 w-auto shrink-0 transition-transform duration-200 group-hover:scale-105" />
         </div>
 
         {/* Desktop Navigation */}

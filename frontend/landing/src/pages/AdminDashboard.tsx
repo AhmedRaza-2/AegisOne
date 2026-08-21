@@ -40,20 +40,30 @@ export default function AdminDashboard() {
     setAuthError('');
     try {
       // 1. Sign out any current tenant session first to prevent conflicts
-      await supabase.auth.signOut();
-
+      await supabase.auth.signOut().catch(() => {});
       // 2. Sign in as Super Admin
-      const adminEmailConfig = import.meta.env.VITE_ADMIN_EMAIL || 'araza2125012.pgc@gmail.com';
-      if (adminEmail.toLowerCase() !== adminEmailConfig.toLowerCase()) {
-        throw new Error("Access Denied: Email is not registered as a Super Administrator.");
-      }
-
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: adminEmail,
         password: adminPassword,
       });
 
       if (error) throw error;
+
+      // 3. Verify user is the single designated super admin (231564@students.au.edu.pk) or has super_admin metadata
+      const user = data.user;
+      const roleInApp = user?.app_metadata?.role;
+      const roleInUser = user?.user_metadata?.role;
+      const emailLower = user?.email?.toLowerCase() || '';
+
+      const isSuperAdmin = 
+        emailLower === '231564@students.au.edu.pk' ||
+        roleInApp === 'super_admin' || 
+        roleInUser === 'super_admin';
+
+      if (!isSuperAdmin) {
+        await supabase.auth.signOut();
+        throw new Error("Access Denied: Email is not registered as a Super Administrator.");
+      }
 
       setIsAuthenticated(true);
     } catch (err: any) {

@@ -68,7 +68,7 @@ function Field({ label, icon, error, children }: InputProps) {
   );
 }
 
-const inputCls = "w-full bg-[#F6FAFD] border border-[#E1EBF2] rounded-lg px-4 py-2.5 text-sm text-[#0A1931] placeholder-[#8CA3B8] focus:outline-none focus:border-[#4A7FA7] focus:ring-[3px] focus:ring-[#4A7FA7]/15 focus:bg-white transition-all";
+const inputCls = "w-full bg-[#F6FAFD] border border-[#E1EBF2] rounded-lg px-3.5 py-2 text-sm text-[#0A1931] placeholder-[#8CA3B8] focus:outline-none focus:border-[#4A7FA7] focus:ring-[3px] focus:ring-[#4A7FA7]/15 focus:bg-white transition-all";
 const selectCls = inputCls + " appearance-none cursor-pointer";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ export default function RegisterPage() {
       <Header />
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
+      <div className="flex-1 flex items-center justify-center px-4 py-4 md:py-6 relative z-10">
         {/* Decorative background positioned behind the form area */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden flex justify-center items-center">
           <div className="w-[600px] h-[600px] bg-[#4A7FA7]/5 rounded-full blur-[120px]" />
@@ -192,12 +192,12 @@ export default function RegisterPage() {
         <div className="w-full max-w-lg relative z-10">
 
           {/* Header */}
-          <div className="text-center mb-8 space-y-2">
-            <div className="inline-flex items-center gap-2 bg-[#4A7FA7]/10 border border-[#4A7FA7]/20 px-3 py-1 rounded-full text-xs font-semibold text-[#4A7FA7] uppercase tracking-wider">
+          <div className="text-center mb-4 space-y-1">
+            <div className="inline-flex items-center gap-2 bg-[#4A7FA7]/10 border border-[#4A7FA7]/20 px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-[#4A7FA7] uppercase tracking-wider">
               Organization Registration
             </div>
-            <h1 className="text-2xl font-bold text-[#0A1931]">Deploy AegisOne in Your Organization</h1>
-            <p className="text-sm text-[#4A6D8C]">
+            <h1 className="text-xl font-bold text-[#0A1931]">Deploy AegisOne in Your Organization</h1>
+            <p className="text-xs text-[#4A6D8C]">
               {step === 1 && 'Tell us about your organization.'}
               {step === 2 && 'Who is the primary security administrator?'}
               {step === 3 && 'Secure your admin portal account.'}
@@ -207,8 +207,8 @@ export default function RegisterPage() {
           <StepIndicator current={step} total={3} />
 
           {/* Form Card */}
-          <div className="bg-white border border-[#E1EBF2] rounded-2xl p-6 md:p-8 shadow-lg">
-            <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} className="space-y-5" noValidate>
+          <div className="bg-white border border-[#E1EBF2] rounded-2xl p-5 md:p-6 shadow-md">
+            <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} className="space-y-4" noValidate>
 
               {/* ── STEP 1: Organization ── */}
               {step === 1 && (
