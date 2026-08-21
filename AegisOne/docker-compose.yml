@@ -1,0 +1,66 @@
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PostgreSQL — persistent database for the AegisOne backend
+  # ──────────────────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: aegisone-db
+    environment:
+      POSTGRES_DB: aegisone
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aegisone_secret}
+    volumes:
+      - aegisone-pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U aegis -d aegisone" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend API — FastAPI + AI Engine (Pre-built Docker Hub Image)
+  # ──────────────────────────────────────────────────────────────────────────
+  backend:
+    image: ahmedraza2006/aegisone-backend:latest
+    container_name: aegisone-backend
+    command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+    environment:
+      AEGIS_PORT: "8000"
+      AEGIS_WORKERS: "1"
+      AEGIS_DATABASE_URL: "postgresql+asyncpg://aegis:${DB_PASSWORD:-aegisone_secret}@db:5432/aegisone"
+      AEGIS_JWT_SECRET: ${AEGIS_JWT_SECRET:-change-me-in-production}
+      AEGIS_DASHBOARD_URL: ${AEGIS_DASHBOARD_URL:-http://localhost:3002}
+      ORG_ID: ${ORG_ID:-}
+      LICENSE_KEY: ${LICENSE_KEY:-}
+      DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Dashboard — Admin & Employee Portal (Pre-built Docker Hub Image)
+  # ──────────────────────────────────────────────────────────────────────────
+  dashboard:
+    image: ahmedraza2006/aegisone-dashboard:latest
+    container_name: aegisone-dashboard
+    ports:
+      - "3002:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE: "http://${SERVER_HOST:-localhost}:8000"
+      NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST:-localhost}:8000"
+      AEGIS_DASHBOARD_URL: "http://${SERVER_HOST:-localhost}:3002"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  aegisone-pg-data:
