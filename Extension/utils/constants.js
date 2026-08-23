@@ -133,6 +133,7 @@ export const STORE_KEYS = {
   ALLOWLIST: "custom_allowlist",
   BLOCKLIST: "custom_blocklist",
   WARNINGLIST: "custom_warninglist",
+  RISK_THRESHOLDS: "risk_thresholds",
   LAST_SYNC: "last_sync_timestamp",
 };
 

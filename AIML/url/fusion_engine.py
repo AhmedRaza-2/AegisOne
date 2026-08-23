@@ -31,7 +31,8 @@ def fuse_url_intelligence(
     url: str,
     model_prediction_probs: List[float],
     brand_result: dict,
-    lexical_tensor: torch.Tensor
+    lexical_tensor: torch.Tensor,
+    is_trusted: bool = False
 ) -> dict:
     """
     Fuses predictions, brand metrics, and lexical features into a final report.
@@ -116,7 +117,7 @@ def fuse_url_intelligence(
     )
 
     # If the caller provides dummy/None probabilities, we can bypass BERT entirely
-    if model_prediction_probs is None and is_structurally_clean:
+    if model_prediction_probs is None and is_structurally_clean and is_trusted:
         calibration = calibrate_probability(0.05)
         return {
             "prediction": "legitimate",
@@ -160,6 +161,9 @@ def fuse_url_intelligence(
             fused_prob = max(fused_prob, brand_score)
         if lexical_risk > 0:
             fused_prob = min(1.0, fused_prob + (lexical_risk * 0.20))
+            
+        if is_trusted:
+            fused_prob = fused_prob * 0.5  # Halve the risk if it's a trusted domain
             
         if is_structurally_clean and fused_prob < 0.85:
             fused_prob = min(fused_prob, 0.25)

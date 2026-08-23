@@ -562,7 +562,7 @@ def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
     }
 
 
-def _predict_url_sync(url: str, include_xai: bool = False) -> dict:
+def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[str] = None) -> dict:
     if "url" not in MODELS:
         return {"error": "URL model not loaded", "model": "url"}
 
@@ -575,7 +575,9 @@ def _predict_url_sync(url: str, include_xai: bool = False) -> dict:
     from AIML.url.brand_engine import check_brand_impersonation
     brand_result = check_brand_impersonation(url)
     
-    # Check if exactly a trusted domain to bypass deep checks
+    # Removed hardcoded trusted domains bypass. Trusted domains will now be evaluated
+    # through the fusion engine as a context signal.
+    is_trusted = False
     try:
         parsed = urlparse(url)
         netloc = parsed.netloc.lower()
@@ -585,32 +587,10 @@ def _predict_url_sync(url: str, include_xai: bool = False) -> dict:
         if domain.startswith("www."):
             domain = domain[4:]
             
-        is_trusted = False
         for trusted in TRUSTED_DOMAINS:
             if domain == trusted or domain.endswith("." + trusted):
                 is_trusted = True
                 break
-                
-        # Stage 2: Risky file check on trusted domain
-        risky_extensions = {".exe", ".zip", ".rar", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".html", ".htm", ".bin", ".sh"}
-        path_and_query = (parsed.path + "?" + parsed.query).lower()
-        has_risky_file = any(ext in path_and_query for ext in risky_extensions)
-        
-        if is_trusted and not has_risky_file:
-            dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
-            return {
-                "prediction": "legitimate",
-                "confidence": round(1.0 - dynamic_safe, 4),
-                "phishing_probability": dynamic_safe,
-                "category": "Safe",
-                "model": "url",
-                "xai_words": [],
-                "explanation": "✓ Verified legitimate corporate domain",
-                "evidence": {
-                    "trusted_domain": True,
-                    "reason": "URL matches a trusted domain whitelist pattern"
-                }
-            }
     except Exception:
         pass
 
@@ -620,7 +600,7 @@ def _predict_url_sync(url: str, include_xai: bool = False) -> dict:
 
     # 2.5 Fast-Path / Cascaded Decision Check
     from AIML.url.fusion_engine import fuse_url_intelligence
-    cascade_res = fuse_url_intelligence(url, None, brand_result, lexical_tensor)
+    cascade_res = fuse_url_intelligence(url, None, brand_result, lexical_tensor, is_trusted)
     if cascade_res["evidence"]["fusion_method"] in {
         "Cascade Level 1: Static Threat Signature Override",
         "Cascade Level 2: Static Clean Pass Override"
@@ -654,7 +634,28 @@ def _predict_url_sync(url: str, include_xai: bool = False) -> dict:
 
     # 4. Evidence Fusion & Calibration
     from AIML.url.fusion_engine import fuse_url_intelligence
-    fusion_result = fuse_url_intelligence(url, probs, brand_result, lexical_tensor)
+    fusion_result = fuse_url_intelligence(url, probs, brand_result, lexical_tensor, is_trusted)
+
+    # 4.5 Evaluate form_actions
+    if form_actions:
+        for action in form_actions:
+            if action.startswith("http://"):
+                fusion_result["risk_score"] = max(fusion_result["risk_score"], 85.0)
+                fusion_result["prediction"] = "malicious"
+                fusion_result["explanation"] += f" | ✗ High Risk: Form submits to unencrypted HTTP ({action})"
+            else:
+                try:
+                    action_domain = urlparse(action).netloc.lower()
+                    action_root = action_domain.split(":")[0]
+                    if action_root.startswith("www."):
+                        action_root = action_root[4:]
+                    
+                    if action_root and action_root != domain and not action_root.endswith("." + domain):
+                        fusion_result["risk_score"] = max(fusion_result["risk_score"], 75.0)
+                        fusion_result["prediction"] = "malicious" if fusion_result["risk_score"] >= 76 else "warning"
+                        fusion_result["explanation"] += f" | ⚠ Suspicious: Form submits to third-party domain ({action_root})"
+                except Exception:
+                    pass
 
     # 5. XAI Attention Words Extraction
     is_phish = (fusion_result["prediction"] == "malicious")
@@ -772,31 +773,10 @@ async def predict_text(text: str) -> dict:
         return await asyncio.to_thread(_predict_text_sync, text)
 
 
-async def predict_url(url: str) -> dict:
+async def predict_url(url: str, form_actions: list[str] = None) -> dict:
     """Async URL inference — runs in thread pool with semaphore guard."""
-    # Fast path: check whitelist synchronously (no model needed)
-    try:
-        parsed = urlparse(url)
-        domain = parsed.netloc.lower()
-        if domain.startswith("www."):
-            domain = domain[4:]
-        for trusted in TRUSTED_DOMAINS:
-            if domain == trusted or domain.endswith("." + trusted):
-                return {
-                    "prediction": "legitimate", "confidence": 0.99,
-                    "phishing_probability": 0.01, "category": "Safe",
-                    "model": "url", "xai_words": [],
-                    "explanation": "✓ Verified legitimate corporate domain",
-                    "evidence": {
-                        "trusted_domain": True,
-                        "reason": "URL matches a trusted domain whitelist pattern"
-                    }
-                }
-    except Exception:
-        pass
-
     async with _get_semaphore():
-        return await asyncio.to_thread(_predict_url_sync, url)
+        return await asyncio.to_thread(_predict_url_sync, url, False, form_actions)
 
 
 async def predict_image(img_bytes: bytes) -> dict:

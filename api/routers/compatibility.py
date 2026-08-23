@@ -114,10 +114,18 @@ async def _get_user_info(db: AsyncSession, user_email: str | None, request: Requ
 # --- Compatibility Endpoints ---
 
 @router.post("/analyze/url")
-async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), form_actions: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     validate_url_for_ssrf(url)
     start = time.time()
-    result = await predict_url(url)
+    
+    actions_list = None
+    if form_actions:
+        try:
+            actions_list = json.loads(form_actions)
+        except Exception:
+            pass
+
+    result = await predict_url(url, actions_list)
     
     # Store the scan for dashboard analytics
     score = result.get("phishing_probability", 0) * 100
@@ -613,6 +621,14 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
             continue
             
         details = event.details or {}
+        
+        # Privacy: NEVER store intercepted plaintext credentials
+        safe_dump = event.model_dump()
+        if safe_dump.get("details"):
+            safe_dump["details"].pop("password", None)
+            safe_dump["details"].pop("username", None)
+            safe_dump["details"].pop("email", None)
+            
         entry = SecurityEvent(
             event_id=event_id,
             organization_id=event.org_id or DEFAULT_POLICY["org_id"],
@@ -623,7 +639,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
             module=details.get("module", "extension"),
             decision=details.get("decision", event.verdict or "allow"),
             risk_score=event.risk_score or 0,
-            details=json.dumps(event.model_dump()),
+            details=json.dumps(safe_dump),
         )
         db.add(entry)
         persisted += 1

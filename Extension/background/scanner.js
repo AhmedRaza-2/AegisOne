@@ -130,10 +130,6 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
   const domain = getRootDomain(url);
   const isTestFixture = url.includes("brand_impersonation.html") || url.includes("phishing.html") || bypassPolicy;
 
-  if (isTrusted(url) && !isTestFixture) {
-    return _safeTrustedResult(url);
-  }
-
   if (!isTestFixture) {
     if (_matchesAny(domain, policy.allowlist)) return _policySafeResult(url, "policy_allowlist");
     if (_matchesAny(domain, policy.blocklist)) return _policyBlockedResult(url, "policy_blocklist");
@@ -173,15 +169,18 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
       const form = new FormData();
       form.append("url", url);
       form.append("scan_type", hasDOMFeatures ? "website" : "url");
+      if (pageFeatures.form_actions && pageFeatures.form_actions.length > 0) {
+        form.append("form_actions", JSON.stringify(pageFeatures.form_actions));
+      }
       const raw = await callAPI("/analyze/url", form, true, signal);
       urlModel = _validateScanResponse(raw);
     }
   }
 
-  // If API failed, fall back to stale cache if available (graceful degradation)
+  // If API failed, do not blindly trust stale cache. Fall back to local heuristics.
   if (!urlModel && cached) {
-    if (DEBUG_MODE) console.log("[AegisOne:Scanner] API unavailable — using stale cache for:", domain);
-    return { ...cached, from_cache: true, stale: true };
+    if (DEBUG_MODE) console.log("[AegisOne:Scanner] API unavailable — falling back to local heuristics for:", domain);
+    urlModel = { phishing_probability: 0.15, category: "unknown", prediction: "unknown", note: "api_offline" };
   }
   if (!urlModel) return null;
 
@@ -205,7 +204,7 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
   };
 
   // ── Compute weighted risk ────────────────────────────────
-  const risk = computeRisk(signals);
+  const risk = computeRisk(signals, policy.risk_thresholds);
 
   const result = {
     url,
@@ -224,8 +223,8 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
     }
   };
 
-  if (warningMatch && result.score < THRESHOLD.WARNING * 100) {
-    result.score = Math.round(THRESHOLD.WARNING * 100);
+  if (warningMatch && result.score < (policy.risk_thresholds?.warning || THRESHOLD.WARNING * 100)) {
+    result.score = Math.round(policy.risk_thresholds?.warning || THRESHOLD.WARNING * 100);
     result.verdict = VERDICT.WARNING;
     result.policy_override = "warn";
     result.policy_reason = "Matched organization warninglist";
@@ -235,7 +234,7 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
   await setCachedResult(url, result);
 
   // ── Store event only if risky ────────────────────────────
-  if (risk.score >= THRESHOLD.WARNING * 100) {
+  if (risk.score >= (policy.risk_thresholds?.warning || THRESHOLD.WARNING * 100)) {
     await storeEvent({
       type: EVENT_TYPES.WEBSITE_THREAT,
       url,
@@ -301,8 +300,8 @@ export async function scanURLBatch(urls, batchSize = 5, signal = null, pageUrl =
       preResolved.push(_policyBlockedResult(url, "policy_blocklist"));
       continue;
     }
-    // Same-root-domain links (e.g. app.asana.com on asana.com) or trusted destination links are safe first-party links
-    if ((pageDomain && domain === pageDomain) || isTrusted(url)) {
+    // Same-root-domain links (e.g. app.asana.com on asana.com) are safe first-party links
+    if ((pageDomain && domain === pageDomain)) {
       preResolved.push(_safeTrustedResult(url));
       continue;
     }
@@ -341,7 +340,7 @@ export async function scanURLBatch(urls, batchSize = 5, signal = null, pageUrl =
           threat_type: r.category || r.prediction || null,
           top_words: r.top_words || [],
           known_domain: isTrusted(url)
-        });
+        }, policy.risk_thresholds);
 
         const result = {
           url,
@@ -357,8 +356,8 @@ export async function scanURLBatch(urls, batchSize = 5, signal = null, pageUrl =
           }
         };
 
-        if (_matchesAny(domain, policy.warninglist) && result.score < THRESHOLD.WARNING * 100) {
-          result.score = Math.round(THRESHOLD.WARNING * 100);
+        if (_matchesAny(domain, policy.warninglist) && result.score < (policy.risk_thresholds?.warning || THRESHOLD.WARNING * 100)) {
+          result.score = Math.round(policy.risk_thresholds?.warning || THRESHOLD.WARNING * 100);
           result.verdict = VERDICT.WARNING;
           result.policy_override = "warn";
           result.policy_reason = "Matched organization warninglist";
@@ -506,15 +505,16 @@ async function _getPolicySnapshot() {
   const now = Date.now();
   if (_policyCache && now - _policyCacheAt < POLICY_TTL_MS) return _policyCache;
   try {
-    const stored = await chrome.storage.local.get(["custom_allowlist", "custom_blocklist", "custom_warninglist"]);
+    const stored = await chrome.storage.local.get(["custom_allowlist", "custom_blocklist", "custom_warninglist", "risk_thresholds"]);
     _policyCache = {
       allowlist: Array.isArray(stored.custom_allowlist) ? stored.custom_allowlist : [],
       blocklist: Array.isArray(stored.custom_blocklist) ? stored.custom_blocklist : [],
       warninglist: Array.isArray(stored.custom_warninglist) ? stored.custom_warninglist : [],
+      risk_thresholds: stored.risk_thresholds || null,
     };
     _policyCacheAt = now;
   } catch {
-    _policyCache = { allowlist: [], blocklist: [], warninglist: [] };
+    _policyCache = { allowlist: [], blocklist: [], warninglist: [], risk_thresholds: null };
     _policyCacheAt = now;
   }
   return _policyCache;

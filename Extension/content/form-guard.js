@@ -251,7 +251,10 @@ function _analyzePageForms() {
     }
   });
 
+  let form_actions = [];
+
   forms.forEach(form => {
+    if (form.action) form_actions.push(form.action);
     const hasPassword = form.querySelector('input[type="password"]');
     if (hasPassword) {
       login_form_found = true;
@@ -269,7 +272,8 @@ function _analyzePageForms() {
     has_password,
     has_email,
     has_submit,
-    has_otp
+    has_otp,
+    form_actions
   };
 }
 
@@ -338,6 +342,7 @@ function _setupSubmitInterceptors() {
       const res = await chrome.runtime.sendMessage({
         type: MSG.FORM_INTERCEPT,
         url: window.location.href,
+        formAction: formAction
       }).catch(() => null);
 
       if (res?.block) {

@@ -81,15 +81,19 @@
       const isAllowlistedPage = _matchesDomainList(getRootDomain(location.href), allowlist);
 
       // ── Sync Dashboard Logged-In User ───────────────
-      try {
-        const rawUser = localStorage.getItem("user");
-        if (rawUser) {
-          const userObj = JSON.parse(rawUser);
-          if (userObj && userObj.email) {
-            chrome.storage.local.set({ user_email: userObj.email });
+      if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname.includes("aegisone")) {
+        try {
+          const rawUser = localStorage.getItem("user");
+          if (rawUser) {
+            const userObj = JSON.parse(rawUser);
+            if (userObj && userObj.email) {
+              chrome.storage.local.set({ user_email: userObj.email });
+            }
+          } else {
+            chrome.storage.local.remove(["user_email"]);
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
 
       // ── Widget ──────────────────────────────────────
       _widget = createWidget();

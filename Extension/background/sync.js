@@ -136,6 +136,9 @@ export async function fetchOrgPolicy() {
     if (Array.isArray(policy.warninglist)) {
       await chrome.storage.local.set({ [STORE_KEYS.WARNINGLIST]: policy.warninglist });
     }
+    if (policy.risk_thresholds) {
+      await chrome.storage.local.set({ [STORE_KEYS.RISK_THRESHOLDS]: policy.risk_thresholds });
+    }
 
     await _registerOrHeartbeat(deviceId, false).catch(() => {});
     setBackendOnline(true);

@@ -236,7 +236,6 @@ app.include_router(admin.router)
 app.include_router(compatibility.router)
 app.include_router(setup.router)
 app.include_router(public.router)
-app.include_router(xai.router)
 app.include_router(communication.router)
 
 

@@ -27,7 +27,7 @@ import { RISK_WEIGHTS, VERDICT, THRESHOLD } from "../utils/constants.js";
  *
  * @returns {{ score: number, verdict: string, breakdown: object, threat_type: string }}
  */
-export function computeRisk(signals = {}) {
+export function computeRisk(signals = {}, custom_thresholds = null) {
   const breakdown = {};
   let weighted_sum = 0;
   let weight_used = 0;
@@ -166,9 +166,12 @@ export function computeRisk(signals = {}) {
   }
 
   // ── Verdict ───────────────────────────────────────────
+  const dangerThresh = custom_thresholds?.block ?? (THRESHOLD.DANGER * 100);
+  const warningThresh = custom_thresholds?.warning ?? (THRESHOLD.WARNING * 100);
+
   let verdict = VERDICT.SAFE;
-  if (score >= THRESHOLD.DANGER * 100) verdict = VERDICT.DANGER;
-  else if (score >= THRESHOLD.WARNING * 100) verdict = VERDICT.WARNING;
+  if (score >= dangerThresh) verdict = VERDICT.DANGER;
+  else if (score >= warningThresh) verdict = VERDICT.WARNING;
 
   // ── Top Contributing Factors ──────────────────────────
   const top_factors = Object.entries(breakdown)

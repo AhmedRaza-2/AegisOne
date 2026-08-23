@@ -5,7 +5,7 @@ FastAPI dependency injection for auth, database, etc.
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from api.auth.jwt_handler import decode_access_token
 from api.database.db import get_db
