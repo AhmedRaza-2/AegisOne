@@ -77,54 +77,6 @@ function SidebarContent({
   toggleTheme,
   unreadCount,
 }: any) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [verifyMsg, setVerifyMsg] = useState("");
-  const [verifyError, setVerifyError] = useState("");
-
-  const handlePasswordReset = async () => {
-    if (!user?.email) return;
-    setResetting(true);
-    setVerifyMsg("");
-    setVerifyError("");
-    try {
-      await fetch("http://localhost:8000/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email })
-      });
-      setShowOtpModal(true);
-      setVerifyMsg("A 6-digit verification code has been sent to your email.");
-      setMenuOpen(false);
-    } catch (e) {
-      alert("Failed to send reset code.");
-    }
-    setResetting(false);
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setResetting(true);
-    setVerifyError("");
-    try {
-      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user?.email, otp })
-      });
-      if (!res.ok) {
-        throw new Error("Invalid verification code.");
-      }
-      setVerifyMsg("Success! Your new temporary password has been emailed to you.");
-      setOtp("");
-      // Keep modal open so the user can log out
-    } catch (e: any) {
-      setVerifyError(e.message || "Failed to verify code.");
-    }
-    setResetting(false);
-  };
   return (
     <>
       <div className="h-20 flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
@@ -177,89 +129,8 @@ function SidebarContent({
       </nav>
 
       <div className="p-4 shrink-0 mt-auto border-t border-surface-200 dark:border-white/[0.04] relative">
-        {/* OTP Modal */}
-        {showOtpModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-2xl rounded-2xl w-full max-w-sm p-6 relative">
-              <button
-                onClick={() => setShowOtpModal(false)}
-                className="absolute top-4 right-4 text-surface-400 hover:text-surface-900 dark:hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="text-center mb-6">
-                <div className="w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center mx-auto mb-3">
-                  <Key className="w-6 h-6 text-brand-600 dark:text-brand-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Verify Identity</h3>
-                <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Enter the 6-digit code sent to your email</p>
-              </div>
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                {verifyMsg && <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 dark:text-green-400 text-center">{verifyMsg}</div>}
-                {verifyError && <p className="text-sm text-red-500 dark:text-red-400 text-center">{verifyError}</p>}
-
-                {!verifyMsg.includes("Success") ? (
-                  <>
-                    <div>
-                      <input
-                        type="text"
-                        value={otp}
-                        onChange={e => setOtp(e.target.value)}
-                        placeholder="123456"
-                        maxLength={6}
-                        required
-                        className="w-full px-4 py-3 bg-white dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-center tracking-[0.5em] text-xl font-bold text-surface-900 dark:text-white placeholder-surface-300 dark:placeholder-surface-700 focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={resetting || otp.length < 6}
-                      className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {resetting ? "Verifying..." : "Verify & Reset Password"}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors"
-                  >
-                    Log Out & Use New Password
-                  </button>
-                )}
-              </form>
-            </div>
-          </div>
-        )}
-
-        {menuOpen && !collapsed && (
-          <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden py-1 z-50">
-            <div className="px-4 py-2 text-xs text-surface-500 dark:text-surface-400 font-medium truncate border-b border-surface-100 dark:border-white/[0.04] mb-1">
-              {user?.email || "No email available"}
-            </div>
-            <button onClick={() => { toggleTheme(); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-300 dark:hover:text-white dark:hover:bg-white/[0.04] transition-colors text-left">
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              {theme === "dark" ? "Light Mode" : "Dark Mode"}
-            </button>
-            <button onClick={handlePasswordReset} disabled={resetting} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-300 dark:hover:text-white dark:hover:bg-white/[0.04] transition-colors text-left disabled:opacity-50">
-              <Key className="w-4 h-4" />
-              {resetting ? "Sending..." : "Reset Password"}
-            </button>
-            <div className="h-px bg-surface-200 dark:bg-white/[0.08] my-1"></div>
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left">
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
-          </div>
-        )}
-
         {!collapsed && (
-          <div
-            className="flex items-center gap-3 p-2 -m-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] cursor-pointer transition-colors"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
+          <div className="flex items-center gap-3 p-2 -m-2 rounded-lg transition-colors">
             <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center overflow-hidden shrink-0">
               <span className="text-sm font-bold text-white">{initials}</span>
             </div>
@@ -269,15 +140,12 @@ function SidebarContent({
                 {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department}` : "")}
               </span>
             </div>
-            <div className="shrink-0 text-surface-400">
-              {menuOpen ? <ChevronRight className="w-4 h-4 rotate-90 transition-transform" /> : <ChevronRight className="w-4 h-4 transition-transform" />}
-            </div>
           </div>
         )}
         {collapsed && (
-          <button onClick={handleLogout} className="mx-auto flex justify-center text-surface-500 hover:text-red-500 transition-colors" title="Logout">
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="mx-auto flex justify-center text-surface-500" title="User Profile">
+            <User className="w-5 h-5" />
+          </div>
         )}
       </div>
     </>
@@ -289,16 +157,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [isDragging, setIsDragging] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
   const [systemHealth, setSystemHealth] = useState<any>(null);
   const [apiOffline, setApiOffline] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [verifyMsg, setVerifyMsg] = useState("");
+  const [verifyError, setVerifyError] = useState("");
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const activityRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -309,10 +186,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (activityRef.current && !activityRef.current.contains(target)) {
         setActivityOpen(false);
       }
+      if (settingsRef.current && !settingsRef.current.contains(target)) {
+        setSettingsOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.min(Math.max(e.clientX, 200), 500);
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
 
   useEffect(() => {
     const checkHealth = () => {
@@ -435,6 +336,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ? "/dashboard/supervisor/communication"
     : "/dashboard/employee/communication";
 
+  const handlePasswordReset = async () => {
+    if (!user?.email) return;
+    setResetting(true);
+    setVerifyMsg("");
+    setVerifyError("");
+    try {
+      await fetch("http://localhost:8000/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email })
+      });
+      setShowOtpModal(true);
+      setVerifyMsg("A 6-digit verification code has been sent to your email.");
+      setSettingsOpen(false);
+    } catch (e) {
+      alert("Failed to send reset code.");
+    }
+    setResetting(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetting(true);
+    setVerifyError("");
+    try {
+      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user?.email, otp })
+      });
+      if (!res.ok) {
+        throw new Error("Invalid verification code.");
+      }
+      setVerifyMsg("Success! Your new temporary password has been emailed to you.");
+      setOtp("");
+      // Keep modal open so the user can log out
+    } catch (e: any) {
+      setVerifyError(e.message || "Failed to verify code.");
+    }
+    setResetting(false);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex items-center justify-center">
@@ -456,7 +399,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex transition-colors duration-300 font-sans">
-      <aside className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] transition-all duration-300 ${collapsed ? "w-[80px]" : "w-[260px]"} shrink-0 h-screen sticky top-0 z-50`}>
+      <aside 
+        className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] shrink-0 h-screen sticky top-0 z-50 ${isDragging ? '' : 'transition-all duration-300'}`}
+        style={{ width: collapsed ? 80 : sidebarWidth }}
+      >
         <SidebarContent
           collapsed={collapsed}
           navItems={navItems}
@@ -471,7 +417,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           toggleTheme={toggleTheme}
           unreadCount={unreadCount}
         />
-        <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#1A2133] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-10">
+        {!collapsed && (
+          <div
+            className="absolute top-0 right-[-3px] w-[6px] h-full cursor-col-resize hover:bg-brand-500/30 active:bg-brand-500/50 z-20 transition-colors"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+          />
+        )}
+        <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#1A2133] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-30 shadow-sm">
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </aside>
@@ -491,10 +446,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               />
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <button onClick={toggleTheme} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors">
-              {theme === "dark" ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-surface-600" />}
-            </button>
+          <div className="flex items-center gap-3">
             <div className="relative" ref={notificationsRef}>
                 <button
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -618,18 +570,106 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               System Status: <span className={`flex items-center gap-1.5 ${apiOffline ? 'text-red-500' : 'text-surface-900 dark:text-white'}`}><span className={`w-1.5 h-1.5 rounded-full ${apiOffline ? 'bg-red-500' : 'bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]'}`}></span> {apiOffline ? 'Offline' : 'Operational'}</span>
             </div>
             <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1]"></div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-xs font-bold transition-all cursor-pointer"
-              title="Sign out of AegisOne"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
-            </button>
+            
+            <div className="relative" ref={settingsRef}>
+              <button
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+
+              {settingsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden z-50">
+                  <div className="px-4 py-3 text-xs text-brand-600 dark:text-[#4F84F8] font-medium truncate border-b border-surface-100 dark:border-white/[0.04] bg-surface-50 dark:bg-white/[0.02]">
+                    {user?.email || "No email available"}
+                  </div>
+                  <div className="py-1">
+                    <button onClick={() => { toggleTheme(); setSettingsOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#4F84F8] dark:hover:bg-white/[0.04] transition-colors text-left">
+                      {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                      {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                    </button>
+                    <button onClick={handlePasswordReset} disabled={resetting} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#4F84F8] dark:hover:bg-white/[0.04] transition-colors text-left disabled:opacity-50">
+                      <Key className="w-4 h-4" />
+                      {resetting ? "Sending..." : "Reset Password"}
+                    </button>
+                    <button onClick={() => { setSettingsOpen(false); router.push(user?.role === 'super_admin' || user?.role === 'admin' ? '/dashboard/admin/settings' : (user?.role === 'manager' || user?.role === 'department_admin' || user?.role === 'office_admin' ? '/dashboard/supervisor/settings' : '/dashboard/employee/settings')); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#4F84F8] dark:hover:bg-white/[0.04] transition-colors text-left">
+                      <UserCog className="w-4 h-4" />
+                      Account Settings
+                    </button>
+                  </div>
+                  <div className="h-px bg-surface-200 dark:bg-white/[0.08] my-1"></div>
+                  <div className="py-1">
+                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/10 transition-colors text-left">
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 p-6 md:p-8 text-surface-900 dark:text-white overflow-hidden">
+        <main className="flex-1 p-6 md:p-8 text-surface-900 dark:text-white overflow-hidden relative">
+          {/* OTP Modal rendered at main layout level */}
+          {showOtpModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-2xl rounded-2xl w-full max-w-sm p-6 relative">
+                <button
+                  onClick={() => setShowOtpModal(false)}
+                  className="absolute top-4 right-4 text-surface-400 hover:text-surface-900 dark:hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="text-center mb-6">
+                  <div className="w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center mx-auto mb-3">
+                    <Key className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Verify Identity</h3>
+                  <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Enter the 6-digit code sent to your email</p>
+                </div>
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  {verifyMsg && <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 dark:text-green-400 text-center">{verifyMsg}</div>}
+                  {verifyError && <p className="text-sm text-red-500 dark:text-red-400 text-center">{verifyError}</p>}
+
+                  {!verifyMsg.includes("Success") ? (
+                    <>
+                      <div>
+                        <input
+                          type="text"
+                          value={otp}
+                          onChange={e => setOtp(e.target.value)}
+                          placeholder="123456"
+                          maxLength={6}
+                          required
+                          className="w-full px-4 py-3 bg-white dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-center tracking-[0.5em] text-xl font-bold text-surface-900 dark:text-white placeholder-surface-300 dark:placeholder-surface-700 focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={resetting || otp.length < 6}
+                        className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {resetting ? "Verifying..." : "Verify & Reset Password"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors"
+                    >
+                      Log Out & Use New Password
+                    </button>
+                  )}
+                </form>
+              </div>
+            </div>
+          )}
+
           {children}
         </main>
 
