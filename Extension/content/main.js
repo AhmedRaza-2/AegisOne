@@ -81,6 +81,7 @@
       const isAllowlistedPage = _matchesDomainList(getRootDomain(location.href), allowlist);
 
       // ── Sync Dashboard Logged-In User ───────────────
+      // One-time sync at page load (catches full-page navigations)
       if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname.includes("aegisone")) {
         try {
           const rawUser = localStorage.getItem("user");
@@ -88,11 +89,32 @@
             const userObj = JSON.parse(rawUser);
             if (userObj && userObj.email) {
               chrome.storage.local.set({ user_email: userObj.email });
+              chrome.runtime.sendMessage({ type: "AUTH_UPDATED", email: userObj.email }).catch(() => {});
             }
           } else {
             chrome.storage.local.remove(["user_email"]);
+            chrome.runtime.sendMessage({ type: "AUTH_CLEARED" }).catch(() => {});
           }
         } catch (e) {}
+
+        // ── Live login/logout listeners (SPA client-side navigation) ──
+        // Dashboard fires these events so we don't need a full page reload
+        window.addEventListener("aegis-user-login", (e) => {
+          try {
+            const email = e.detail?.email;
+            if (email) {
+              chrome.storage.local.set({ user_email: email });
+              chrome.runtime.sendMessage({ type: "AUTH_UPDATED", email }).catch(() => {});
+            }
+          } catch (_) {}
+        });
+
+        window.addEventListener("aegis-user-logout", () => {
+          try {
+            chrome.storage.local.remove(["user_email"]);
+            chrome.runtime.sendMessage({ type: "AUTH_CLEARED" }).catch(() => {});
+          } catch (_) {}
+        });
       }
 
       // ── Widget ──────────────────────────────────────

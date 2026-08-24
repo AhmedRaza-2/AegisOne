@@ -140,7 +140,7 @@ export function showXAIModal(xai, context = {}) {
     // Strip leading question marks or junk chars
     const cleanedText = rawText.replace(/^\?+/, '').trim();
     const hasInitialEmoji = /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}]/u.test(cleanedText);
-    const icon = hasInitialEmoji ? "" : "⚠️ ";
+    const icon = hasInitialEmoji ? "" : (s < 20 ? "✅ " : "⚠️ ");
     return `<li style="margin-bottom:8px;color:#f8fafc;font-size:12px;display:flex;align-items:flex-start;gap:8px;line-height:1.55;text-align:left !important;direction:ltr !important;">
       <span style="flex-shrink:0;">${icon}</span>
       <span style="text-align:left !important;">${cleanedText}</span>
@@ -242,8 +242,8 @@ export function showXAIModal(xai, context = {}) {
 
       ${reasonsHtml ? `
       <div style="margin-bottom:16px;text-align:left !important;">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#a78bfa;letter-spacing:0.7px;margin-bottom:8px;text-align:left !important;display:flex;align-items:center;gap:5px;">
-          <span>🔎</span> <span>WHY FLAGGED</span>
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:${s < 20 ? '#34d399' : '#a78bfa'};letter-spacing:0.7px;margin-bottom:8px;text-align:left !important;display:flex;align-items:center;gap:5px;">
+          <span>${s < 20 ? '✅' : '🔎'}</span> <span>${s < 20 ? 'SECURITY ANALYSIS & CHECKS' : 'WHY FLAGGED'}</span>
         </div>
         <ul style="list-style:none;padding:12px 14px;margin:0;background:rgba(17,24,39,0.7);border-radius:10px;border:1px solid rgba(255,255,255,0.08);text-align:left !important;">${reasonsHtml}</ul>
       </div>` : ""}

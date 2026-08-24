@@ -41,6 +41,9 @@ PHISHING_KEYWORDS = [
     "bank account", "credit card", "social security", "password",
     "login", "sign in", "expire", "unauthorized", "unusual activity",
     "free", "offer", "discount", "wire transfer", "payment",
+    "usd", "million", "passed away", "late husband", "charitable", "humanitarian",
+    "donate", "donation", "orphanages", "assistance to oversee", "30%", "token of appreciation",
+    "terminal", "cancer", "condition is terminal", "bequest", "funds"
 ]
 
 URL_PATTERN = re.compile(r'https?://[^\s<>"\')\]}>]+')

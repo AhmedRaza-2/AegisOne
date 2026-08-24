@@ -1,5 +1,5 @@
 "use client";
-import { Shield, Users, AlertTriangle, Activity, BarChart3, TrendingUp, Cpu, Clock, Globe, Mail, FileText, Image, Building2 } from "lucide-react";
+import { Shield, Users, AlertTriangle, Activity, BarChart3, TrendingUp, Cpu, Clock, Globe, Mail, FileText, Image, Building2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "@/lib/auth-context";
@@ -13,36 +13,42 @@ const fadeUp = {
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function AdminDashboard() {
-  const { user, theme, fetchWithCache } = useAuth();
+  const { user, theme, fetchWithCache, invalidateCache } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const isGlobalAdmin = user?.role === "global_admin" || user?.role === "super_admin";
 
   const [departments, setDepartments] = useState<any[]>([]);
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchStats = async () => {
-      try {
-        const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-        const headers = { Authorization: `Bearer ${token || ""}` };
-        const [data, dData] = await Promise.all([
-          fetchWithCache("http://localhost:8000/admin/stats", { headers }),
-          fetchWithCache("http://localhost:8000/admin/departments", { headers })
-        ]);
-        if (isMounted && data) setStats(data);
-        if (isMounted && dData) setDepartments(dData.departments || []);
-      } catch (e) {
-        console.error("Failed to fetch stats", e);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    if (user) {
-      fetchStats();
+  const fetchStatsData = async (isManual = false) => {
+    if (!user) return;
+    if (isManual) {
+      setRefreshing(true);
+      invalidateCache("http://localhost:8000/admin/");
     }
-    return () => { isMounted = false; };
+    try {
+      const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+      const headers = { Authorization: `Bearer ${token || ""}` };
+      const [data, dData] = await Promise.all([
+        fetchWithCache("http://localhost:8000/admin/stats", { headers }, isManual ? 0 : 15000),
+        fetchWithCache("http://localhost:8000/admin/departments", { headers }, isManual ? 0 : 15000)
+      ]);
+      if (data) setStats(data);
+      if (dData) setDepartments(dData.departments || []);
+    } catch (e) {
+      console.error("Failed to fetch stats", e);
+    } finally {
+      setLoading(false);
+      if (isManual) setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchStatsData();
+    }
   }, [user]);
 
   if (!user) return null;
@@ -70,7 +76,7 @@ export default function AdminDashboard() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={fadeUp} className="flex items-center justify-between">
+      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
             {isGlobalAdmin ? "Platform Operations Command" : "Organization Admin Center"}
@@ -81,6 +87,15 @@ export default function AdminDashboard() {
               : `Security policies, threat feeds, and enterprise employee directory`}
           </p>
         </div>
+        <button
+          onClick={() => fetchStatsData(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-surface-700 dark:text-surface-200 border border-surface-200 dark:border-white/[0.08] text-xs font-semibold transition-all shrink-0 disabled:opacity-50"
+          title="Refresh Analytics"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-brand-500" : ""}`} />
+          <span>Refresh</span>
+        </button>
       </motion.div>
 
       {/* Top stats */}

@@ -22,6 +22,28 @@ let _policyCache = null;
 let _policyCacheAt = 0;
 const POLICY_TTL_MS = 60_000;
 
+// ── Auth State Cache ──────────────────────────────────────
+// Avoids reading chrome.storage on every single API call.
+// Refreshed every 5 minutes or on explicit login/logout events.
+let _cachedUserEmail = null;
+let _authCheckedAt = 0;
+const AUTH_CACHE_TTL_MS = 300_000; // 5 minutes
+
+export async function getAuthenticatedEmail() {
+  if (_cachedUserEmail !== null && Date.now() - _authCheckedAt < AUTH_CACHE_TTL_MS) {
+    return _cachedUserEmail;
+  }
+  const { user_email } = await chrome.storage.local.get("user_email");
+  _cachedUserEmail = user_email || null;
+  _authCheckedAt = Date.now();
+  return _cachedUserEmail;
+}
+
+export function invalidateAuthCache() {
+  _cachedUserEmail = null;
+  _authCheckedAt = 0;
+}
+
 // ── Backend Availability ──────────────────────────────────
 // Updated by health checks — prevents 6s timeouts on every scan when offline
 let _backendOnline = true;
@@ -51,8 +73,14 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
   // Skip if backend is known to be offline — return null immediately
   if (!isBackendOnline()) return null;
 
+  // Skip if no authenticated user — prevents flooding backend with guaranteed-401 requests
+  const user_email = await getAuthenticatedEmail();
+  if (!user_email) {
+    if (DEBUG_MODE) console.log(`[AegisOne:Scanner] Skipping ${endpoint} — no authenticated user`);
+    return null;
+  }
+
   try {
-    const { user_email } = await chrome.storage.local.get("user_email");
     const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
     // Compose the caller's signal with the timeout signal if both provided
     const combinedSignal = signal
@@ -62,23 +90,24 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
     const opts = {
       method: "POST",
       signal: combinedSignal,
-      headers: {}
+      headers: { "X-User-Email": user_email }
     };
 
-    if (user_email) {
-      opts.headers["X-User-Email"] = user_email;
-      if (isFormData && body instanceof FormData) {
-        if (!body.has("user_email")) body.append("user_email", user_email);
-      }
-    }
-
-    if (isFormData) {
+    if (isFormData && body instanceof FormData) {
+      if (!body.has("user_email")) body.append("user_email", user_email);
       opts.body = body;
     } else {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
+
     const res = await fetch(`${API_BASE}${endpoint}`, opts);
+    if (res.status === 401) {
+      // Auth rejected — clear cached email so next attempt re-reads from storage
+      invalidateAuthCache();
+      if (DEBUG_MODE) console.warn(`[AegisOne:Scanner] 401 on ${endpoint} — auth cache cleared`);
+      return null;
+    }
     if (!res.ok) return null;
     const data = await res.json();
     // Mark backend as reachable on successful response
@@ -168,7 +197,7 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
     } else {
       const form = new FormData();
       form.append("url", url);
-      form.append("scan_type", hasDOMFeatures ? "website" : "url");
+      form.append("scan_type", "website");
       if (pageFeatures.form_actions && pageFeatures.form_actions.length > 0) {
         form.append("form_actions", JSON.stringify(pageFeatures.form_actions));
       }

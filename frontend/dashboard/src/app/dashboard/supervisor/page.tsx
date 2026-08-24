@@ -1,6 +1,7 @@
 "use client";
+
 import { useAuth } from "@/lib/auth-context";
-import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, ShieldAlert, BrainCircuit } from "lucide-react";
+import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, ShieldAlert, BrainCircuit, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useMemo, useState, useEffect } from "react";
@@ -15,6 +16,47 @@ const COLORS = ["#ef4444", "#f59e0b", "#8b5cf6", "#22c55e"];
 
 export default function SupervisorDashboard() {
   const { user, theme, logout } = useAuth();
+  const [realStats, setRealStats] = useState<any>(null);
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all">("24h");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async (isManual = false) => {
+    if (!user) return;
+    if (isManual) setRefreshing(true);
+
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
+
+    try {
+      const [statsRes, usersRes] = await Promise.all([
+        fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers }),
+        fetch(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
+      ]);
+
+      if (statsRes.status === 401 || usersRes.status === 401) {
+        logout();
+        return;
+      }
+
+      const statsData = await statsRes.json();
+      const usersData = await usersRes.json();
+
+      if (statsData && !statsData.detail) setRealStats(statsData);
+      if (usersData && usersData.users) setDbUsers(usersData.users);
+    } catch (err) {
+      console.error("[Supervisor Dashboard] Fetch error:", err);
+    } finally {
+      if (isManual) setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => fetchData(false), 10000);
+    return () => clearInterval(interval);
+  }, [user, timeRange]);
+
   if (!user) return null;
 
   const isDark = theme === "dark";
@@ -22,69 +64,6 @@ export default function SupervisorDashboard() {
   const tooltipBg = isDark ? "#1e293b" : "#ffffff";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const tooltipColor = isDark ? "#ffffff" : "#0f172a";
-
-  const [realStats, setRealStats] = useState<any>(null);
-  const [dbUsers, setDbUsers] = useState<any[]>([]);
-  const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all">("24h");
-
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchData = () => {
-      const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
-
-      console.log(`[Supervisor Dashboard] Fetching stats and users (range: ${timeRange}) with token:`, token ? "Present" : "Missing");
-
-      // Fetch Stats
-      fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers })
-        .then(res => {
-          console.log("[Supervisor Dashboard] Stats status:", res.status);
-          if (res.status === 401) {
-            console.warn("[Supervisor Dashboard] Stale token detected. Logging out.");
-            logout();
-            return;
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (!data) return;
-          console.log("[Supervisor Dashboard] Stats data received:", data);
-          if (!data.detail) {
-            setRealStats(data);
-          } else {
-            console.warn("[Supervisor Dashboard] Stats error detail:", data.detail);
-          }
-        })
-        .catch(err => console.error("[Supervisor Dashboard] Stats fetch error:", err));
-
-      // Fetch Users
-      fetch(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
-        .then(res => {
-          console.log("[Supervisor Dashboard] Users status:", res.status);
-          if (res.status === 401) {
-            console.warn("[Supervisor Dashboard] Stale token detected. Logging out.");
-            logout();
-            return;
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (!data) return;
-          console.log("[Supervisor Dashboard] Users data received:", data);
-          if (data.users) {
-            setDbUsers(data.users);
-          } else if (data.detail) {
-            console.warn("[Supervisor Dashboard] Users error detail:", data.detail);
-          }
-        })
-        .catch(err => console.error("[Supervisor Dashboard] Users fetch error:", err));
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, [user, timeRange]);
 
   // Use real data where possible
   const totalEmployees = realStats ? realStats.total_users : 0;
@@ -186,21 +165,32 @@ export default function SupervisorDashboard() {
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Department Security Center</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Department: {user.department} — Overview & Analytics</p>
         </div>
-        <div className="flex bg-surface-100 dark:bg-white/[0.04] p-1 rounded-lg border border-surface-200 dark:border-white/[0.08] shrink-0">
-          {[
-            { id: "24h", label: "24 Hours" },
-            { id: "7d", label: "7 Days" },
-            { id: "30d", label: "30 Days" },
-            { id: "all", label: "All Time" }
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTimeRange(t.id as any)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-surface-700 dark:text-surface-200 border border-surface-200 dark:border-white/[0.08] text-xs font-semibold transition-all disabled:opacity-50"
+            title="Refresh Analytics"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-brand-500" : ""}`} />
+            <span>Refresh</span>
+          </button>
+          <div className="flex bg-surface-100 dark:bg-white/[0.04] p-1 rounded-lg border border-surface-200 dark:border-white/[0.08]">
+            {[
+              { id: "24h", label: "24 Hours" },
+              { id: "7d", label: "7 Days" },
+              { id: "30d", label: "30 Days" },
+              { id: "all", label: "All Time" }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTimeRange(t.id as any)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </motion.div>
 

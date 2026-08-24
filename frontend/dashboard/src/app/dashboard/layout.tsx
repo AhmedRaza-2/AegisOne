@@ -26,7 +26,6 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Communication", href: "/dashboard/employee/communication", icon: MessageSquare },
     { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan },
     { label: "History", href: "/dashboard/employee/history", icon: History },
-    { label: "Account Settings", href: "/dashboard/employee/settings", icon: Settings },
   ],
   manager: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
@@ -36,7 +35,6 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
-    { label: "Settings", href: "/dashboard/supervisor/settings", icon: Settings },
   ],
   admin: [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
@@ -48,7 +46,6 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
-    { label: "Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
   super_admin: [
     { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
@@ -59,7 +56,6 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
     { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
-    { label: "Global Settings", href: "/dashboard/admin/settings", icon: Settings },
   ],
 };
 
@@ -79,7 +75,7 @@ function SidebarContent({
 }: any) {
   return (
     <>
-      <div className="h-20 flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
+      <div className="h-16 flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
         {!collapsed ? (
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="AegisOne Logo" className="w-9 h-9 object-contain shrink-0" />
@@ -137,7 +133,7 @@ function SidebarContent({
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user?.fullName || user?.full_name || user?.name || "User"}</span>
               <span className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium">
-                {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department}` : "")}
+                {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department.split(' ').map((w: string) => w[0]).join('').substring(0, 4).toUpperCase()}` : "")}
               </span>
             </div>
           </div>
@@ -265,23 +261,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, isLoading, router, pathname]);
 
-  // Poll for new inbox messages every 15 seconds
+  // Poll for new inbox messages every 30 seconds
   useEffect(() => {
     if (!user) return;
+    let stopped = false;
     const fetchInbox = () => {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+      // Skip if no valid token
       if (!token || token.startsWith("token_setup_")) return;
       fetch("http://localhost:8000/communication/inbox", {
         headers: { "Authorization": `Bearer ${token}` }
       })
-        .then(res => res.ok ? res.json() : null)
+        .then(res => {
+          if (res.status === 401) {
+            // Token expired — stop polling to prevent log spam
+            stopped = true;
+            clearInterval(interval);
+            return null;
+          }
+          return res.ok ? res.json() : null;
+        })
         .then(data => {
           if (Array.isArray(data)) setInboxMessages(data);
         })
         .catch(() => { });
     };
     fetchInbox();
-    const interval = setInterval(fetchInbox, 15000);
+    const interval = setInterval(() => {
+      if (!stopped) fetchInbox();
+    }, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -447,6 +455,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-surface-500 dark:text-surface-400 mr-2">
+              System Status: <span className={`flex items-center gap-1.5 ${apiOffline ? 'text-red-500' : 'text-surface-900 dark:text-white'}`}><span className={`w-1.5 h-1.5 rounded-full ${apiOffline ? 'bg-red-500' : 'bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]'}`}></span> {apiOffline ? 'Offline' : 'Operational'}</span>
+            </div>
+            <div className="hidden sm:block h-5 w-px bg-surface-200 dark:bg-white/[0.1] mx-1"></div>
+            
             <div className="relative" ref={notificationsRef}>
                 <button
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -565,11 +578,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               )}
             </div>
-            <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1]"></div>
-            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-surface-500 dark:text-surface-400">
-              System Status: <span className={`flex items-center gap-1.5 ${apiOffline ? 'text-red-500' : 'text-surface-900 dark:text-white'}`}><span className={`w-1.5 h-1.5 rounded-full ${apiOffline ? 'bg-red-500' : 'bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]'}`}></span> {apiOffline ? 'Offline' : 'Operational'}</span>
-            </div>
-            <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1]"></div>
+            <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1] mx-1"></div>
             
             <div className="relative" ref={settingsRef}>
               <button
@@ -582,8 +591,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {settingsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-lg rounded-xl overflow-hidden z-50">
-                  <div className="px-4 py-3 text-xs text-brand-600 dark:text-[#4F84F8] font-medium truncate border-b border-surface-100 dark:border-white/[0.04] bg-surface-50 dark:bg-white/[0.02]">
-                    {user?.email || "No email available"}
+                  <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04] bg-surface-50 dark:bg-white/[0.02]">
+                    <div className="text-sm font-semibold text-surface-900 dark:text-white truncate">
+                      {userName}
+                    </div>
+                    <div className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium mt-0.5">
+                      {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department}` : "")}
+                    </div>
+                    <div className="text-[10px] text-brand-600 dark:text-[#4F84F8] font-medium truncate mt-1">
+                      {user?.email || "No email available"}
+                    </div>
                   </div>
                   <div className="py-1">
                     <button onClick={() => { toggleTheme(); setSettingsOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#4F84F8] dark:hover:bg-white/[0.04] transition-colors text-left">

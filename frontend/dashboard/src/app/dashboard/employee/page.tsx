@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2, Globe, FileText,
   Lock, BrainCircuit, Activity, ChevronRight, Server, Clock, Download, Image as ImageIcon, Scan,
-  BarChart3, TrendingUp, CheckCircle, XCircle
+  BarChart3, TrendingUp, CheckCircle, XCircle, RefreshCw
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
@@ -21,8 +21,27 @@ export default function EmployeeDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all">("24h");
   const [distType, setDistType] = useState<"scans" | "blocked" | "safe">("scans");
+
+  const fetchData = async (isManual = false) => {
+    if (!user?.email) return;
+    if (isManual) setRefreshing(true);
+    const cacheKey = `emp_stats_${user.email}`;
+    try {
+      const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
+      const json = await res.json();
+      setData(json);
+      sessionStorage.setItem(cacheKey, JSON.stringify(json));
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    } finally {
+      if (isManual) setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     if (user?.email) {
@@ -35,21 +54,8 @@ export default function EmployeeDashboard() {
         } catch (e) { }
       }
 
-      const fetchData = async () => {
-        try {
-          const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
-          const json = await res.json();
-          setData(json);
-          sessionStorage.setItem(cacheKey, JSON.stringify(json));
-          setLoading(false);
-        } catch (err) {
-          console.error(err);
-          setLoading(false);
-        }
-      };
-
       fetchData();
-      const interval = setInterval(fetchData, 10000);
+      const interval = setInterval(() => fetchData(false), 10000);
       return () => clearInterval(interval);
     }
   }, [user]);
@@ -68,10 +74,9 @@ export default function EmployeeDashboard() {
   const totalScans = filteredScans.length;
   const blockedScans = filteredScans.filter((s: any) => s.decision === 'block').length;
   const securityScore = Math.max(0, 100 - (blockedScans * 2));
-  const isProtected = securityScore > 80;
 
-  const urlScans = filteredScans.filter((s: any) => s.scanType === 'url' || !s.scanType || s.scanType === 'text' || s.scanType === 'email');
-  const webScans = filteredScans.filter((s: any) => s.scanType === 'website');
+  const urlScans = filteredScans.filter((s: any) => s.scanType === 'url');
+  const webScans = filteredScans.filter((s: any) => s.scanType === 'website' || s.scanType === 'navigation' || (!s.scanType && (s.inputPreview?.startsWith('http://') || s.inputPreview?.startsWith('https://') || s.domain)));
   const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
   const imageScans = filteredScans.filter((s: any) => s.scanType === 'image');
 
@@ -132,7 +137,6 @@ export default function EmployeeDashboard() {
     const now = new Date();
 
     if (timeRange === "24h") {
-      // Group by last 24 hours, hourly
       for (let i = 23; i >= 0; i--) {
         const d = new Date(now.getTime() - i * 60 * 60 * 1000);
         const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -145,37 +149,37 @@ export default function EmployeeDashboard() {
         if (trendMap[hourLabel] !== undefined) {
           trendMap[hourLabel]++;
         } else {
-          // fallback to nearest active key
           const keys = Object.keys(trendMap);
           if (keys.length > 0) trendMap[keys[keys.length - 1]]++;
         }
       });
     } else {
-      // Group by day for 7d, 30d, all
-      const daysCount = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 30;
-      for (let i = daysCount - 1; i >= 0; i--) {
+      const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 60;
+      for (let i = days - 1; i >= 0; i--) {
         const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const label = d.toLocaleDateString([], { month: 'short', day: '2-digit' });
+        const label = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
         trendMap[label] = 0;
       }
       filteredScans.forEach((scan: any) => {
         const scanTime = new Date(scan.timestamp);
-        const label = scanTime.toLocaleDateString([], { month: 'short', day: '2-digit' });
-        if (trendMap[label] !== undefined) {
-          trendMap[label]++;
+        const dayLabel = scanTime.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        if (trendMap[dayLabel] !== undefined) {
+          trendMap[dayLabel]++;
+        } else {
+          const keys = Object.keys(trendMap);
+          if (keys.length > 0) trendMap[keys[keys.length - 1]]++;
         }
       });
     }
 
-    return Object.entries(trendMap).map(([name, scans]) => ({
-      name,
-      scans
+    return Object.keys(trendMap).map(key => ({
+      timestamp: key,
+      scans: trendMap[key]
     }));
   }, [filteredScans, timeRange]);
 
   if (!user) return null;
-  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-emerald-500 animate-spin" /></div>;
-
+  if (loading && !data) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-emerald-500 animate-spin" /></div>;
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -186,21 +190,32 @@ export default function EmployeeDashboard() {
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">Personal Security Workspace</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Real-time protection and contextual AI analysis.</p>
         </div>
-        <div className="flex bg-surface-100 dark:bg-white/[0.04] p-1 rounded-lg border border-surface-200 dark:border-white/[0.08] shrink-0">
-          {[
-            { id: "24h", label: "24 Hours" },
-            { id: "7d", label: "7 Days" },
-            { id: "30d", label: "30 Days" },
-            { id: "all", label: "All Time" }
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTimeRange(t.id as any)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-surface-700 dark:text-surface-200 border border-surface-200 dark:border-white/[0.08] text-xs font-semibold transition-all disabled:opacity-50"
+            title="Refresh Analytics"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-brand-500" : ""}`} />
+            <span>Refresh</span>
+          </button>
+          <div className="flex bg-surface-100 dark:bg-white/[0.04] p-1 rounded-lg border border-surface-200 dark:border-white/[0.08]">
+            {[
+              { id: "24h", label: "24 Hours" },
+              { id: "7d", label: "7 Days" },
+              { id: "30d", label: "30 Days" },
+              { id: "all", label: "All Time" }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTimeRange(t.id as any)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </motion.div>
 

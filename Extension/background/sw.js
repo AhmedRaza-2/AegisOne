@@ -14,7 +14,7 @@
 
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
-import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline } from "./scanner.js";
+import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache } from "./scanner.js";
 import { getCachedResult, getTabCache, setTabCache, clearTabCache } from "./cache.js";
 import { initDownloadGuard, handleDownloadDecision } from "./download-guard.js";
 import { explainWithAI, generateLocalExplanation } from "./xai.js";
@@ -180,6 +180,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     try {
       if (!SHIELD_ENABLED && !["GET_SHIELD_STATE", "TOGGLE_SHIELD", "CHECK_HEALTH", "GET_EVENTS"].includes(msg.type)) {
         sendResponse({ ok: false, reason: "shield_disabled" });
+        return;
+      }
+
+      // ── Auth Sync (always handled, regardless of shield state) ──
+      if (msg.type === "AUTH_UPDATED") {
+        invalidateAuthCache();
+        if (msg.email) await chrome.storage.local.set({ user_email: msg.email });
+        sendResponse({ ok: true });
+        return;
+      }
+      if (msg.type === "AUTH_CLEARED") {
+        invalidateAuthCache();
+        await chrome.storage.local.remove(["user_email"]);
+        sendResponse({ ok: true });
         return;
       }
 

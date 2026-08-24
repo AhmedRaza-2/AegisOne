@@ -149,6 +149,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("user", JSON.stringify(loggedUser));
       setCookie("aegis_access_token", token);
       setCookie("aegis_user", JSON.stringify(loggedUser));
+      // Notify the browser extension content script about the new login
+      // so it can sync user_email to chrome.storage.local immediately
+      try {
+        window.dispatchEvent(new CustomEvent("aegis-user-login", { detail: { email: loggedUser.email } }));
+      } catch (_) {}
       return { success: true, role: userRole };
     } catch (e) {
       return { success: false, error: "Network error logging in" };
@@ -166,6 +171,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear Cookies
     eraseCookie("aegis_access_token");
     eraseCookie("aegis_user");
+    // Notify the browser extension to clear its cached user email
+    try {
+      window.dispatchEvent(new CustomEvent("aegis-user-logout"));
+    } catch (_) {}
     router.push("/login");
   };
 
