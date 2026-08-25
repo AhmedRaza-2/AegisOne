@@ -366,17 +366,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // ── Email Scan ────────────────────────────────────
         case "EMAIL_DATA": {
           const result = await scanEmail(msg.sender, msg.subject, msg.body);
-          if (result?.phishing_probability > THRESHOLD.WARNING) {
-            if (sender.tab?.id) {
-              chrome.tabs.sendMessage(sender.tab.id, {
-                type: MSG.HIGHLIGHT_THREATS,
-                emailPhishing: true,
-                emailRisk: result.phishing_probability,
-                emailSignals: result.top_words || [],
-              }).catch(() => {});
+          if (!result) {
+            sendResponse({ ok: false, error: "backend_offline", result: null });
+          } else {
+            if (result?.phishing_probability > THRESHOLD.WARNING) {
+              if (sender.tab?.id) {
+                chrome.tabs.sendMessage(sender.tab.id, {
+                  type: MSG.HIGHLIGHT_THREATS,
+                  emailPhishing: true,
+                  emailRisk: result.phishing_probability,
+                  emailSignals: result.top_words || [],
+                }).catch(() => {});
+              }
             }
+            sendResponse({ ok: true, result });
           }
-          sendResponse({ ok: true, result });
           break;
         }
 

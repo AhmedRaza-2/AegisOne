@@ -12,6 +12,17 @@
 import { MSG, THRESHOLD } from "../../utils/constants.js";
 import { shortURL } from "../../utils/trusted-domains.js";
 
+function safeSendMessage(msg) {
+  if (typeof chrome === "undefined" || !chrome?.runtime?.id) {
+    return Promise.resolve(null);
+  }
+  try {
+    return chrome.runtime.sendMessage(msg).catch(() => null);
+  } catch (_) {
+    return Promise.resolve(null);
+  }
+}
+
 export function showWarningModal({ score, verdict, threat_type, top_factors, url, onContinue }) {
   if (window.__AEGIS_WARNING_DISMISSED__) return;
   _removeModal("aegis-warning-overlay");
@@ -68,25 +79,25 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
   document.getElementById("aegis-warn-continue")?.addEventListener("click", async () => {
     window.__AEGIS_WARNING_DISMISSED__ = true;
     document.getElementById("aegis-warning-overlay")?.remove();
-    await chrome.runtime.sendMessage({ type: "ALLOW_URL_SESSION", url }).catch(() => {});
+    await safeSendMessage({ type: "ALLOW_URL_SESSION", url });
     if (onContinue) onContinue();
   });
 
   document.getElementById("aegis-warn-falsepos")?.addEventListener("click", async () => {
     const btn = document.getElementById("aegis-warn-falsepos");
     if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; }
-    await chrome.runtime.sendMessage({
+    await safeSendMessage({
       type: "REPORT_FALSE_POSITIVE",
       url: window.location.href,
       score: score,
       note: "User reported False Positive"
-    }).catch(() => null);
+    });
     
     // Auto-allow after reporting false positive
     setTimeout(async () => {
       window.__AEGIS_WARNING_DISMISSED__ = true;
       document.getElementById("aegis-warning-overlay")?.remove();
-      await chrome.runtime.sendMessage({ type: "ALLOW_URL_SESSION", url }).catch(() => {});
+      await safeSendMessage({ type: "ALLOW_URL_SESSION", url });
       if (onContinue) onContinue();
     }, 600);
   });
@@ -97,11 +108,11 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     btn.textContent = "⏳ Loading...";
     btn.disabled = true;
 
-    const res = await chrome.runtime.sendMessage({
+    const res = await safeSendMessage({
       type: MSG.XAI_REQUEST,
       url,
       score: score,
-    }).catch(() => null);
+    });
 
     document.getElementById("aegis-warning-overlay")?.remove();
     if (res?.xai) showXAIModal(res.xai, { score, url, threat_type });
@@ -285,11 +296,11 @@ export function showXAIModal(xai, context = {}) {
   document.addEventListener("keydown", _escClose);
 
   panel.querySelector("#aegis-xai-report")?.addEventListener("click", async () => {
-    await chrome.runtime.sendMessage({
+    await safeSendMessage({
       type: MSG.REPORT_THREAT,
       url: window.location.href,
       score: s,
-    }).catch(() => null);
+    });
     const btn = panel.querySelector("#aegis-xai-report");
     if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; btn.style.background = "#10b981"; }
   });
@@ -400,12 +411,12 @@ export function showDownloadModal({ downloadId, filename, risk_score, verdict, u
   `);
 
   document.getElementById("aegis-dl-block")?.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: MSG.DOWNLOAD_DECISION, downloadId, action: "block" });
+    safeSendMessage({ type: MSG.DOWNLOAD_DECISION, downloadId, action: "block" });
     document.getElementById("aegis-download-overlay")?.remove();
   });
 
   document.getElementById("aegis-dl-allow")?.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: MSG.DOWNLOAD_DECISION, downloadId, action: "allow" });
+    safeSendMessage({ type: MSG.DOWNLOAD_DECISION, downloadId, action: "allow" });
     document.getElementById("aegis-download-overlay")?.remove();
   });
 
@@ -415,12 +426,12 @@ export function showDownloadModal({ downloadId, filename, risk_score, verdict, u
     btn.textContent = "⏳ Analyzing with AI...";
     btn.disabled = true;
 
-    const res = await chrome.runtime.sendMessage({
+    const res = await safeSendMessage({
       type: MSG.XAI_REQUEST,
       url,
       score: score,
       threat_type: "malicious_download"
-    }).catch(() => null);
+    });
 
     if (res?.xai) {
       showXAIModal(res.xai, { score, url, threat_type: "malicious_download" });
@@ -527,11 +538,11 @@ function _showCompactResult({ title, subtitle, score, factors, id, contextUrl })
 
       try {
         // Fire the existing XAI_REQUEST — sw.js handles it via explainWithAI / generateLocalExplanation
-        const res = await chrome.runtime.sendMessage({
+        const res = await safeSendMessage({
           type: "XAI_REQUEST",
           url: contextUrl || window.location.href,
           score: score,
-        }).catch(() => null);
+        });
 
         popup.remove();
 

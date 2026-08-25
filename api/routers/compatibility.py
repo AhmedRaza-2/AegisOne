@@ -150,6 +150,12 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
     await db.commit()
     
     result["latency_ms"] = scan.scan_duration_ms
+    print(f"\n[AEGIS AI ENGINE] 🔗 INCOMING URL SCAN REQUEST")
+    print(f" ├─ User    : {current_user.email}")
+    print(f" ├─ Target  : {url[:100]}")
+    print(f" ├─ Category: {result.get('category', 'benign')}")
+    print(f" ├─ Score   : {score:.1f}% Risk ({decision.upper()})")
+    print(f" └─ Latency : {scan.scan_duration_ms}ms\n", flush=True)
     return result
 
 
@@ -181,6 +187,11 @@ async def api_text(request: Request, text: str = Form(...), current_user: User =
     await db.commit()
     
     result["latency_ms"] = scan.scan_duration_ms
+    print(f"\n[AEGIS AI ENGINE] INCOMING TEXT SCAN REQUEST")
+    print(f" ├─ User   : {current_user.email}")
+    print(f" ├─ Text   : {text[:100]}...")
+    print(f" ├─ Score  : {score:.1f}% Risk ({decision.upper()})")
+    print(f" └─ Latency: {scan.scan_duration_ms}ms\n", flush=True)
     return result
 
 @router.post("/analyze/email")
@@ -209,6 +220,13 @@ async def api_email(request: Request, sender: str = Form(""), subject: str = For
     await db.commit()
  
     result["latency_ms"] = scan.scan_duration_ms
+    print(f"\n[AEGIS AI ENGINE] 📧 INCOMING EMAIL SCAN REQUEST")
+    print(f" ├─ User   : {current_user.email}")
+    print(f" ├─ Sender : {sender or '(no sender)'}")
+    print(f" ├─ Subject: {subject or '(no subject)'}")
+    print(f" ├─ Body   : {body[:120]}...")
+    print(f" ├─ Score  : {score:.1f}% Phishing Probability ({decision.upper()})")
+    print(f" └─ Latency: {scan.scan_duration_ms}ms\n", flush=True)
     return result
 
 
@@ -248,6 +266,12 @@ async def api_image(request: Request, file: UploadFile = File(...), current_user
     db.add(scan)
     await db.commit()
     
+    print(f"\n[AEGIS AI ENGINE] INCOMING IMAGE OCR SCAN REQUEST")
+    print(f" ├─ User    : {current_user.email}")
+    print(f" ├─ File    : {file.filename or 'upload.png'}")
+    print(f" ├─ Size    : {len(data)} bytes")
+    print(f" ├─ Score   : {score:.1f}% Phishing Probability ({decision.upper()})")
+    print(f" └─ Latency : {scan.scan_duration_ms}ms\n", flush=True)
     return {
         "prediction": "phishing" if is_phish else "legitimate",
         "confidence": round(overall_prob if is_phish else 1.0 - overall_prob, 4),
@@ -275,7 +299,13 @@ async def api_document(file: UploadFile = File(...)):
             
     is_phish = raw_result.get("heuristic_risk") == "high" or "prediction" in raw_result.get("sub_results", {}).get("text", {}) and raw_result["sub_results"]["text"]["prediction"] == "phishing"
     prob = 0.95 if is_phish else 0.05
+    dur = round((time.time() - start) * 1000, 1)
     
+    print(f"\n[AEGIS AI ENGINE] 📄 INCOMING DOCUMENT SCAN REQUEST")
+    print(f" ├─ File   : {file.filename or 'document'}")
+    print(f" ├─ Verdict: {'PHISHING' if is_phish else 'LEGITIMATE'} ({prob*100:.1f}%)")
+    print(f" └─ Latency: {dur}ms\n", flush=True)
+
     return {
         "prediction": "phishing" if is_phish else "legitimate",
         "confidence": prob if is_phish else 1.0 - prob,
@@ -445,6 +475,13 @@ async def api_explain(evidence: Dict[str, Any] = Body(...)):
     start = time.time()
     explanation = generate_explanation(evidence)
     explanation["latency_ms"] = round((time.time() - start) * 1000, 1)
+    
+    target = evidence.get("url") or evidence.get("target") or "Page/Email Evidence"
+    print(f"\n[AEGIS XAI ENGINE] ✨ INCOMING AI EXPLANATION REQUEST")
+    print(f" ├─ Target : {str(target)[:100]}")
+    print(f" ├─ Summary: {explanation.get('summary', '')[:100]}...")
+    print(f" └─ Latency: {explanation['latency_ms']}ms\n", flush=True)
+
     return explanation
 
 

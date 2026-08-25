@@ -339,11 +339,16 @@ function _setupSubmitInterceptors() {
       const stored = await chrome.storage.local.get("enableFormGuard");
       if (stored.enableFormGuard === false) return;
 
-      const res = await chrome.runtime.sendMessage({
-        type: MSG.FORM_INTERCEPT,
-        url: window.location.href,
-        formAction: formAction
-      }).catch(() => null);
+      let res = null;
+      try {
+        if (typeof chrome !== "undefined" && chrome?.runtime?.id) {
+          res = await chrome.runtime.sendMessage({
+            type: MSG.FORM_INTERCEPT,
+            url: window.location.href,
+            formAction: formAction
+          });
+        }
+      } catch (_) {}
 
       if (res?.block) {
         _showCredentialWarning(form, res.score);

@@ -102,13 +102,24 @@ function _queueForScanning(items) {
   }
 }
 
+function safeSendMessage(msg) {
+  if (typeof chrome === "undefined" || !chrome?.runtime?.id) {
+    return Promise.resolve(null);
+  }
+  try {
+    return chrome.runtime.sendMessage(msg).catch(() => null);
+  } catch (_) {
+    return Promise.resolve(null);
+  }
+}
+
 function _processScanQueue() {
   if (_scanQueue.length === 0) return;
 
   const batch = _scanQueue.splice(0, SCAN_BATCH_SIZE);
   const urls = [...new Set(batch.map(item => item.href))]; // Unique URLs for API
 
-  chrome.runtime.sendMessage({
+  safeSendMessage({
     type: MSG.SEARCH_SCAN,
     urls: urls
   }).then(res => {
@@ -196,7 +207,7 @@ function _injectBadge(linkEl, { verdict, score, threat_type, href }) {
       e.stopPropagation();
       badge.innerHTML = ICONS.scanning; // spinner
       try {
-        const res = await chrome.runtime.sendMessage({ type: MSG.XAI_REQUEST, url: href });
+        const res = await safeSendMessage({ type: MSG.XAI_REQUEST, url: href });
         if (res?.xai) {
           const { showXAIModal } = await import(chrome.runtime.getURL("content/modals.js"));
           showXAIModal(res.xai, { score, url: href, threat_type });

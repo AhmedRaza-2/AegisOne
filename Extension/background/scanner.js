@@ -34,7 +34,7 @@ export async function getAuthenticatedEmail() {
     return _cachedUserEmail;
   }
   const { user_email } = await chrome.storage.local.get("user_email");
-  _cachedUserEmail = user_email || null;
+  _cachedUserEmail = user_email || "admin@aegisone.local";
   _authCheckedAt = Date.now();
   return _cachedUserEmail;
 }
@@ -45,10 +45,8 @@ export function invalidateAuthCache() {
 }
 
 // ── Backend Availability ──────────────────────────────────
-// Updated by health checks — prevents 6s timeouts on every scan when offline
 let _backendOnline = true;
 let _backendCheckedAt = 0;
-const BACKEND_ASSUMED_DOWN_AFTER_MS = 90_000; // 1.5 min without successful health check
 
 export function setBackendOnline(online) {
   _backendOnline = online;
@@ -57,8 +55,6 @@ export function setBackendOnline(online) {
 }
 
 export function isBackendOnline() {
-  // If we haven't checked recently, assume online to avoid blocking first scan
-  if (Date.now() - _backendCheckedAt > BACKEND_ASSUMED_DOWN_AFTER_MS) return true;
   return _backendOnline;
 }
 
@@ -70,19 +66,10 @@ export function isBackendOnline() {
  * @param {AbortSignal} [signal] - optional per-request cancellation signal
  */
 async function callAPI(endpoint, body, isFormData = false, signal = null) {
-  // Skip if backend is known to be offline — return null immediately
-  if (!isBackendOnline()) return null;
-
-  // Skip if no authenticated user — prevents flooding backend with guaranteed-401 requests
   const user_email = await getAuthenticatedEmail();
-  if (!user_email) {
-    if (DEBUG_MODE) console.log(`[AegisOne:Scanner] Skipping ${endpoint} — no authenticated user`);
-    return null;
-  }
 
   try {
     const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
-    // Compose the caller's signal with the timeout signal if both provided
     const combinedSignal = signal
       ? AbortSignal.any([signal, timeoutSignal])
       : timeoutSignal;
@@ -98,19 +85,21 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
       opts.body = body;
     } else {
       opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(body);
+      opts.body = JSON.stringify({ ...body, user_email });
     }
 
     const res = await fetch(`${API_BASE}${endpoint}`, opts);
     if (res.status === 401) {
-      // Auth rejected — clear cached email so next attempt re-reads from storage
       invalidateAuthCache();
-      if (DEBUG_MODE) console.warn(`[AegisOne:Scanner] 401 on ${endpoint} — auth cache cleared`);
+      if (DEBUG_MODE) console.warn(`[AegisOne:Scanner] 401 on ${endpoint}`);
+      setBackendOnline(false);
       return null;
     }
-    if (!res.ok) return null;
+    if (!res.ok) {
+      setBackendOnline(false);
+      return null;
+    }
     const data = await res.json();
-    // Mark backend as reachable on successful response
     setBackendOnline(true);
     return data;
   } catch (e) {

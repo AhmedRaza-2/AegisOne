@@ -134,7 +134,11 @@ function _setupControls(widget) {
     widget.classList.remove("minimized");
   });
   document.getElementById("aegis-btn-off")?.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD });
+    try {
+      if (typeof chrome !== "undefined" && chrome?.runtime?.id) {
+        chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD }).catch(() => {});
+      }
+    } catch (_) {}
     document.getElementById("aegis-details-panel")?.remove();
     widget.remove();
   });
@@ -151,10 +155,15 @@ function _setupControls(widget) {
     btn.textContent = "⏳ Loading...";
     btn.disabled = true;
 
-    const res = await chrome.runtime.sendMessage({
-      type: MSG.XAI_REQUEST,
-      url: window.location.href,
-    }).catch(() => null);
+    let res = null;
+    try {
+      if (typeof chrome !== "undefined" && chrome?.runtime?.id) {
+        res = await chrome.runtime.sendMessage({
+          type: MSG.XAI_REQUEST,
+          url: window.location.href,
+        }).catch(() => null);
+      }
+    } catch (_) {}
 
     btn.textContent = "✨ Explain AI";
     btn.disabled = false;

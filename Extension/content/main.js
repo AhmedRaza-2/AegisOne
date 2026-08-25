@@ -29,6 +29,17 @@
   let _deepScanTimer = null;
   let _deepScanInFlight = false;
 
+  function safeSendMessage(msg) {
+    if (typeof chrome === "undefined" || !chrome?.runtime?.id) {
+      return Promise.resolve(null);
+    }
+    try {
+      return chrome.runtime.sendMessage(msg).catch(() => null);
+    } catch (_) {
+      return Promise.resolve(null);
+    }
+  }
+
   // Debounce utility
   function debounce(fn, ms) {
     let t;
@@ -89,11 +100,11 @@
             const userObj = JSON.parse(rawUser);
             if (userObj && userObj.email) {
               chrome.storage.local.set({ user_email: userObj.email });
-              chrome.runtime.sendMessage({ type: "AUTH_UPDATED", email: userObj.email }).catch(() => {});
+              safeSendMessage({ type: "AUTH_UPDATED", email: userObj.email });
             }
           } else {
             chrome.storage.local.remove(["user_email"]);
-            chrome.runtime.sendMessage({ type: "AUTH_CLEARED" }).catch(() => {});
+            safeSendMessage({ type: "AUTH_CLEARED" });
           }
         } catch (e) {}
 
@@ -104,7 +115,7 @@
             const email = e.detail?.email;
             if (email) {
               chrome.storage.local.set({ user_email: email });
-              chrome.runtime.sendMessage({ type: "AUTH_UPDATED", email }).catch(() => {});
+              safeSendMessage({ type: "AUTH_UPDATED", email });
             }
           } catch (_) {}
         });
@@ -112,7 +123,7 @@
         window.addEventListener("aegis-user-logout", () => {
           try {
             chrome.storage.local.remove(["user_email"]);
-            chrome.runtime.sendMessage({ type: "AUTH_CLEARED" }).catch(() => {});
+            safeSendMessage({ type: "AUTH_CLEARED" });
           } catch (_) {}
         });
       }
@@ -131,11 +142,11 @@
       });
 
       // ── Send features to background ─────────────────
-      const scanResult = await chrome.runtime.sendMessage({
+      const scanResult = await safeSendMessage({
         type: "PAGE_FEATURES",
         url: window.location.href,
         features,
-      }).catch(() => null);
+      });
 
       if (scanResult?.result) {
         _currentScanData = scanResult.result;
@@ -329,15 +340,30 @@
       // Covers: back/forward, pushState, replaceState, hash changes.
       let _lastUrl = location.href;
 
+      function _extractPageFeatures() {
+        try {
+          return {
+            login_form_found: document.querySelectorAll('form input[type="password"]').length > 0,
+            brand_impersonation: null,
+            brand_impersonation_score: null,
+            brand_impersonation_role: null,
+            hidden_iframe: document.querySelectorAll('iframe[style*="display:none"], iframe[style*="visibility:hidden"]').length > 0,
+            js_obfuscated: false,
+            has_password: document.querySelectorAll('input[type="password"]').length > 0,
+            has_email: document.querySelectorAll('input[type="email"]').length > 0,
+          };
+        } catch (_) {
+          return {};
+        }
+      }
+
       function _onSpaNavigate() {
         if (document.visibilityState !== "visible") return;
         const currentUrl = location.href;
         if (currentUrl === _lastUrl) return;
         _lastUrl = currentUrl;
-        window.__AEGIS_WARNING_DISMISSED__ = false;
-
         const updated = _extractPageFeatures();
-        chrome.runtime.sendMessage({
+        safeSendMessage({
           type: "PAGE_FEATURES",
           url: currentUrl,
           features: updated,
@@ -348,7 +374,7 @@
             setCurrentRisk(r.result.score);
             updateWidget(r.result);
           }
-        }).catch(() => {});
+        });
 
         // Re-trigger deep page scan on SPA navigation (only if not allowlisted)
         if (!_matchesDomainList(getRootDomain(currentUrl), allowlist)) {
@@ -505,11 +531,11 @@
     )];
 
     // Send to background — DEEP_PAGE_SCAN skips images intentionally
-    await chrome.runtime.sendMessage({
+    await safeSendMessage({
       type: "DEEP_PAGE_SCAN",
       pageText,
       allLinks,
-    }).catch(() => null);
+    });
 
     if (btn) { btn.textContent = "🔍"; btn.disabled = false; }
     // Results come back via DEEP_PAGE_RESULT message handled in the listener above
@@ -631,14 +657,14 @@
     document.addEventListener("copy", () => {
       const selected = window.getSelection().toString().trim();
       if (selected && selected.startsWith("http")) {
-        chrome.runtime.sendMessage({ type: "SCAN_CLIPBOARD_URL", url: selected }).catch(() => {});
+        safeSendMessage({ type: "SCAN_CLIPBOARD_URL", url: selected });
       }
     });
 
     document.addEventListener("paste", (e) => {
       const pastedText = e.clipboardData?.getData("text")?.trim();
       if (pastedText && pastedText.startsWith("http")) {
-        chrome.runtime.sendMessage({ type: "SCAN_CLIPBOARD_URL", url: pastedText }).catch(() => {});
+        safeSendMessage({ type: "SCAN_CLIPBOARD_URL", url: pastedText });
       }
     });
   }
@@ -750,7 +776,7 @@
 
       // -- Scan email body
       if (body.length > 50) {
-        chrome.runtime.sendMessage({ type: 'EMAIL_DATA', sender, subject, body }).catch(() => {});
+        safeSendMessage({ type: 'EMAIL_DATA', sender, subject, body });
       }
 
       // -- Scan attachment filenames
@@ -763,19 +789,19 @@
           allSignals.push(...signals.map(s => ({ label: '\u{1F4CE} "' + name + '": ' + s })));
         }
         if (maxScore >= 20) {
-          chrome.runtime.sendMessage({
+          safeSendMessage({
             type: 'ATTACHMENT_RISK',
             score: maxScore,
             signals: allSignals,
             filenames: attachmentNames,
-          }).catch(() => {});
+          });
           const filenameText = attachmentNames.join(' ');
-          chrome.runtime.sendMessage({
+          safeSendMessage({
             type: 'EMAIL_DATA',
             sender,
             subject: subject + ' [attachments: ' + filenameText + ']',
             body: filenameText,
-          }).catch(() => {});
+          });
         }
       }
 
@@ -834,7 +860,7 @@
       clearTimeout(_domScanTimer);
       _domScanTimer = setTimeout(() => {
         const updated = _extractPageFeatures();
-        chrome.runtime.sendMessage({
+        safeSendMessage({
           type: "PAGE_FEATURES",
           url: location.href,
           features: updated,

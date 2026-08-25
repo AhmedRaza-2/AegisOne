@@ -113,7 +113,37 @@ export async function explainWithAI(tabData, url, explicitScore) {
 export function generateLocalExplanation(tabData, explicitScore) {
   if (!tabData) return null;
 
-  const score   = explicitScore !== undefined ? explicitScore : (tabData.score || 0);
+  const score     = explicitScore !== undefined ? explicitScore : (tabData.score || 0);
+  const threatType = tabData.threat_type || "";
+  const isDownload = threatType === "malicious_download" || threatType === "download" || (tabData.url && tabData.url.includes("attachment"));
+
+  if (isDownload) {
+    let summary;
+    if (score >= 70) {
+      summary = `🚨 Malicious File Intercepted! AegisOne's AI flagged this download (${score}% risk). It may contain executable malware, macros, or dangerous scripts.`;
+    } else if (score >= 40) {
+      summary = `⚠️ Caution: Unknown or Suspicious File Download (${score}% risk). Verify file source before opening.`;
+    } else {
+      summary = `✅ Clean File: AegisOne's AI evaluated this download (${score}% risk) and found no malicious macros or executable code.`;
+    }
+
+    const main_reasons = (tabData.top_factors || []).length > 0
+      ? tabData.top_factors.map(f => `📁 ${f.label || f}`)
+      : score >= 40
+        ? ["⚠️ File extension or download location has elevated risk factors", "📁 Download source is an unverified attachment server"]
+        : ["✅ File extension is clean", "✅ No suspicious macros or scripts found"];
+
+    const recommendations = score >= 40
+      ? [
+          "🚫 Do NOT open or execute this file unless you trust the sender",
+          "🔍 Run a local antivirus scan on downloaded attachments",
+          "🛡️ Click Cancel Download to safely block the file",
+        ]
+      : ["✅ This file appears safe to download."];
+
+    return { summary, main_reasons, recommendations, generated_locally: true };
+  }
+
   const factors = (tabData.top_factors || []).filter(f => f.score >= 30);
 
   // Plain-English summary based on score band
