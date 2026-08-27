@@ -51,12 +51,14 @@ export function createWidget() {
           <button id="aegis-action-xai" class="aegis-btn-primary" title="Explain with AI">✨ Explain AI</button>
         </div>
       </div>
+      <div id="aegis-resize-handle" title="Drag to Resize"></div>
     </div>
   `;
 
   document.body.appendChild(widget);
   _setupDrag(widget);
   _setupControls(widget);
+  _setupResize(widget);
   return widget;
 }
 
@@ -124,8 +126,23 @@ export function updateThreatCount(count) {
   }
 }
 
-// ── Controls ──────────────────────────────────────────────
 function _setupControls(widget) {
+  // Listen for custom scale/opacity change events dispatched from settings or the top-right popup
+  document.addEventListener("aegis:widget-opacity", (e) => {
+    const mainBox = document.getElementById("aegis-widget-main");
+    if (mainBox && e.detail?.opacity != null) {
+      mainBox.style.background = `rgba(12, 17, 29, ${e.detail.opacity})`;
+    }
+  });
+
+  document.addEventListener("aegis:widget-scale", (e) => {
+    const mainBox = document.getElementById("aegis-widget-main");
+    if (mainBox && e.detail?.scale != null) {
+      mainBox.style.transform = `scale(${e.detail.scale})`;
+      mainBox.style.transformOrigin = "top right";
+    }
+  });
+
   document.getElementById("aegis-btn-min")?.addEventListener("click", () => {
     widget.classList.toggle("minimized");
     document.getElementById("aegis-details-panel")?.remove();
@@ -155,12 +172,28 @@ function _setupControls(widget) {
     btn.textContent = "⏳ Loading...";
     btn.disabled = true;
 
+    const d = widget._aegisData || {};
+    const activeScore = d.score ?? 0;
+
+    // ─── Priority 1: If an email is open, use its cached XAI directly ──────
+    const emailXai = window.__AEGIS_ACTIVE_EMAIL_XAI__;
+    if (emailXai) {
+      btn.textContent = "✨ Explain AI";
+      btn.disabled = false;
+      document.dispatchEvent(new CustomEvent("aegis:show-xai", {
+        detail: emailXai
+      }));
+      return;
+    }
+
+    // ─── Priority 2: Ask background for cached URL scan XAI ────────────────
     let res = null;
     try {
       if (typeof chrome !== "undefined" && chrome?.runtime?.id) {
         res = await chrome.runtime.sendMessage({
           type: MSG.XAI_REQUEST,
           url: window.location.href,
+          score: activeScore,
         }).catch(() => null);
       }
     } catch (_) {}
@@ -168,26 +201,76 @@ function _setupControls(widget) {
     btn.textContent = "✨ Explain AI";
     btn.disabled = false;
 
-    if (res?.xai) {
-      const evt = new CustomEvent("aegis:show-xai", { detail: res.xai });
-      document.dispatchEvent(evt);
+    if (res?.xai && res.xai.summary) {
+      // Validate: backend score must match widget score, otherwise override
+      const backendScore = res.xai.score ?? activeScore;
+      const scoreMismatch = Math.abs(backendScore - activeScore) > 15;
+      let finalXai = res.xai;
+      if (scoreMismatch && activeScore >= 50) {
+        // Build a locally-generated explanation matching the actual widget score
+        finalXai = _buildLocalXai(activeScore, d.top_factors, d.threat_type);
+      }
+      document.dispatchEvent(new CustomEvent("aegis:show-xai", { detail: finalXai }));
     } else {
-      const d = widget._aegisData || {};
-      const evt = new CustomEvent("aegis:show-xai", { detail: {
-        summary: `AegisOne evaluated this page with a ${d.score ?? 0}% risk score.`,
-        main_reasons: (d.top_factors || []).map(f => f.label || f),
-        recommendations: ["Avoid entering passwords or sensitive personal data.", "Verify website URL carefully."],
-        generated_locally: true,
-      }});
-      document.dispatchEvent(evt);
+      // ─── Priority 3: Build locally matching the widget's displayed score ──
+      const localXai = _buildLocalXai(activeScore, d.top_factors, d.threat_type);
+      document.dispatchEvent(new CustomEvent("aegis:show-xai", { detail: localXai }));
     }
   });
 }
 
-// ── Details Panel (integrated into widget) ─────────────────
+function _buildLocalXai(score, top_factors, threat_type) {
+  let summary, main_reasons, recommendations;
+
+  if (score >= 80) {
+    summary = `🚨 High-Risk Phishing Detected! AegisOne's neural AI flagged this target (${score}% risk). Do not enter any credentials.`;
+    main_reasons = (top_factors || []).map(f => f.label || f).filter(Boolean);
+    if (!main_reasons.length) main_reasons = [
+      "🚨 Neural network model detected high-confidence phishing patterns",
+      "⚠️ Suspicious text, brand mismatch, or unverified sender structure",
+      "🔑 Elevated risk of credential harvesting or fraud solicitation"
+    ];
+    recommendations = [
+      "🚫 Do NOT type your password, credentials, or personal info here",
+      "← Close this page or return to safety immediately",
+      "📢 Hit Report Threat to help protect others"
+    ];
+  } else if (score >= 50) {
+    summary = `⚠️ Suspicious activity detected on this page (${score}% risk). Proceed with caution.`;
+    main_reasons = (top_factors || []).map(f => f.label || f).filter(Boolean);
+    if (!main_reasons.length) main_reasons = [
+      "⚠️ Suspicious heuristics or solicitation text detected",
+      "🌐 Unverified domain or non-standard page structure"
+    ];
+    recommendations = [
+      "👀 Verify the URL in your address bar carefully",
+      "🔑 Don't enter passwords unless you're 100% certain of this site"
+    ];
+  } else if (score >= 20) {
+    summary = `🔍 This page has minor suspicious signals (${score}% risk). Likely safe, but stay alert.`;
+    main_reasons = (top_factors || []).map(f => f.label || f).filter(Boolean);
+    if (!main_reasons.length) main_reasons = ["🔍 Minor pattern match in URL or page structure"];
+    recommendations = ["✔️ You can continue, but stay alert", "🔗 Avoid clicking unfamiliar links"];
+  } else {
+    summary = `✅ This page looks safe. AegisOne's AI found no phishing indicators (${score}% risk).`;
+    main_reasons = ["✅ All structural, domain, and AI heuristic checks passed cleanly"];
+    recommendations = ["✅ Target appears safe — carry on!", "🔗 Always verify links and senders before providing sensitive credentials"];
+  }
+
+  const is_email = (threat_type === "phishing_email");
+  const scoring_methodology = [
+    is_email 
+      ? "🛡️ **Floating Widget (Active Screen Risk):** This score is dynamically calculated based on the content you are actively interacting with. Since you are in a webmail client, it scans the sender reputation, subject line, message body content, embedded links, and attachments. If multiple emails are visible, it evaluates the composite risk of all items."
+      : "🛡️ **Floating Widget (Active Screen Risk):** This score reflects the active, real-time threat level of the page as you interact with it. It monitors DOM changes, dynamically injected scripts, and visible elements.",
+    "🔎 **Action Popup (Deep Page Scan):** This evaluates the structural integrity of the base URL/Domain. It performs deep heuristic checks including DNS reputation, cross-site scripting (XSS) vectors, hidden iframes, redirect chains, and deceptive login forms. It represents the inherent risk of the website hosting the content."
+  ];
+
+  return { summary, main_reasons, recommendations, scoring_methodology, generated_locally: true };
+}
+
 function _showDetailsPanel(widget, score, top_factors, threat_type) {
-  const existing = document.getElementById("aegis-details-panel");
-  if (existing) existing.remove();
+  let panel = document.getElementById("aegis-details-panel");
+  const isNew = !panel;
 
   const factors = top_factors || [];
   const threatLabel = threat_type ? threat_type.replace(/_/g, " ") : "Suspicious Activity";
@@ -208,16 +291,18 @@ function _showDetailsPanel(widget, score, top_factors, threat_type) {
       }).join("")
     : `<div style="font-size:10px;color:#94a3b8;padding:8px 0;">No specific risk factors detected.</div>`;
 
-  const panel = document.createElement("div");
-  panel.id = "aegis-details-panel";
-  panel.style.cssText = `
-    width: 100%;
-    background: rgba(13, 18, 30, 0.98);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 12px 14px;
-    animation: aegisDetailsDrop 0.2s ease;
-    font-family: 'Inter', -apple-system, sans-serif;
-  `;
+  if (isNew) {
+    panel = document.createElement("div");
+    panel.id = "aegis-details-panel";
+    panel.style.cssText = `
+      width: 100%;
+      background: rgba(13, 18, 30, 0.98);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 14px;
+      animation: aegisDetailsDrop 0.2s ease;
+      font-family: 'Inter', -apple-system, sans-serif;
+    `;
+  }
 
   panel.innerHTML = `
     <style>
@@ -230,7 +315,7 @@ function _showDetailsPanel(widget, score, top_factors, threat_type) {
     <div style="font-size:10px;color:#cbd5e1;margin-bottom:8px;">
       Threat Category: <strong style="color:#ffffff;text-transform:capitalize;">${threatLabel}</strong>
     </div>
-    <div style="max-height:140px;overflow-y:auto;margin-bottom:6px;">
+    <div style="margin-bottom:6px;">
       ${factorsHtml}
     </div>
     <div style="margin-top:8px;font-size:9px;color:#94a3b8;text-align:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
@@ -238,8 +323,23 @@ function _showDetailsPanel(widget, score, top_factors, threat_type) {
     </div>
   `;
 
-  const mainBox = document.getElementById("aegis-widget-main");
-  if (mainBox) mainBox.appendChild(panel);
+  if (isNew) {
+    const mainBox = document.getElementById("aegis-widget-main");
+    if (mainBox) mainBox.appendChild(panel);
+
+    // Auto-adjust if dragging pushed it near bottom and expansion clips it
+    setTimeout(() => {
+      const rect = widget.getBoundingClientRect();
+      const maxBottom = window.innerHeight - 10;
+      if (rect.bottom > maxBottom) {
+        const currentTop = parseFloat(widget.style.top);
+        if (!isNaN(currentTop)) {
+          const shift = rect.bottom - maxBottom;
+          widget.style.top = `${Math.max(10, currentTop - shift)}px`;
+        }
+      }
+    }, 10);
+  }
 }
 
 function _refreshDetailsPanel(score, top_factors, threat_type) {
@@ -297,12 +397,62 @@ function _setupDrag(widget) {
   });
   document.addEventListener("mousemove", (e) => {
     if (!dragging) return;
-    widget.style.left = `${e.clientX - startX}px`;
-    widget.style.top = `${e.clientY - startY}px`;
+    let left = e.clientX - startX;
+    let top = e.clientY - startY;
+
+    // Boundary limits (10px padding from viewports)
+    const maxLeft = window.innerWidth - widget.offsetWidth - 10;
+    const maxTop = window.innerHeight - widget.offsetHeight - 10;
+    left = Math.max(10, Math.min(left, maxLeft));
+    top = Math.max(10, Math.min(top, maxTop));
+
+    widget.style.left = `${left}px`;
+    widget.style.top = `${top}px`;
     widget.style.right = "auto";
     widget.style.bottom = "auto";
   });
   document.addEventListener("mouseup", () => dragging = false);
+}
+
+function _setupResize(widget) {
+  const handle = document.getElementById("aegis-resize-handle");
+  const mainBox = document.getElementById("aegis-widget-main");
+  if (!handle || !mainBox) return;
+
+  let resizing = false;
+  let startX = 0, startY = 0;
+  let startScale = 1.0;
+
+  handle.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    resizing = true;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    // Get current scale factor from transform style or default to 1.0
+    const match = mainBox.style.transform.match(/scale\(([^)]+)\)/);
+    startScale = match ? parseFloat(match[1]) : 1.0;
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!resizing) return;
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+
+    // Calculate a ratio scale factor based on drag distance
+    // Moving bottom-right makes it larger, top-left makes it smaller
+    const distance = (deltaX + deltaY) / 2;
+    const scaleDelta = distance / 220; // 220px is baseline width
+    const newScale = Math.max(0.6, Math.min(1.4, startScale + scaleDelta));
+
+    mainBox.style.transform = `scale(${newScale})`;
+    mainBox.style.transformOrigin = "bottom right";
+  });
+
+  document.addEventListener("mouseup", () => {
+    resizing = false;
+  });
 }
 
 function _injectStyles() {
@@ -336,15 +486,45 @@ function _injectStyles() {
     #aegis-widget-v2.minimized #aegis-mini-bubble { display: flex !important; }
     #aegis-widget-v2.minimized #aegis-widget-main { display: none !important; }
 
+    /* Scaling Classes */
+    #aegis-widget-main.scale-normal {
+      width: 240px !important;
+      transform: scale(1.0);
+      transform-origin: top right;
+    }
+    #aegis-widget-main.scale-compact {
+      width: 190px !important;
+      transform: scale(0.9);
+      transform-origin: top right;
+    }
+    #aegis-widget-main.scale-micro {
+      width: 145px !important;
+      transform: scale(0.78);
+      transform-origin: top right;
+    }
+
     #aegis-widget-main {
       width: 240px !important;
       background: rgba(12, 17, 29, 0.98);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 14px;
-      overflow: hidden;
+      overflow: hidden !important;
       box-shadow: 0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06) inset;
       backdrop-filter: blur(16px);
       pointer-events: auto !important;
+      transition: background 0.25s, transform 0.15s;
+    }
+
+    #aegis-resize-handle {
+      position: absolute !important;
+      right: 2px !important;
+      bottom: 2px !important;
+      width: 10px !important;
+      height: 10px !important;
+      cursor: se-resize !important;
+      z-index: 999999 !important;
+      border-right: 2px solid rgba(255, 255, 255, 0.3) !important;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.3) !important;
     }
 
     #aegis-header {

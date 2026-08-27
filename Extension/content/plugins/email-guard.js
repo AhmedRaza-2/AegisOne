@@ -29,20 +29,23 @@ export function initEmailGuard() {
   const _failedRetriesMap = new Map();
   const _processedOpenKeys = new Set();
   const STORAGE_CACHE_KEY = "aegis_email_cache_v1";
+  let _storageLoaded = false;
 
-  // Load persistent cache from chrome.storage.local on initialization
+  // Load persistent cache from chrome.storage.local before scanning
   try {
-    chrome.storage.local.get([STORAGE_CACHE_KEY]).then((data) => {
-      const stored = data[STORAGE_CACHE_KEY] || {};
+    chrome.storage.local.get([STORAGE_CACHE_KEY], (data) => {
+      const stored = data?.[STORAGE_CACHE_KEY] || {};
       Object.entries(stored).forEach(([k, v]) => {
         if (v && typeof v === "object") {
           _scannedEmailsMap.set(k, v);
         }
       });
-      // Re-trigger badge injection for rows already rendered
+      _storageLoaded = true;
       _scanInboxBatch();
-    }).catch(() => {});
-  } catch (_) {}
+    });
+  } catch (_) {
+    _storageLoaded = true;
+  }
 
   function _saveToStorage() {
     try {
@@ -175,12 +178,27 @@ export function initEmailGuard() {
   }
 
   function _makeEmailKey(sender, subject) {
-    const cleanSender  = (sender || "").toLowerCase().trim();
+    let primarySender = (sender || "").split(",")[0] || "";
+    let cleanSender  = primarySender.toLowerCase().trim();
     let cleanSubject = (subject || "").toLowerCase().trim();
+
+    // Strip snippet separator trailing text e.g. "(no subject) - Dear Ahmed..." -> "(no subject)"
+    if (cleanSubject.includes(" - ")) {
+      cleanSubject = cleanSubject.split(" - ")[0];
+    } else if (cleanSubject.includes(" — ")) {
+      cleanSubject = cleanSubject.split(" — ")[0];
+    }
+
     cleanSubject = cleanSubject.replace(/⏳\s*scanning\.*/gi, "")
                                .replace(/[⚠✓🚨]\s*\d+%/gi, "")
                                .replace(/[⚠✓🚨]\s*(safe|phishing)/gi, "")
+                               .replace(/\b(spam|inbox)\s*x?\b/gi, "")
+                               .replace(/^(re|fwd|fw):\s*/gi, "")
+                               .replace(/\(\d+\)$/g, "")
+                               .replace(/[^\w\s]/gi, " ")
+                               .replace(/\s+/g, " ")
                                .trim();
+    cleanSender = cleanSender.replace(/[^\w\s@\.]/gi, "").trim();
     if (!cleanSender && !cleanSubject) return "";
     return `${cleanSender}|${cleanSubject}`;
   }
@@ -190,7 +208,11 @@ export function initEmailGuard() {
   // ─────────────────────────────────────────────────────────
 
   async function _scanInboxBatch() {
-    if (!isGmail) return;
+    if (!isGmail || !_storageLoaded) return;
+    // Only clear open-email XAI if no open email view is active
+    if (!document.querySelector(".a3s, .nH.hx, [role='main'] .ha")) {
+      try { window.__AEGIS_ACTIVE_EMAIL_XAI__ = null; } catch (_) {}
+    }
 
     const rows = document.querySelectorAll("tr.zA");
     const toScan = [];
@@ -198,7 +220,7 @@ export function initEmailGuard() {
     rows.forEach(row => {
       const rowId = row.getAttribute("id") || row.dataset.legacyMessageId || "";
 
-      const senderEl = row.querySelector("[email], .zF, .yW, .bA4, .b5, .yX");
+      const senderEl = row.querySelector(".b5, .zF, .yW, .bA4, [email], .yX");
       let rowSender = "";
       if (senderEl) {
         const clone = senderEl.cloneNode(true);
@@ -206,7 +228,7 @@ export function initEmailGuard() {
         rowSender = clone.getAttribute("email") || clone.getAttribute("data-hovercard-id") || clone.textContent?.trim() || "";
       }
 
-      const subjectEl = row.querySelector(".bog span, .bog, .y6 span, .y6, .bkH");
+      const subjectEl = row.querySelector(".bog, .bog span, .bkH, .y6 span, .y6");
       let rowSubject = "";
       if (subjectEl) {
         const clone = subjectEl.cloneNode(true);
@@ -257,6 +279,8 @@ export function initEmailGuard() {
         _updateRowBadge(item.emailKey, "offline", null);
       });
     }
+
+    _syncCompositeScreenScore();
   }
 
   async function _scanOneRow({ row, emailKey, rowSender, rowSubject, combined }) {
@@ -298,11 +322,58 @@ export function initEmailGuard() {
       _scannedEmailsMap.set(emailKey, record);
       _saveToStorage();
       _updateRowBadge(emailKey, verdict, unifiedScore);
+      _syncCompositeScreenScore();
     } catch (_) {
       _scannedEmailsMap.set(emailKey, { score: null, verdict: "offline" });
       _failedRetriesMap.set(emailKey, Date.now());
       _updateRowBadge(emailKey, "offline", null);
     }
+  }
+
+  function _syncCompositeScreenScore() {
+    try {
+      // If an open email is currently active, DO NOT overwrite with background inbox composite score
+      if (document.querySelector(".a3s, .nH.hx, [role='main'] .ha")) return;
+
+      const rows = document.querySelectorAll("tr.zA");
+      if (rows.length === 0) return;
+
+      let maxScore = 0;
+      let hasPhishing = false;
+      let scannedCount = 0;
+      let totalScore = 0;
+
+      rows.forEach(row => {
+        const key = row.dataset.aegisKey;
+        if (key && _scannedEmailsMap.has(key)) {
+          const rec = _scannedEmailsMap.get(key);
+          if (rec && rec.score != null && rec.score !== -1) {
+            scannedCount++;
+            totalScore += rec.score;
+            if (rec.score > maxScore) {
+              maxScore = rec.score;
+            }
+            if (rec.score >= 50) {
+              hasPhishing = true;
+            }
+          }
+        }
+      });
+
+      if (scannedCount > 0) {
+        const compositeScore = hasPhishing ? maxScore : Math.round(totalScore / scannedCount);
+        const compositeVerdict = _getRiskLevel(compositeScore);
+
+        safeSendMessage({
+          type: "SYNC_EMAIL_TAB_STATE",
+          emailKey: "inbox_composite",
+          score: compositeScore,
+          verdict: compositeVerdict,
+          subject: "Active Screen Content",
+          sender: "AegisOne Scanner"
+        });
+      }
+    } catch (_) {}
   }
 
   function _injectRowBadge(rowEl, verdict, score, emailKey) {
@@ -442,32 +513,26 @@ export function initEmailGuard() {
     return text || "";
   }
 
-  function _extractOpenSender() {
-    const containers = Array.from(document.querySelectorAll(".adn, .gE, .gs, .nH")).filter(el => {
-      return el.querySelector(".a3s") && (el.offsetWidth > 0 || el.offsetHeight > 0);
+  function _extractThreadSenders() {
+    const senders = [];
+    document.querySelectorAll(".gD[email], .gD, [email], .zF, .yW, .bA4").forEach(el => {
+      const email = el.getAttribute("email") || el.getAttribute("data-hovercard-id") || el.textContent?.trim();
+      if (email && email.length > 3 && !senders.includes(email) && !email.includes("Search") && !email.includes("Gmail")) {
+        senders.push(email);
+      }
     });
-    const activeContainer = containers[containers.length - 1] || document;
-    const senderEl = activeContainer.querySelector(".gD[email], .gD, [email]") || document.querySelector(".gD[email], .gD");
-    return senderEl?.getAttribute("email")
-        || senderEl?.getAttribute("data-hovercard-id")
-        || senderEl?.textContent?.trim()
-        || "";
+    return senders.length > 0 ? senders.slice(0, 5).join(", ") : _extractOpenSender();
   }
 
-  function _extractOpenBody() {
-    const msgs = document.querySelectorAll(".a3s.aiL, .a3s");
-    if (msgs.length > 0) {
-      const visibleTexts = Array.from(msgs)
-        .filter(m => m.offsetWidth > 0 || m.offsetHeight > 0)
-        .map(m => m.innerText?.trim())
-        .filter(Boolean);
-      if (visibleTexts.length > 0) {
-        return visibleTexts.join("\n\n").slice(0, 4000);
-      }
-      return Array.from(msgs).map(m => m.innerText).join("\n").slice(0, 4000);
-    }
-    const fallbackEl = document.querySelector(".rps, [data-app-section='MessageBody']");
-    return fallbackEl?.innerText?.slice(0, 4000) || "";
+  function _extractThreadBody() {
+    const threadEls = document.querySelectorAll(".a3s, .a3s.aiL, .gmail_quote, blockquote, .kv, .adn, .rps, [data-app-section='MessageBody']");
+    const texts = Array.from(threadEls)
+      .map(m => m.innerText?.trim())
+      .filter(Boolean);
+    const uniqueTexts = [...new Set(texts)];
+    return uniqueTexts.length > 0
+      ? uniqueTexts.join("\n\n--- [Thread Sub-Reply] ---\n\n").slice(0, 6000)
+      : _extractOpenBody();
   }
 
   async function _scanOpenEmail() {
@@ -479,12 +544,12 @@ export function initEmailGuard() {
     let bodyContainer = null;
 
     if (isGmail) {
-      sender  = _extractOpenSender();
+      sender  = _extractThreadSenders();
       subject = _extractOpenSubject();
-      body    = _extractOpenBody();
+      body    = _extractThreadBody();
 
-      const bodyEl  = document.querySelector(".a3s.aiL, .a3s");
-      bodyContainer = bodyEl?.parentElement || bodyEl;
+      const bodyEl  = document.querySelector(".nH.hx, [role='list']") || document.querySelector(".a3s.aiL, .a3s");
+      bodyContainer = bodyEl || document.body;
       toolbarEl     = document.querySelector(".gE.iv.gt, .ha, .aaq, [gh=\"mtb\"]") || document.querySelector(".hP")?.parentElement;
 
       const attachEls = [
@@ -531,7 +596,7 @@ export function initEmailGuard() {
 
     let record = _scannedEmailsMap.get(emailKey);
 
-    if (!record || record.score === -1 || record.verdict === "offline") {
+    if (!record || !record.fullBodyScanned || record.score === -1 || record.verdict === "offline") {
       const scanRes = await safeSendMessage({
         type: "EMAIL_DATA",
         sender,
@@ -561,11 +626,54 @@ export function initEmailGuard() {
         links,
         images,
         attachmentNames,
+        fullBodyScanned: true
       };
+
+      const emailXai = _buildEmailXAI(
+        sender,
+        subject,
+        record.score ?? 0,
+        record.modelResult?.xai_words || [],
+        record.modelResult?.explanation || "",
+        record.attachSignals,
+        record.linkSignals,
+        record.links,
+        record.images,
+        (record.score ?? 0) >= 50
+      );
+      record.emailXai = emailXai;
 
       _scannedEmailsMap.set(emailKey, record);
       _saveToStorage();
       _updateRowBadge(emailKey, verdict, unifiedScore);
+
+      // Sync open email score across the entire extension (Widget + Action Popup)
+      safeSendMessage({
+        type: "SYNC_EMAIL_TAB_STATE",
+        emailKey,
+        score: record.score,
+        verdict: record.verdict,
+        subject,
+        sender,
+        modelResult: record.modelResult,
+        top_factors: emailXai.main_reasons.map(r => ({ label: r, score: record.score })),
+        emailXai
+      });
+
+      try {
+        window.__AEGIS_ACTIVE_EMAIL_XAI__ = emailXai;
+        document.dispatchEvent(new CustomEvent("aegis:email-scanned", {
+          detail: {
+            score: record.score,
+            verdict: record.verdict,
+            threat_type: record.verdict === "phishing" ? "phishing_email" : "safe",
+            emailXai,
+            subject,
+            sender
+          }
+        }));
+      } catch (_) {}
+
     } else {
       // Preserve exact inbox score — ZERO RE-SCAN & ZERO SCORE CHANGE on open!
       record.attachSignals = [...new Set([...record.attachSignals, ...attachSignals])];

@@ -369,18 +369,73 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           if (!result) {
             sendResponse({ ok: false, error: "backend_offline", result: null });
           } else {
-            if (result?.phishing_probability > THRESHOLD.WARNING) {
-              if (sender.tab?.id) {
-                chrome.tabs.sendMessage(sender.tab.id, {
-                  type: MSG.HIGHLIGHT_THREATS,
-                  emailPhishing: true,
-                  emailRisk: result.phishing_probability,
-                  emailSignals: result.top_words || [],
-                }).catch(() => {});
-              }
+            const prob = result.phishing_probability ?? 0;
+            const score = Math.round(prob * 100);
+            const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : score >= 20 ? "caution" : "safe";
+
+            if (sender.tab?.id) {
+              const current = getTabCache(sender.tab.id) || {};
+              setTabCache(sender.tab.id, {
+                ...current,
+                url: msg.subject ? `Email: "${msg.subject}"` : current.url,
+                domain: "gmail.com",
+                score,
+                verdict,
+                threat_type: score >= 50 ? "phishing_email" : undefined,
+                page_title: msg.subject ? `Email: ${msg.subject}` : current.page_title,
+                scanned_at: new Date().toISOString(),
+                top_factors: (result.top_words || []).map(w => ({ key: "keyword", label: `Flagged keyword: ${w}`, score })),
+                breakdown: {
+                  email_classifier: { score, label: "Neural Email Classifier", available: true }
+                }
+              });
+
+              chrome.tabs.sendMessage(sender.tab.id, {
+                type: "UPDATE_EMAIL_WIDGET",
+                score,
+                verdict,
+                subject: msg.subject,
+                sender: msg.sender,
+              }).catch(() => {});
             }
+
             sendResponse({ ok: true, result });
           }
+          break;
+        }
+
+        case "SYNC_EMAIL_TAB_STATE": {
+          if (sender.tab?.id) {
+            const score = msg.score ?? 0;
+            const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : score >= 20 ? "caution" : "safe";
+
+            const current = getTabCache(sender.tab.id) || {};
+            setTabCache(sender.tab.id, {
+              ...current,
+              url: msg.subject ? `Email: "${msg.subject}"` : current.url,
+              domain: "gmail.com",
+              score,
+              verdict,
+              threat_type: score >= 50 ? "phishing_email" : undefined,
+              page_title: msg.subject ? `Email: ${msg.subject}` : current.page_title,
+              scanned_at: new Date().toISOString(),
+              top_factors: (msg.modelResult?.xai_words || []).map(w => ({ key: "keyword", label: `Flagged keyword: ${w}`, score })),
+              breakdown: {
+                email_classifier: { score, label: "Neural Email Classifier", available: true }
+              }
+            });
+
+            chrome.tabs.sendMessage(sender.tab.id, {
+              type: "UPDATE_EMAIL_WIDGET",
+              score,
+              verdict: msg.verdict,
+              subject: msg.subject,
+              sender: msg.sender,
+              top_factors: msg.top_factors,
+              emailXai: msg.emailXai,
+            }).catch(() => {});
+          }
+          sendResponse({ ok: true });
           break;
         }
 
@@ -393,7 +448,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           let xaiResult = await explainWithAI(tabData, url, msg.score);
 
           if (xaiResult?.error || !xaiResult?.summary) {
-            const local = generateLocalExplanation(tabData);
+            const local = generateLocalExplanation(tabData, msg.score);
             if (local) xaiResult = local;
           }
 

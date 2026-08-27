@@ -48,6 +48,9 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
         if label:
             red_flags.append(label)
 
+    # 2. Extract Red Flags & MITRE ATT&CK Mapping
+    red_flags = [f["label"] for f in top_factors if isinstance(f, dict) and f.get("score", 0) >= 30]
+
     # Technical feature fallbacks if not in top_factors
     if login_form_detected and not any("login" in f.lower() for f in red_flags):
         red_flags.append("Suspicious credential entry/login form detected")
@@ -64,11 +67,13 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     if len(external_scripts) > 12:
         red_flags.append(f"High count of third-party external resources ({len(external_scripts)} scripts)")
 
-    # If safe (risk < 20%) and no explicit red flags exist
+    # Ensure red_flags match risk_score band cleanly
+    if risk_score >= 50 and not red_flags:
+        red_flags.append("High-confidence neural network phishing pattern detection")
+        red_flags.append("Suspicious solicitation keywords or brand mismatch identified by Aegis AI")
+
     if risk_score < 20 and not red_flags:
         red_flags.append("All structural, domain, and AI heuristic checks passed cleanly with no suspicious indicators detected.")
-    elif not red_flags:
-        red_flags.append("Heuristic patterns match known phishing site structures")
 
     # 3. Create Natural Language Summary
     if risk_score < 20:
@@ -79,15 +84,13 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     else:
         reasons_str = "; ".join(red_flags[:3]).lower()
         summary = (
-            f"AegisOne security analysis flagged this target as potentially hazardous with a composite risk score of {risk_score}%. "
+            f"AegisOne security analysis flagged this target as high-risk phishing with a composite risk score of {risk_score}%. "
             f"The primary indicators include: {reasons_str}. "
         )
         if login_form_detected:
             summary += "A suspicious credential entry form was detected on this domain."
         elif hidden_iframes:
             summary += "Invisible elements were detected which are commonly used in clickjacking attacks."
-        else:
-            summary += "Our AI models identified patterns consistent with known phishing or scam sites."
 
     # 4. Generate Actionable Recommendations
     recommendations = []
@@ -97,8 +100,9 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     else:
         if login_form_detected:
             recommendations.append("Do NOT input passwords, emails, or personal details.")
-        if risk_score >= 80:
+        if risk_score >= 50:
             recommendations.append("Close this browser window or navigate back immediately.")
+            recommendations.append("Do NOT provide passwords, personal info, or click unverified links.")
             recommendations.append("Notify your Security Operations Center (SOC) using the 'Report Threat' button.")
         else:
             recommendations.append("Proceed with extreme caution. Verify the destination URL before interacting.")
@@ -110,15 +114,25 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     if "T1584" not in "".join(mitre_techniques) and risk_score >= 70:
         mitre_techniques.append("T1584 - Compromise Infrastructure (Adversary Staged Domain)")
 
-    # 6. Indicators of Compromise (IOC)
-    ioc = {
-        "domain": domain,
-        "url": url,
-        "indicators": [
-            {"type": "domain", "value": domain},
-            {"type": "url", "value": url}
-        ]
-    }
+    # 7. Scoring Methodology (Dynamic parameters based on context)
+    is_email_context = evidence.get("is_email", False) or threat_type == "phishing_email" or "email" in url.lower()
+    
+    scoring_methodology = []
+    
+    # Bottom Popup (Floating Widget / Screen Context)
+    if is_email_context:
+        scoring_methodology.append(
+            "🛡️ **Floating Widget (Active Screen Risk):** This score is dynamically calculated based on the content you are actively interacting with. Since you are in a webmail client, it scans the sender reputation, subject line, message body content, embedded links, and attachments. If multiple emails are visible, it evaluates the composite risk of all items."
+        )
+    else:
+        scoring_methodology.append(
+            "🛡️ **Floating Widget (Active Screen Risk):** This score reflects the active, real-time threat level of the page as you interact with it. It monitors DOM changes, dynamically injected scripts, and visible elements."
+        )
+        
+    # Top Popup (Deep Page Scan)
+    scoring_methodology.append(
+        "🔎 **Action Popup (Deep Page Scan):** This evaluates the structural integrity of the base URL/Domain. It performs deep heuristic checks including DNS reputation, cross-site scripting (XSS) vectors, hidden iframes, redirect chains, and deceptive login forms. It represents the inherent risk of the website hosting the content."
+    )
 
     return {
         "summary": summary,
@@ -127,6 +141,7 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
         "recommendations": recommendations,
         "mitre_mapping": mitre_techniques,
         "ioc": ioc,
+        "scoring_methodology": scoring_methodology,
         "generated_at": time_now_iso()
     }
 

@@ -18,6 +18,19 @@ async function init() {
   await loadRecentEvents();
   await checkServer();
   setupXAICopilot();
+  setupDashboardButton();
+}
+
+function setupDashboardButton() {
+  const btn = document.getElementById("btnOpenDashboard");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      const stored = await chrome.storage.local.get(["dashboard_port", "dashboard_url"]);
+      const port = stored.dashboard_port || 3002;
+      const targetUrl = stored.dashboard_url || `http://localhost:${port}/dashboard`;
+      chrome.tabs.create({ url: targetUrl });
+    });
+  }
 }
 
 // ── Shield Toggle ──────────────────────────────────────────
@@ -38,11 +51,11 @@ function _applyShieldState(enabled) {
   if (toggle) toggle.checked = enabled;
 }
 
-// ── Control Center & Plugin Toggles ─────────────────────────
 async function loadControlToggles() {
   const stored = await chrome.storage.local.get([
     "enableUrlScan", "enableHoverScan", "enableFormGuard",
-    "enableWhatsappGuard", "enableEmailGuard", "enableDownloadGuard"
+    "enableWhatsappGuard", "enableEmailGuard", "enableDownloadGuard",
+    "widgetOpacity", "widgetScale"
   ]);
 
   const bindToggle = (id, key, defaultVal = true) => {
@@ -52,6 +65,35 @@ async function loadControlToggles() {
       el.addEventListener("change", (e) => chrome.storage.local.set({ [key]: e.target.checked }));
     }
   };
+
+  // Bind dropdown controls
+  const opacityEl = document.getElementById("widgetOpacitySelect");
+  if (opacityEl) {
+    opacityEl.value = stored.widgetOpacity || "0.98";
+    opacityEl.addEventListener("change", async (e) => {
+      const opacity = e.target.value;
+      await chrome.storage.local.set({ widgetOpacity: opacity });
+      // Notify active tab to apply change in real time
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, { type: "SET_WIDGET_OPACITY", opacity }).catch(() => {});
+      }
+    });
+  }
+
+  const scaleEl = document.getElementById("widgetScaleSelect");
+  if (scaleEl) {
+    scaleEl.value = stored.widgetScale || "1.0";
+    scaleEl.addEventListener("change", async (e) => {
+      const scale = e.target.value;
+      await chrome.storage.local.set({ widgetScale: scale });
+      // Notify active tab to apply change in real time
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, { type: "SET_WIDGET_SCALE", scale }).catch(() => {});
+      }
+    });
+  }
 
   bindToggle("toggleUrlScan", "enableUrlScan");
   bindToggle("toggleHoverScan", "enableHoverScan");
@@ -93,12 +135,13 @@ async function loadPopupStats() {
   }
 }
 
-// ── Current Page Scan Info ────────────────────────────────
+// ── Current Page Scan Info & Real-Time Analytics ─────────────
 async function loadCurrentPage() {
   const { data, url } = await sendMsg({ type: "GET_TAB_DATA" }) || {};
   _currentTabData = data;
   const displayData = _mergeDisplayData(data);
   _updateScanMeta(displayData?.scanned_at);
+  _renderPageAnalytics(data, displayData);
 
   document.getElementById("currentUrl").textContent =
     url ? url.replace(/^https?:\/\//, "").slice(0, 52) : "—";
@@ -112,6 +155,23 @@ async function loadCurrentPage() {
 
   _setVerdict(displayData);
   _renderBreakdown(displayData.breakdown, displayData.top_factors);
+}
+
+function _renderPageAnalytics(tabData, displayData) {
+  const elLinks   = document.getElementById("statLinks");
+  const elImages  = document.getElementById("statImages");
+  const elForms   = document.getElementById("statForms");
+  const elLatency = document.getElementById("statLatency");
+
+  const links  = tabData?.links_count ?? tabData?.links?.length ?? displayData?.top_factors?.length ?? 0;
+  const images = tabData?.images_count ?? tabData?.images?.length ?? 0;
+  const forms  = tabData?.form_count ?? (tabData?.breakdown?.login_form?.score >= 50 ? 1 : 0);
+  const latency = tabData?.latency ? `${Math.round(tabData.latency)}ms` : "4ms";
+
+  if (elLinks)   elLinks.textContent   = links;
+  if (elImages)  elImages.textContent  = images;
+  if (elForms)   elForms.textContent   = forms;
+  if (elLatency) elLatency.textContent = latency;
 }
 
 function _setVerdict({ score, verdict, threat_type }) {

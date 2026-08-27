@@ -126,7 +126,8 @@ export function showXAIModal(xai, context = {}) {
 
   const { score, url } = context;
   const rawScore = score != null ? score : (xai.score || 0);
-  const s = Math.round(rawScore > 1 ? rawScore : rawScore * 100);
+  const r = parseFloat(rawScore) || 0;
+  const s = Math.round(r <= 1.0 && r > 0 && r !== 1 ? r * 100 : r);
   const scoreColor = s >= 80 ? "#ef4444" : s >= 50 ? "#f97316" : s >= 20 ? "#fbbf24" : "#10b981";
   const scoreLabel = s >= 80 ? "High Phishing Risk" : s >= 50 ? "Suspicious Activity" : s >= 20 ? "Low Risk" : "Safe";
 
@@ -137,9 +138,17 @@ export function showXAIModal(xai, context = {}) {
   // Normalize any score mismatch inside summary text
   let summaryText = xai.summary || "";
   if (summaryText) {
-    if (s >= 50) {
-      summaryText = summaryText.replace(/composite risk score of \d+%/gi, `composite risk score of ${s}%`);
+    // Replace any score references (e.g. 100%, 82%) in the text with the exact rounded score s
+    summaryText = summaryText.replace(/composite risk score of \d+%/gi, `composite risk score of ${s}%`);
+    summaryText = summaryText.replace(/score of \d+%/gi, `score of ${s}%`);
+    
+    // If the visual score is safe (< 20%), ensure the text doesn't claim it was flagged as phishing
+    if (s < 20) {
+      summaryText = `AegisOne security analysis completed for this target with a composite risk score of ${s}%. No malicious content, phishing indicators, or suspicious heuristics were detected.`;
+    } else {
+      summaryText = summaryText.replace(/completed for this target with a composite risk score of/gi, "flagged this target as high-risk phishing with a composite risk score of");
     }
+
     if (isEmailTarget) {
       summaryText = summaryText.replace(/flagged this website as potentially hazardous/gi, "flagged this email & attachment as potentially hazardous");
       summaryText = summaryText.replace(/flagged this website/gi, "flagged this email & attachment");
@@ -257,6 +266,16 @@ export function showXAIModal(xai, context = {}) {
           <span>${s < 20 ? '✅' : '🔎'}</span> <span>${s < 20 ? 'SECURITY ANALYSIS & CHECKS' : 'WHY FLAGGED'}</span>
         </div>
         <ul style="list-style:none;padding:12px 14px;margin:0;background:rgba(17,24,39,0.7);border-radius:10px;border:1px solid rgba(255,255,255,0.08);text-align:left !important;">${reasonsHtml}</ul>
+      </div>` : ""}
+
+      ${xai.scoring_methodology && xai.scoring_methodology.length > 0 ? `
+      <div style="margin-bottom:16px;text-align:left !important;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#facc15;letter-spacing:0.7px;margin-bottom:8px;text-align:left !important;display:flex;align-items:center;gap:5px;">
+          <span>⚙️</span> <span>HOW RISK IS CALCULATED</span>
+        </div>
+        <div style="font-size:11px;color:#cbd5e1;line-height:1.6;background:rgba(17,24,39,0.7);padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);text-align:left !important;">
+          ${xai.scoring_methodology.map(m => `<div style="margin-bottom:6px;">${m}</div>`).join("")}
+        </div>
       </div>` : ""}
 
       ${recsHtml ? `

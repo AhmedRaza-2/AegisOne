@@ -111,11 +111,11 @@ export async function explainWithAI(tabData, url, explicitScore) {
  * @returns {object}
  */
 export function generateLocalExplanation(tabData, explicitScore) {
-  if (!tabData) return null;
+  if (!tabData && explicitScore === undefined) return null;
 
-  const score     = explicitScore !== undefined ? explicitScore : (tabData.score || 0);
-  const threatType = tabData.threat_type || "";
-  const isDownload = threatType === "malicious_download" || threatType === "download" || (tabData.url && tabData.url.includes("attachment"));
+  const score     = explicitScore !== undefined ? explicitScore : (tabData?.score || 0);
+  const threatType = tabData?.threat_type || "";
+  const isDownload = threatType === "malicious_download" || threatType === "download" || (tabData?.url && tabData.url.includes("attachment"));
 
   if (isDownload) {
     let summary;
@@ -127,8 +127,8 @@ export function generateLocalExplanation(tabData, explicitScore) {
       summary = `✅ Clean File: AegisOne's AI evaluated this download (${score}% risk) and found no malicious macros or executable code.`;
     }
 
-    const main_reasons = (tabData.top_factors || []).length > 0
-      ? tabData.top_factors.map(f => `📁 ${f.label || f}`)
+    const main_reasons = (tabData?.top_factors || []).length > 0
+      ? tabData.top_factors.map(f => `📁 ${f.label || f.key || f}`)
       : score >= 40
         ? ["⚠️ File extension or download location has elevated risk factors", "📁 Download source is an unverified attachment server"]
         : ["✅ File extension is clean", "✅ No suspicious macros or scripts found"];
@@ -144,23 +144,10 @@ export function generateLocalExplanation(tabData, explicitScore) {
     return { summary, main_reasons, recommendations, generated_locally: true };
   }
 
-  const factors = (tabData.top_factors || []).filter(f => f.score >= 30);
+  const factors = (tabData?.top_factors || []).filter(f => f.score >= 30 || f.score == null);
 
-  // Plain-English summary based on score band
-  let summary;
-  if (score >= 80) {
-    summary = `⚠️ This page looks like a phishing site. Our AI is ${score}% confident it's trying to steal your information. Don't enter any passwords or personal details here.`;
-  } else if (score >= 50) {
-    summary = `🔶 Something looks off about this page (${score}% risk). It's not confirmed dangerous, but be careful — especially if you're asked to log in.`;
-  } else if (score >= 20) {
-    summary = `🔍 This page has a few minor suspicious signals (${score}% risk). It's probably fine, but stay alert.`;
-  } else {
-    summary = `✅ This page looks safe. Our AI didn't find any phishing signs. Risk: ${score}%.`;
-  }
-
-  // Translate technical factor labels into plain English
   const friendlyLabel = (label = "") => {
-    const l = label.toLowerCase();
+    const l = String(label).toLowerCase();
     if (l.includes("login") || l.includes("credential"))
       return "🔑 This page has a login form — a common phishing trick";
     if (l.includes("iframe"))
@@ -169,8 +156,8 @@ export function generateLocalExplanation(tabData, explicitScore) {
       return "↪️ This page tried to redirect you to another site";
     if (l.includes("brand") || l.includes("impersonat"))
       return "🎭 This page appears to be pretending to be a real, trusted brand";
-    if (l.includes("phish"))
-      return "🎣 Our AI detected phishing language on this page";
+    if (l.includes("phish") || l.includes("keyword") || l.includes("email"))
+      return "🎣 Our AI detected phishing patterns or solicitation keywords on this page";
     if (l.includes("url") || l.includes("domain"))
       return "🌐 The web address has suspicious patterns";
     if (l.includes("script") || l.includes("js"))
@@ -180,26 +167,52 @@ export function generateLocalExplanation(tabData, explicitScore) {
     return `⚠️ ${label}`;
   };
 
-  const main_reasons = factors.length > 0
-    ? factors.map(f => friendlyLabel(f.label))
-    : score === 0
-      ? ["✅ No phishing signals were found"]
-      : ["🔍 Mild pattern match in URL or page structure"];
+  let summary;
+  let main_reasons = [];
+  let recommendations = [];
 
-  // Simple, actionable advice
-  const recommendations = [];
   if (score >= 80) {
-    recommendations.push("🚫 Do NOT type your password or personal info here");
-    recommendations.push("← Go back or close this tab to stay safe");
-    recommendations.push("📢 Hit Report Threat below to help protect others");
+    summary = `🚨 Phishing Threat Identified! AegisOne's neural AI detected high-confidence phishing patterns (${score}% risk).`;
+    main_reasons = factors.length > 0
+      ? factors.map(f => friendlyLabel(f.label || f.key || f))
+      : [
+          "🚨 Neural network model identified high-risk phishing solicitation patterns",
+          "⚠️ Suspicious text, brand mismatch, or unverified sender detected",
+          "🔑 Elevated risk of password or credential theft"
+        ];
+    recommendations = [
+      "🚫 Do NOT type your password, credentials, or personal info here",
+      "← Close this page or return to safety immediately",
+      "📢 Hit Report Threat below to help protect others"
+    ];
   } else if (score >= 50) {
-    recommendations.push("👀 Check the URL in your address bar is exactly right");
-    recommendations.push("🔑 Don't enter passwords unless you're 100% sure it's legit");
+    summary = `🔶 Something looks off about this page (${score}% risk). It's not confirmed dangerous, but exercise caution.`;
+    main_reasons = factors.length > 0
+      ? factors.map(f => friendlyLabel(f.label || f.key || f))
+      : [
+          "⚠️ Suspicious heuristics or solicitation text detected by Aegis AI",
+          "🌐 Unverified domain or non-standard page structure"
+        ];
+    recommendations = [
+      "👀 Check the URL in your address bar is exactly right",
+      "🔑 Don't enter passwords unless you're 100% sure it's legit"
+    ];
   } else if (score >= 20) {
-    recommendations.push("✔️ You can continue, but stay alert");
-    recommendations.push("🔗 Avoid clicking links that seem out of place");
+    summary = `🔍 This page has minor suspicious signals (${score}% risk). It's probably fine, but stay alert.`;
+    main_reasons = factors.length > 0
+      ? factors.map(f => friendlyLabel(f.label || f.key || f))
+      : ["🔍 Mild pattern match in URL or page structure"];
+    recommendations = [
+      "✔️ You can continue, but stay alert",
+      "🔗 Avoid clicking links that seem out of place"
+    ];
   } else {
-    recommendations.push("✅ This page appears safe — carry on!");
+    summary = `✅ This page looks safe. Our AI didn't find any phishing signs. Risk: ${score}%.`;
+    main_reasons = ["✅ All structural, domain, and AI heuristic checks passed cleanly"];
+    recommendations = [
+      "✅ Target appears safe — carry on!",
+      "🔗 Always verify links and senders before providing sensitive credentials"
+    ];
   }
 
   return {

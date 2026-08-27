@@ -131,6 +131,17 @@
       // ── Widget ──────────────────────────────────────
       _widget = createWidget();
 
+      try {
+        chrome.storage.local.get(["widgetOpacity", "widgetScale"], (stored) => {
+          if (stored.widgetOpacity != null) {
+            document.dispatchEvent(new CustomEvent("aegis:widget-opacity", { detail: { opacity: stored.widgetOpacity } }));
+          }
+          if (stored.widgetScale != null) {
+            document.dispatchEvent(new CustomEvent("aegis:widget-scale", { detail: { scale: stored.widgetScale } }));
+          }
+        });
+      } catch (_) {}
+
       // ── DOM Feature Extraction ──────────────────────
       const features = _extractPageFeatures();
       _exposeTelemetryToDOM("aegis-page-features", features);
@@ -204,8 +215,14 @@
               scan_result: msg,
               features: _extractPageFeatures(),
             }));
-            setCurrentRisk(msg.score);
-            updateWidget(msg);
+            
+            if (window.__AEGIS_LAST_EMAIL_SCORE != null && window.__AEGIS_LAST_EMAIL_SCORE > msg.score) {
+              // Keep email score displayed on widget instead of safe URL scan
+            } else {
+              setCurrentRisk(msg.score);
+              updateWidget(msg);
+            }
+
             if (msg.score >= 80 && !isTrustedApp && !isAllowlistedPage) {
               showWarningModal({
                 score: msg.score,
@@ -229,6 +246,37 @@
               });
             }
             updateWidget(msg);
+            break;
+
+          case "UPDATE_EMAIL_WIDGET":
+            window.__AEGIS_LAST_EMAIL_SCORE = msg.score;
+            setCurrentRisk(msg.score);
+            if (msg.emailXai) {
+              window.__AEGIS_ACTIVE_EMAIL_XAI__ = msg.emailXai;
+            } else if (msg.subject === "Active Screen Content" && !document.querySelector(".a3s, .nH.hx")) {
+              window.__AEGIS_ACTIVE_EMAIL_XAI__ = null;
+            }
+
+            let factors = msg.top_factors;
+            if (!factors || factors.length === 0) {
+              factors = [{ key: "email", label: msg.subject === "Active Screen Content" ? "Active Screen Content" : `Email: ${msg.subject || "Opened Email"}` }];
+              if (msg.sender) factors.push({ key: "sender", label: `Sender: "${msg.sender}"` });
+            }
+
+            updateWidget({
+              score: msg.score,
+              verdict: msg.verdict === "phishing" ? "danger" : msg.verdict === "suspicious" ? "warning" : msg.verdict === "safe" ? "safe" : msg.verdict,
+              threat_type: msg.score >= 50 ? "phishing_email" : undefined,
+              top_factors: factors
+            });
+            break;
+
+          case "SET_WIDGET_OPACITY":
+            document.dispatchEvent(new CustomEvent("aegis:widget-opacity", { detail: { opacity: msg.opacity } }));
+            break;
+
+          case "SET_WIDGET_SCALE":
+            document.dispatchEvent(new CustomEvent("aegis:widget-scale", { detail: { scale: msg.scale } }));
             break;
 
           case "HIGHLIGHT_THREATS":
@@ -328,11 +376,29 @@
       });
 
       document.addEventListener("aegis:show-xai", (e) => {
-        showXAIModal(e.detail, {
-          score: _currentScanData?.score,
+        const activeEmailXai = window.__AEGIS_ACTIVE_EMAIL_XAI__;
+        const xaiPayload = activeEmailXai || e.detail;
+        const widgetEl = document.getElementById("aegis-widget-v2");
+        const displayScore = xaiPayload?.score || widgetEl?._aegisData?.score || _currentScanData?.score || 0;
+        
+        showXAIModal(xaiPayload, {
+          score: displayScore,
           url: location.href,
           threat_type: _currentScanData?.threat_type,
+          targetType: activeEmailXai ? "email" : "page"
         });
+      });
+
+      document.addEventListener("aegis:email-scanned", (e) => {
+        const { score, verdict, threat_type, emailXai } = e.detail || {};
+        _currentScanData = {
+          score,
+          verdict,
+          threat_type,
+          top_factors: emailXai?.main_reasons?.map(r => ({ label: r, score })),
+          emailXai
+        };
+        updateWidget({ score, verdict, threat_type });
       });
 
       // ── SPA Navigation Watcher (event-driven, zero CPU polling) ─────
@@ -342,6 +408,11 @@
 
       function _extractPageFeatures() {
         try {
+          const bodyText = document.body ? document.body.innerText?.slice(0, 4000) : "";
+          const h1Text = Array.from(document.querySelectorAll("h1, h2, .hP")).map(h => h.innerText?.trim()).filter(Boolean).join(" ");
+          const linksCount = document.querySelectorAll("a[href]").length;
+          const imagesCount = document.querySelectorAll("img[src]").length;
+
           return {
             login_form_found: document.querySelectorAll('form input[type="password"]').length > 0,
             brand_impersonation: null,
@@ -351,6 +422,10 @@
             js_obfuscated: false,
             has_password: document.querySelectorAll('input[type="password"]').length > 0,
             has_email: document.querySelectorAll('input[type="email"]').length > 0,
+            visible_text: bodyText,
+            headings_text: h1Text,
+            links_count: linksCount,
+            images_count: imagesCount,
           };
         } catch (_) {
           return {};

@@ -37,20 +37,34 @@
     /* ── Header ───────────────────────────────────────── */
     .header {
       background: linear-gradient(180deg, #162032 0%, #0d1525 100%);
-      padding: 12px 14px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
     }
-    .brand { display: flex; align-items: center; gap: 8px; }
-    .brand-logo { font-size: 18px; line-height: 1; }
+    .brand { display: flex; align-items: center; gap: 6px; }
+    .brand-logo { font-size: 17px; line-height: 1; }
     .brand-name { font-weight: 800; font-size: 13px; letter-spacing: -0.3px; color: #ffffff; }
-    .brand-tag { font-size: 8px; font-weight: 700; color: var(--cyan); background: rgba(6,182,212,0.12); padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(6,182,212,0.25); }
 
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .dashboard-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 6px;
+      background: linear-gradient(135deg, rgba(6,182,212,0.18), rgba(59,130,246,0.18));
+      border: 1px solid rgba(6,182,212,0.4); color: var(--cyan);
+      font-size: 9px; font-weight: 700; cursor: pointer;
+      transition: all 0.2s ease; text-decoration: none;
+      font-family: inherit;
+    }
+    .dashboard-btn:hover {
+      background: linear-gradient(135deg, rgba(6,182,212,0.35), rgba(59,130,246,0.35));
+      border-color: var(--cyan); color: #ffffff;
+      transform: translateY(-1px);
+    }
 
-    .shield-toggle { display: flex; align-items: center; gap: 5px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    .shield-toggle { display: flex; align-items: center; gap: 4px; }
     .toggle-label { font-size: 8px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
-    .toggle-switch { position: relative; width: 28px; height: 15px; cursor: pointer; }
+    .toggle-switch { position: relative; width: 26px; height: 14px; cursor: pointer; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-slider {
       position: absolute; inset: 0; background: var(--border2);
@@ -58,11 +72,11 @@
     }
     .toggle-slider:before {
       content: ''; position: absolute;
-      width: 11px; height: 11px; left: 2px; top: 2px;
+      width: 10px; height: 10px; left: 2px; top: 2px;
       background: white; border-radius: 50%; transition: 0.25s;
     }
     input:checked + .toggle-slider { background: var(--green); }
-    input:checked + .toggle-slider:before { transform: translateX(13px); }
+    input:checked + .toggle-slider:before { transform: translateX(12px); }
 
     .server-dot {
       width: 7px; height: 7px; border-radius: 50%;
@@ -74,22 +88,22 @@
 
     /* ── Overview Section ─────────────────────────────── */
     .verdict-section {
-      padding: 12px 14px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border);
     }
     .section-label {
       font-size: 8px; font-weight: 800; text-transform: uppercase;
-      letter-spacing: 0.6px; color: var(--muted); margin-bottom: 8px;
+      letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px;
     }
     .verdict-box {
       display: flex; align-items: center; gap: 10px;
       background: rgba(17,24,39,0.5); border-radius: 10px;
-      padding: 10px 12px; border: 1px solid var(--border2);
+      padding: 9px 11px; border: 1px solid var(--border2);
       transition: all 0.3s ease;
     }
-    .verdict-icon { font-size: 22px; flex-shrink: 0; }
+    .verdict-icon { font-size: 20px; flex-shrink: 0; }
     .verdict-text { flex: 1; min-width: 0; }
-    .verdict-text .status { font-size: 13px; font-weight: 800; }
+    .verdict-text .status { font-size: 12px; font-weight: 800; }
     .verdict-text .detail { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: capitalize; word-break: break-all; }
     
     .verdict-box.safe    { border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.06); }
@@ -103,13 +117,25 @@
     .verdict-box.unknown { border-color: var(--border2); }
     .verdict-box.unknown .status { color: var(--muted); }
 
-    .risk-bar-container { margin-top: 10px; }
-    .risk-bar-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+    .risk-bar-container { margin-top: 8px; }
+    .risk-bar-label { display: flex; justify-content: space-between; font-size: 8px; color: var(--muted); margin-bottom: 3px; font-weight: 700; }
     .risk-bar { height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
     .risk-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
     .risk-fill.low  { background: var(--green); }
     .risk-fill.med  { background: var(--amber); }
     .risk-fill.high { background: var(--red); }
+
+    /* ── Real-Time Analytics Grid ────────────────────── */
+    .analytics-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      margin-bottom: 10px;
+    }
+    .analytic-tile {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 4px; text-align: center;
+    }
+    .tile-val { font-size: 13px; font-weight: 800; color: var(--cyan); }
+    .tile-lbl { font-size: 7.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; margin-top: 1px; }
 
     /* ── Tabs Navigation ──────────────────────────────── */
     .tabs { display: flex; border-bottom: 1px solid var(--border); background: #0c1220; }
@@ -123,65 +149,65 @@
     .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); background: rgba(6,182,212,0.04); }
 
     /* ── Panels ───────────────────────────────────────── */
-    .panel { display: none; padding: 12px 14px; max-height: 220px; overflow-y: auto; }
+    .panel { display: none; padding: 10px 12px; max-height: 220px; overflow-y: auto; }
     .panel.active { display: block; }
     .panel::-webkit-scrollbar { width: 3px; }
     .panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-    .empty { text-align: center; padding: 20px 0; color: var(--muted); font-size: 10px; }
+    .empty { text-align: center; padding: 18px 0; color: var(--muted); font-size: 9.5px; }
 
     /* ── Breakdown Items ──────────────────────────────── */
-    .breakdown-item { margin-bottom: 10px; }
-    .breakdown-label { font-size: 10px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-    .breakdown-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .breakdown-item { margin-bottom: 9px; }
+    .breakdown-label { font-size: 9.5px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .breakdown-bar-wrap { display: flex; align-items: center; gap: 6px; }
     .breakdown-bar { flex: 1; height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
     .breakdown-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
-    .breakdown-pct { font-size: 10px; font-weight: 700; min-width: 28px; text-align: right; }
-    .breakdown-desc { font-size: 9px; color: var(--muted); margin-top: 2px; }
+    .breakdown-pct { font-size: 9.5px; font-weight: 700; min-width: 28px; text-align: right; }
+    .breakdown-desc { font-size: 8.5px; color: var(--muted); margin-top: 2px; }
 
     /* ── Plugin & Model Rows ──────────────────────────── */
     .model-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 0; border-bottom: 1px solid var(--border);
+      padding: 7px 0; border-bottom: 1px solid var(--border);
     }
     .model-row:last-child { border-bottom: none; }
-    .model-name { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-    .model-badge { font-size: 9px; padding: 2px 7px; border-radius: 8px; font-weight: 700; }
+    .model-name { font-size: 9.5px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+    .model-badge { font-size: 8.5px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
     .model-badge.ok  { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
     .model-badge.err { background: rgba(239,68,68,0.12);  color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
 
     /* ── Events Log ──────────────────────────────────── */
     .event-item {
       display: flex; align-items: center; gap: 8px;
-      padding: 7px 0; border-bottom: 1px solid var(--border);
+      padding: 6px 0; border-bottom: 1px solid var(--border);
     }
     .event-item:last-child { border-bottom: none; }
-    .event-icon { font-size: 14px; flex-shrink: 0; }
+    .event-icon { font-size: 13px; flex-shrink: 0; }
     .event-info { flex: 1; min-width: 0; }
-    .event-domain { font-size: 10px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event-domain { font-size: 9.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .event-meta { font-size: 8px; color: var(--muted); margin-top: 1px; text-transform: capitalize; }
-    .event-score { font-size: 10px; font-weight: 800; flex-shrink: 0; }
+    .event-score { font-size: 9.5px; font-weight: 800; flex-shrink: 0; }
 
     /* ── xAI Copilot Drawer Panel ─────────────────────── */
     .xai-card {
       background: rgba(30,41,59,0.35); border: 1px solid rgba(99,102,241,0.25);
-      border-radius: 10px; padding: 12px; margin-bottom: 10px;
+      border-radius: 10px; padding: 10px; margin-bottom: 8px;
     }
-    .xai-title { font-size: 10px; font-weight: 800; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
-    .xai-body { font-size: 11px; color: var(--text); line-height: 1.5; }
+    .xai-title { font-size: 9.5px; font-weight: 800; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: flex; align-items: center; gap: 4px; }
+    .xai-body { font-size: 10px; color: var(--text); line-height: 1.45; }
 
     /* ── Footer ───────────────────────────────────────── */
     .footer {
-      padding: 9px 14px; border-top: 1px solid var(--border);
+      padding: 8px 12px; border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
       background: #0c1220;
     }
-    .url-display { font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; font-weight: 500; }
-    .scan-meta { font-size: 8px; color: var(--muted2); margin-top: 1px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-display { font-size: 8.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; font-weight: 500; }
+    .scan-meta { font-size: 8px; color: var(--muted2); margin-top: 1px; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rescan-btn {
-      font-size: 9px; color: var(--cyan); cursor: pointer;
+      font-size: 8.5px; color: var(--cyan); cursor: pointer;
       border: 1px solid rgba(6,182,212,0.3); background: rgba(6,182,212,0.08);
-      padding: 3px 8px; border-radius: 6px; font-family: inherit; font-weight: 700;
+      padding: 3px 7px; border-radius: 6px; font-family: inherit; font-weight: 700;
       white-space: nowrap; transition: all 0.2s;
     }
     .rescan-btn:hover { background: rgba(6,182,212,0.2); border-color: var(--cyan); }
@@ -193,12 +219,12 @@
   <div class="header">
     <div class="brand">
       <div class="brand-logo">🛡️</div>
-      <div>
-        <div class="brand-name">AegisOne</div>
-      </div>
-      <span class="brand-tag">v2.2 Copilot</span>
+      <div class="brand-name">AegisOne</div>
     </div>
     <div class="header-right">
+      <button class="dashboard-btn" id="btnOpenDashboard" title="Open AegisOne Control Dashboard">
+        <span>📊</span><span>Dashboard</span><span>↗</span>
+      </button>
       <div class="shield-toggle">
         <span class="toggle-label" id="shieldLabel">ON</span>
         <label class="toggle-switch">
@@ -212,17 +238,17 @@
 
   <!-- Current Page Verdict -->
   <div class="verdict-section">
-    <div class="section-label">Active Protection Overview</div>
+    <div class="section-label">Active Page Analysis</div>
     <div class="verdict-box unknown" id="verdictBox">
       <div class="verdict-icon" id="verdictIcon">🔍</div>
       <div class="verdict-text">
         <div class="status" id="verdictStatus">Scanning...</div>
-        <div class="detail" id="verdictDetail">Analyzing with AI models</div>
+        <div class="detail" id="verdictDetail">Analyzing page content with AI</div>
       </div>
     </div>
     <div class="risk-bar-container" id="riskBarContainer" style="display:none;">
       <div class="risk-bar-label">
-        <span>Phishing Risk Score</span>
+        <span>Combined Phishing Risk</span>
         <span id="riskPct">0%</span>
       </div>
       <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
@@ -238,21 +264,42 @@
     <button class="tab-btn" data-tab="events">🕐 Logs</button>
   </div>
 
-  <!-- Panel 1: Overview Controls -->
+  <!-- Panel 1: Overview Controls & Real-time Page Analytics -->
   <div class="panel active" id="panel-overview">
-    <div style="display:flex; justify-content:space-between; margin-bottom: 10px; background: rgba(16,185,129,0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.15);">
-      <div style="text-align:center; flex: 1;">
-        <div style="font-size: 16px; font-weight: 800; color: var(--green);" id="statsScans">0</div>
-        <div style="font-size: 8px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Total Scans</div>
+    <!-- Real-Time Page Analytics Tile Grid -->
+    <div class="section-label">Page Analytics</div>
+    <div class="analytics-grid">
+      <div class="analytic-tile">
+        <div class="tile-val" id="statLinks">0</div>
+        <div class="tile-lbl">Links</div>
       </div>
-      <div style="width:1px; background: var(--border2); margin: 0 10px;"></div>
-      <div style="text-align:center; flex: 1;">
-        <div style="font-size: 16px; font-weight: 800; color: var(--red);" id="statsBlocked">0</div>
-        <div style="font-size: 8px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 2px;">Threats Blocked</div>
+      <div class="analytic-tile">
+        <div class="tile-val" id="statImages">0</div>
+        <div class="tile-lbl">Images</div>
+      </div>
+      <div class="analytic-tile">
+        <div class="tile-val" id="statForms">0</div>
+        <div class="tile-lbl">Forms</div>
+      </div>
+      <div class="analytic-tile">
+        <div class="tile-val" id="statLatency">—</div>
+        <div class="tile-lbl">Latency</div>
       </div>
     </div>
 
-    <div class="section-label" style="margin-top:6px;">Backend AI Models</div>
+    <div style="display:flex; justify-content:space-between; margin-bottom: 8px; background: rgba(16,185,129,0.05); padding: 8px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.15);">
+      <div style="text-align:center; flex: 1;">
+        <div style="font-size: 14px; font-weight: 800; color: var(--green);" id="statsScans">0</div>
+        <div style="font-size: 7.5px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 1px;">Total Scans</div>
+      </div>
+      <div style="width:1px; background: var(--border2); margin: 0 8px;"></div>
+      <div style="text-align:center; flex: 1;">
+        <div style="font-size: 14px; font-weight: 800; color: var(--red);" id="statsBlocked">0</div>
+        <div style="font-size: 7.5px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 1px;">Threats Blocked</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">Backend AI Engines</div>
     <div class="model-row"><span class="model-name">🔗 URL Phishing AI</span><span class="model-badge" id="m-url">—</span></div>
     <div class="model-row"><span class="model-name">📝 NLP Text Model</span><span class="model-badge" id="m-text">—</span></div>
     <div class="model-row"><span class="model-name">📧 Email Classifier</span><span class="model-badge" id="m-email">—</span></div>
@@ -310,6 +357,25 @@
         <span class="toggle-slider"></span>
       </label>
     </div>
+
+    <div class="section-label" style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 12px;">Floating Widget Customization</div>
+    <div class="model-row">
+      <span class="model-name">👁️ Opacity (Transparency)</span>
+      <select id="widgetOpacitySelect" style="background:#111827; border:1px solid var(--border2); color:var(--text); font-size:10px; padding:3px 6px; border-radius:6px; font-family:inherit;">
+        <option value="0.98">Opaque (98%)</option>
+        <option value="0.75">Semi-Transparent (75%)</option>
+        <option value="0.50">Translucent (50%)</option>
+        <option value="0.30">Clear (30%)</option>
+      </select>
+    </div>
+    <div class="model-row">
+      <span class="model-name">📏 Scale Size</span>
+      <select id="widgetScaleSelect" style="background:#111827; border:1px solid var(--border2); color:var(--text); font-size:10px; padding:3px 6px; border-radius:6px; font-family:inherit;">
+        <option value="1.0">Normal (100%)</option>
+        <option value="0.9">Compact (90%)</option>
+        <option value="0.78">Micro (78%)</option>
+      </select>
+    </div>
   </div>
 
   <!-- Panel 4: xAI Copilot Explanation -->
@@ -318,7 +384,7 @@
       <div class="xai-title">✨ Explainable AI Diagnosis</div>
       <div class="xai-body" id="xaiSummaryText">Click the button below to generate an instant natural language security analysis for the active page.</div>
     </div>
-    <button id="btnAskXAI" style="width:100%;padding:9px;background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2));border:1px solid rgba(99,102,241,0.4);border-radius:8px;color:#c7d2fe;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;">✨ Generate AI Explanation</button>
+    <button id="btnAskXAI" style="width:100%;padding:8px;background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2));border:1px solid rgba(99,102,241,0.4);border-radius:8px;color:#c7d2fe;font-size:9.5px;font-weight:800;cursor:pointer;font-family:inherit;">✨ Generate AI Explanation</button>
   </div>
 
   <!-- Panel 5: Event Logs -->
