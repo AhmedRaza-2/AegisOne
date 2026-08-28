@@ -1502,9 +1502,21 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     web_blocked = ((await db.execute(web_blocked_q)).scalar() or 0)
     url_blocked = ((await db.execute(url_blocked_q)).scalar() or 0)
     
-    safe_rate = 100
-    if total_scans > 0:
-        safe_rate = round(((total_scans - threats_blocked) / total_scans) * 100)
+    # Multi-Vector Weighted Risk Model Calculation
+    # Overall Risk = (0.45 * WebRisk) + (0.35 * EmailRisk) + (0.20 * CredRisk)
+    web_scans_cnt = (types_breakdown.get("url", 0) + types_breakdown.get("website", 0)) or 1
+    email_scans_cnt = (types_breakdown.get("email", 0) + types_breakdown.get("text", 0)) or 1
+    
+    web_risk = min(100.0, ((web_blocked / web_scans_cnt) * 100.0)) if web_blocked > 0 else 0.0
+    email_blocked_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "email", WebsiteScan.decision.in_(["warn", "block"]))
+    if user_id:
+        email_blocked_q = email_blocked_q.where(WebsiteScan.user_id == user_id)
+    email_blocked = ((await db.execute(email_blocked_q)).scalar() or 0)
+    email_risk = min(100.0, ((email_blocked / email_scans_cnt) * 100.0)) if email_blocked > 0 else 0.0
+    cred_risk = min(100.0, (today_creds * 25.0))
+    
+    weighted_risk = (0.45 * web_risk) + (0.35 * email_risk) + (0.20 * cred_risk)
+    safe_rate = max(0, min(100, round(100 - weighted_risk)))
         
     # Recent scans
     scans_q = select(WebsiteScan).order_by(WebsiteScan.created_at.desc()).limit(200)

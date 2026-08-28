@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2, Globe, FileText,
   Lock, BrainCircuit, Activity, ChevronRight, Server, Clock, Download, Image as ImageIcon, Scan,
-  BarChart3, TrendingUp, CheckCircle, XCircle, RefreshCw
+  BarChart3, TrendingUp, CheckCircle, XCircle, RefreshCw, Mail
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
@@ -219,8 +219,8 @@ export default function EmployeeDashboard() {
         </div>
       </motion.div>
 
-      {/* 1. Security Snapshot - Sleek 2 Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* 1. Security Snapshot - 3 Card Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {/* Status */}
         <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
@@ -251,6 +251,26 @@ export default function EmployeeDashboard() {
               </div>
             </div>
           </div>
+        </motion.div>
+
+        {/* Email Security Hub Card */}
+        <motion.div
+          variants={fadeUp}
+          onClick={() => window.location.href = '/dashboard/employee/email'}
+          className="rounded-xl bg-gradient-to-br from-indigo-900/30 via-slate-900 to-slate-900 border border-indigo-500/30 p-6 flex items-center justify-between cursor-pointer hover:border-indigo-500/60 transition-all group shadow-lg"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <Mail className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-1">Email Security</p>
+              <h3 className="text-lg font-bold text-white flex items-center gap-1.5">
+                Email Analytics Hub
+              </h3>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform shrink-0" />
         </motion.div>
 
       </div>

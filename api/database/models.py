@@ -160,6 +160,7 @@ class WebsiteScan(Base):
     id               = Column(Integer,     primary_key=True, autoincrement=True)
     scan_id          = Column(String(128), unique=True, nullable=False, index=True)
     organization_id  = Column(String(64),  nullable=False, index=True, default="org_default")
+    department_id    = Column(String(64),  nullable=True,  index=True)
     user_id          = Column(Integer,     nullable=True,  index=True)
     device_id        = Column(String(128), nullable=True)
     # ── What was scanned ──────────────────────────────────────────────────────

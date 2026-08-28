@@ -39,7 +39,7 @@ from api.config import (
 from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
 
-from api.routers import auth, scan, admin, health, compatibility, setup, public, xai, communication
+from api.routers import auth, scan, admin, health, compatibility, setup, public, xai, communication, email_analytics
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
@@ -98,28 +98,28 @@ async def lifespan(app: FastAPI):
     # Ensure missing columns (e.g. SMTP fields on organizations) are auto-migrated dynamically
     async with engine.begin() as conn:
         dialect_name = engine.dialect.name
-        for col_def in [
-            ("smtp_host", "VARCHAR(255) DEFAULT 'smtp.gmail.com'"),
-            ("smtp_port", "INTEGER DEFAULT 587"),
-            ("smtp_user", "VARCHAR(255)"),
-            ("smtp_pass", "VARCHAR(255)")
+        for table_name, col_name, col_type in [
+            ("organizations", "smtp_host", "VARCHAR(255) DEFAULT 'smtp.gmail.com'"),
+            ("organizations", "smtp_port", "INTEGER DEFAULT 587"),
+            ("organizations", "smtp_user", "VARCHAR(255)"),
+            ("organizations", "smtp_pass", "VARCHAR(255)"),
+            ("website_scans",  "department_id", "VARCHAR(64)")
         ]:
-            col_name, col_type = col_def
             if dialect_name == "postgresql":
                 await conn.execute(text(f"""
                     DO $$
                     BEGIN
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns 
-                            WHERE table_name='organizations' AND column_name='{col_name}'
+                            WHERE table_name='{table_name}' AND column_name='{col_name}'
                         ) THEN
-                            ALTER TABLE organizations ADD COLUMN {col_name} {col_type};
+                            ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type};
                         END IF;
                     END $$;
                 """))
             else:
                 try:
-                    await conn.execute(text(f"ALTER TABLE organizations ADD COLUMN {col_name} {col_type};"))
+                    await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type};"))
                 except Exception:
                     pass
 
@@ -237,6 +237,7 @@ app.include_router(compatibility.router)
 app.include_router(setup.router)
 app.include_router(public.router)
 app.include_router(communication.router)
+app.include_router(email_analytics.router)
 
 
 @app.get("/")       
