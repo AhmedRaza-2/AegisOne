@@ -98,7 +98,11 @@ export function updateWidget(data) {
     return;
   }
 
-  widget.style.setProperty("display", "block", "important");
+  if (window.__AEGIS_WIDGET_HIDDEN__ === true) {
+    widget.style.setProperty("display", "none", "important");
+  } else {
+    widget.style.setProperty("display", "block", "important");
+  }
   widget._aegisData = { score, verdict, top_factors, threat_type };
 
   let cls, iconText, titleText, bubbleIcon;
@@ -181,13 +185,14 @@ function _setupControls(widget) {
     _startAutoMinimizeTimer(12000);
   });
   document.getElementById("aegis-btn-off")?.addEventListener("click", () => {
+    window.__AEGIS_WIDGET_HIDDEN__ = true;
+    document.getElementById("aegis-details-panel")?.remove();
+    widget.style.setProperty("display", "none", "important");
     try {
-      if (typeof chrome !== "undefined" && chrome?.runtime?.id) {
-        chrome.runtime.sendMessage({ type: MSG.TOGGLE_SHIELD }).catch(() => {});
+      if (typeof chrome !== "undefined" && chrome?.storage?.local) {
+        chrome.storage.local.set({ widgetVisible: false });
       }
     } catch (_) {}
-    document.getElementById("aegis-details-panel")?.remove();
-    widget.remove();
   });
 
   document.getElementById("aegis-action-details")?.addEventListener("click", () => {
@@ -651,4 +656,25 @@ function _injectStyles() {
     .aegis-btn-secondary:hover { color: #ffffff; background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25); }
   `;
   document.head.appendChild(style);
+}
+
+if (typeof chrome !== "undefined" && chrome?.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === "TOGGLE_WIDGET_VISIBILITY") {
+      const widget = document.getElementById(WIDGET_ID);
+      if (msg.visible) {
+        if (widget) {
+          widget.style.setProperty("display", "block", "important");
+          widget.classList.remove("minimized");
+          _startAutoMinimizeTimer(10000);
+        } else {
+          createWidget();
+        }
+      } else {
+        if (widget) {
+          widget.style.setProperty("display", "none", "important");
+        }
+      }
+    }
+  });
 }

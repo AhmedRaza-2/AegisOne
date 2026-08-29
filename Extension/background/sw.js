@@ -619,7 +619,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // ── Get Tab Data (popup) ──────────────────────────
         case MSG.GET_TAB_DATA: {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          const data = _mergeDeepScanData(getTabCache(tab?.id));
+          let rawData = getTabCache(tab?.id);
+          if (!rawData && tab?.url) {
+            rawData = getCachedResult(tab.url);
+          }
+          if (!rawData && tab?.url && (tab.url.startsWith("http://") || tab.url.startsWith("https://"))) {
+            rawData = {
+              url: tab.url,
+              score: 0,
+              verdict: "safe",
+              domain: getRootDomain(tab.url),
+              scanned_at: new Date().toISOString(),
+              top_factors: []
+            };
+            if (tab?.id) setTabCache(tab.id, rawData);
+          }
+          const data = _mergeDeepScanData(rawData);
           sendResponse({ data, tabId: tab?.id, url: tab?.url });
           break;
         }

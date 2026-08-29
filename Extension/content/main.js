@@ -281,6 +281,51 @@
             document.dispatchEvent(new CustomEvent("aegis:widget-scale", { detail: { scale: msg.scale } }));
             break;
 
+          case "TOGGLE_WIDGET_VISIBILITY": {
+            const widgetEl = document.getElementById("aegis-widget-v2") || document.getElementById("aegis-widget");
+            if (msg.visible) {
+              window.__AEGIS_WIDGET_HIDDEN__ = false;
+              if (widgetEl) {
+                widgetEl.style.setProperty("display", "block", "important");
+                widgetEl.classList.remove("minimized");
+              } else if (typeof createWidget === "function") {
+                _widget = createWidget();
+              }
+            } else {
+              window.__AEGIS_WIDGET_HIDDEN__ = true;
+              if (widgetEl) {
+                widgetEl.style.setProperty("display", "none", "important");
+              }
+            }
+            break;
+          }
+
+          case "GET_PAGE_STATE": {
+            const linksCount = document.querySelectorAll("a[href]").length;
+            const imagesCount = document.images ? document.images.length : 0;
+            const formsCount = document.forms ? document.forms.length : 0;
+            return sendResponse({
+              ok: true,
+              data: _currentScanData,
+              links_count: linksCount,
+              images_count: imagesCount,
+              form_count: formsCount,
+              url: window.location.href,
+            });
+          }
+
+          case "GET_LOGGED_USER_EMAIL": {
+            let email = "";
+            try {
+              const raw = localStorage.getItem("user");
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                email = parsed?.email || "";
+              }
+            } catch (_) {}
+            return sendResponse({ ok: true, email });
+          }
+
           case "HIGHLIGHT_THREATS":
             if (msg.maliciousUrls?.length > 0) {
               applyDangerBadges(msg.maliciousUrls);
