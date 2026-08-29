@@ -12,7 +12,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, cast, Date, or_, and_, case
+from sqlalchemy import select, func, update, cast, Date, or_, and_, case, String
 
 from api.database.db import get_db
 from api.database.models import (
@@ -50,16 +50,16 @@ def _org_scope(query, model, user):
             dept_id = getattr(user, "department_id", None)
             dept_str = getattr(user, "department", None)
             
-            # If the model has department directly (like User)
+            # If the model has department directly (like User, WebsiteScan)
             if hasattr(model, "department_id") or hasattr(model, "department"):
-                condition = None
+                conditions = []
+                if hasattr(model, "department_id") and dept_id is not None:
+                    conditions.append(cast(getattr(model, "department_id"), String) == str(dept_id))
                 if hasattr(model, "department") and dept_str:
-                    condition = getattr(model, "department") == dept_str
-                elif hasattr(model, "department_id") and dept_id is not None:
-                    condition = getattr(model, "department_id") == dept_id
+                    conditions.append(getattr(model, "department") == dept_str)
                     
-                if condition is not None:
-                    query = query.where(condition)
+                if conditions:
+                    query = query.where(or_(*conditions))
                     # Filter out higher privileged roles for managers
                     if hasattr(model, "role"):
                         query = query.where(getattr(model, "role").in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
@@ -68,19 +68,18 @@ def _org_scope(query, model, user):
             
             # If the model has user_id but no department, we must join the User table to filter!
             elif hasattr(model, "user_id"):
-                from api.database.models import User
                 from sqlalchemy import select as sa_select
-                from sqlalchemy import cast, String
                 
-                user_condition = None
+                user_conditions = []
+                if dept_id is not None:
+                    user_conditions.append(User.department_id == dept_id)
+                    user_conditions.append(cast(User.department_id, String) == str(dept_id))
                 if dept_str:
-                    user_condition = User.department == dept_str
-                elif dept_id is not None:
-                    user_condition = User.department_id == dept_id
+                    user_conditions.append(User.department == dept_str)
                 
-                if user_condition is not None:
+                if user_conditions:
                     query = query.where(cast(getattr(model, "user_id"), String).in_(
-                        sa_select(cast(User.id, String)).where(user_condition)
+                        sa_select(cast(User.id, String)).where(or_(*user_conditions))
                     ))
                 else:
                     query = query.where(False)
@@ -744,14 +743,14 @@ async def update_user_status(
     if admin.role == Role.MANAGER.value:
         dept_id = admin.department_id
         dept_str = admin.department
-        condition = None
+        conditions = []
+        if dept_id is not None:
+            conditions.append(User.department_id == dept_id)
         if dept_str:
-            condition = User.department == dept_str
-        elif dept_id is not None:
-            condition = User.department_id == dept_id
+            conditions.append(User.department == dept_str)
             
-        if condition is not None:
-            stmt = stmt.where(condition)
+        if conditions:
+            stmt = stmt.where(or_(*conditions))
         else:
             stmt = stmt.where(False)
             
@@ -922,14 +921,14 @@ async def get_users(
         dept_id = manager.department_id
         dept_str = manager.department
         
-        condition = None
+        conditions = []
+        if dept_id is not None:
+            conditions.append(User.department_id == dept_id)
         if dept_str:
-            condition = User.department == dept_str
-        elif dept_id is not None:
-            condition = User.department_id == dept_id
+            conditions.append(User.department == dept_str)
             
-        if condition is not None:
-            q = q.where(condition)
+        if conditions:
+            q = q.where(or_(*conditions))
         else:
             q = q.where(False)
             
@@ -1078,11 +1077,17 @@ AegisOne Security Team
           <h2 style="color: #0f172a; font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 12px;">Welcome to the team, {name}!</h2>
           <p style="color: #475569; font-size: 14px; margin-bottom: 20px;">Your administrator has created a new account for you. Below are your account details and temporary login credentials:</p>
           
-          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 6px;">
-            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; tracking: 0.5px; color: #64748b; margin-bottom: 12px;">ACCOUNT DETAILS</div>
-            <div style="font-size: 14px; margin-bottom: 8px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Allocated Role:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_role}</span></div>
-            <div style="font-size: 14px; margin-bottom: 8px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Department:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_dept}</span></div>
-            <div style="font-size: 14px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Temporary Password:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0f172a; font-weight: 600;">{password}</span></div>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 8px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 12px;">ACCOUNT CREDENTIALS</div>
+            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Allocated Role:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_role}</span></div>
+            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Department:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_dept}</span></div>
+            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Email Address:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: bold; user-select: all; -webkit-user-select: all;">{email}</span></div>
+            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Temporary Password:</strong> <span style="font-family: monospace; background-color: #dbeafe; padding: 3px 8px; border-radius: 4px; color: #1d4ed8; font-weight: bold; font-size: 14px; user-select: all; -webkit-user-select: all;">{password}</span></div>
+            
+            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
+              <strong>Quick Copy Snippet:</strong>
+              <div style="font-family: monospace; background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; margin-top: 4px; color: #0f172a; user-select: all; -webkit-user-select: all;">{email} | {password}</div>
+            </div>
           </div>
           
           <div style="text-align: center; margin: 28px 0;">
@@ -1293,14 +1298,14 @@ async def reset_user_password(
     if admin.role == Role.MANAGER.value:
         dept_id = admin.department_id
         dept_str = admin.department
-        condition = None
+        conditions = []
+        if dept_id is not None:
+            conditions.append(User.department_id == dept_id)
         if dept_str:
-            condition = User.department == dept_str
-        elif dept_id is not None:
-            condition = User.department_id == dept_id
+            conditions.append(User.department == dept_str)
             
-        if condition is not None:
-            q = q.where(condition)
+        if conditions:
+            q = q.where(or_(*conditions))
         else:
             q = q.where(False)
         
@@ -1378,14 +1383,14 @@ async def delete_user(
     if admin.role == Role.MANAGER.value:
         dept_id = admin.department_id
         dept_str = admin.department
-        condition = None
+        conditions = []
+        if dept_id is not None:
+            conditions.append(User.department_id == dept_id)
         if dept_str:
-            condition = User.department == dept_str
-        elif dept_id is not None:
-            condition = User.department_id == dept_id
+            conditions.append(User.department == dept_str)
             
-        if condition is not None:
-            q = q.where(condition)
+        if conditions:
+            q = q.where(or_(*conditions))
         else:
             q = q.where(False)
         
@@ -1421,14 +1426,14 @@ async def promote_user(
     if admin.role == Role.MANAGER.value:
         dept_id = admin.department_id
         dept_str = admin.department
-        condition = None
+        conditions = []
+        if dept_id is not None:
+            conditions.append(User.department_id == dept_id)
         if dept_str:
-            condition = User.department == dept_str
-        elif dept_id is not None:
-            condition = User.department_id == dept_id
+            conditions.append(User.department == dept_str)
             
-        if condition is not None:
-            q = q.where(condition)
+        if conditions:
+            q = q.where(or_(*conditions))
         else:
             q = q.where(False)
         
@@ -1454,14 +1459,14 @@ async def demote_user(
     if admin.role == Role.MANAGER.value:
         dept_id = admin.department_id
         dept_str = admin.department
-        condition = None
+        conditions = []
+        if dept_id is not None:
+            conditions.append(User.department_id == dept_id)
         if dept_str:
-            condition = User.department == dept_str
-        elif dept_id is not None:
-            condition = User.department_id == dept_id
+            conditions.append(User.department == dept_str)
             
-        if condition is not None:
-            q = q.where(condition)
+        if conditions:
+            q = q.where(or_(*conditions))
         else:
             q = q.where(False)
     user = (await db.execute(q)).scalar_one_or_none()

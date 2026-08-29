@@ -365,7 +365,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // ── Email Scan ────────────────────────────────────
         case "EMAIL_DATA": {
-          const result = await scanEmail(msg.sender, msg.subject, msg.body);
+          const result = await scanEmail(msg.sender, msg.subject, msg.body, null, msg.thread_url || msg.url || "");
           if (!result) {
             sendResponse({ ok: false, error: "backend_offline", result: null });
           } else {

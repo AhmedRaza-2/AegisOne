@@ -1130,11 +1130,23 @@
     const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "HEADER", "NAV", "FOOTER", "ASIDE"]);
     let text = "";
     function walk(node) {
-      if (node.nodeType === Node.TEXT_NODE) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const id = (node.id || "").toLowerCase();
+        const className = typeof node.className === "string" ? node.className.toLowerCase() : "";
+        // Skip Aegis UI elements (widgets, badges, popups, modals, overlays)
+        if (
+          skip.has(node.tagName) ||
+          id.includes("aegis") ||
+          className.includes("aegis") ||
+          node.hasAttribute("data-aegis-ignore") ||
+          node.hasAttribute("data-aegis-widget")
+        ) {
+          return;
+        }
+        node.childNodes.forEach(walk);
+      } else if (node.nodeType === Node.TEXT_NODE) {
         const t = node.textContent.trim();
         if (t.length > 2) text += t + " ";
-      } else if (node.nodeType === Node.ELEMENT_NODE && !skip.has(node.tagName)) {
-        node.childNodes.forEach(walk);
       }
     }
     if (document.body) walk(document.body);
@@ -1159,21 +1171,74 @@
   // EMAIL EXTRACTION (Gmail / Outlook)
   // ────────────────────────────────────────────
   function extractGmailEmail() {
-    const bodyEl = document.querySelector(".a3s.aiL");
-    if (!bodyEl || bodyEl.innerText.length < 30) return null;
+    // 1. Opened Email Subject in Gmail
+    let subject = "";
+    const subjEl = document.querySelector("h2.hP, .hP, .ha h2, [data-thread-perm-id] h2, .nH .ha .hP");
+    if (subjEl && subjEl.textContent.trim()) {
+      subject = subjEl.textContent.trim();
+    }
+
+    // 2. Sender in Gmail
+    let sender = "";
+    const senderEl = document.querySelector(".gD, span.gD, [email]");
+    if (senderEl) {
+      sender = senderEl.getAttribute("email") || senderEl.getAttribute("data-hovercard-id") || senderEl.textContent.trim() || "";
+    }
+
+    // 3. Opened Email Body
+    const bodyEls = document.querySelectorAll(".a3s.aiL, .a3s, .ii.gt");
+    let body = "";
+    if (bodyEls && bodyEls.length > 0) {
+      bodyEls.forEach(el => {
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll('[id*="aegis"], [class*="aegis"]').forEach(n => n.remove());
+        const txt = clone.innerText || clone.textContent || "";
+        if (txt.length > 15) body += txt + "\n";
+      });
+    }
+
+    // Fallback if active thread row in Gmail inbox view
+    if ((!body || body.trim().length < 20) && !subject) {
+      const activeRow = document.querySelector("tr.zA.zE, tr.zA.yO, tr.zA");
+      if (activeRow) {
+        sender = activeRow.querySelector(".zF, .b8, .yX, .gD")?.getAttribute("email") || activeRow.querySelector(".zF, .b8, .yX")?.textContent.trim() || sender;
+        subject = activeRow.querySelector(".bog, .y6 span, .y6")?.textContent.trim() || subject;
+        const snippet = activeRow.querySelector(".y2, .Zt")?.textContent.trim() || "";
+        body = `${subject}\n${snippet}`;
+      }
+    }
+
+    // Fallback to cleaned document.title if subject is empty
+    if (!subject) {
+      let rawTitle = document.title || "";
+      subject = rawTitle
+        .replace(/\s*-\s*[^\s@]+@[^\s@]+\.[^\s@]+\s*-\s*Gmail$/i, "")
+        .replace(/\s*-\s*Gmail$/i, "")
+        .replace(/^\(\d+\)\s*/, "")
+        .trim();
+    }
+
+    if (!body || body.trim().length < 15) return null;
+
     return {
-      sender: document.querySelector(".gD")?.getAttribute("email") || "",
-      subject: document.querySelector(".hP")?.textContent || document.title,
-      body: bodyEl.innerText,
+      sender: sender || "Gmail Sender",
+      subject: subject || "Gmail Email",
+      body: body.trim(),
     };
   }
+
   function extractOutlookEmail() {
-    const bodyEl = document.querySelector('[aria-label="Message body"]');
-    if (!bodyEl || bodyEl.innerText.length < 30) return null;
+    const bodyEl = document.querySelector('[aria-label="Message body"], [role="main"] [data-tabster-dummy]');
+    const subjEl = document.querySelector('[class*="subject"], [aria-label*="Subject"], h1');
+    const senderEl = document.querySelector('[class*="sender"], [aria-label*="From"]');
+    
+    let body = bodyEl ? (bodyEl.innerText || bodyEl.textContent || "") : "";
+    if (body.length < 20) return null;
+
     return {
-      sender: document.querySelector('[class*="sender"]')?.textContent || "",
-      subject: document.querySelector('[class*="subject"]')?.textContent || "",
-      body: bodyEl.innerText,
+      sender: senderEl ? senderEl.textContent.trim() : "Outlook Sender",
+      subject: subjEl ? subjEl.textContent.trim() : document.title,
+      body: body.trim(),
     };
   }
 
@@ -1193,8 +1258,12 @@
     if (host.includes("mail.google.com")) emailData = extractGmailEmail();
     else if (host.includes("outlook.") || host.includes("office.com")) emailData = extractOutlookEmail();
 
-    if (emailData?.body?.length > 30) {
-      const res = await chrome.runtime.sendMessage({ type: "EMAIL_DATA", ...emailData }).catch(() => null);
+    if (emailData?.body?.length > 15) {
+      const res = await chrome.runtime.sendMessage({
+        type: "EMAIL_DATA",
+        thread_url: location.href,
+        ...emailData
+      }).catch(() => null);
       if (res?.result) updateWidget(res.result.phishing_probability, 0);
       attachImageListeners();
       return;

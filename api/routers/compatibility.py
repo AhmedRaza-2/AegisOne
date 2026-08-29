@@ -195,7 +195,7 @@ async def api_text(request: Request, text: str = Form(...), current_user: User =
     return result
 
 @router.post("/analyze/email")
-async def api_email(request: Request, sender: str = Form(""), subject: str = Form(""), body: str = Form(""), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_email(request: Request, sender: str = Form(""), subject: str = Form(""), body: str = Form(""), thread_url: str = Form(""), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = await predict_email(sender, subject, body)
     score = result.get("phishing_probability", 0) * 100
@@ -203,17 +203,32 @@ async def api_email(request: Request, sender: str = Form(""), subject: str = For
     
     user_id = current_user.id
     org_id = current_user.organization_id or "org_default"
+
+    clean_subj = subject.strip() or "Untitled Email"
+    clean_sender = sender.strip() or "Unknown Sender"
+    display_title = f"Email: {clean_subj[:80]} (From: {clean_sender[:50]})"
+
+    # Store rich email metadata JSON in top_factors
+    factors = result.get("top_words") or result.get("xai_words") or []
+    meta = {
+        "subject": clean_subj,
+        "sender": clean_sender,
+        "thread_url": thread_url.strip(),
+        "factors": factors,
+        "phishing_probability": result.get("phishing_probability", 0)
+    }
     
     scan = WebsiteScan(
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
         organization_id=org_id,
         user_id=user_id,
         scan_type="email",
-        url=f"Email: {subject[:80]} (From: {sender[:50]})",
+        url=display_title,
         domain="email_scan",
         risk_score=score,
-        threat_type=result.get("prediction", "benign"),
+        threat_type=result.get("prediction", "phishing_email" if score >= 50 else "safe_email"),
         decision=decision,
+        top_factors=json.dumps(meta),
         scan_duration_ms=round((time.time() - start) * 1000, 1)
     )
     db.add(scan)

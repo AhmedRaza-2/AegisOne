@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2, Globe, FileText,
   Lock, BrainCircuit, Activity, ChevronRight, Server, Clock, Download, Image as ImageIcon, Scan,
-  BarChart3, TrendingUp, CheckCircle, XCircle, RefreshCw
+  BarChart3, TrendingUp, CheckCircle, XCircle, RefreshCw, Mail
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
@@ -80,6 +80,15 @@ export default function SupervisorSelfDashboard() {
   const webScans = filteredScans.filter((s: any) => s.scanType === 'website' || s.scanType === 'navigation' || (!s.scanType && (s.inputPreview?.startsWith('http://') || s.inputPreview?.startsWith('https://') || s.domain)));
   const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
   const imageScans = filteredScans.filter((s: any) => s.scanType === 'image');
+  const emailScans = filteredScans.filter((s: any) => 
+    s.scanType === 'email' || 
+    s.scanType === 'mail' || 
+    s.scanType === 'text' || 
+    s.domain === 'email_scan' || 
+    s.domain === 'text_scan' || 
+    s.inputPreview?.startsWith('Email:') || 
+    s.inputPreview?.startsWith('Text Snippet:')
+  );
 
   const stats = {
     urls: {
@@ -97,6 +106,10 @@ export default function SupervisorSelfDashboard() {
     images: {
       total: imageScans.length,
       blocked: imageScans.filter((s: any) => s.decision === 'block').length
+    },
+    emails: {
+      total: emailScans.length,
+      blocked: emailScans.filter((s: any) => s.decision === 'block').length
     }
   };
 
@@ -106,25 +119,29 @@ export default function SupervisorSelfDashboard() {
         url: urlScans.filter((s: any) => s.decision === 'block').length,
         image: imageScans.filter((s: any) => s.decision === 'block').length,
         attachment: fileScans.filter((s: any) => s.decision === 'block').length,
-        website: webScans.filter((s: any) => s.decision === 'block').length
+        website: webScans.filter((s: any) => s.decision === 'block').length,
+        email: emailScans.filter((s: any) => s.decision === 'block').length
       };
     } else if (distType === "safe") {
       return {
         url: urlScans.filter((s: any) => s.decision !== 'block').length,
         image: imageScans.filter((s: any) => s.decision !== 'block').length,
         attachment: fileScans.filter((s: any) => s.decision !== 'block').length,
-        website: webScans.filter((s: any) => s.decision !== 'block').length
+        website: webScans.filter((s: any) => s.decision !== 'block').length,
+        email: emailScans.filter((s: any) => s.decision !== 'block').length
       };
     }
     return {
       url: urlScans.length,
       image: imageScans.length,
       attachment: fileScans.length,
-      website: webScans.length
+      website: webScans.length,
+      email: emailScans.length
     };
-  }, [urlScans, imageScans, fileScans, webScans, distType]);
+  }, [urlScans, imageScans, fileScans, webScans, emailScans, distType]);
 
   const rawDistribution = [
+    { name: 'Emails', value: scanBreakdown.email, color: '#6366F1' },
     { name: 'URLs', value: scanBreakdown.url, color: '#4F84F8' },
     { name: 'Images', value: scanBreakdown.image, color: '#F59E0B' },
     { name: 'Downloads', value: scanBreakdown.attachment, color: '#EF4444' },
@@ -278,7 +295,27 @@ export default function SupervisorSelfDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Email Card */}
+          <div 
+            onClick={() => window.location.href = '/dashboard/employee/email'}
+            className="bg-indigo-50/50 dark:bg-indigo-500/[0.04] border border-indigo-200 dark:border-indigo-500/20 rounded-xl p-4 flex flex-col justify-between cursor-pointer hover:border-indigo-500/50 hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"><Mail className="w-3 h-3" /></div>
+                <span className="text-sm font-bold text-surface-900 dark:text-white">Email</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-indigo-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.emails.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.emails.total - stats.emails.blocked} Safe</span>
+                <span className="text-red-500">{stats.emails.blocked} Blocked</span>
+              </div>
+            </div>
+          </div>
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded bg-[#4F84F8]/10 text-[#4F84F8] flex items-center justify-center shrink-0"><Globe className="w-3 h-3" /></div>

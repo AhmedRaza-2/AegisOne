@@ -62,6 +62,19 @@ export function createWidget() {
   return widget;
 }
 
+let _autoMinimizeTimer = null;
+
+function _startAutoMinimizeTimer(delayMs = 10000) {
+  clearTimeout(_autoMinimizeTimer);
+  _autoMinimizeTimer = setTimeout(() => {
+    const widget = document.getElementById(WIDGET_ID);
+    if (widget && !widget.classList.contains("minimized")) {
+      widget.classList.add("minimized");
+      document.getElementById("aegis-details-panel")?.remove();
+    }
+  }, delayMs);
+}
+
 export function updateWidget(data) {
   const normalized = _normalizeWidgetData(data);
   const { score, verdict, top_factors, threat_type } = normalized;
@@ -73,6 +86,7 @@ export function updateWidget(data) {
   const fill = document.getElementById("aegis-risk-bar-fill");
   const pct = document.getElementById("aegis-risk-pct");
   const actions = document.getElementById("aegis-actions");
+  const bubble = document.getElementById("aegis-mini-bubble");
 
   if (!statusCard || !widget) return;
 
@@ -87,20 +101,26 @@ export function updateWidget(data) {
   widget.style.setProperty("display", "block", "important");
   widget._aegisData = { score, verdict, top_factors, threat_type };
 
-  let cls, iconText, titleText;
+  let cls, iconText, titleText, bubbleIcon;
   if (score >= 80) {
-    cls = "danger";  iconText = "🚨"; titleText = "Phishing Detected";
+    cls = "danger";  iconText = "🚨"; titleText = "Phishing Detected"; bubbleIcon = "🚨";
   } else if (score >= 50) {
-    cls = "warning"; iconText = "⚠️"; titleText = "Suspicious Page";
+    cls = "warning"; iconText = "⚠️"; titleText = "Suspicious Page"; bubbleIcon = "⚠️";
   } else if (score >= 20) {
-    cls = "caution"; iconText = "🔶"; titleText = "Low Risk";
+    cls = "caution"; iconText = "🔶"; titleText = "Low Risk"; bubbleIcon = "🔶";
   } else {
-    cls = "safe";    iconText = "✅"; titleText = "Page Safe";
+    cls = "safe";    iconText = "✅"; titleText = "Page Safe"; bubbleIcon = "🛡️";
   }
 
   statusCard.className = `aegis-status ${cls}`;
   icon.textContent = iconText;
   title.textContent = titleText;
+
+  if (bubble) {
+    bubble.className = cls;
+    bubble.textContent = bubbleIcon;
+    bubble.title = `AegisOne Protection — ${titleText} (${score}% Risk). Click to expand.`;
+  }
 
   const barColor = score < 20 ? "#10b981" : score < 50 ? "#fbbf24" : score < 80 ? "#f97316" : "#ef4444";
   fill.style.width = `${score}%`;
@@ -110,6 +130,9 @@ export function updateWidget(data) {
 
   actions.classList.remove("hidden");
   _refreshDetailsPanel(score, top_factors, threat_type);
+
+  // Auto-minimize expanded widget after 10 seconds of user idle
+  _startAutoMinimizeTimer(10000);
 }
 
 export function updateThreatCount(count) {
@@ -127,16 +150,21 @@ export function updateThreatCount(count) {
 }
 
 function _setupControls(widget) {
+  const mainBox = document.getElementById("aegis-widget-main");
+
+  if (mainBox) {
+    mainBox.addEventListener("mouseenter", () => clearTimeout(_autoMinimizeTimer));
+    mainBox.addEventListener("mouseleave", () => _startAutoMinimizeTimer(8000));
+  }
+
   // Listen for custom scale/opacity change events dispatched from settings or the top-right popup
   document.addEventListener("aegis:widget-opacity", (e) => {
-    const mainBox = document.getElementById("aegis-widget-main");
     if (mainBox && e.detail?.opacity != null) {
       mainBox.style.background = `rgba(12, 17, 29, ${e.detail.opacity})`;
     }
   });
 
   document.addEventListener("aegis:widget-scale", (e) => {
-    const mainBox = document.getElementById("aegis-widget-main");
     if (mainBox && e.detail?.scale != null) {
       mainBox.style.transform = `scale(${e.detail.scale})`;
       mainBox.style.transformOrigin = "top right";
@@ -144,11 +172,13 @@ function _setupControls(widget) {
   });
 
   document.getElementById("aegis-btn-min")?.addEventListener("click", () => {
-    widget.classList.toggle("minimized");
+    widget.classList.add("minimized");
     document.getElementById("aegis-details-panel")?.remove();
+    clearTimeout(_autoMinimizeTimer);
   });
   document.getElementById("aegis-mini-bubble")?.addEventListener("click", () => {
     widget.classList.remove("minimized");
+    _startAutoMinimizeTimer(12000);
   });
   document.getElementById("aegis-btn-off")?.addEventListener("click", () => {
     try {
@@ -473,16 +503,44 @@ function _injectStyles() {
     }
     #aegis-mini-bubble {
       display: none;
-      width: 44px; height: 44px;
-      background: #1e293b;
-      border: 1px solid #3b82f6;
+      width: 46px; height: 46px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid #3b82f6;
       border-radius: 50%;
       align-items: center; justify-content: center;
-      font-size: 22px;
+      font-size: 20px;
       cursor: pointer;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       pointer-events: auto !important;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+    #aegis-mini-bubble:hover {
+      transform: scale(1.12);
+    }
+    #aegis-mini-bubble.safe {
+      border-color: #10b981 !important;
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.5), 0 6px 20px rgba(0,0,0,0.5) !important;
+    }
+    #aegis-mini-bubble.caution {
+      border-color: #fbbf24 !important;
+      box-shadow: 0 0 14px rgba(251, 191, 36, 0.5), 0 6px 20px rgba(0,0,0,0.5) !important;
+    }
+    #aegis-mini-bubble.warning {
+      border-color: #f97316 !important;
+      box-shadow: 0 0 16px rgba(249, 115, 22, 0.6), 0 6px 20px rgba(0,0,0,0.5) !important;
+    }
+    #aegis-mini-bubble.danger {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.8), 0 6px 20px rgba(0,0,0,0.5) !important;
+      animation: aegis-bubble-pulse 1.5s infinite alternate !important;
+    }
+
+    @keyframes aegis-bubble-pulse {
+      0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.6), 0 6px 20px rgba(0,0,0,0.5); transform: scale(1); }
+      100% { box-shadow: 0 0 24px rgba(239, 68, 68, 0.9), 0 6px 20px rgba(0,0,0,0.5); transform: scale(1.08); }
+    }
+
     #aegis-widget-v2.minimized #aegis-mini-bubble { display: flex !important; }
     #aegis-widget-v2.minimized #aegis-widget-main { display: none !important; }
 

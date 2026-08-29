@@ -79,6 +79,15 @@ export default function EmployeeDashboard() {
   const webScans = filteredScans.filter((s: any) => s.scanType === 'website' || s.scanType === 'navigation' || (!s.scanType && (s.inputPreview?.startsWith('http://') || s.inputPreview?.startsWith('https://') || s.domain)));
   const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
   const imageScans = filteredScans.filter((s: any) => s.scanType === 'image');
+  const emailScans = filteredScans.filter((s: any) => 
+    s.scanType === 'email' || 
+    s.scanType === 'mail' || 
+    s.scanType === 'text' || 
+    s.domain === 'email_scan' || 
+    s.domain === 'text_scan' || 
+    s.inputPreview?.startsWith('Email:') || 
+    s.inputPreview?.startsWith('Text Snippet:')
+  );
 
   const stats = {
     urls: {
@@ -96,6 +105,10 @@ export default function EmployeeDashboard() {
     images: {
       total: imageScans.length,
       blocked: imageScans.filter((s: any) => s.decision === 'block').length
+    },
+    emails: {
+      total: emailScans.length,
+      blocked: emailScans.filter((s: any) => s.decision === 'block').length
     }
   };
 
@@ -105,25 +118,29 @@ export default function EmployeeDashboard() {
         url: urlScans.filter((s: any) => s.decision === 'block').length,
         image: imageScans.filter((s: any) => s.decision === 'block').length,
         attachment: fileScans.filter((s: any) => s.decision === 'block').length,
-        website: webScans.filter((s: any) => s.decision === 'block').length
+        website: webScans.filter((s: any) => s.decision === 'block').length,
+        email: emailScans.filter((s: any) => s.decision === 'block').length
       };
     } else if (distType === "safe") {
       return {
         url: urlScans.filter((s: any) => s.decision !== 'block').length,
         image: imageScans.filter((s: any) => s.decision !== 'block').length,
         attachment: fileScans.filter((s: any) => s.decision !== 'block').length,
-        website: webScans.filter((s: any) => s.decision !== 'block').length
+        website: webScans.filter((s: any) => s.decision !== 'block').length,
+        email: emailScans.filter((s: any) => s.decision !== 'block').length
       };
     }
     return {
       url: urlScans.length,
       image: imageScans.length,
       attachment: fileScans.length,
-      website: webScans.length
+      website: webScans.length,
+      email: emailScans.length
     };
-  }, [urlScans, imageScans, fileScans, webScans, distType]);
+  }, [urlScans, imageScans, fileScans, webScans, emailScans, distType]);
 
   const rawDistribution = [
+    { name: 'Emails', value: scanBreakdown.email, color: '#6366F1' },
     { name: 'URLs', value: scanBreakdown.url, color: '#4F84F8' },
     { name: 'Images', value: scanBreakdown.image, color: '#F59E0B' },
     { name: 'Downloads', value: scanBreakdown.attachment, color: '#EF4444' },
@@ -133,105 +150,66 @@ export default function EmployeeDashboard() {
   const threatDistribution = rawDistribution.length > 0 ? rawDistribution : [{ name: 'No Scans Yet', value: 1, color: '#334155' }];
 
   const chartData = useMemo(() => {
-    const trendMap: Record<string, number> = {};
-    const now = new Date();
+    const hours = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().split('T')[0];
+    });
 
-    if (timeRange === "24h") {
-      for (let i = 23; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 60 * 60 * 1000);
-        const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        trendMap[label] = 0;
-      }
-      filteredScans.forEach((scan: any) => {
-        const scanTime = new Date(scan.timestamp);
-        const closestHour = new Date(scanTime.setMinutes(0, 0, 0));
-        const hourLabel = closestHour.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (trendMap[hourLabel] !== undefined) {
-          trendMap[hourLabel]++;
-        } else {
-          const keys = Object.keys(trendMap);
-          if (keys.length > 0) trendMap[keys[keys.length - 1]]++;
-        }
-      });
-    } else {
-      const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 60;
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const label = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-        trendMap[label] = 0;
-      }
-      filteredScans.forEach((scan: any) => {
-        const scanTime = new Date(scan.timestamp);
-        const dayLabel = scanTime.toLocaleDateString([], { month: 'short', day: 'numeric' });
-        if (trendMap[dayLabel] !== undefined) {
-          trendMap[dayLabel]++;
-        } else {
-          const keys = Object.keys(trendMap);
-          if (keys.length > 0) trendMap[keys[keys.length - 1]]++;
-        }
-      });
-    }
-
-    return Object.keys(trendMap).map(key => ({
-      timestamp: key,
-      scans: trendMap[key]
-    }));
-  }, [filteredScans, timeRange]);
+    return hours.map(dateStr => {
+      const dayScans = filteredScans.filter((s: any) => s.timestamp?.startsWith(dateStr));
+      const blocked = dayScans.filter((s: any) => s.decision === 'block').length;
+      const safe = dayScans.length - blocked;
+      const label = new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return { label, total: dayScans.length, safe, blocked };
+    });
+  }, [filteredScans]);
 
   if (!user) return null;
   if (loading && !data) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-emerald-500 animate-spin" /></div>;
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto pb-10">
+    <motion.div initial="hidden" animate="show" variants={stagger} className="space-y-6 max-w-7xl mx-auto pb-12">
 
-      {/* Header */}
-      <motion.div variants={fadeUp} className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#141A29] p-6 rounded-xl border border-surface-200 dark:border-white/[0.04]">
         <div>
-          <h1 className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">Personal Security Workspace</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Real-time protection and contextual AI analysis.</p>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white tracking-tight">Personal Security Workspace</h1>
+          <p className="text-xs text-surface-500 mt-1">Real-time protection and contextual AI analysis.</p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => fetchData(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-surface-700 dark:text-surface-200 border border-surface-200 dark:border-white/[0.08] text-xs font-semibold transition-all disabled:opacity-50"
-            title="Refresh Analytics"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-white/[0.05] text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-200 transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-brand-500" : ""}`} />
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
-          <div className="flex bg-surface-100 dark:bg-white/[0.04] p-1 rounded-lg border border-surface-200 dark:border-white/[0.08]">
-            {[
-              { id: "24h", label: "24 Hours" },
-              { id: "7d", label: "7 Days" },
-              { id: "30d", label: "30 Days" },
-              { id: "all", label: "All Time" }
-            ].map(t => (
+          <div className="flex items-center gap-1 bg-surface-100 dark:bg-white/[0.03] p-1 rounded-xl border border-surface-200 dark:border-white/[0.05]">
+            {(["24h", "7d", "30d", "all"] as const).map((r) => (
               <button
-                key={t.id}
-                onClick={() => setTimeRange(t.id as any)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
+                key={r}
+                onClick={() => setTimeRange(r)}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${timeRange === r ? "bg-white dark:bg-white/10 text-surface-900 dark:text-white shadow-sm" : "text-surface-500 hover:text-surface-900 dark:hover:text-white"
+                  }`}
               >
-                {t.label}
+                {r === "24h" ? "24 Hours" : r === "7d" ? "7 Days" : r === "30d" ? "30 Days" : "All Time"}
               </button>
             ))}
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* 1. Security Snapshot - 3 Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Top Metric Cards (Status & Security Score) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* Status */}
+        {/* System Status */}
         <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${securityScore >= 80 ? 'bg-emerald-500/10 text-emerald-500' : securityScore >= 50 ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-500'}`}>
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${securityScore >= 80 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
             {securityScore >= 80 ? <ShieldCheck className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-surface-500 mb-1">System Status</p>
-            <h3 className="text-xl font-bold text-surface-900 dark:text-white">
-              {securityScore >= 80 ? 'Protected' : securityScore >= 50 ? 'Active Threats' : 'At Risk'}
-            </h3>
+            <h3 className="text-xl font-bold text-surface-900 dark:text-white">{securityScore >= 80 ? "Protected" : "At Risk"}</h3>
           </div>
         </motion.div>
 
@@ -243,39 +221,16 @@ export default function EmployeeDashboard() {
           <div className="flex-1">
             <p className="text-xs font-bold uppercase tracking-widest text-surface-500 mb-1">Security Score</p>
             <div className="flex items-center gap-3">
-              <h3 className="text-xl font-bold text-surface-900 dark:text-white">
-                {securityScore}/100
-              </h3>
+              <h3 className="text-xl font-bold text-surface-900 dark:text-white">{securityScore}/100</h3>
               <div className="flex-1 h-1.5 bg-surface-200 dark:bg-white/[0.05] rounded-full overflow-hidden">
                 <div className="h-full bg-purple-500" style={{ width: `${securityScore}%` }}></div>
               </div>
             </div>
           </div>
         </motion.div>
-
-        {/* Email Security Hub Card */}
-        <motion.div
-          variants={fadeUp}
-          onClick={() => window.location.href = '/dashboard/employee/email'}
-          className="rounded-xl bg-gradient-to-br from-indigo-900/30 via-slate-900 to-slate-900 border border-indigo-500/30 p-6 flex items-center justify-between cursor-pointer hover:border-indigo-500/60 transition-all group shadow-lg"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              <Mail className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-1">Email Security</p>
-              <h3 className="text-lg font-bold text-white flex items-center gap-1.5">
-                Email Analytics Hub
-              </h3>
-            </div>
-          </div>
-          <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform shrink-0" />
-        </motion.div>
-
       </div>
 
-      {/* Detailed Scan Analytics (Moved Up) */}
+      {/* Detailed Scan Analytics */}
       <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 border-b border-surface-200 dark:border-white/[0.04] pb-4">
           <div>
@@ -300,7 +255,29 @@ export default function EmployeeDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Email Card */}
+          <div 
+            onClick={() => window.location.href = '/dashboard/employee/email'}
+            className="bg-indigo-50/50 dark:bg-indigo-500/[0.04] border border-indigo-200 dark:border-indigo-500/20 rounded-xl p-4 flex flex-col justify-between cursor-pointer hover:border-indigo-500/50 hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"><Mail className="w-3 h-3" /></div>
+                <span className="text-sm font-bold text-surface-900 dark:text-white">Email</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-indigo-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <div className="text-3xl font-black text-surface-900 dark:text-white">{stats.emails.total}</div>
+              <div className="text-xs text-surface-500 mt-2 flex justify-between font-medium">
+                <span className="text-emerald-500">{stats.emails.total - stats.emails.blocked} Safe</span>
+                <span className="text-red-500">{stats.emails.blocked} Blocked</span>
+              </div>
+            </div>
+          </div>
+
+          {/* URLs Card */}
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded bg-[#4F84F8]/10 text-[#4F84F8] flex items-center justify-center shrink-0"><Globe className="w-3 h-3" /></div>
@@ -315,6 +292,7 @@ export default function EmployeeDashboard() {
             </div>
           </div>
 
+          {/* Websites Card */}
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded bg-[#8B5CF6]/10 text-[#8B5CF6] flex items-center justify-center shrink-0"><ShieldCheck className="w-3 h-3" /></div>
@@ -329,6 +307,7 @@ export default function EmployeeDashboard() {
             </div>
           </div>
 
+          {/* Downloads Card */}
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center shrink-0"><FileText className="w-3 h-3" /></div>
@@ -343,6 +322,7 @@ export default function EmployeeDashboard() {
             </div>
           </div>
 
+          {/* Images Card */}
           <div className="bg-surface-50 dark:bg-white/[0.02] border border-surface-200 dark:border-white/[0.05] rounded-xl p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center shrink-0"><ImageIcon className="w-3 h-3" /></div>

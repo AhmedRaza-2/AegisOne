@@ -460,11 +460,12 @@ export async function scanDownload(url, filename, signal = null) {
 /**
  * Scan an email for phishing.
  */
-export async function scanEmail(sender, subject, body, signal = null) {
+export async function scanEmail(sender, subject, body, signal = null, threadUrl = "") {
   const form = new FormData();
   form.append("sender", sender || "");
   form.append("subject", subject || "");
   form.append("body", body || "");
+  if (threadUrl) form.append("thread_url", threadUrl);
   return callAPI("/analyze/email", form, true, signal);
 }
 

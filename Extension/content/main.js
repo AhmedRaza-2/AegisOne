@@ -185,7 +185,9 @@
       }));
 
       // ── Search Badges ───────────────────────────────
-      const isSearchPage = /google\.|bing\.com|duckduckgo\.com/.test(location.hostname);
+      const host = location.hostname.toLowerCase();
+      const isSearchPage = !/mail\.google\.|accounts\.google\.|drive\.google\.|docs\.google\./.test(host) &&
+        (/google\.|bing\.com|duckduckgo\.com/.test(host) && (location.pathname.includes("/search") || location.search.includes("q=")));
       if (isSearchPage) initSearchBadges();
 
       // ── Link Scanner ────────────────────────────────

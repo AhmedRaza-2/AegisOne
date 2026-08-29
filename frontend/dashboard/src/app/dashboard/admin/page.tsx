@@ -170,23 +170,31 @@ export default function AdminDashboard() {
           <div className="flex-1 space-y-3">
             {Object.keys(stats?.top_threat_types || {}).length === 0 ? (
               <p className="text-xs text-surface-500">No threats detected yet.</p>
-            ) : (
-              Object.entries(stats.top_threat_types).map(([type, count]: [string, any], index) => {
-                const total = stats.threats_detected || 1;
-                const percentage = Math.round((count / total) * 100);
+            ) : (() => {
+              const totalSum = Object.values(stats.top_threat_types || {}).reduce((acc: number, v: any) => acc + (Number(v) || 0), 0) || 1;
+              return Object.entries(stats.top_threat_types).map(([type, count]: [string, any]) => {
+                const countNum = Number(count) || 0;
+                const percentage = Math.round((countNum / totalSum) * 100);
+                const lower = type.toLowerCase();
+                const barColor = lower.includes("safe")
+                  ? "bg-emerald-500"
+                  : lower.includes("phish") || lower.includes("warn")
+                  ? "bg-amber-500"
+                  : "bg-red-500";
+
                 return (
                   <div key={type} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-surface-700 dark:text-surface-300 capitalize">{type.replace(/_/g, ' ')}</span>
-                      <span className="text-brand-650 dark:text-brand-400 font-semibold">{count} ({percentage}%)</span>
+                      <span className="text-surface-900 dark:text-white font-semibold">{countNum} ({percentage}%)</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-surface-200 dark:bg-white/[0.04] overflow-hidden">
-                      <div className={`h-full rounded-full ${index === 0 ? "bg-red-500" : index === 1 ? "bg-amber-500" : "bg-brand-500"}`} style={{ width: `${percentage}%` }} />
+                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${percentage}%` }} />
                     </div>
                   </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </motion.div>
       </div>

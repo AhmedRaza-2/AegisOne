@@ -7,7 +7,7 @@ and privacy-preserving server-side filtering.
 """
 
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from sqlalchemy.future import select
 from sqlalchemy import func, cast, Date, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,8 +17,8 @@ from api.database.models import WebsiteScan, User, Department, Organization
 
 
 def parse_period(period_str: str) -> tuple[Optional[datetime], datetime]:
-    """Resolves timeframe start/end dates from period string (7d, 30d, 90d, all)."""
-    now = datetime.now(timezone.utc)
+    """Resolves timeframe start/end dates from period string (7d, 30d, 90d, all) using naive UTC datetime."""
+    now = datetime.utcnow()
     if period_str == "7d":
         return now - timedelta(days=7), now
     elif period_str == "30d":
@@ -43,7 +43,7 @@ async def get_email_analytics(
     - admin: Returns organization totals & department risk breakdown (privacy-scrubbed).
     """
     start_date, end_date = parse_period(period)
-    role = current_user.role if current_user.role else "employee"
+    role = getattr(current_user, "role", "employee") or "employee"
     
     # Auto-resolve scope from role if not explicitly requested
     if scope == "auto":
@@ -56,12 +56,20 @@ async def get_email_analytics(
     else:
         effective_scope = scope
 
-    # Base query for email scans
+    # Base query for true email security scans
     q = select(WebsiteScan).where(
-        or_(
-            WebsiteScan.scan_type == "email",
-            WebsiteScan.threat_type.ilike("%phishing_email%"),
-            WebsiteScan.url.ilike("Email:%")
+        and_(
+            or_(
+                WebsiteScan.scan_type == "email",
+                WebsiteScan.scan_type == "mail",
+                WebsiteScan.domain == "email_scan",
+                WebsiteScan.url.ilike("Email:%"),
+                WebsiteScan.url.ilike("%#inbox/%"),
+                WebsiteScan.threat_type.ilike("%phishing_email%")
+            ),
+            ~WebsiteScan.url.ilike("%SignOutOptions%"),
+            ~WebsiteScan.url.ilike("https://mail.google.com/mail/u/0/?ogbl"),
+            ~WebsiteScan.url.ilike("https://mail.google.com/mail/u/0/")
         )
     )
 
@@ -70,19 +78,25 @@ async def get_email_analytics(
 
     # Apply Scope Filters
     if effective_scope == "employee":
-        q = q.where(WebsiteScan.user_id == current_user.id)
+        if getattr(current_user, "id", None):
+            q = q.where(
+                or_(
+                    WebsiteScan.user_id == current_user.id,
+                    WebsiteScan.user_id == None
+                )
+            )
     elif effective_scope == "supervisor":
-        if current_user.department_id:
+        if getattr(current_user, "department_id", None):
             q = q.where(
                 or_(
                     WebsiteScan.department_id == current_user.department_id,
-                    WebsiteScan.organization_id == current_user.organization_id
+                    WebsiteScan.organization_id == getattr(current_user, "organization_id", "org_default")
                 )
             )
-        else:
+        elif getattr(current_user, "organization_id", None):
             q = q.where(WebsiteScan.organization_id == current_user.organization_id)
     else: # admin
-        if current_user.organization_id:
+        if getattr(current_user, "organization_id", None):
             q = q.where(WebsiteScan.organization_id == current_user.organization_id)
 
     res = await db.execute(q.order_by(WebsiteScan.created_at.desc()))
@@ -112,28 +126,62 @@ async def get_email_analytics(
             safe_count += 1
             verdict_clean = "safe"
 
+        # Safely parse top factors & metadata
+        subject = s.url
+        sender = ""
+        thread_url = s.url if s.url.startswith("http") else ""
+        top_factors_list = []
+
+        if s.top_factors:
+            try:
+                parsed = json.loads(s.top_factors)
+                if isinstance(parsed, dict):
+                    subject = parsed.get("subject") or subject
+                    sender = parsed.get("sender") or sender
+                    thread_url = parsed.get("thread_url") or thread_url
+                    top_factors_list = parsed.get("factors") or []
+                elif isinstance(parsed, list):
+                    top_factors_list = parsed
+            except Exception:
+                top_factors_list = [s.top_factors]
+
+        # Clean display title if url starts with "Email: "
+        if subject.startswith("Email: "):
+            raw = subject[7:]
+            if " (From: " in raw:
+                parts = raw.split(" (From: ")
+                subject = parts[0]
+                sender = parts[1].rstrip(")")
+            else:
+                subject = raw
+
+        created_str = None
+        if s.created_at:
+            created_str = s.created_at.isoformat() if hasattr(s.created_at, "isoformat") else str(s.created_at)
+
         # Build Privacy-Safe Scan Log Object
         if effective_scope == "employee":
-            # Employees get full details for their OWN scans
             scan_logs.append({
                 "id": s.scan_id or str(s.id),
                 "url": s.url,
-                "domain": s.domain,
+                "subject": subject,
+                "sender": sender,
+                "thread_url": thread_url,
+                "domain": s.domain or "email_scan",
                 "risk_score": score,
                 "verdict": verdict_clean,
                 "decision": s.decision or "allow",
-                "top_factors": json.loads(s.top_factors) if s.top_factors and s.top_factors.startswith("[") else [],
-                "created_at": s.created_at.isoformat() if s.created_at else None
+                "top_factors": top_factors_list,
+                "created_at": created_str
             })
         else:
-            # Supervisors and Admins get privacy-scrubbed metadata ONLY
             scan_logs.append({
                 "id": s.scan_id or str(s.id),
                 "user_id": s.user_id,
                 "risk_score": score,
                 "verdict": verdict_clean,
                 "decision": s.decision or "allow",
-                "created_at": s.created_at.isoformat() if s.created_at else None
+                "created_at": created_str
             })
 
     threat_count = phishing_count + suspicious_count
@@ -161,5 +209,6 @@ async def get_email_analytics(
             {"category": "Suspicious", "count": suspicious_count, "color": "#f59e0b"},
             {"category": "Phishing", "count": phishing_count, "color": "#ef4444"}
         ],
-        "scans": scan_logs[:100]  # Limit recent logs
+        "scans": scan_logs[:100]
     }
+

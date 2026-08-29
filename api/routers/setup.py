@@ -130,9 +130,20 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
                 Here are your login credentials:
               </p>
               
-              <div class="credentials-box">
-                <div style="margin-bottom: 8px;"><strong>Email:</strong> <span style="font-family: monospace; float: right;">{employee.email}</span></div>
-                <div style="margin-bottom: 8px;"><strong>Temporary Password:</strong> <span style="font-family: monospace; float: right; color: #0A5ED6; font-weight: bold;">{employee.generatedPassword}</span></div>
+              <div class="credentials-box" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0A5ED6; padding: 20px; border-radius: 8px; font-size: 14px; margin: 24px 0;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 12px;">LOGIN CREDENTIALS</div>
+                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="color: #475569;">Email Address:</strong>
+                  <code style="font-family: monospace; background: #e2e8f0; padding: 4px 8px; border-radius: 4px; color: #0f172a; font-weight: bold; font-size: 13px; user-select: all; -webkit-user-select: all;">{employee.email}</code>
+                </div>
+                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="color: #475569;">Temporary Password:</strong>
+                  <code style="font-family: monospace; background: #dbeafe; padding: 4px 8px; border-radius: 4px; color: #1d4ed8; font-weight: bold; font-size: 14px; user-select: all; -webkit-user-select: all;">{employee.generatedPassword}</code>
+                </div>
+                <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
+                  <strong>Quick Copy Snippet:</strong>
+                  <div style="font-family: monospace; background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; margin-top: 4px; color: #0f172a; user-select: all; -webkit-user-select: all;">{employee.email} | {employee.generatedPassword}</div>
+                </div>
               </div>
 
               <div class="security-note">

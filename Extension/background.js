@@ -647,6 +647,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         form.append("sender", msg.sender || "");
         form.append("subject", msg.subject || "");
         form.append("body", msg.body || "");
+        form.append("thread_url", msg.thread_url || msg.url || "");
         const result = await callAPI("/analyze/email", form, true);
 
         if (result) {

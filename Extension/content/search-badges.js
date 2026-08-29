@@ -51,8 +51,12 @@ export function initSearchBadges() {
 
 function _detectSearchEngine() {
   const host = location.hostname;
-  if (host.includes("google.")) return "google";
-  if (host.includes("bing.")) return "bing";
+  // Exclude Gmail, Google Accounts, Drive, Docs, etc.
+  if (host.includes("mail.google.com") || host.includes("accounts.google.") || host.includes("drive.google.") || host.includes("docs.google.")) {
+    return null;
+  }
+  if (host.includes("google.") && (location.pathname.includes("/search") || location.search.includes("q="))) return "google";
+  if (host.includes("bing.") && (location.pathname.includes("/search") || location.search.includes("q="))) return "bing";
   if (host.includes("duckduckgo.")) return "ddg";
   return null;
 }
@@ -148,7 +152,6 @@ function _processScanQueue() {
         }
       });
     } else {
-      console.warn("[AegisOne] Batch scan invalid, resetting:", res);
       _resetBatch(batch);
     }
 

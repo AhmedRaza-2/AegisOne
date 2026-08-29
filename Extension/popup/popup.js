@@ -27,7 +27,7 @@ function setupDashboardButton() {
     btn.addEventListener("click", async () => {
       const stored = await chrome.storage.local.get(["dashboard_port", "dashboard_url"]);
       const port = stored.dashboard_port || 3002;
-      const targetUrl = stored.dashboard_url || `http://localhost:${port}/dashboard`;
+      const targetUrl = stored.dashboard_url || `http://localhost:${port}/login`;
       chrome.tabs.create({ url: targetUrl });
     });
   }
@@ -76,7 +76,7 @@ async function loadControlToggles() {
       // Notify active tab to apply change in real time
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { type: "SET_WIDGET_OPACITY", opacity }).catch(() => {});
+        chrome.tabs.sendMessage(tab.id, { type: "SET_WIDGET_OPACITY", opacity }).catch(() => { });
       }
     });
   }
@@ -90,7 +90,7 @@ async function loadControlToggles() {
       // Notify active tab to apply change in real time
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { type: "SET_WIDGET_SCALE", scale }).catch(() => {});
+        chrome.tabs.sendMessage(tab.id, { type: "SET_WIDGET_SCALE", scale }).catch(() => { });
       }
     });
   }
@@ -125,7 +125,7 @@ async function loadPopupStats() {
           if (data.totalScans) scans = Math.max(scans, data.totalScans);
           if (data.threatsBlocked) blocked = Math.max(blocked, data.threatsBlocked);
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (elScans) elScans.textContent = scans;
@@ -158,19 +158,19 @@ async function loadCurrentPage() {
 }
 
 function _renderPageAnalytics(tabData, displayData) {
-  const elLinks   = document.getElementById("statLinks");
-  const elImages  = document.getElementById("statImages");
-  const elForms   = document.getElementById("statForms");
+  const elLinks = document.getElementById("statLinks");
+  const elImages = document.getElementById("statImages");
+  const elForms = document.getElementById("statForms");
   const elLatency = document.getElementById("statLatency");
 
-  const links  = tabData?.links_count ?? tabData?.links?.length ?? displayData?.top_factors?.length ?? 0;
+  const links = tabData?.links_count ?? tabData?.links?.length ?? displayData?.top_factors?.length ?? 0;
   const images = tabData?.images_count ?? tabData?.images?.length ?? 0;
-  const forms  = tabData?.form_count ?? (tabData?.breakdown?.login_form?.score >= 50 ? 1 : 0);
+  const forms = tabData?.form_count ?? (tabData?.breakdown?.login_form?.score >= 50 ? 1 : 0);
   const latency = tabData?.latency ? `${Math.round(tabData.latency)}ms` : "4ms";
 
-  if (elLinks)   elLinks.textContent   = links;
-  if (elImages)  elImages.textContent  = images;
-  if (elForms)   elForms.textContent   = forms;
+  if (elLinks) elLinks.textContent = links;
+  if (elImages) elImages.textContent = images;
+  if (elForms) elForms.textContent = forms;
   if (elLatency) elLatency.textContent = latency;
 }
 
@@ -421,7 +421,7 @@ function _updateScanMeta(scannedAt) {
   function _update() {
     const age = Date.now() - new Date(scannedAt).getTime();
     if (Number.isNaN(age)) { meta.textContent = "Scan time unavailable"; return; }
-    meta.textContent = age <= 60000 ? `Fresh scan · ${Math.max(1, Math.round(age/1000))}s ago` : `Stale scan · ${Math.round(age/60000)}m ago`;
+    meta.textContent = age <= 60000 ? `Fresh scan · ${Math.max(1, Math.round(age / 1000))}s ago` : `Stale scan · ${Math.round(age / 60000)}m ago`;
   }
   _update();
   _ageCountdownTimer = setInterval(_update, 1000);

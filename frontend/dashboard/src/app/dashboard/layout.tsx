@@ -31,6 +31,7 @@ const navByRole: Record<string, NavItem[]> = {
   manager: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
     { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
+    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail },
     { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert },
     { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
@@ -41,6 +42,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
+    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
@@ -52,6 +54,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
+    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
