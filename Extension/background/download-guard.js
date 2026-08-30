@@ -91,7 +91,7 @@ function _persistProcessed() {
 async function _onDownloadCreated(item) {
   try {
     const url = item.finalUrl || item.url || "";
-    if (!url.startsWith("http") && !url.startsWith("file")) return;
+    if (!url.startsWith("http") && !url.startsWith("file") && !url.startsWith("blob:")) return;
     if (isInternalURL(url)) return;
 
     // Short-term bypass: re-download initiated by this extension

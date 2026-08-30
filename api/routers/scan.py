@@ -14,6 +14,8 @@ import os
 from PIL import Image
 import io
 
+from typing import List, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, File, UploadFile, Form, BackgroundTasks, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -338,3 +340,78 @@ async def scan_document(
         f"file:{file.filename}|sha256:{file_hash[:16]}…", build_scan_log_payload(response, flat_results),
     )
     return response
+
+
+# ═══════════════════════════════════════════════════════════════
+# WHATSAPP MODALITY ROUTER BATCH SCANNER
+# ═══════════════════════════════════════════════════════════════
+
+class WhatsAppItemRequest(BaseModel):
+    text: Optional[str] = ""
+    sender: Optional[str] = ""
+    chat_id: Optional[str] = ""
+    chat_title: Optional[str] = ""
+    fingerprint: Optional[str] = None
+    image_base64: Optional[str] = ""
+
+
+class WhatsAppBatchRequest(BaseModel):
+    messages: List[WhatsAppItemRequest]
+
+
+@router.post("/whatsapp/batch")
+async def scan_whatsapp_batch(
+    payload: WhatsAppBatchRequest,
+    bg_tasks: BackgroundTasks,
+    user: User = Depends(get_optional_user)
+):
+    from api.services.whatsapp_analyzer import analyze_whatsapp_message
+    results = []
+    
+    for item in payload.messages:
+        analysis = await analyze_whatsapp_message(
+            text=item.text or "",
+            sender=item.sender or "",
+            chat_id=item.chat_id or "",
+            chat_title=item.chat_title or "",
+            image_base64=item.image_base64 or ""
+        )
+        
+        # Privacy policy: If verdict is safe, transient raw text is NOT stored in DB
+        preview_text = item.text if analysis["verdict"] != "safe" else f"WhatsApp Msg ({len(item.text or '')} chars)"
+        log_payload = {
+            "overall_risk_score": analysis["risk_score"],
+            "verdict": analysis["verdict"],
+            "threat_category": analysis["threat_category"],
+            "top_factors": analysis["risk_factors"],
+            "sender_hash": analysis["sender_hash"],
+            "chat_title": analysis["chat_title"],
+            "contains_url": analysis["contains_url"],
+            "modalities": analysis.get("modalities", []),
+            "xai_evidence": analysis.get("xai_evidence", {})
+        }
+        
+        scan_id = f"wsp_{uuid.uuid4().hex[:12]}"
+        bg_tasks.add_task(
+            log_website_scan,
+            scan_id,
+            user,
+            ScanType.WHATSAPP,
+            preview_text,
+            log_payload
+        )
+        
+        results.append({
+            "scan_id": scan_id,
+            "fingerprint": analysis["fingerprint"],
+            "verdict": analysis["verdict"],
+            "decision": analysis["decision"],
+            "risk_score": analysis["risk_score"],
+            "threat_category": analysis["threat_category"],
+            "risk_factors": analysis["risk_factors"],
+            "chat_title": analysis["chat_title"],
+            "modalities": analysis.get("modalities", []),
+            "xai_evidence": analysis.get("xai_evidence", {})
+        })
+        
+    return {"ok": True, "count": len(results), "results": results}

@@ -250,6 +250,80 @@
             updateWidget(msg);
             break;
 
+          case "RIGHT_CLICK_SCAN": {
+            const res = msg.result || {};
+            const score = res.score ?? Math.round((res.phishing_probability || 0) * 100);
+            const verdict = res.verdict || (score >= 80 ? "danger" : score >= 50 ? "warning" : "safe");
+            const factors = res.top_factors && res.top_factors.length > 0
+              ? res.top_factors
+              : [{ label: res.explanation || `Scanned Link: ${msg.url || "Target URL"}` }];
+
+            updateWidget({
+              score,
+              verdict,
+              threat_type: res.threat_type || (score >= 50 ? "Phishing Link" : "Safe Link"),
+              top_factors: factors
+            });
+
+            showWarningModal({
+              score,
+              verdict,
+              threat_type: res.threat_type || (score >= 50 ? "Phishing Link" : "Verified Link"),
+              top_factors: factors,
+              url: msg.url || window.location.href,
+              explanation: res.explanation || (score >= 50 ? "Phishing link detected by AegisOne model" : "Verified safe link")
+            });
+            break;
+          }
+
+          case "IMAGE_SCAN_RESULT": {
+            const res = msg.result || {};
+            const score = res.score ?? Math.round((res.phishing_probability || 0) * 100);
+            const verdict = res.verdict || (score >= 80 ? "danger" : score >= 50 ? "warning" : "safe");
+            const factors = res.top_factors || [{ label: res.explanation || "Image Phishing Scan" }];
+
+            updateWidget({
+              score,
+              verdict,
+              threat_type: "Image Scan",
+              top_factors: factors
+            });
+
+            showWarningModal({
+              score,
+              verdict,
+              threat_type: "AegisOne Vision AI Scan",
+              top_factors: factors,
+              url: msg.url || "Scanned Image",
+              explanation: res.explanation || "Vision AI model scanned image content"
+            });
+            break;
+          }
+
+          case "TEXT_SCAN_RESULT": {
+            const res = msg.result || {};
+            const score = res.score ?? 0;
+            const verdict = res.verdict || "safe";
+            const factors = res.top_factors || [{ label: "Text Phishing Scan" }];
+
+            updateWidget({
+              score,
+              verdict,
+              threat_type: "Text Scan",
+              top_factors: factors
+            });
+
+            showWarningModal({
+              score,
+              verdict,
+              threat_type: "AegisOne Text Model Scan",
+              top_factors: factors,
+              url: msg.text || "Selected Text",
+              explanation: res.explanation || "DistilBERT text model evaluated text content"
+            });
+            break;
+          }
+
           case "UPDATE_EMAIL_WIDGET":
             window.__AEGIS_LAST_EMAIL_SCORE = msg.score;
             setCurrentRisk(msg.score);

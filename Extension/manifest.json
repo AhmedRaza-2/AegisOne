@@ -3,7 +3,6 @@
   "name": "AegisOne — AI Security Copilot",
   "version": "2.1.0",
   "description": "Enterprise-grade AI browser security: real-time phishing detection, explainable AI, credential protection, download guard, and SOC dashboard sync.",
-
   "permissions": [
     "activeTab",
     "tabs",
@@ -16,24 +15,25 @@
     "contextMenus",
     "alarms"
   ],
-
   "host_permissions": [
     "<all_urls>"
   ],
-
   "background": {
     "service_worker": "background/sw.js",
     "type": "module"
   },
-
   "content_scripts": [
     {
-      "matches": ["<all_urls>", "file:///*"],
-      "js": ["content/main.js"],
+      "matches": [
+        "<all_urls>",
+        "file:///*"
+      ],
+      "js": [
+        "content/main.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "web_accessible_resources": [
     {
       "resources": [
@@ -51,23 +51,23 @@
         "test_runner.js",
         "icons/*.png"
       ],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
-
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
-      "16":  "icons/icon16.png",
-      "48":  "icons/icon48.png",
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
     "default_title": "AegisOne — AI Security Copilot"
   },
-
   "icons": {
-    "16":  "icons/icon16.png",
-    "48":  "icons/icon48.png",
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   }
 }

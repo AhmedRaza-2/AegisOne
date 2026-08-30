@@ -113,7 +113,7 @@ function SidebarContent({
             >
               <item.icon className={`shrink-0 ${active ? 'w-4 h-4' : 'w-[15px] h-[15px]'}`} />
               {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
-              
+
               {item.label === "Communication" && unreadCount > 0 && (
                 collapsed ? (
                   <div className="absolute top-3 right-4 w-2 h-2 rounded-full bg-brand-500"></div>
@@ -411,7 +411,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex transition-colors duration-300 font-sans">
-      <aside 
+      <aside
         className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] shrink-0 h-screen sticky top-0 z-50 ${isDragging ? '' : 'transition-all duration-300'}`}
         style={{ width: collapsed ? 80 : sidebarWidth }}
       >
@@ -463,21 +463,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               System Status: <span className={`flex items-center gap-1.5 ${apiOffline ? 'text-red-500' : 'text-surface-900 dark:text-white'}`}><span className={`w-1.5 h-1.5 rounded-full ${apiOffline ? 'bg-red-500' : 'bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]'}`}></span> {apiOffline ? 'Offline' : 'Operational'}</span>
             </div>
             <div className="hidden sm:block h-5 w-px bg-surface-200 dark:bg-white/[0.1] mx-1"></div>
-            
-            <div className="relative" ref={notificationsRef}>
-                <button
-                  onClick={() => setNotificationsOpen(!notificationsOpen)}
-                  className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center"
-                >
-                  <Bell className="w-4 h-4" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-bold flex items-center justify-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
 
-                {notificationsOpen && (
+            <div className="relative" ref={notificationsRef}>
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-xl rounded-xl overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
                     <span className="text-sm font-semibold text-surface-900 dark:text-white">Messages</span>
@@ -583,7 +583,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
             </div>
             <div className="h-5 w-px bg-surface-200 dark:bg-white/[0.1] mx-1"></div>
-            
+
             <div className="relative" ref={settingsRef}>
               <button
                 onClick={() => setSettingsOpen(!settingsOpen)}

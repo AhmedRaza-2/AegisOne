@@ -96,7 +96,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         verdict: result.verdict,
         threat_type: result.threat_type,
         top_factors: result.top_factors,
-      }).catch(() => {});
+      }).catch(() => { });
 
       if (result.score >= THRESHOLD.DANGER * 100) {
         safeNotify({
@@ -117,7 +117,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       chrome.tabs.sendMessage(tabId, {
         type: "TRIGGER_DEEP_PAGE_SCAN",
         urlScore: result.score,
-      }).catch(() => {});
+      }).catch(() => { });
     }
   } else {
     _setBadge(tabId, "unknown");
@@ -135,10 +135,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // ── Context Menu ──────────────────────────────────────────
 function _setupContextMenu() {
   chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: "aegis-scan-link",  title: "🛡️ AegisOne: Scan This Link",  contexts: ["link"] });
-    chrome.contextMenus.create({ id: "aegis-scan-page",  title: "🛡️ AegisOne: Scan This Page",  contexts: ["page"] });
+    chrome.contextMenus.create({ id: "aegis-scan-link", title: "🛡️ AegisOne: Scan This Link", contexts: ["link"] });
+    chrome.contextMenus.create({ id: "aegis-scan-page", title: "🛡️ AegisOne: Scan This Page", contexts: ["page"] });
     chrome.contextMenus.create({ id: "aegis-scan-image", title: "🛡️ AegisOne: Scan This Image", contexts: ["image"] });
-    chrome.contextMenus.create({ id: "aegis-scan-text",  title: "🛡️ AegisOne: Scan This Text",  contexts: ["selection"] });
+    chrome.contextMenus.create({ id: "aegis-scan-text", title: "🛡️ AegisOne: Scan This Text", contexts: ["selection"] });
   });
 }
 
@@ -148,16 +148,16 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "aegis-scan-link" && info.linkUrl) {
     const result = await scanURL(info.linkUrl);
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, { type: MSG.RIGHT_CLICK_SCAN, url: info.linkUrl, result }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, { type: MSG.RIGHT_CLICK_SCAN, url: info.linkUrl, result }).catch(() => { });
     }
   } else if (info.menuItemId === "aegis-scan-page" && tab?.url) {
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, { type: "TRIGGER_FULL_SCAN" }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, { type: "TRIGGER_FULL_SCAN" }).catch(() => { });
     }
   } else if (info.menuItemId === "aegis-scan-image" && info.srcUrl) {
     const result = await scanImage(info.srcUrl);
     if (tabId && result) {
-      chrome.tabs.sendMessage(tabId, { type: "IMAGE_SCAN_RESULT", url: info.srcUrl, result }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, { type: "IMAGE_SCAN_RESULT", url: info.srcUrl, result }).catch(() => { });
     }
   } else if (info.menuItemId === "aegis-scan-text" && info.selectionText) {
     const textResult = await scanPageText(info.selectionText);
@@ -169,7 +169,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         type: "TEXT_SCAN_RESULT",
         text: info.selectionText.slice(0, 100),
         result: { score, verdict, top_factors: topFactors, phishing_probability: textResult?.phishing_probability ?? 0 },
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }
 });
@@ -236,7 +236,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               verdict: result.verdict,
               top_factors: result.top_factors,
               threat_type: result.threat_type,
-            }).catch(() => {});
+            }).catch(() => { });
           }
 
           sendResponse({ ok: true, result });
@@ -312,7 +312,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               chrome.tabs.sendMessage(tabId, {
                 type: MSG.HIGHLIGHT_THREATS,
                 maliciousUrls: badUrls.map(u => u.url),
-              }).catch(() => {});
+              }).catch(() => { });
             }
 
             chrome.tabs.sendMessage(tabId, {
@@ -322,7 +322,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               textSignals: textResult?.top_words || [],
               badUrls: badUrls.map(u => ({ url: u.url, score: u.score, threat_type: u.threat_type })),
               urlCount: allLinks.length,
-            }).catch(() => {});
+            }).catch(() => { });
           }
 
           sendResponse({ ok: true, composite });
@@ -396,7 +396,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 verdict,
                 subject: msg.subject,
                 sender: msg.sender,
-              }).catch(() => {});
+              }).catch(() => { });
             }
 
             sendResponse({ ok: true, result });
@@ -433,7 +433,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               sender: msg.sender,
               top_factors: msg.top_factors,
               emailXai: msg.emailXai,
-            }).catch(() => {});
+            }).catch(() => { });
           }
           sendResponse({ ok: true });
           break;
@@ -534,7 +534,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             verdict: mergedScore >= 80 ? "danger" : mergedScore >= 50 ? "warning" : "caution",
             top_factors: mergedFactors,
             threat_type: mergedScore >= 70 ? "malware_delivery" : "suspicious_activity",
-          }).catch(() => {});
+          }).catch(() => { });
 
           sendResponse({ ok: true });
           break;
@@ -610,7 +610,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               body: JSON.stringify({ domain }),
               signal: AbortSignal.timeout(5000),
             });
-          } catch (_) {}
+          } catch (_) { }
 
           sendResponse({ ok: true });
           break;
@@ -688,17 +688,17 @@ function _updateBadge(tabId, score) {
 
 function _setBadge(tabId, state, score = null) {
   const configs = {
-    safe:     { text: "✓",   color: "#10b981" },
-    warning:  { text: "⚠",   color: "#f59e0b" },
-    danger:   { text: "⚠",   color: "#ef4444" },
+    safe: { text: "✓", color: "#10b981" },
+    warning: { text: "⚠", color: "#f59e0b" },
+    danger: { text: "⚠", color: "#ef4444" },
     scanning: { text: "...", color: "#6366f1" },
-    unknown:  { text: "?",   color: "#64748b" },
+    unknown: { text: "?", color: "#64748b" },
   };
   const cfg = configs[state] || configs.unknown;
   try {
     chrome.action.setBadgeText({ tabId, text: cfg.text });
     chrome.action.setBadgeBackgroundColor({ tabId, color: cfg.color });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function _mergeDeepScanData(tabData) {
@@ -730,14 +730,14 @@ function _mergeDeepScanData(tabData) {
 
   const mergedBreakdown = deepScore > baseScore
     ? {
-        ...(tabData.breakdown || {}),
-        deep_page: {
-          score: deepScore,
-          weight: 0,
-          label: deepScore >= 80 ? "Deep page scan indicates high risk" : "Deep page scan indicates suspicious activity",
-          available: true,
-        },
-      }
+      ...(tabData.breakdown || {}),
+      deep_page: {
+        score: deepScore,
+        weight: 0,
+        label: deepScore >= 80 ? "Deep page scan indicates high risk" : "Deep page scan indicates suspicious activity",
+        available: true,
+      },
+    }
     : tabData.breakdown;
 
   return {
@@ -771,10 +771,10 @@ export function safeNotify({ title, message, iconUrl = "icons/icon48.png", type 
               title: title || "AegisOne Security Alert",
               message: message || "",
               priority: priority || 2,
-            }, () => { if (chrome.runtime.lastError) {} });
-          } catch (_) {}
+            }, () => { if (chrome.runtime.lastError) { } });
+          } catch (_) { }
         }
       }
     );
-  } catch (_) {}
+  } catch (_) { }
 }

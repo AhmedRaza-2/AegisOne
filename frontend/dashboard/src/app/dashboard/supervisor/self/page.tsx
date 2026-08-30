@@ -80,13 +80,13 @@ export default function SupervisorSelfDashboard() {
   const webScans = filteredScans.filter((s: any) => s.scanType === 'website' || s.scanType === 'navigation' || (!s.scanType && (s.inputPreview?.startsWith('http://') || s.inputPreview?.startsWith('https://') || s.domain)));
   const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
   const imageScans = filteredScans.filter((s: any) => s.scanType === 'image');
-  const emailScans = filteredScans.filter((s: any) => 
-    s.scanType === 'email' || 
-    s.scanType === 'mail' || 
-    s.scanType === 'text' || 
-    s.domain === 'email_scan' || 
-    s.domain === 'text_scan' || 
-    s.inputPreview?.startsWith('Email:') || 
+  const emailScans = filteredScans.filter((s: any) =>
+    s.scanType === 'email' ||
+    s.scanType === 'mail' ||
+    s.scanType === 'text' ||
+    s.domain === 'email_scan' ||
+    s.domain === 'text_scan' ||
+    s.inputPreview?.startsWith('Email:') ||
     s.inputPreview?.startsWith('Text Snippet:')
   );
 
@@ -297,7 +297,7 @@ export default function SupervisorSelfDashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Email Card */}
-          <div 
+          <div
             onClick={() => window.location.href = '/dashboard/employee/email'}
             className="bg-indigo-50/50 dark:bg-indigo-500/[0.04] border border-indigo-200 dark:border-indigo-500/20 rounded-xl p-4 flex flex-col justify-between cursor-pointer hover:border-indigo-500/50 hover:shadow-md transition-all group"
           >

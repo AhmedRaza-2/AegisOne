@@ -27,42 +27,49 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
   if (window.__AEGIS_WARNING_DISMISSED__) return;
   _removeModal("aegis-warning-overlay");
 
-  const scoreColor = score >= 80 ? "#ef4444" : "#f97316";
-  const threatLabel = _threatLabel(threat_type);
-  const factorsHtml = (top_factors || []).slice(0, 4).map(f =>
-    `<li style="margin-bottom:5px; color:#94a3b8; font-size:11px;">⚠ ${f.label}</li>`
-  ).join("");
+  const isDanger = score >= 80;
+  const isWarn = score >= 50 && score < 80;
+  const scoreColor = isDanger ? "#ef4444" : isWarn ? "#f97316" : "#10b981";
+  const icon = isDanger ? "🚨" : isWarn ? "⚠️" : "🛡️";
+  const titleText = isDanger ? "High Phishing Risk" : isWarn ? "Suspicious Link Warning" : "Verified Safe Link";
+  const threatLabel = _threatLabel(threat_type) || (isDanger ? "Phishing Threat" : isWarn ? "Suspicious Indicator" : "Clean Link");
 
-  const isBlocking = score >= (THRESHOLD.DANGER * 100);
+  const factorsList = top_factors || [];
+  const factorsHtml = factorsList.slice(0, 5).map(f => {
+    const text = typeof f === "object" ? (f.label || f.key || JSON.stringify(f)) : String(f);
+    return `<li style="margin-bottom:5px; color:#cbd5e1; font-size:11px; display:flex; align-items:center; gap:6px;"><span>${isDanger ? "🚨" : isWarn ? "⚠️" : "✓"}</span><span>${text}</span></li>`;
+  }).join("");
+
+  const isBlocking = isDanger;
 
   _createModal("aegis-warning-overlay", `
     <div style="
       width:460px; max-width:92%;
-      background:#0f0a0a; border:1px solid rgba(239,68,68,0.35);
+      background:#0f0a0a; border:1px solid ${scoreColor}66;
       border-radius:16px; overflow:hidden;
       box-shadow: 0 12px 48px rgba(0,0,0,0.8) !important;
       animation: aegisEntrance 0.35s cubic-bezier(0.16,1,0.3,1);
     ">
-      <div style="padding:14px 20px; background:rgba(239,68,68,0.12); border-bottom:1px solid rgba(239,68,68,0.2); display:flex; align-items:center; justify-content:space-between;">
-        <span style="font-weight:800;font-size:12px;color:#f87171;text-transform:uppercase;letter-spacing:1px;">🛡️ AegisOne — Security Alert</span>
+      <div style="padding:14px 20px; background:${scoreColor}1a; border-bottom:1px solid ${scoreColor}33; display:flex; align-items:center; justify-content:space-between;">
+        <span style="font-weight:800;font-size:12px;color:${scoreColor};text-transform:uppercase;letter-spacing:1px;">🛡️ AegisOne Security Scanner</span>
         <button id="aegis-warn-close" style="background:none;border:none;color:#64748b;font-size:18px;cursor:pointer;">✕</button>
       </div>
       <div style="padding:24px 28px; text-align:center;">
-        <div style="width:64px;height:64px;margin:0 auto 16px;background:rgba(239,68,68,0.1);border:2px solid #ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;animation:aegisPulseRing 2s infinite;">🚨</div>
-        <h2 style="font-size:20px;font-weight:800;color:${scoreColor};margin:0 0 8px;">${score}% Phishing Risk</h2>
-        <p style="font-size:13px;color:#94a3b8;margin:0 0 6px;">${shortURL(url, 55)}</p>
-        <p style="font-size:11px;color:#64748b;margin:0 0 20px;">Threat Type: <strong style="color:#f87171;">${threatLabel}</strong></p>
+        <div style="width:64px;height:64px;margin:0 auto 16px;background:${scoreColor}1a;border:2px solid ${scoreColor};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;">${icon}</div>
+        <h2 style="font-size:20px;font-weight:800;color:${scoreColor};margin:0 0 8px;">${score}% Risk — ${titleText}</h2>
+        <p style="font-size:13px;color:#94a3b8;margin:0 0 6px;word-break:break-all;">${shortURL(url, 55)}</p>
+        <p style="font-size:11px;color:#64748b;margin:0 0 20px;">Threat Classification: <strong style="color:${scoreColor};">${threatLabel}</strong></p>
         ${factorsHtml ? `
-        <div style="text-align:left;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.12);border-radius:8px;padding:12px 16px;margin-bottom:20px;">
-          <p style="font-size:9px;text-transform:uppercase;color:#64748b;font-weight:700;margin:0 0 8px;letter-spacing:0.5px;">Risk Factors Detected</p>
+        <div style="text-align:left;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+          <p style="font-size:9px;text-transform:uppercase;color:#64748b;font-weight:700;margin:0 0 8px;letter-spacing:0.5px;">AI Model Evidence Factors</p>
           <ul style="list-style:none;padding:0;margin:0;">${factorsHtml}</ul>
         </div>` : ""}
       </div>
-      <div style="display:flex;gap:10px;padding:14px 20px;background:rgba(15,10,10,0.5);border-top:1px solid rgba(239,68,68,0.12); flex-wrap: wrap;">
+      <div style="display:flex;gap:10px;padding:14px 20px;background:rgba(15,10,10,0.5);border-top:1px solid rgba(255,255,255,0.08); flex-wrap: wrap;">
         <button id="aegis-warn-explain" style="flex:1;min-width:45%;padding:10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">✨ Explain with AI</button>
-        <button id="aegis-warn-leave" style="flex:1;min-width:45%;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">← Leave Page</button>
-        <button id="aegis-warn-falsepos" style="flex:1;min-width:45%;padding:10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s;">✅ Report False Positive</button>
-        <button id="aegis-warn-continue" style="flex:1;min-width:45%;padding:10px;background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Proceed at Risk</button>
+        <button id="aegis-warn-leave" style="flex:1;min-width:45%;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">← Close Scan</button>
+        <button id="aegis-warn-falsepos" style="flex:1;min-width:45%;padding:10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s;">✅ Report Feedback</button>
+        <button id="aegis-warn-continue" style="flex:1;min-width:45%;padding:10px;background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Dismiss</button>
       </div>
     </div>
   `, isBlocking);

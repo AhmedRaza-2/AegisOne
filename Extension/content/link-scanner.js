@@ -264,32 +264,30 @@ function _showTooltip(anchor, { loading, url, score, verdict, top_factors }) {
 
   if (loading) {
     _tooltipEl.innerHTML = `
-      <div class="aegis-tip-url">${_shortURL(url, 48)}</div>
-      <div class="aegis-tip-scanning">🔍 Checking with AegisOne AI...</div>
+      <div style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; color:#94a3b8;">
+        <span>🛡️</span><span>AI Scanning...</span>
+      </div>
     `;
   } else {
     const scoreColor = score >= 80 ? "#ef4444" : score >= 50 ? "#f97316" : score >= 20 ? "#f59e0b" : "#10b981";
-    const verdictText = score >= 80 ? "🚨 High Risk" : score >= 50 ? "⚠️ Suspicious" : score >= 20 ? "🔶 Low Risk" : "✅ Safe";
-    const reason = top_factors?.[0]?.label || "";
+    const verdictText = score >= 80 ? "🚨 Phishing" : score >= 50 ? "⚠️ Suspicious" : score >= 20 ? "🔶 Warning" : "✅ Safe";
 
     _tooltipEl.innerHTML = `
-      <div class="aegis-tip-url">${_shortURL(url, 48)}</div>
-      <div class="aegis-tip-score">
-        <span style="color:${scoreColor}; font-weight:800;">${verdictText}</span>
-        <span class="aegis-tip-pct" style="color:${scoreColor};">${score}%</span>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; font-weight:800;">
+        <span style="color:${scoreColor};">${verdictText}</span>
+        <span style="color:${scoreColor}; font-family:monospace; font-size:10px;">${score}%</span>
       </div>
-      ${reason ? `<div class="aegis-tip-reason">${reason}</div>` : ""}
     `;
   }
 
   // Position tooltip near the link using fixed positioning (viewport-relative)
   const rect = anchor.getBoundingClientRect();
-  const TIP_W = 290;
-  const TIP_H = _tooltipEl.offsetHeight || 72;
+  const TIP_W = 120;
+  const TIP_H = _tooltipEl.offsetHeight || 24;
 
   let left = Math.max(8, Math.min(rect.left, window.innerWidth - TIP_W - 8));
-  let top = rect.top - TIP_H - 10;
-  if (top < 8) top = rect.bottom + 8; // flip below if no space above
+  let top = rect.top - TIP_H - 6;
+  if (top < 8) top = rect.bottom + 6; // flip below if no space above
 
   _tooltipEl.style.setProperty("left", `${left}px`, "important");
   _tooltipEl.style.setProperty("top", `${top}px`, "important");
@@ -359,11 +357,11 @@ function _ensureLinkStyles() {
       z-index: 2147483647 !important;
       background: rgba(15, 23, 42, 0.95) !important;
       border: 1px solid rgba(99,102,241,0.3) !important;
-      border-radius: 8px !important;
-      padding: 8px 12px !important;
-      min-width: 160px !important;
-      max-width: 240px !important;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.1) !important;
+      border-radius: 6px !important;
+      padding: 3px 8px !important;
+      min-width: 80px !important;
+      max-width: 130px !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
       pointer-events: none !important;
       transition: opacity 0.12s ease !important;

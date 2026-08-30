@@ -11,7 +11,7 @@ import uuid
 import httpx
 import asyncio
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query, Body, Request
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from sqlalchemy import select, desc, func, update, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -1748,4 +1748,130 @@ async def get_user_threats(email: str = Query(...), db: AsyncSession = Depends(g
         "threatScore": avg_threat_score,
         "activeAlerts": active_alerts,
         "globalActivity": global_activity
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# SPECIALIZED WHATSAPP THREAT ANALYTICS ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/analytics/whatsapp")
+async def get_whatsapp_analytics(
+    email: Optional[str] = Query(None),
+    role: Optional[str] = Query("employee"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns detailed WhatsApp Security Intelligence & Analytics:
+    - Scans total, safe, blocked counts
+    - Threat category breakdown
+    - Recent WhatsApp threats feed with 100% preserved model XAI evidence
+    """
+    user_id = None
+    if email:
+        user_q = await db.execute(select(User).where(User.email == email))
+        user = user_q.scalar()
+        if user:
+            user_id = user.id
+
+    # Base query for WhatsApp scans
+    q_base = select(WebsiteScan).where(WebsiteScan.scan_type == "whatsapp")
+    if role == "employee" and user_id:
+        q_base = q_base.where(WebsiteScan.user_id == user_id)
+
+    res = await db.execute(q_base.order_by(WebsiteScan.created_at.desc()).limit(300))
+    scans = res.scalars().all()
+
+    total_messages = len(scans)
+    blocked_count = sum(1 for s in scans if s.decision == "block" or (s.risk_score or 0) >= 76)
+    warn_count = sum(1 for s in scans if s.decision == "warn" or (50 <= (s.risk_score or 0) < 76))
+    safe_count = max(0, total_messages - blocked_count - warn_count)
+
+    threat_rate = round(((blocked_count + warn_count) / total_messages * 100), 1) if total_messages > 0 else 0.0
+    safe_rate = round((safe_count / total_messages * 100), 1) if total_messages > 0 else 100.0
+
+    cat_counts = {
+        "OTP_SCAM": 0,
+        "FINANCIAL_SCAM": 0,
+        "JOB_SCAM": 0,
+        "PRIZE_SCAM": 0,
+        "IMPERSONATION": 0,
+        "MALICIOUS_LINK": 0,
+        "PHISHING_TEXT": 0,
+        "SOCIAL_ENGINEERING": 0
+    }
+
+    url_threats_count = 0
+    threats_feed = []
+
+    for s in scans:
+        factors = s.top_factors or ""
+        is_blocked = s.decision == "block" or (s.risk_score or 0) >= 76
+        is_warned = s.decision == "warn" or (50 <= (s.risk_score or 0) < 76)
+
+        cat = s.threat_type or "PHISHING_TEXT"
+        if "link" in str(factors).lower() or "url" in str(factors).lower():
+            cat = "MALICIOUS_LINK"
+            url_threats_count += 1
+
+        if is_blocked or is_warned:
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
+
+        # Parse stored JSON metadata for full model XAI evidence
+        parsed_payload = {}
+        if factors and factors.startswith("{"):
+            try:
+                parsed_payload = json.loads(factors)
+            except Exception:
+                pass
+
+        threats_feed.append({
+            "id": s.scan_id,
+            "preview": s.url or "WhatsApp Message",
+            "decision": s.decision,
+            "riskScore": s.risk_score,
+            "verdict": "phishing" if is_blocked else "suspicious" if is_warned else "safe",
+            "category": cat,
+            "factors": parsed_payload.get("top_factors", factors) if isinstance(parsed_payload, dict) else factors,
+            "modalities": parsed_payload.get("modalities", []) if isinstance(parsed_payload, dict) else [],
+            "xai_evidence": parsed_payload.get("xai_evidence", {}) if isinstance(parsed_payload, dict) else {},
+            "chatTitle": s.domain or "WhatsApp Chat",
+            "timestamp": str(s.created_at).replace(" ", "T") + "Z"
+        })
+
+    return {
+        "ok": True,
+        "totalMessages": total_messages,
+        "safeMessages": safe_count,
+        "threatMessages": blocked_count + warn_count,
+        "blockedCount": blocked_count,
+        "warnCount": warn_count,
+        "threatRate": threat_rate,
+        "safeRate": safe_rate,
+        "maliciousLinksBlocked": url_threats_count,
+        "categories": cat_counts,
+        "recentThreats": threats_feed[:50]
+    }
+
+
+class WhatsAppFeedbackRequest(BaseModel):
+    user_feedback: str  # 'false_positive', 'false_negative', 'accurate'
+    comments: Optional[str] = None
+
+
+@router.post("/analytics/whatsapp/{scan_id}/feedback")
+async def record_whatsapp_feedback(
+    scan_id: str,
+    payload: WhatsAppFeedbackRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    User false-positive / false-negative detection feedback reporting endpoint.
+    """
+    logger.info(f"Feedback recorded for scan {scan_id}: {payload.user_feedback} - {payload.comments}")
+    return {
+        "ok": True,
+        "scan_id": scan_id,
+        "feedback": payload.user_feedback,
+        "message": "Thank you. Your detection feedback has been logged to improve AegisOne models."
     }
