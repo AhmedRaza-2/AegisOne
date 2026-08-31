@@ -542,17 +542,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // ── Search Results Batch Scan ─────────────────────
         case MSG.SEARCH_SCAN: {
+          if (!isBackendOnline()) {
+            sendResponse({ ok: false, error: "backend_offline", results: [] });
+            break;
+          }
           const urls = Array.isArray(msg.urls) ? msg.urls : [];
           const results = await Promise.all(
             urls.map(async (url) => {
               const res = await scanURL(url).catch(() => null);
-              return res ? {
+              if (!res || res.score === -1 || res.verdict === "offline") {
+                return { url, score: -1, verdict: "offline", error: "backend_offline" };
+              }
+              return {
                 url,
                 score: res.score ?? 0,
                 verdict: res.verdict || "safe",
                 threat_type: res.threat_type || "safe",
                 phishing_probability: (res.score || 0) / 100
-              } : { url, score: 0, verdict: "safe" };
+              };
             })
           );
           sendResponse({ ok: true, results });

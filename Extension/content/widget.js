@@ -106,7 +106,9 @@ export function updateWidget(data) {
   widget._aegisData = { score, verdict, top_factors, threat_type };
 
   let cls, iconText, titleText, bubbleIcon;
-  if (score >= 80) {
+  if (score === -1 || verdict === "offline" || threat_type === "backend_offline") {
+    cls = "danger";  iconText = "🔴"; titleText = "API Offline (Contact Admin)"; bubbleIcon = "🔴";
+  } else if (score >= 80) {
     cls = "danger";  iconText = "🚨"; titleText = "Phishing Detected"; bubbleIcon = "🚨";
   } else if (score >= 50) {
     cls = "warning"; iconText = "⚠️"; titleText = "Suspicious Page"; bubbleIcon = "⚠️";
@@ -123,14 +125,21 @@ export function updateWidget(data) {
   if (bubble) {
     bubble.className = cls;
     bubble.textContent = bubbleIcon;
-    bubble.title = `AegisOne Protection — ${titleText} (${score}% Risk). Click to expand.`;
+    bubble.title = `AegisOne Protection — ${titleText}. Click to expand.`;
   }
 
-  const barColor = score < 20 ? "#10b981" : score < 50 ? "#fbbf24" : score < 80 ? "#f97316" : "#ef4444";
-  fill.style.width = `${score}%`;
-  fill.style.background = barColor;
-  pct.textContent = `${score}%`;
-  pct.style.color = barColor;
+  if (score === -1 || verdict === "offline" || threat_type === "backend_offline") {
+    fill.style.width = "100%";
+    fill.style.background = "#ef4444";
+    pct.textContent = "OFFLINE";
+    pct.style.color = "#ef4444";
+  } else {
+    const barColor = score < 20 ? "#10b981" : score < 50 ? "#fbbf24" : score < 80 ? "#f97316" : "#ef4444";
+    fill.style.width = `${score}%`;
+    fill.style.background = barColor;
+    pct.textContent = `${score}%`;
+    pct.style.color = barColor;
+  }
 
   actions.classList.remove("hidden");
   _refreshDetailsPanel(score, top_factors, threat_type);

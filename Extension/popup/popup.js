@@ -272,6 +272,21 @@ function _setVerdict({ score, verdict, threat_type }) {
   const fill = document.getElementById("riskFill");
   const pct = document.getElementById("riskPct");
   const bar = document.getElementById("riskBarContainer");
+  const banner = document.getElementById("backendOfflineBanner");
+
+  if (score === -1 || verdict === "offline" || threat_type === "backend_offline") {
+    if (banner) banner.style.display = "flex";
+    box.className = "verdict-card danger";
+    icon.textContent = "🔴";
+    status.textContent = "Backend API Offline";
+    detail.textContent = "Contact Security Administrator";
+    bar.style.display = "block";
+    fill.style.width = "100%";
+    fill.className = "risk-fill danger";
+    pct.textContent = "OFFLINE";
+    pct.style.color = "#ef4444";
+    return;
+  }
 
   if (score == null) {
     box.className = "verdict-card unknown";
@@ -431,12 +446,18 @@ async function loadRecentEvents() {
 async function checkServer() {
   const health = await sendMsg({ type: "CHECK_HEALTH" });
   const dot = document.getElementById("serverDot");
+  const banner = document.getElementById("backendOfflineBanner");
+  const isOnline = health?.online !== false;
+
   if (dot) {
-    dot.className = `server-dot ${health?.online ? "online" : "offline"}`;
-    dot.title = health?.online ? "Server online — AegisOne Backend Operational" : "Server offline — Backend disconnected";
+    dot.className = `server-dot ${isOnline ? "online" : "offline"}`;
+    dot.title = isOnline ? "Server online — AegisOne Backend Operational" : "Server offline — Backend disconnected";
   }
 
-  const isOnline = health?.online !== false;
+  if (banner) {
+    banner.style.display = isOnline ? "none" : "flex";
+  }
+
   const rawModels = health?.data?.models || health?.data?.models_loaded;
 
   ["email", "text", "url", "image"].forEach(id => {

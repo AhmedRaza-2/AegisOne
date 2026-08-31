@@ -268,6 +268,12 @@ function _showTooltip(anchor, { loading, url, score, verdict, top_factors }) {
         <span>🛡️</span><span>AI Scanning...</span>
       </div>
     `;
+  } else if (score === -1 || verdict === "offline") {
+    _tooltipEl.innerHTML = `
+      <div style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:800; color:#ef4444;">
+        <span>⚠️</span><span>Backend Offline</span>
+      </div>
+    `;
   } else {
     const scoreColor = score >= 80 ? "#ef4444" : score >= 50 ? "#f97316" : score >= 20 ? "#f59e0b" : "#10b981";
     const verdictText = score >= 80 ? "🚨 Phishing" : score >= 50 ? "⚠️ Suspicious" : score >= 20 ? "🔶 Warning" : "✅ Safe";

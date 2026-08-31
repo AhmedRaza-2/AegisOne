@@ -127,7 +127,7 @@ function _processScanQueue() {
     type: MSG.SEARCH_SCAN,
     urls: urls
   }).then(res => {
-    if (res?.ok && res.results) {
+    if (res?.ok && res.results && res.error !== "backend_offline") {
       // Map API results
       const resultMap = new Map();
       res.results.forEach(r => resultMap.set(r.url, r));
@@ -137,7 +137,7 @@ function _processScanQueue() {
         _scannedHrefs.add(item.href);
         const r = resultMap.get(item.href);
 
-        if (r) {
+        if (r && r.score !== -1 && r.verdict !== "offline") {
           const score = r.score ?? Math.round((r.phishing_probability || 0) * 100);
           const verdict = score >= 80 ? "danger" : score >= 50 ? "warning" : "safe";
           _injectBadge(item.linkEl, {
@@ -147,27 +147,33 @@ function _processScanQueue() {
             href: item.href
           });
         } else {
-          // If backend didn't return a result for this URL (failed/timeout), mark safe to clear spinner
-          _injectBadge(item.linkEl, { verdict: "safe", score: 0, href: item.href });
+          // Backend API offline or returned error — remove badge completely
+          _removeBadge(item.linkEl);
         }
       });
     } else {
-      _resetBatch(batch);
+      // Backend API offline or request failed — remove all badges in batch
+      _removeAllBadges(batch);
     }
 
     if (_scanQueue.length > 0) {
       _queueTimeout = setTimeout(_processScanQueue, 150);
     }
   }).catch(err => {
-    console.error("[AegisOne] Batch scan error:", err);
-    _resetBatch(batch);
+    _removeAllBadges(batch);
   });
 }
 
-function _resetBatch(batch) {
+function _removeBadge(linkEl) {
+  if (!linkEl) return;
+  const badge = linkEl.querySelector(".aegis-search-badge");
+  if (badge) badge.remove();
+}
+
+function _removeAllBadges(batch) {
   batch.forEach(({ linkEl, href }) => {
     _scannedHrefs.add(href);
-    _injectBadge(linkEl, { verdict: "safe", score: 0, href });
+    _removeBadge(linkEl);
   });
 }
 

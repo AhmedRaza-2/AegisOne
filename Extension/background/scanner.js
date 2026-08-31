@@ -144,8 +144,41 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
   if (url.startsWith("chrome:") || url.startsWith("chrome-extension:") || url.startsWith("about:") || url.startsWith("data:")) {
     return _skippedResult(url);
   }
-  const policy = await _getPolicySnapshot();
+
   const domain = getRootDomain(url);
+  const hasDOMFeatures = Object.keys(pageFeatures).length > 0;
+
+  // 1. LAYER 1: Check LRU Cache First. If this URL was ALREADY scanned & verified while online, retain its valid result!
+  if (!bypassCache) {
+    const cached = await getCachedResult(url);
+    if (cached && !cached.skipped && cached.verdict !== "offline" && cached.score !== -1) {
+      const cachedHasBrand = Boolean(cached.breakdown?.brand_mismatch?.available);
+      const newHasBrand = Boolean(pageFeatures.brand_impersonation);
+      if ((!hasDOMFeatures || cached.has_dom_features) && (!newHasBrand || cachedHasBrand)) {
+        return { ...cached, from_cache: true };
+      }
+    }
+  }
+
+  // 2. LAYER 2: If item is UN-SCANNED and Backend API is Offline, return offline state. No fake safe scores for unscanned items!
+  if (!isBackendOnline()) {
+    return {
+      url,
+      domain: domain,
+      score: -1,
+      verdict: "offline",
+      error: "backend_offline",
+      message: "AegisOne Backend API Offline — Contact Security Administrator",
+      top_factors: [{ label: "⚠️ AegisOne Backend API Server is Offline — Contact Administrator" }],
+      threat_type: "backend_offline",
+      raw_url_model: null,
+      has_dom_features: hasDOMFeatures,
+      from_cache: false,
+      scanned_at: new Date().toISOString()
+    };
+  }
+
+  const policy = await _getPolicySnapshot();
   const isTestFixture = url.includes("brand_impersonation.html") || url.includes("phishing.html") || bypassPolicy;
 
   if (!isTestFixture) {
@@ -153,27 +186,6 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
     if (_matchesAny(domain, policy.blocklist)) return _policyBlockedResult(url, "policy_blocklist");
   }
   const warningMatch = _matchesAny(domain, policy.warninglist);
-
-  const hasDOMFeatures = Object.keys(pageFeatures).length > 0;
-
-  // Check cache — bypass if explicitly requested, if cached result was skipped, or if new brand impersonation features arrived
-  if (!bypassCache) {
-    const cached = await getCachedResult(url);
-    if (cached && !cached.skipped) {
-      const cachedHasBrand = Boolean(cached.breakdown?.brand_mismatch?.available);
-      const newHasBrand = Boolean(pageFeatures.brand_impersonation);
-      if ((!hasDOMFeatures || cached.has_dom_features) && (!newHasBrand || cachedHasBrand)) {
-        const cachedResult = { ...cached, from_cache: true };
-        if (warningMatch && (cachedResult.score ?? 0) < THRESHOLD.WARNING * 100) {
-          cachedResult.score = Math.round(THRESHOLD.WARNING * 100);
-          cachedResult.verdict = VERDICT.WARNING;
-          cachedResult.policy_override = "warn";
-          cachedResult.policy_reason = "Matched organization warninglist";
-        }
-        return cachedResult;
-      }
-    }
-  }
 
   // ── L3: URL AI Model ────────────────────────────────────
   // Reuse the URL model prediction from cache if it exists, to avoid redundant network calls
@@ -195,12 +207,23 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
     }
   }
 
-  // If API failed, do not blindly trust stale cache. Fall back to local heuristics.
-  if (!urlModel && cached) {
-    if (DEBUG_MODE) console.log("[AegisOne:Scanner] API unavailable — falling back to local heuristics for:", domain);
-    urlModel = { phishing_probability: 0.15, category: "unknown", prediction: "unknown", note: "api_offline" };
+  // If API failed or is offline, do NOT return fake safe score. Return explicit offline state.
+  if (!urlModel) {
+    return {
+      url,
+      domain: getRootDomain(url),
+      score: -1,
+      verdict: "offline",
+      error: "backend_offline",
+      message: "AegisOne Backend API Offline — Contact Security Administrator",
+      top_factors: [{ label: "⚠️ AegisOne Backend API Server is Offline — Contact Administrator" }],
+      threat_type: "backend_offline",
+      raw_url_model: null,
+      has_dom_features: hasDOMFeatures,
+      from_cache: false,
+      scanned_at: new Date().toISOString()
+    };
   }
-  if (!urlModel) return null;
 
   // ── Build signals for risk engine ───────────────────────
   const signals = {
