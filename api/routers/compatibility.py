@@ -273,25 +273,33 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
 
     result = await predict_url(url, actions_list)
     
-    score = result.get("phishing_probability", 0) * 100
-    evidence_envelope = {
-        "url": { 
-            "available": True, 
-            "risk": score,
-            "confidence": result.get("confidence", 0.0),
-            "source_type": "known_malicious" if result.get("evidence", {}).get("fusion_method", "").startswith("Cascade") else "heuristic_ml",
-            # Pass structured signal flags so ContextualRiskEngine can evaluate multi-signal block eligibility
-            "results": [{
-                "brand_impersonation": result.get("brand_impersonation", False),
-                "credential_lure_detected": result.get("credential_lure_detected", False),
-                "suspicious_tld": result.get("suspicious_tld", False),
-                "score": score,
-            }]
-        },
-        "text": { "available": False, "risk": 0.0 },
-        "visual": { "available": False, "risk": 0.0 },
-        "dom": { "available": bool(dom_signals_dict), "signals": dom_signals_dict }
-    }
+    if "error" in result:
+        # PROCESSING_ERROR trace rather than inventing a score
+        evidence_envelope = {
+            "url": { "available": False, "risk": 0.0, "error": result["error"] },
+            "text": { "available": False, "risk": 0.0 },
+            "visual": { "available": False, "risk": 0.0 },
+            "dom": { "available": bool(dom_signals_dict), "signals": dom_signals_dict }
+        }
+    else:
+        score = result.get("phishing_probability", 0) * 100
+        evidence_envelope = {
+            "url": { 
+                "available": True, 
+                "risk": score,
+                "confidence": result.get("confidence", 0.0),
+                "source_type": "known_malicious" if result.get("evidence", {}).get("fusion_method", "").startswith("Cascade") else "heuristic_ml",
+                "results": [{
+                    "brand_impersonation": result.get("brand_impersonation", False),
+                    "credential_lure_detected": result.get("credential_lure_detected", False),
+                    "suspicious_tld": result.get("suspicious_tld", False),
+                    "score": score,
+                }]
+            },
+            "text": { "available": False, "risk": 0.0 },
+            "visual": { "available": False, "risk": 0.0 },
+            "dom": { "available": bool(dom_signals_dict), "signals": dom_signals_dict }
+        }
     
     contextual_result = _contextual_engine.resolve(evidence_envelope)
     final_risk = contextual_result["final_risk"]

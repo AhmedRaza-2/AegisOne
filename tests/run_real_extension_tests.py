@@ -463,10 +463,11 @@ def write_reports(report_data, category_summary, safe_traces, phishing_traces):
 
 ## 2. SYSTEM & PIPELINE RELIABILITY
 - Total Attempted URLs: 100
-- Completed Pipeline Scans: {report_data['combined']['tp'] + report_data['combined']['tn'] + report_data['combined']['fp'] + report_data['combined']['fn']}
-- Pipeline Execution Failures: {report_data['safe_websites']['timeouts'] + report_data['safe_websites']['errors']}
-- **Pipeline Completion Rate**: {((report_data['combined']['tp'] + report_data['combined']['tn'] + report_data['combined']['fp'] + report_data['combined']['fn']) / 100.0) * 100:.1f}%
-- **Pipeline Failure Rate**: {((report_data['safe_websites']['timeouts'] + report_data['safe_websites']['errors']) / 100.0) * 100:.1f}%
+- **Verdict Completion Rate**: {report_data['benchmark_metrics']['verdict_completion_rate']:.1f}% *(Final SAFE/WARN/BLOCK produced)*
+- **Full Multimodal Completion Rate**: {report_data['benchmark_metrics']['full_multimodal_rate']:.1f}% *(URL + DOM available)*
+- **URL-only Degradation Rate**: {report_data['benchmark_metrics']['url_only_degradation_rate']:.1f}% *(DOM failed but URL analysis completed)*
+- **Navigation Failure Rate**: {report_data['benchmark_metrics']['navigation_failure_rate']:.1f}% *(Could not process at all)*
+
 
 ## 3. SAFE TESTING BY CATEGORY
 | Category | Total Tested | Passed | False Positives | Timeouts/Errors | Pass Rate |
@@ -649,6 +650,13 @@ async def main():
         fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
         fnr = fn / (tp + fn) if (tp + fn) > 0 else 0
 
+        url_only_safe = sum(1 for trace in browser_res["detailed_traces"].values() if trace and (trace.get("page_features") or {}).get("scan_completeness") == "URL_ONLY")
+        url_only_phishing = 0 # Currently phishing dataset uses direct API in tests
+
+        total_scans = total_safe + len(phishing_urls)
+        verdict_completion = total  # tp+tn+fp+fn
+        full_multimodal = verdict_completion - url_only_safe - url_only_phishing
+        
         report_data = {
             "safe_websites": {
                 "total": total_safe,
@@ -659,6 +667,12 @@ async def main():
                 "unverified": unverified,
                 "detailed_results": browser_res["statuses"],
                 "detailed_traces": browser_res["detailed_traces"]
+            },
+            "benchmark_metrics": {
+                "verdict_completion_rate": (verdict_completion / total_scans) * 100.0,
+                "full_multimodal_rate": (full_multimodal / total_scans) * 100.0,
+                "url_only_degradation_rate": ((url_only_safe + url_only_phishing) / total_scans) * 100.0,
+                "navigation_failure_rate": ((timeouts + errors) / total_scans) * 100.0,
             },
             "phishing": {
                 "total": len(phishing_urls),

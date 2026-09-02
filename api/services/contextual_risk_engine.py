@@ -188,26 +188,27 @@ class ContextualRiskEngine:
         if block_eligible:
             final_risk = max(final_risk, 80.0)
         
+        from api.services.decision_policy import DecisionPolicy
+        
         if final_risk >= 75:
-            if block_eligible:
-                decision = "BLOCK"
+            decision = DecisionPolicy.generate_verdict(final_risk, block_eligible)
+            if decision == "BLOCK":
                 confidence = 0.90
             else:
-                decision = "SUSPICIOUS"
                 confidence = 0.60
             corroboration = "HIGH" if len(positive_signals) >= 2 else "MEDIUM"
         elif final_risk >= 40:
-            decision = "SUSPICIOUS"
+            decision = DecisionPolicy.generate_verdict(final_risk, block_eligible)
             confidence = 0.60
             corroboration = "LOW"
         else:
-            decision = "SAFE"
+            decision = DecisionPolicy.generate_verdict(final_risk, block_eligible)
             confidence = 0.95
             corroboration = "NONE"
             # Ensure semantic risk isn't completely erased if it exists
             if contradictions and text_risk >= 80:
                 final_risk = max(final_risk, 15.0)
-                decision = "SAFE" # Still safe but with residual risk mapped for XAI
+                decision = DecisionPolicy.generate_verdict(final_risk, block_eligible)
                 confidence = 0.70
 
         # Construct decision trace for diagnostic telemetry

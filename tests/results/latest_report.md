@@ -14,10 +14,11 @@
 
 ## 2. SYSTEM & PIPELINE RELIABILITY
 - Total Attempted URLs: 100
-- Completed Pipeline Scans: 100
-- Pipeline Execution Failures: 0
-- **Pipeline Completion Rate**: 100.0%
-- **Pipeline Failure Rate**: 0.0%
+- **Verdict Completion Rate**: 100.0% *(Final SAFE/WARN/BLOCK produced)*
+- **Full Multimodal Completion Rate**: 98.0% *(URL + DOM available)*
+- **URL-only Degradation Rate**: 2.0% *(DOM failed but URL analysis completed)*
+- **Navigation Failure Rate**: 0.0% *(Could not process at all)*
+
 
 ## 3. SAFE TESTING BY CATEGORY
 | Category | Total Tested | Passed | False Positives | Timeouts/Errors | Pass Rate |
@@ -72,6 +73,6 @@ None
 | None | - | - |
 
 ## PERFORMANCE BREAKDOWN (STAGE LATENCIES)
-- Page Navigation & DOM Acquisition P95: 3613.8 ms  *(Browser network load & DOM rendering)*
-- AegisOne L3 API Scan P95: 311.7 ms  *(Feature extraction & L3 risk engine decision)*
-- Total End-to-End P95: 8211.2 ms  *(User-perceived scan completion latency)*
+- Page Navigation & DOM Acquisition P95: 3636.5 ms  *(Browser network load & DOM rendering)*
+- AegisOne L3 API Scan P95: 312.5 ms  *(Feature extraction & L3 risk engine decision)*
+- Total End-to-End P95: 8683.9 ms  *(User-perceived scan completion latency)*
