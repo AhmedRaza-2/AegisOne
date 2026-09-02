@@ -1,0 +1,32 @@
+[
+  {
+    "url": "http://apple-id-session-expired.help",
+    "category": "phishing",
+    "description": "Brand impersonation + credential lure (unseen domain)"
+  },
+  {
+    "url": "http://amazon-delivery-payment-update.shop",
+    "category": "phishing",
+    "description": "Logistics + payment lure"
+  },
+  {
+    "url": "http://facebook-business-security-check.online",
+    "category": "phishing",
+    "description": "Social media security check"
+  },
+  {
+    "url": "http://google-drive-shared-document-login.click",
+    "category": "phishing",
+    "description": "Cloud storage shared document lure"
+  },
+  {
+    "url": "http://microsoft-account-verification-support.xyz",
+    "category": "phishing",
+    "description": "Account verification lure"
+  },
+  {
+    "url": "http://paypal-resolution-center-confirmation.top",
+    "category": "phishing",
+    "description": "Financial resolution center lure"
+  }
+]

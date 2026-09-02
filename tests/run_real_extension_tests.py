@@ -348,7 +348,7 @@ def calculate_confusion_matrix(y_true, y_pred):
 # ═══════════════════════════════════════════════════════════════════════
 # REPORT GENERATORS
 # ═══════════════════════════════════════════════════════════════════════
-def write_reports(report_data, category_summary, safe_traces, phishing_traces):
+def write_reports(report_data, category_summary, safe_traces, phishing_traces, dataset_name):
     results_dir = os.path.join("tests", "results")
     os.makedirs(results_dir, exist_ok=True)
     
@@ -447,7 +447,7 @@ def write_reports(report_data, category_summary, safe_traces, phishing_traces):
         cat_rows.append(f"| {cat} | {stats['total']} | {stats['passed']} | {stats['false_positives']} | {stats['errors_or_timeouts']} | {pass_rate:.1f}% |")
     cat_table = "\n".join(cat_rows)
 
-    md_content = f"""# AegisOne Real-World Extension Test Report
+    md_content = f"""# AegisOne Real-World Extension Test Report ({dataset_name.upper()} DATASET)
 
 ## 1. CLASSIFIER DETECTION QUALITY (ON COMPLETED SCANS)
 - Evaluated Completed Samples: {report_data['combined']['tp'] + report_data['combined']['tn'] + report_data['combined']['fp'] + report_data['combined']['fn']}
@@ -462,7 +462,7 @@ def write_reports(report_data, category_summary, safe_traces, phishing_traces):
 - **False Negative Rate (FNR)**: {report_data['combined']['fnr']*100:.1f}%
 
 ## 2. SYSTEM & PIPELINE RELIABILITY
-- Total Attempted URLs: 100
+- Total Attempted URLs: {report_data['safe_websites']['total'] + report_data['phishing']['total']}
 - **Verdict Completion Rate**: {report_data['benchmark_metrics']['verdict_completion_rate']:.1f}% *(Final SAFE/WARN/BLOCK produced)*
 - **Full Multimodal Completion Rate**: {report_data['benchmark_metrics']['full_multimodal_rate']:.1f}% *(URL + DOM available)*
 - **URL-only Degradation Rate**: {report_data['benchmark_metrics']['url_only_degradation_rate']:.1f}% *(DOM failed but URL analysis completed)*
@@ -583,6 +583,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Real-World Extension Test Harness")
     parser.add_argument("--api-url", default=API_URL, help="Base API of AegisOne")
     parser.add_argument("--sweep", action="store_true", help="Perform offline threshold analysis")
+    parser.add_argument("--dataset", choices=["development", "holdout"], default="development", help="Which dataset to evaluate against")
     args = parser.parse_args()
 
     # Start mock server
@@ -591,9 +592,12 @@ async def main():
     await asyncio.sleep(1.0)
 
     # Load Corpora
-    with open("tests/datasets/safe_corpus.json", "r", encoding="utf-8") as f:
+    dataset_dir = os.path.join("tests", "benchmark", args.dataset)
+    print(f"\n🚀 STARTING AEGISONE v0.9 BENCHMARK ({args.dataset.upper()} DATASET)")
+    
+    with open(os.path.join(dataset_dir, "safe_corpus.json"), "r", encoding="utf-8") as f:
         safe_urls = json.load(f)
-    with open("tests/datasets/phishing_feed.json", "r", encoding="utf-8") as f:
+    with open(os.path.join(dataset_dir, "phishing_feed.json"), "r", encoding="utf-8") as f:
         phishing_urls = json.load(f)
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -639,9 +643,10 @@ async def main():
         total = tp + tn + fp + fn
 
         # Validate Invariants
+        total_expected = total_safe + len(phishing_urls)
         assert tp + fn == len(phishing_urls), f"Invariant Error: tp ({tp}) + fn ({fn}) != {len(phishing_urls)}"
         assert tn + fp == total_safe, f"Invariant Error: tn ({tn}) + fp ({fp}) != {total_safe}"
-        assert total == 100, f"Invariant Error: total completed ({total}) != 100"
+        assert total == total_expected, f"Invariant Error: total completed ({total}) != {total_expected}"
         
         accuracy = (tp + tn) / total if total > 0 else 0
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
@@ -723,7 +728,7 @@ async def main():
                 print(f"Threshold: {t_val:.2f} | F1: {m['f1']*100:.1f}% | Recall: {m['recall']*100:.1f}% | FPR: {m['fpr']*100:.1f}%")
             print("="*60)
 
-        write_reports(report_data, category_summary, safe_traces, phishing_traces)
+        write_reports(report_data, category_summary, safe_traces, phishing_traces, args.dataset)
         print("\n🏆 Diagnostic telemetry completed! Reports exported to tests/results/ (latest_report.md, false_positives.json, false_negatives.json, timeouts_and_errors.json)")
 
 if __name__ == "__main__":

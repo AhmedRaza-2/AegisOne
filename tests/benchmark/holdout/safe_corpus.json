@@ -1,0 +1,17 @@
+[
+  {
+    "url": "https://aws.amazon.com",
+    "category": "technology",
+    "description": "Known brand not previously tested"
+  },
+  {
+    "url": "https://www.apple.com/shop",
+    "category": "e-commerce",
+    "description": "Known brand not previously tested"
+  },
+  {
+    "url": "https://slack.com/workspace",
+    "category": "saas",
+    "description": "Known brand not previously tested"
+  }
+]
