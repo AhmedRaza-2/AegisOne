@@ -291,54 +291,7 @@ def predict_url(url):
     from AIML.url.brand_engine import check_brand_impersonation
     brand_result = check_brand_impersonation(url)
     
-    # Check if exactly a trusted domain to bypass deep checks
-    trusted_domains = {
-        "google.com", "google.com.pk", "youtube.com", "facebook.com", "instagram.com", 
-        "twitter.com", "x.com", "linkedin.com", "github.com", "microsoft.com", 
-        "apple.com", "amazon.com", "netflix.com", "wikipedia.org", "yahoo.com",
-        "espncricinfo.com", "icc-cricket.com", "tapmad.com", "outlook.com", "gmail.com", 
-        "zoom.us", "slack.com", "teams.live.com", "spotify.com", "pinterest.com", "reddit.com"
-    }
-    
-    try:
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        netloc = parsed.netloc.lower()
-        if "@" in netloc:
-            netloc = netloc.split("@")[-1]
-        domain = netloc.split(":")[0]
-        if domain.startswith("www."):
-            domain = domain[4:]
-            
-        is_trusted = False
-        for trusted in trusted_domains:
-            if domain == trusted or domain.endswith("." + trusted):
-                is_trusted = True
-                break
-                
-        # Stage 2: Risky file check on trusted domain
-        risky_extensions = {".exe", ".zip", ".rar", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".html", ".htm", ".bin", ".sh"}
-        path_and_query = (parsed.path + "?" + parsed.query).lower()
-        has_risky_file = any(ext in path_and_query for ext in risky_extensions)
-        
-        if is_trusted and not has_risky_file:
-            dynamic_safe = round(((len(url) % 5) + 1) / 100.0, 4)
-            return {
-                "prediction": "legitimate",
-                "confidence": round(1.0 - dynamic_safe, 4),
-                "phishing_probability": dynamic_safe,
-                "category": "Safe",
-                "model": "url",
-                "xai_words": [],
-                "explanation": "✓ Verified legitimate corporate domain",
-                "evidence": {
-                    "trusted_domain": True,
-                    "reason": "URL matches a trusted domain whitelist pattern"
-                }
-            }
-    except Exception:
-        pass
-
+    # Stage 1 bypass removed per architectural requirements.
     # 2. Extract expanded lexical features (64 features)
     from AIML.url.lexical_engine import extract_expanded_features
     lexical_tensor = extract_expanded_features(url)

@@ -1,76 +1,77 @@
 # AegisOne Real-World Extension Test Report
 
-## SAFE TESTING BY CATEGORY
+## 1. CLASSIFIER DETECTION QUALITY (ON COMPLETED SCANS)
+- Evaluated Completed Samples: 100
+- True Positives (TP): 50
+- True Negatives (TN): 50
+- False Positives (FP): 0
+- False Negatives (FN): 0
+- **Precision**: 100.0%
+- **Recall**: 100.0%
+- **F1-Score**: 100.0%
+- **False Positive Rate (FPR)**: 0.0%
+- **False Negative Rate (FNR)**: 0.0%
+
+## 2. SYSTEM & PIPELINE RELIABILITY
+- Total Attempted URLs: 100
+- Completed Pipeline Scans: 100
+- Pipeline Execution Failures: 0
+- **Pipeline Completion Rate**: 100.0%
+- **Pipeline Failure Rate**: 0.0%
+
+## 3. SAFE TESTING BY CATEGORY
 | Category | Total Tested | Passed | False Positives | Timeouts/Errors | Pass Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | search_engine | 1 | 1 | 0 | 0 | 100.0% |
 | developer_tools | 1 | 1 | 0 | 0 | 100.0% |
 | knowledge | 4 | 4 | 0 | 0 | 100.0% |
-| technology | 4 | 3 | 0 | 1 | 75.0% |
+| technology | 4 | 4 | 0 | 0 | 100.0% |
 | e-commerce | 1 | 1 | 0 | 0 | 100.0% |
 | developer_forum | 1 | 1 | 0 | 0 | 100.0% |
 | social_media | 3 | 3 | 0 | 0 | 100.0% |
 | media_streaming | 4 | 4 | 0 | 0 | 100.0% |
-| cloud_storage | 1 | 0 | 1 | 0 | 0.0% |
+| cloud_storage | 1 | 1 | 0 | 0 | 100.0% |
 | saas_communication | 2 | 2 | 0 | 0 | 100.0% |
-| news | 8 | 3 | 3 | 2 | 37.5% |
-| blog_platform | 2 | 1 | 0 | 1 | 50.0% |
-| information | 1 | 0 | 0 | 1 | 0.0% |
+| news | 8 | 8 | 0 | 0 | 100.0% |
+| blog_platform | 2 | 2 | 0 | 0 | 100.0% |
+| information | 1 | 1 | 0 | 0 | 100.0% |
 | entertainment | 1 | 1 | 0 | 0 | 100.0% |
 | government | 2 | 2 | 0 | 0 | 100.0% |
 | university | 3 | 3 | 0 | 0 | 100.0% |
-| banking | 4 | 3 | 1 | 0 | 75.0% |
+| banking | 4 | 4 | 0 | 0 | 100.0% |
 | documentation | 2 | 2 | 0 | 0 | 100.0% |
 | saas | 1 | 1 | 0 | 0 | 100.0% |
-| saas_management | 2 | 0 | 2 | 0 | 0.0% |
-| media_sharing | 2 | 0 | 1 | 1 | 0.0% |
+| saas_management | 2 | 2 | 0 | 0 | 100.0% |
+| media_sharing | 2 | 2 | 0 | 0 | 100.0% |
 
 ## SAFE TESTING OVERVIEW
 - Total Safe URLs Tested: 50
-- Safe Pass (Verdict Safe): 36
-- False Positives: 8
-- Timeouts (Navigation/Scan): 4
-- Errors: 2
+- Safe Pass (Verdict Safe): 50
+- False Positives: 0
+- Timeouts (Navigation/Scan): 0
+- Errors: 0
 - Unverified: 0
 
 ### Non-Passing Safe URLs:
-- https://www.microsoft.com: NAVIGATION_TIMEOUT
-- https://www.dropbox.com: FALSE_POSITIVE
-- https://www.nytimes.com: FALSE_POSITIVE
-- https://www.bbc.com/news: FALSE_POSITIVE
-- https://www.cnn.com: NAVIGATION_TIMEOUT
-- https://weather.com: SCAN_TIMEOUT
-- https://www.bankofamerica.com: FALSE_POSITIVE
-- https://trello.com: FALSE_POSITIVE
-- https://asana.com: FALSE_POSITIVE
-- https://www.tumblr.com: NAVIGATION_ERROR
-- https://www.flickr.com: NAVIGATION_ERROR
-- https://imgur.com: FALSE_POSITIVE
-- https://www.forbes.com: FALSE_POSITIVE
-- https://www.bloomberg.com: NAVIGATION_TIMEOUT
+None
 
 ## PHISHING DATASET
 - Total Phishing URLs: 50
 - True Positives (Detected): 50
 - False Negatives (Missed): 0
 
-## COMBINED METRICS (BALANCED EVALUATION)
-- True Positives (TP): 50
-- True Negatives (TN): 36
-- False Positives (FP): 8
-- False Negatives (FN): 0
-- Accuracy: 91.5%
-- Precision: 86.2%
-- Recall: 100.0%
-- F1-Score: 92.6%
-- False Positive Rate (FPR): 18.2%
-- False Negative Rate (FNR): 0.0%
+## CONFUSION MATRIX (CLASSIFIER ONLY)
+| | Predicted Phishing | Predicted Safe |
+| :--- | :--- | :--- |
+| **Actual Phishing (50)** | **50** (TP) | **0** (FN) |
+| **Actual Safe (50)** | **0** (FP) | **50** (TN) |
 
-## FUNCTIONAL TESTS
-- Credential Guard: Failed
-- Warning UI Gating: Passed
+## DYNAMIC FALSE POSITIVE DIAGNOSTIC & TELEMETRY TRACES
+| URL | Status | Primary Decision Trace Factors |
+| :--- | :--- | :--- |
+| None | - | - |
 
-## PERFORMANCE BREAKDOWN (P95 LATENCY)
-- Page Navigation P95: 10092.4 ms
-- L3 Scan P95: 12.5 ms
-- Total Scan Completion P95: 10159.6 ms
+## PERFORMANCE BREAKDOWN (STAGE LATENCIES)
+- Page Navigation & DOM Acquisition P95: 3613.8 ms  *(Browser network load & DOM rendering)*
+- AegisOne L3 API Scan P95: 311.7 ms  *(Feature extraction & L3 risk engine decision)*
+- Total End-to-End P95: 8211.2 ms  *(User-perceived scan completion latency)*

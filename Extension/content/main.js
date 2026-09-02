@@ -199,13 +199,7 @@
       }
 
 
-      const TRUSTED_APP_HOSTS = [
-        "mail.google.com", "outlook.office.com", "outlook.live.com", "web.whatsapp.com",
-        "google.com", "github.com", "microsoft.com", "facebook.com", "instagram.com",
-        "twitter.com", "x.com", "linkedin.com", "youtube.com", "reddit.com", "amazon.com",
-        "wikipedia.org", "apple.com", "netflix.com", "spotify.com"
-      ];
-      const isTrustedApp = TRUSTED_APP_HOSTS.some(h => location.hostname.toLowerCase() === h || location.hostname.toLowerCase().endsWith("." + h));
+
 
       chrome.runtime.onMessage.addListener((msg) => {
         switch (msg.type) {
@@ -225,7 +219,7 @@
               updateWidget(msg);
             }
 
-            if (msg.score >= 80 && !isTrustedApp && !isAllowlistedPage) {
+            if (msg.score >= 80 && !isAllowlistedPage) {
               showWarningModal({
                 score: msg.score,
                 verdict: msg.verdict,
@@ -238,7 +232,7 @@
 
           case "SHOW_WARNING":
             _exposeTelemetryToDOM("aegis-scan-data", msg);
-            if (msg.score >= 80 && !isTrustedApp && !isAllowlistedPage) {
+            if (msg.score >= 80 && !isAllowlistedPage) {
               showWarningModal({
                 score: msg.score,
                 verdict: msg.verdict,
@@ -448,7 +442,7 @@
             
             // On trusted hosts (Facebook, Gmail, etc.), deep scan highlights embedded external links without altering host page safety
             const baseScore = _currentScanData?.score || 0;
-            const mergedScore = isTrustedApp ? baseScore : Math.max(baseScore, composite);
+            const mergedScore = Math.max(baseScore, composite);
             
             const currentResult = {
               score: mergedScore,
@@ -468,7 +462,7 @@
               updateThreatCount(badUrls.length);
             }
             // Show phishing warning dialog ONLY on un-trusted non-allowlisted pages
-            if (composite >= 75 && !window.__AEGIS_WARNING_DISMISSED__ && !isTrustedApp && !isAllowlistedPage) {
+            if (composite >= 75 && !window.__AEGIS_WARNING_DISMISSED__ && !isAllowlistedPage) {
               const factors = [
                 ...badUrls.slice(0, 2).map(u => ({ label: `Malicious link: ${u.url.slice(0,40)}…` })),
                 ...(textSignals || []).slice(0, 2).map(w => ({ label: `Phishing keyword: "${w}"` })),

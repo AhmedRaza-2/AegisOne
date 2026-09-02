@@ -140,17 +140,5 @@ RISK_THRESHOLDS = {
     "HIGH_RISK":   (76, 100),
 }
 
-# Trusted domains for URL whitelisting
-TRUSTED_DOMAINS = {
-    "google.com", "google.com.pk", "youtube.com", "facebook.com", "instagram.com",
-    "twitter.com", "x.com", "linkedin.com", "github.com", "microsoft.com",
-    "apple.com", "amazon.com", "netflix.com", "wikipedia.org", "yahoo.com",
-    "espncricinfo.com", "icc-cricket.com", "tapmad.com", "outlook.com", "gmail.com",
-    "zoom.us", "slack.com", "teams.live.com", "spotify.com", "pinterest.com", "reddit.com",
-    "openai.com", "chatgpt.com", "claude.ai", "anthropic.com", "huggingface.co",
-    "perplexity.ai", "deepseek.com", "x.ai", "v0.dev", "vercel.app", "notion.so",
-    "figma.com", "canva.com", "atlassian.net", "jira.com", "github.io", "gitlab.io",
-    "whisperai.com", "whispertranscribe.com",
-}
 
 URL_CLASSES = ["benign", "defacement", "phishing", "malware"]

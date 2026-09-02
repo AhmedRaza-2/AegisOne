@@ -1,0 +1,32 @@
+{
+  "name": "aegisone-e2e-simulation",
+  "version": "1.0.0",
+  "description": "AegisOne multi-actor E2E organization simulation — Playwright + Mailpit + PostgreSQL",
+  "private": true,
+  "scripts": {
+    "simulate": "ts-node -r tsconfig-paths/register orchestrator/run.ts",
+    "simulate:phishing": "ts-node -r tsconfig-paths/register orchestrator/run.ts --scenario phishing-campaign",
+    "simulate:safe": "ts-node -r tsconfig-paths/register orchestrator/run.ts --scenario safe-browsing",
+    "simulate:mixed": "ts-node -r tsconfig-paths/register orchestrator/run.ts --scenario mixed-behavior",
+    "simulate:20": "ts-node -r tsconfig-paths/register orchestrator/run.ts --scenario phishing-campaign --scale 20",
+    "playwright:report": "npx playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.45.0",
+    "axios": "^1.7.2",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "pg": "^8.12.0",
+    "seedrandom": "^3.0.5",
+    "table": "^6.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.6",
+    "@types/seedrandom": "^3.0.8",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.4.5"
+  }
+}

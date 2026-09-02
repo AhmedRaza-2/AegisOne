@@ -31,8 +31,7 @@ def fuse_url_intelligence(
     url: str,
     model_prediction_probs: List[float],
     brand_result: dict,
-    lexical_tensor: torch.Tensor,
-    is_trusted: bool = False
+    lexical_tensor: torch.Tensor
 ) -> dict:
     """
     Fuses predictions, brand metrics, and lexical features into a final report.
@@ -116,57 +115,44 @@ def fuse_url_intelligence(
         not brand_matched
     )
 
-    # If the caller provides dummy/None probabilities, we can bypass BERT entirely
-    if model_prediction_probs is None and is_structurally_clean and is_trusted:
-        calibration = calibrate_probability(0.05)
-        return {
-            "prediction": "legitimate",
-            "risk_score": calibration["risk_score"],
-            "category": calibration["category"],
-            "confidence": calibration["confidence"],
-            "explanation": "✓ Instant Pass: Clean static structure and trusted domain verification.",
-            "evidence": {
-                "model_malicious_probability": 0.0,
-                "brand_impersonation": brand_result,
-                "lexical_anomalies": [],
-                "structural_risk_score": 0.0,
-                "fusion_method": "Cascade Level 2: Static Clean Pass Override"
-            }
-        }
+    # Bypass removed per architectural requirements
 
     # ══════════════════════════════════════════════════════════════════
-    # CASCADE LEVEL 3: Calibrated Meta-Classifier
+    # CASCADE LEVEL 3: Deep Learning Model Integration
     # ══════════════════════════════════════════════════════════════════
+    # We disable the legacy Random Forest meta-classifier because it was 
+    # overly biased towards domain length and relied on the deprecated whitelist.
+    # We now strictly trust the DistilBERT neural predictions + heuristics.
+    
     if model_prediction_probs is None:
         model_prediction_probs = [1.0, 0.0, 0.0, 0.0]
         
     p_benign = model_prediction_probs[0]
     p_malicious_model = 1.0 - p_benign
     
-    fused_prob = 0.0
-    method = "Fallback Baseline Logic"
+    fused_prob = p_malicious_model
+    method = "Deep Learning BERT + Lexical Fusion"
 
-    if META_CLASSIFIER is not None:
-        try:
-            features = np.concatenate([model_prediction_probs, [brand_score], lexical_arr])
-            probs_meta = META_CLASSIFIER.predict_proba([features])[0]
-            fused_prob = float(probs_meta[1])
-            method = "Trained Calibrated Meta-Classifier (Random Forest + Platt Sigmoid)"
-        except Exception:
-            META_CLASSIFIER = None
+    # Impersonation & High-Confidence Corroboration Engine
+    # Require specific high-confidence lures (keywords, auth spoofing, suspicious TLD) to corroborate brand-domain mismatch
+    high_confidence_lure_prefixes = ("contains_", "auth_spoofing", "suspicious_top_level", "raw_ip_address")
+    has_high_conf_corroboration = any(any(a.startswith(prefix) for prefix in high_confidence_lure_prefixes) for a in anomalies)
 
-    if META_CLASSIFIER is None:
-        fused_prob = p_malicious_model
-        if brand_matched:
-            fused_prob = max(fused_prob, brand_score)
-        if lexical_risk > 0:
-            fused_prob = min(1.0, fused_prob + (lexical_risk * 0.20))
-            
-        if is_trusted:
-            fused_prob = fused_prob * 0.5  # Halve the risk if it's a trusted domain
-            
-        if is_structurally_clean and fused_prob < 0.85:
-            fused_prob = min(fused_prob, 0.25)
+    if brand_matched:
+        base_brand_risk = max(brand_score, 0.75)
+        if has_high_conf_corroboration:
+            fused_prob = max(fused_prob, 0.85)
+        else:
+            fused_prob = max(fused_prob, base_brand_risk)
+    elif len(anomalies) >= 2:
+        # Multiple independent lexical anomalies (e.g. suspicious TLD + keywords)
+        fused_prob = max(fused_prob, 0.75)
+    elif lexical_risk > 0:
+        fused_prob = min(1.0, fused_prob + (lexical_risk * 0.20))
+        
+    # A URL with ZERO brand impersonation and ZERO lexical anomalies cannot assert high phishing risk purely on raw neural output.
+    if is_structurally_clean:
+        fused_prob = min(fused_prob, 0.15)
 
     calibration = calibrate_probability(fused_prob)
     risk_category = calibration["category"]

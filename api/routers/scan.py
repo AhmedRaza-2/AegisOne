@@ -403,7 +403,7 @@ async def scan_whatsapp_batch(
         
         results.append({
             "scan_id": scan_id,
-            "fingerprint": analysis["fingerprint"],
+            "fingerprint": item.fingerprint or analysis["fingerprint"],
             "verdict": analysis["verdict"],
             "decision": analysis["decision"],
             "risk_score": analysis["risk_score"],

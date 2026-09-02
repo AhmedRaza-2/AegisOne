@@ -10,14 +10,38 @@ from urllib.parse import urlparse
 import numpy as np
 import torch
 
-SUSPICIOUS_TLDS = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.cc', '.zip', '.click', '.link', '.ru', '.cn', '.info'}
+SUSPICIOUS_TLDS = {
+    # Free / widely-abused TLDs
+    '.tk', '.ml', '.ga', '.cf', '.gq',
+    # Generic abused TLDs
+    '.xyz', '.top', '.cc', '.zip', '.click', '.link',
+    # Country-code abused
+    '.ru', '.cn', '.info',
+    # Newly abused generic TLDs commonly used in phishing campaigns
+    '.online', '.site', '.live', '.today', '.world', '.fun',
+    '.shop', '.store', '.web', '.tech',
+}
 SHORTENERS      = {'bit.ly', 't.co', 'goo.gl', 'tinyurl.com', 'ow.ly', 'is.gd'}
 
 PHISHING_KEYWORDS = [
-    "login", "signin", "verify", "verification", "account", "secure", "update",
-    "banking", "billing", "paypal", "credential", "auth", "confirm", "portal",
+    # Classic credential/auth lures
+    "login", "signin", "verify", "verification", "account", "secure", "security", "update", "upgrade",
+    "banking", "billing", "paypal", "credential", "auth", "confirm", "portal", "access",
     "ebayisapi", "webscr", "submit", "recover", "wp-admin", "wp-content", "plugins",
-    "admin", "support", "service", "office", "microsoft", "google", "apple", "netflix"
+    "admin", "support", "service", "office", "microsoft", "google", "apple", "netflix",
+    # Action-lure keywords (urgency / access)
+    "unlock", "reset", "restore", "reactivate", "validate", "suspend", "suspended",
+    "restricted", "blocked", "resolution", "resolve", "identity", "password", "apply", "interview",
+    # Crypto & Web3 credential theft
+    "wallet", "seed", "mnemonic", "phrase", "backup", "recovery", "privatekey",
+    "secretkey", "exchange", "defi", "nft", "airdrop",
+    # Reward-scam & social engineering
+    "claim", "redeem", "reward", "prize", "gift", "free", "winner", "giveaway",
+    "nitro", "skins", "vbucks", "robux", "gems", "coins",
+    # Delivery / logistics phishing
+    "tracking", "delivery", "shipment", "package", "parcel",
+    # Verification / identity
+    "badge", "invite", "enrollment", "enroll", "member", "cardmember",
 ]
 
 def shannon_entropy(s: str) -> float:

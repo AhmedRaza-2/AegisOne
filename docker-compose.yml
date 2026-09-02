@@ -55,22 +55,7 @@ services:
         condition: service_healthy # wait for Postgres to be ready before starting
     restart: unless-stopped
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # Setup Wizard — Vite app for first-time org configuration
-  # ──────────────────────────────────────────────────────────────────────────
-  setup:
-    build:
-      context: ./frontend/setup
-    container_name: aegisone-setup
-    ports:
-      - "3001:3001"
-    environment:
-      # Set SERVER_HOST to your server's IP if employees access from other computers
-      # e.g. SERVER_HOST=192.168.1.100
-      VITE_API_BASE_URL: "http://${SERVER_HOST:-localhost}:8000"
-    depends_on:
-      - backend
-    restart: unless-stopped
+
 
   # ──────────────────────────────────────────────────────────────────────────
   # Dashboard — Next.js admin & employee portal

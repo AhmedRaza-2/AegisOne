@@ -1,0 +1,137 @@
+{
+  "scenario": "phishing-campaign",
+  "seed": "20260831",
+  "orgId": "org_default",
+  "scale": 5,
+  "startedAt": "2026-08-31T17:21:13.824Z",
+  "finishedAt": "2026-08-31T17:22:23.926Z",
+  "totalDurationMs": 70102,
+  "passed": true,
+  "actors": {
+    "admin": "e2e.admin@aegisone.e2etest.local",
+    "managers": [],
+    "employees": 5,
+    "fullBrowser": 3,
+    "synthetic": 2
+  },
+  "expected": {
+    "totalEmailsSent": 5,
+    "totalEmailsDelivered": 5,
+    "totalClicks": 1,
+    "totalReports": 2,
+    "totalIgnored": 2,
+    "totalWebsiteScans": 12,
+    "totalSyntheticScans": 1,
+    "totalThreatsDetected": 2,
+    "totalThreatReports": 2
+  },
+  "actual": {
+    "websiteScansInDB": 0,
+    "securityEventsInDB": 0,
+    "threatReportsInDB": 0,
+    "apiTotalScans": 2116,
+    "apiThreatsDetected": 26,
+    "dashboardTotalScans": 2116,
+    "dashboardThreatsDetected": 26
+  },
+  "phases": [
+    {
+      "phase": "Phase 1 — Seed",
+      "passed": true,
+      "durationMs": 1306,
+      "details": {
+        "adminId": 10,
+        "employeeCount": 5,
+        "fullBrowser": 3,
+        "synthetic": 2
+      }
+    },
+    {
+      "phase": "Phase 2 — Admin Campaign",
+      "passed": true,
+      "durationMs": 6759,
+      "details": {
+        "campaignMsgId": "4"
+      }
+    },
+    {
+      "phase": "Phase 3 — Email Delivery",
+      "passed": true,
+      "durationMs": 0,
+      "details": {
+        "skipped": true,
+        "reason": "Mailpit not available"
+      }
+    },
+    {
+      "phase": "Phase 4 — Employee Simulation",
+      "passed": true,
+      "durationMs": 55934,
+      "details": {
+        "clicks": 1,
+        "reports": 2,
+        "ignored": 2
+      }
+    },
+    {
+      "phase": "Phase 5 — Validation",
+      "passed": true,
+      "durationMs": 6039,
+      "details": {
+        "passed": true,
+        "assertions": 3,
+        "passed_count": 3,
+        "apiStats": {
+          "totalScans": 2116,
+          "threatsDetected": 26,
+          "totalUsers": 15,
+          "scansToday": 2287,
+          "threatsToday": 26,
+          "threatReportsPending": 6
+        },
+        "discrepancies": [
+          {
+            "field": "website_scans_in_db",
+            "expected": 12,
+            "actual": 0,
+            "delta": -12
+          },
+          {
+            "field": "threat_reports_in_db",
+            "expected": 2,
+            "actual": 0,
+            "delta": -2
+          },
+          {
+            "field": "api_threats_detected",
+            "expected": 2,
+            "actual": 26,
+            "delta": 24
+          }
+        ]
+      }
+    }
+  ],
+  "discrepancies": [
+    {
+      "field": "website_scans_in_db",
+      "expected": 12,
+      "actual": 0,
+      "delta": -12
+    },
+    {
+      "field": "threat_reports_in_db",
+      "expected": 2,
+      "actual": 0,
+      "delta": -2
+    },
+    {
+      "field": "api_threats_detected",
+      "expected": 2,
+      "actual": 26,
+      "delta": 24
+    }
+  ],
+  "generatedAt": "2026-08-31T17:22:25.481Z",
+  "version": "1.0.0"
+}

@@ -162,40 +162,6 @@ function isInternalURL(url) {
   }
 }
 
-// ── Trusted domain allowlist — never flag these as phishing ──────────────────
-// These are established, globally-recognized domains with very low phishing risk.
-// Model false positives on these domains are suppressed at the extension level.
-const TRUSTED_DOMAINS = new Set([
-  "wikipedia.org", "wikimedia.org",
-  "google.com", "google.co.uk", "google.com.pk", "google.co.in",
-  "googleapis.com", "gstatic.com", "gmail.com", "youtube.com",
-  "github.com", "github.io", "githubusercontent.com", "gitlab.com",
-  "microsoft.com", "live.com", "outlook.com", "office.com", "microsoftonline.com", "azure.com",
-  "apple.com", "icloud.com",
-  "amazon.com", "aws.amazon.com", "awsstatic.com",
-  "stackoverflow.com", "stackexchange.com",
-  "npmjs.com", "pypi.org", "nuget.org",
-  "mozilla.org", "firefox.com",
-  "cloudflare.com", "cloudflare.net",
-  "linkedin.com", "twitter.com", "x.com", "facebook.com", "instagram.com",
-  "reddit.com", "medium.com", "dev.to",
-  "gov.pk", "punjab.gov.pk", "gov.uk", "gov.us", ".edu",
-]);
-
-function isTrustedDomain(url) {
-  try {
-    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-    // Check exact match or suffix match (e.g. "en.wikipedia.org" → "wikipedia.org")
-    for (const trusted of TRUSTED_DOMAINS) {
-      if (hostname === trusted || hostname.endsWith("." + trusted) || trusted.startsWith(".") && hostname.endsWith(trusted)) {
-        return true;
-      }
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
 
 function setBadge(tabId, verdict, probability) {
   const isPhishing = verdict === "phishing" || verdict === "malicious" ||
@@ -265,6 +231,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   } else {
     chrome.action.setBadgeText({ tabId, text: "?" });
     chrome.action.setBadgeBackgroundColor({ tabId, color: "#64748b" });
+    
+    // Broadcast SCAN_INCOMPLETE to widget
+    chrome.tabs.sendMessage(tabId, {
+      type: "SCAN_RESULT",
+      score: -1,
+      verdict: "scan_incomplete",
+      threat_type: "scan_incomplete",
+      top_factors: [{ label: "⚠️ Security scan could not be completed (API Offline)" }],
+      url: tab.url
+    }).catch(() => {});
   }
 });
 
@@ -477,42 +453,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
       // Content script sending page data
       case "PAGE_DATA": {
-        const results = {};
-
-        // Scan page text
-        if (msg.text && msg.text.trim().length > 20) {
-          const form = new FormData();
-          form.append("text", msg.text.slice(0, 2000));
-          results.text = await callAPI("/analyze/text", form, true);
-        }
-
-        // Scan all URLs in parallel batches of 5 — covers every link on the page
-        if (msg.urls && msg.urls.length > 0) {
-          const urlResults = [];
-          const BATCH = 5;
-          for (let i = 0; i < msg.urls.length; i += BATCH) {
-            const batch = msg.urls.slice(i, i + BATCH).filter(u => !isInternalURL(u));
-            const settled = await Promise.allSettled(batch.map(async (url) => {
-              const form = new FormData();
-              form.append("url", url);
-              const r = await callAPI("/analyze/url", form, true);
-              return r ? { url, ...r } : null;
-            }));
-            settled.forEach(s => { if (s.status === "fulfilled" && s.value) urlResults.push(s.value); });
-          }
-          results.urls = urlResults;
+        const payload = {
+          url: msg.pageUrl,
+          text: msg.text || "",
+          urls: (msg.urls || []).filter(u => !isInternalURL(u)),
+          dom_signals: msg.dom_signals || {}
+        };
+        
+        const results = await callAPI("/analyze/full_page", payload, false);
+        if (!results) {
+          sendResponse({ ok: false });
+          break;
         }
 
         // Check if any link is phishing
-        const maliciousLinks = (results.urls || []).filter(
-          (u) => u.phishing_probability > CONFIG.PHISHING_THRESHOLD
+        const maliciousLinks = (results.url_results || []).filter(
+          (u) => (u.phishing_probability * 100) > (CONFIG.PHISHING_THRESHOLD * 100)
         );
+        
         if (maliciousLinks.length > 0) {
           sendNotification(
             `🚨 AegisOne: ${maliciousLinks.length} Malicious Link(s) on Page!`,
             maliciousLinks.map((u) => `• ${u.url.slice(0, 50)}`).join("\n")
           );
-          // Tell content script to highlight these malicious links on page
           if (sender.tab?.id) {
             chrome.tabs.sendMessage(sender.tab.id, {
               type: "HIGHLIGHT_THREATS",
@@ -522,118 +485,66 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           }
         }
 
-        // If page text itself is phishing, tell content script to show text warning
-        if (results.text?.prediction === "phishing") {
-          if (sender.tab?.id) {
+        // If contextual engine blocks/warns based on text/DOM, tell content script
+        if (results.decision === "BLOCK" || results.decision === "SUSPICIOUS") {
+          if (sender.tab?.id && results.evidence_summary.semantic !== "LOW") {
             chrome.tabs.sendMessage(sender.tab.id, {
               type: "HIGHLIGHT_THREATS",
               maliciousUrls: [],
               textPhishing: true,
-              textRisk: results.text?.phishing_probability ?? 0,
-              textSignals: results.text?.top_words || [],
+              textRisk: results.raw_scores.text / 100, // map back to 0-1 for compatibility
+              textSignals: results.top_reasons.map(r => r.signal),
             }).catch(() => { });
           }
         }
 
-        // Store page scan result
         if (sender.tab?.id) {
           const cached = tabCache.get(sender.tab.id) || {};
-          cached.pageData = results;
+          cached.pageData = {
+            text: { top_words: results.top_reasons.map(r => r.signal), phishing_probability: results.raw_scores.text / 100 },
+            urls: results.url_results
+          };
           tabCache.set(sender.tab.id, cached);
         }
 
-        sendResponse({ ok: true, results });
+        sendResponse({ ok: true, results: cached?.pageData || results });
         break;
       }
+
+
 
       // ── Full page scan (triggered by widget "🔍 Scan" button) ──
       case "FULL_PAGE_SCAN": {
         if (!SHIELD_ENABLED) { sendResponse({ ok: false }); break; }
 
-        const { pageUrl, pageText, allLinks = [], allImageSrcs = [], attachLinks = [] } = msg;
+        const { pageUrl, pageText, allLinks = [], allImageSrcs = [], attachLinks = [], dom_signals = {} } = msg;
 
         // Cap at 30 unique links to prevent scan overload on large sites
         const linksToScan = allLinks.slice(0, 30);
+        const imagesToScan = allImageSrcs.slice(0, 12);
+        
+        const payload = {
+          url: pageUrl,
+          text: pageText || "",
+          urls: linksToScan,
+          images: imagesToScan, // although backend currently ignores them for performance, sending for future proofing
+          dom_signals
+        };
+        
+        const results = await callAPI("/analyze/full_page", payload, false);
+        if (!results) {
+          sendResponse({ ok: false });
+          break;
+        }
 
-        // Run all four scans in parallel
-        const [textRes, urlsRes, imgsRes, attachRes] = await Promise.allSettled([
-
-          // 1. Page text
-          (async () => {
-            if (!pageText || pageText.trim().length < 20) return null;
-            const f = new FormData(); f.append("text", pageText.slice(0, 3000));
-            return callAPI("/analyze/text", f, true);
-          })(),
-
-          // 2. External links (batched 5 at a time, capped at 30)
-          (async () => {
-            if (linksToScan.length === 0) return [];
-            const results = [];
-            const BATCH = 5;
-            for (let i = 0; i < linksToScan.length; i += BATCH) {
-              const batch = linksToScan.slice(i, i + BATCH).filter(u => !isInternalURL(u));
-              const settled = await Promise.allSettled(batch.map(async (url) => {
-                const f = new FormData(); f.append("url", url);
-                const r = await callAPI("/analyze/url", f, true);
-                return r ? { url, ...r } : null;
-              }));
-              settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
-            }
-            return results;
-          })(),
-
-          // 3. Images (via URL model — no CORS issues)
-          (async () => {
-            if (allImageSrcs.length === 0) return [];
-            const results = [];
-            const settled = await Promise.allSettled(allImageSrcs.map(async (src) => {
-              const f = new FormData(); f.append("url", src);
-              const r = await callAPI("/analyze/url", f, true);
-              return r ? { src, ...r } : null;
-            }));
-            settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
-            return results;
-          })(),
-
-          // 4. Attachment/document links
-          (async () => {
-            if (attachLinks.length === 0) return [];
-            const results = [];
-            const settled = await Promise.allSettled(attachLinks.map(async (url) => {
-              const f = new FormData(); f.append("url", url);
-              const r = await callAPI("/analyze/download_url", f, true);
-              return r ? { url, ...r } : null;
-            }));
-            settled.forEach(s => { if (s.status === "fulfilled" && s.value) results.push(s.value); });
-            return results;
-          })(),
-        ]);
-
-        const textResult = textRes.status === "fulfilled" ? textRes.value : null;
-        const urlResults = urlsRes.status === "fulfilled" ? urlsRes.value : [];
-        const imageResults = imgsRes.status === "fulfilled" ? imgsRes.value : [];
-        const attachResults = attachRes.status === "fulfilled" ? attachRes.value : [];
-
-        // Composite risk calculation:
-        // Only count URL/image scores ≥ 0.85 to suppress model false positives.
-        // Text risk is trusted directly. Attachment risk is always included.
-        const textProb = textResult?.phishing_probability ?? 0;
-        const highConfidenceUrls = urlResults.filter(u => (u.phishing_probability ?? 0) >= 0.85);
-        const worstUrl = highConfidenceUrls.length > 0
-          ? Math.max(...highConfidenceUrls.map(u => u.phishing_probability ?? 0)) : 0;
-        const highConfidenceImgs = imageResults.filter(i => (i.phishing_probability ?? 0) >= 0.85);
-        const worstImg = highConfidenceImgs.length > 0
-          ? Math.max(...highConfidenceImgs.map(i => i.phishing_probability ?? 0)) : 0;
-        const worstAttach = attachResults.length > 0
-          ? Math.max(...attachResults.map(a => a.phishing_probability ?? 0)) : 0;
-        const composite_risk = Math.max(textProb, worstUrl, worstImg, worstAttach);
-
+        // Format for widget UI
         const report = {
-          composite_risk,
-          text_result: textResult,
-          url_results: urlResults,       // all URL results for display
-          image_results: imageResults,
-          attachment_results: attachResults,
+          composite_risk: results.final_risk / 100, // format back to 0-1
+          decision: results.decision,
+          text_result: results.text_result,
+          url_results: results.url_results || [],
+          image_results: results.image_results || [],
+          attachment_results: [],
           scanned_at: new Date().toISOString(),
         };
 
@@ -685,6 +596,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         form.append("url", msg.url);
         const result = await callAPI("/analyze/url", form, true);
         sendResponse({ ok: !!result, result });
+        break;
+      }
+
+      // ── WhatsApp batch scan ──
+      case "SCAN_WHATSAPP_BATCH": {
+        if (!SHIELD_ENABLED) { sendResponse({ ok: false }); break; }
+        const result = await callAPI("/whatsapp/batch", msg.payload, false);
+        if (result && result.results) {
+          sendResponse({ ok: true, results: result.results });
+        } else {
+          sendResponse({ ok: false, results: [] });
+        }
         break;
       }
 

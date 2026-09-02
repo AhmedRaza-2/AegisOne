@@ -15,7 +15,7 @@
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
 import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache } from "./scanner.js";
-import { getCachedResult, getTabCache, setTabCache, clearTabCache } from "./cache.js";
+import { getCachedResult, getTabCache, setTabCache, clearTabCache, clearAllCache } from "./cache.js";
 import { initDownloadGuard, handleDownloadDecision } from "./download-guard.js";
 import { explainWithAI, generateLocalExplanation } from "./xai.js";
 import { getEvents, storeEvent } from "./event-store.js";
@@ -35,6 +35,7 @@ chrome.storage.local.get(STORE_KEYS.SHIELD_ENABLED, (d) => {
 });
 
 chrome.runtime.onInstalled.addListener(async () => {
+  await clearAllCache();
   await ensureDeviceId();
   await fetchOrgPolicy();
   startSync();
@@ -42,6 +43,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await clearAllCache();
   await fetchOrgPolicy();
   startSync();
 });
@@ -294,7 +296,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const badUrls = urlResults.filter(u => (u.score || 0) >= THRESHOLD.HIGHLIGHT * 100);
           const worstUrl = badUrls.length > 0 ? Math.max(...badUrls.map(u => u.score || 0)) : 0;
           const textProb = Math.round((textResult?.phishing_probability ?? 0) * 100);
-          const composite = Math.max(worstUrl, textProb);
+          // Semantic text alone cannot force a hard block. Cap text-only risk at 45 (SUSPICIOUS) unless corroborated by bad URLs.
+          const effectiveTextRisk = worstUrl >= 50 ? textProb : Math.min(textProb, 45);
+          const composite = Math.max(worstUrl, effectiveTextRisk);
           const deepReport = {
             composite_risk: composite,
             text_prob: textProb,
@@ -344,8 +348,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const urlResults = urlsRes.status === "fulfilled" ? urlsRes.value : [];
 
           const worstUrl = urlResults.reduce((max, u) => Math.max(max, u.phishing_probability || u.score / 100 || 0), 0);
-          const textProb = textResult?.phishing_probability ?? 0;
-          const composite = Math.max(worstUrl, textProb);
+          const rawTextProb = Math.round((textResult?.phishing_probability ?? 0) * 100);
+          const effectiveTextRisk = worstUrl >= 50 ? rawTextProb : Math.min(rawTextProb, 45);
+          const composite = Math.max(worstUrl, effectiveTextRisk);
 
           const report = {
             composite_risk: composite,

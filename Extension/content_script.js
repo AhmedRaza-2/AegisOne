@@ -24,49 +24,7 @@
   const HIGHLIGHT_THRESHOLD = 0.85;  // Only highlight links this risky (avoid false positives)
   const GOOGLE_BADGE_THRESHOLD = 0.80; // Google search badge threshold
 
-  // Trusted TLD patterns — any hostname ending in these is trusted
-  const TRUSTED_TLDS = [
-    ".edu", ".edu.pk", ".edu.au", ".edu.cn",
-    ".gov", ".gov.pk", ".gov.uk", ".gov.au",
-    ".ac.pk", ".ac.uk", ".ac.in",
-    ".mil",
-  ];
 
-  // Trusted domains — never flag, never scan links FROM these domains to themselves
-  const TRUSTED_DOMAINS = new Set([
-    "google.com", "google.com.pk", "googleapis.com", "gstatic.com",
-    "youtube.com", "youtu.be",
-    "microsoft.com", "office.com", "live.com", "outlook.com", "bing.com",
-    "apple.com", "icloud.com",
-    "amazon.com", "aws.amazon.com",
-    "facebook.com", "instagram.com", "twitter.com", "x.com",
-    "linkedin.com", "reddit.com", "wikipedia.org", "pinterest.com",
-    "github.com", "stackoverflow.com",
-    "cloudflare.com", "akamai.com",
-    "paypal.com", "stripe.com",
-    "netflix.com", "spotify.com",
-    "dawn.com", "geo.tv", "bbc.com", "cnn.com",
-    "shopify.com", "myshopify.com", "shopifycdn.com",
-    "yotpo.com", "fontawesome.com", "cdnjs.cloudflare.com",
-    "localhost", "127.0.0.1",
-  ]);
-
-  function getRootDomain(url) {
-    try {
-      const h = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-      const parts = h.split(".");
-      // For country-code second-level domains like edu.pk, gov.pk, ac.uk
-      // return last 3 parts if the second-to-last is 2 chars (e.g. co, edu, gov, ac)
-      if (parts.length >= 3 && parts[parts.length - 2].length <= 3) {
-        return parts.slice(-3).join(".");
-      }
-      return parts.slice(-2).join(".");
-    } catch { return ""; }
-  }
-
-  function isTrusted(url) {
-    return false;
-  }
 
   function isExternalLink(url) {
     try {
@@ -675,7 +633,7 @@
     const allLinks     = [...new Set(
       [...document.querySelectorAll("a[href]")]
         .map(a => { try { return new URL(a.href, location.href).href; } catch { return ""; } })
-        .filter(u => u.startsWith("http") && !isTrusted(u))
+        .filter(u => u.startsWith("http"))
     )];
     const allImageSrcs = [...new Set(
       [...document.querySelectorAll("img[src]")]
@@ -685,9 +643,11 @@
     const DOC_RE   = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|exe|msi|apk)([?#]|$)/i;
     const attachLinks = allLinks.filter(u => DOC_RE.test(u));
 
+    const dom_signals = extractDomSignals();
+
     const res = await chrome.runtime.sendMessage({
       type: "FULL_PAGE_SCAN",
-      pageUrl, pageText, allLinks, allImageSrcs, attachLinks,
+      pageUrl, pageText, allLinks, allImageSrcs, attachLinks, dom_signals
     }).catch(() => null);
 
     btn.textContent = "🔍 Scan";
@@ -997,7 +957,7 @@
       const targetEl = linkEl.querySelector("h3, [role='heading']") || linkEl;
 
       // If it's a trusted domain, mark as verified safe immediately
-      if (isTrusted(url)) {
+      if (false) { // Originally isTrusted(url)
         const badge = document.createElement("strong");
         badge.className = "aegis-google-badge verified";
         badge.innerHTML = "🛡️ Verified Safe";
@@ -1159,7 +1119,7 @@
       try {
         const url = new URL(el.href, location.href).href;
         // ONLY extract HTTP, NOT trusted, and MUST be external link
-        if (url.startsWith("http") && !isTrusted(url) && isExternalLink(url)) {
+        if (url.startsWith("http") && isExternalLink(url)) {
           links.add(url);
         }
       } catch { }
@@ -1247,6 +1207,58 @@
 
   // ────────────────────────────────────────────
   // MAIN PAGE SCAN
+  function extractDomSignals() {
+    const signals = {
+      password_inputs: 0,
+      credential_forms: 0,
+      external_form_actions: 0,
+      hidden_iframes: 0,
+      total_iframes: 0,
+      email_inputs: 0,
+      suspicious_input_names: [],
+      has_login_keywords: false,
+      has_urgency_keywords: false,
+      has_sensitive_action: false,
+      page_redirect_detected: false
+    };
+
+    try {
+      const pageOrigin = window.location.origin;
+      const forms = document.querySelectorAll('form');
+      signals.credential_forms = forms.length > 0 ? Array.from(forms).filter(f => f.querySelector('input[type="password"]')).length : 0;
+      
+      forms.forEach(form => {
+        if (!form.getAttribute("action")) return;
+        try {
+          const actionUrl = new URL(form.getAttribute("action"), window.location.href);
+          if (actionUrl.origin !== pageOrigin) signals.external_form_actions++;
+        } catch(e) {}
+      });
+
+      signals.password_inputs = document.querySelectorAll('input[type="password"]').length;
+      signals.email_inputs = document.querySelectorAll('input[type="email"]').length;
+
+      const iframes = document.querySelectorAll('iframe');
+      signals.total_iframes = iframes.length;
+      signals.hidden_iframes = Array.from(iframes).filter(f => {
+        const style = window.getComputedStyle(f);
+        return style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0' || f.width === '0' || f.height === '0';
+      }).length;
+
+      const bodyText = document.body?.innerText?.toLowerCase() || "";
+      signals.has_login_keywords = ["login", "sign in", "password", "authenticate", "verify account"].some(k => bodyText.includes(k));
+      signals.has_urgency_keywords = ["urgent", "action required", "immediate", "suspended", "compromised", "unauthorized"].some(k => bodyText.includes(k));
+      signals.has_sensitive_action = ["enter your password", "confirm your credentials", "verify your identity", "social security", "credit card"].some(k => bodyText.includes(k));
+      
+      const suspiciousNames = ["cc", "credit_card", "ssn", "social_security", "bank_account"];
+      signals.suspicious_input_names = Array.from(document.querySelectorAll('input')).filter(i => suspiciousNames.some(n => i.name?.toLowerCase().includes(n))).map(i => i.name);
+      
+    } catch (e) {
+      console.warn("AegisOne: Failed to extract DOM signals", e);
+    }
+    return signals;
+  }
+
   // ────────────────────────────────────────────
   let lastTextLen = 0;
 
@@ -1279,14 +1291,12 @@
         urls,
         pageUrl: location.href,
         pageTitle: document.title,
+        dom_signals: extractDomSignals()
       }).catch(() => null);
 
       if (res?.results) {
         const urlResults = res.results.urls || [];
-        // Use the raw text probability — no artificial suppression
-        // Only zero it out if we're on a fully trusted domain (like google.com)
         let textProb = res.results.text?.phishing_probability ?? 0;
-        if (isTrusted(location.href)) textProb = 0;
 
         const textWords = res.results.text?.top_words || res.results.text?.xai_words || [];
         const malicious = urlResults.filter(u => (u.phishing_probability ?? 0) >= HIGHLIGHT_THRESHOLD);

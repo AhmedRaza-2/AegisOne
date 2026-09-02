@@ -23,6 +23,12 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     hidden_iframes = evidence.get("hidden_iframes", [])
     external_scripts = evidence.get("external_scripts", [])
 
+    # New Contextual Risk Engine signals
+    contextual_analysis = evidence.get("contextual_analysis", {})
+    contradictions = contextual_analysis.get("contradictions", [])
+    positive_evidence = contextual_analysis.get("positive_evidence", [])
+    corroboration = contextual_analysis.get("corroboration_level", "NONE")
+
     # 1. Determine Threat Type and Likelihood Label
     likelihood_label = "Low/Suspicion"
     threat_title = "Suspicious Behavior"
@@ -39,17 +45,19 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
         likelihood_label = "High Likelihood of Credential Harvesting"
         threat_title = "Credential Harvesting"
 
-    # 2. Extract Indicators / Reasons
+    # 2. Extract Red Flags & MITRE ATT&CK Mapping
     red_flags = []
     mitre_techniques = []
     
     for factor in top_factors:
-        label = factor.get("label", "")
-        if label:
-            red_flags.append(label)
-
-    # 2. Extract Red Flags & MITRE ATT&CK Mapping
-    red_flags = [f["label"] for f in top_factors if isinstance(f, dict) and f.get("score", 0) >= 30]
+        if isinstance(factor, str):
+            red_flags.append(factor)
+        elif isinstance(factor, dict):
+            label = factor.get("label", "")
+            # Only require score threshold if score exists, otherwise take it
+            score = factor.get("score")
+            if label and (score is None or score >= 30):
+                red_flags.append(label)
 
     # Technical feature fallbacks if not in top_factors
     if login_form_detected and not any("login" in f.lower() for f in red_flags):
@@ -77,10 +85,17 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
 
     # 3. Create Natural Language Summary
     if risk_score < 20:
-        summary = (
-            f"AegisOne security analysis completed for this target with a composite risk score of {risk_score}%. "
-            f"No malicious content, phishing indicators, or suspicious heuristics were detected."
-        )
+        if contradictions:
+            reason = contradictions[0]
+            summary = (
+                f"AegisOne assessed this target as SAFE. "
+                f"Although semantic alerts were present, they were mitigated through evidence fusion because: {reason.lower()}."
+            )
+        else:
+            summary = (
+                f"AegisOne security analysis completed for this target with a composite risk score of {risk_score}%. "
+                f"No malicious content, phishing indicators, or suspicious heuristics were detected."
+            )
     else:
         reasons_str = "; ".join(red_flags[:3]).lower()
         summary = (
@@ -97,13 +112,15 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     if risk_score < 20:
         recommendations.append("Target appears safe. You can proceed normally.")
         recommendations.append("Always verify links and senders before providing sensitive credentials.")
-    else:
-        if login_form_detected:
-            recommendations.append("Do NOT input passwords, emails, or personal details.")
-        if risk_score >= 50:
-            recommendations.append("Close this browser window or navigate back immediately.")
-            recommendations.append("Do NOT provide passwords, personal info, or click unverified links.")
-            recommendations.append("Notify your Security Operations Center (SOC) using the 'Report Threat' button.")
+    if risk_score >= 50:
+        if login_form_detected or any("credential" in s.lower() for s in positive_evidence):
+            recommendations.append("Do NOT enter any passwords, credit card numbers, or personal information on this page.")
+        if len(redirect_chain) > 1:
+            recommendations.append("Do not share this link with colleagues; it utilizes deceptive redirection.")
+        if external_scripts or "external_form_submission" in positive_evidence:
+            recommendations.append("The page attempts to send data to third-party domains. Close the tab immediately.")
+        if not recommendations:
+            recommendations.append("This page exhibits suspicious patterns. Close the tab immediately.")
         else:
             recommendations.append("Proceed with extreme caution. Verify the destination URL before interacting.")
         recommendations.append("Ensure multi-factor authentication (MFA) is enabled for your organizational accounts.")
@@ -113,6 +130,17 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
         mitre_techniques.append("T1566.002 - Phishing: Spearphishing Link")
     if "T1584" not in "".join(mitre_techniques) and risk_score >= 70:
         mitre_techniques.append("T1584 - Compromise Infrastructure (Adversary Staged Domain)")
+
+    # 6. Indicators of Compromise (IoC) — derived from evidence
+    ioc: List[str] = []
+    if domain:
+        ioc.append(f"Domain: {domain}")
+    for iframe in hidden_iframes:
+        ioc.append(f"Hidden iframe: {iframe}" if isinstance(iframe, str) else "Hidden iframe detected")
+    for script in external_scripts[:5]:
+        ioc.append(f"External script: {script}" if isinstance(script, str) else "External script detected")
+    for hop in redirect_chain:
+        ioc.append(f"Redirect hop: {hop}" if isinstance(hop, str) else "Redirect detected")
 
     # 7. Scoring Methodology (Dynamic parameters based on context)
     is_email_context = evidence.get("is_email", False) or threat_type == "phishing_email" or "email" in url.lower()

@@ -13,7 +13,7 @@
  */
 
 import { API_BASE, API_TIMEOUT_MS, THRESHOLD, VERDICT, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
-import { isInternalURL, isTrusted, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
+import { isInternalURL, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
 import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
 import { storeEvent } from "./event-store.js";
@@ -160,17 +160,17 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
     }
   }
 
-  // 2. LAYER 2: If item is UN-SCANNED and Backend API is Offline, return offline state. No fake safe scores for unscanned items!
+  // 2. LAYER 2: If item is UN-SCANNED and Backend API is Offline, return incomplete state. No fake safe scores for unscanned items!
   if (!isBackendOnline()) {
     return {
       url,
       domain: domain,
       score: -1,
-      verdict: "offline",
-      error: "backend_offline",
-      message: "AegisOne Backend API Offline — Contact Security Administrator",
-      top_factors: [{ label: "⚠️ AegisOne Backend API Server is Offline — Contact Administrator" }],
-      threat_type: "backend_offline",
+      verdict: "scan_incomplete",
+      error: "api_failure",
+      message: "Security scan could not be completed",
+      top_factors: [{ label: "⚠️ Security scan could not be completed" }],
+      threat_type: "scan_incomplete",
       raw_url_model: null,
       has_dom_features: hasDOMFeatures,
       from_cache: false,
@@ -192,7 +192,7 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
   let cached = await getCachedResult(url);
   let urlModel = cached?.raw_url_model;
   if (!urlModel) {
-    const isLocal = domain === "localhost" || domain === "127.0.0.1" || domain.endsWith(".local");
+    const isLocal = (domain === "localhost" || domain === "127.0.0.1" || domain.endsWith(".local")) && !isTestFixture;
     if (isLocal) {
       urlModel = { phishing_probability: 0.01, category: "safe", prediction: "safe" };
     } else {
@@ -202,22 +202,24 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
       if (pageFeatures.form_actions && pageFeatures.form_actions.length > 0) {
         form.append("form_actions", JSON.stringify(pageFeatures.form_actions));
       }
+      if (hasDOMFeatures) {
+        form.append("dom_signals", JSON.stringify(pageFeatures));
+      }
       const raw = await callAPI("/analyze/url", form, true, signal);
       urlModel = _validateScanResponse(raw);
     }
   }
 
-  // If API failed or is offline, do NOT return fake safe score. Return explicit offline state.
   if (!urlModel) {
     return {
       url,
       domain: getRootDomain(url),
       score: -1,
-      verdict: "offline",
-      error: "backend_offline",
-      message: "AegisOne Backend API Offline — Contact Security Administrator",
-      top_factors: [{ label: "⚠️ AegisOne Backend API Server is Offline — Contact Administrator" }],
-      threat_type: "backend_offline",
+      verdict: "scan_incomplete",
+      error: "api_failure",
+      message: "Security scan could not be completed",
+      top_factors: [{ label: "⚠️ Security scan could not be completed" }],
+      threat_type: "scan_incomplete",
       raw_url_model: null,
       has_dom_features: hasDOMFeatures,
       from_cache: false,
@@ -225,42 +227,21 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
     };
   }
 
-  // ── Build signals for risk engine ───────────────────────
-  const signals = {
-    url_model: urlModel?.phishing_probability ?? null,
-    threat_type: urlModel?.category || urlModel?.prediction || null,
-    top_words: urlModel?.top_words || [],
-    domain_age_days: pageFeatures.domain_age_days ?? null,
-    ssl_invalid: pageFeatures.ssl_invalid ?? null,
-    login_form_found: pageFeatures.login_form_found ?? null,
-    text_model: pageFeatures.text_probability ?? null,
-    redirect_count: pageFeatures.redirect_count ?? null,
-    brand_mismatch: pageFeatures.brand_mismatch ?? null,
-    brand_impersonation: pageFeatures.brand_impersonation ?? null,
-    brand_impersonation_score: pageFeatures.brand_impersonation_score ?? null,
-    brand_impersonation_role: pageFeatures.brand_impersonation_role ?? null,
-    hidden_iframe: pageFeatures.hidden_iframe ?? null,
-    js_obfuscated: pageFeatures.js_obfuscated ?? null,
-    known_domain: isTrusted(url),
-  };
-
-  // ── Compute weighted risk ────────────────────────────────
-  const risk = computeRisk(signals, policy.risk_thresholds);
-
+  // Map the new backend contextual result to the legacy result structure
   const result = {
     url,
     domain: getRootDomain(url),
-    score: risk.score,
-    verdict: risk.verdict,
-    breakdown: risk.breakdown,
-    top_factors: risk.top_factors,
-    threat_type: risk.threat_type,
+    score: urlModel.final_risk || 0,
+    verdict: urlModel.decision === "BLOCK" ? VERDICT.MALICIOUS : (urlModel.decision === "SUSPICIOUS" ? VERDICT.SUSPICIOUS : VERDICT.SAFE),
+    breakdown: urlModel.evidence_summary || {},
+    top_factors: (urlModel.top_reasons || []).map(r => ({ label: `⚠️ ${r.signal.replace(/_/g, " ")}` })),
+    threat_type: urlModel.evidence_summary?.semantic === "HIGH" ? "phishing" : "benign",
     raw_url_model: urlModel,
     has_dom_features: hasDOMFeatures,
     from_cache: false,
     scanned_at: new Date().toISOString(),
     context: {
-      known_domain: risk.context?.known_domain || false
+      known_domain: false
     }
   };
 
@@ -380,7 +361,7 @@ export async function scanURLBatch(urls, batchSize = 5, signal = null, pageUrl =
           url_model: r.phishing_probability ?? null,
           threat_type: r.category || r.prediction || null,
           top_words: r.top_words || [],
-          known_domain: isTrusted(url)
+          known_domain: false
         }, policy.risk_thresholds);
 
         const result = {

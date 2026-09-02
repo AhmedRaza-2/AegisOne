@@ -35,7 +35,7 @@ from api.config import (
     TEXT_MODEL_PY, TEXT_MODEL_PT,
     URL_MODEL_PY, URL_MODEL_PT, URL_MODEL_PT_FALLBACK,
     IMAGE_CONFIG_PY, IMAGE_MODEL_PT,
-    ATTACHMENT_DIR, TRUSTED_DOMAINS, URL_CLASSES,
+    ATTACHMENT_DIR, URL_CLASSES,
     INFERENCE_SEMAPHORE_LIMIT, TORCH_NUM_THREADS,
 )
 
@@ -321,6 +321,7 @@ def extract_url_features(url: str) -> dict:
     3. Reputation & Whitelist Layer
     """
     try:
+        # Bypass removed per architectural requirements.
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
         if domain.startswith("www."):
@@ -336,26 +337,6 @@ def extract_url_features(url: str) -> dict:
         signals = []
         raw_score = 0
 
-        # Layer 1: Known Trusted Domain Check
-        is_trusted = False
-        for trusted in TRUSTED_DOMAINS:
-            if domain == trusted or domain.endswith("." + trusted):
-                is_trusted = True
-                break
-
-        if is_trusted:
-            return {
-                "prediction": "legitimate",
-                "confidence": 0.995,
-                "phishing_probability": 0.005,
-                "category": "Safe",
-                "model": "url",
-                "score": 0,
-                "verdict": "safe",
-                "signals": [{"signal": "known_domain", "severity": 0.0, "evidence": f"Verified corporate domain: {domain}"}],
-                "explanation": "✓ Verified legitimate corporate domain",
-                "evidence": {"trusted_domain": True, "reason": f"URL matches trusted domain pattern: {domain}"}
-            }
 
         # Signal 1: Raw IP Hostname
         if re.match(r"^\d+\.\d+\.\d+\.\d+$", domain):
@@ -368,7 +349,12 @@ def extract_url_features(url: str) -> dict:
             signals.append({"signal": "punycode_spoofing", "severity": 0.30, "evidence": "Host uses IDN Punycode character encoding"})
 
         # Signal 3: Suspicious TLD
-        suspicious_tlds = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".cc", ".ru", ".link", ".click", ".zip", ".work"}
+        suspicious_tlds = {
+            ".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".cc",
+            ".ru", ".link", ".click", ".zip", ".work",
+            ".online", ".site", ".live", ".today", ".world", ".fun",
+            ".shop", ".store", ".tech",
+        }
         for tld in suspicious_tlds:
             if domain.endswith(tld):
                 raw_score += 15
@@ -387,13 +373,47 @@ def extract_url_features(url: str) -> dict:
             raw_score += 10
             signals.append({"signal": "hyphenated_domain", "severity": 0.10, "evidence": f"Multiple hyphens in domain name ({hyphen_count} hyphens)"})
 
-        # Signal 5: Brand Impersonation Check
-        target_brands = ["paypal", "microsoft", "google", "apple", "amazon", "facebook", "instagram", "chatgpt", "openai", "bankofamerica", "chase", "wellsfargo", "binance", "coinbase"]
+        # Signal 5: Brand Impersonation Check (with Homoglyph & Typosquat cleaning)
+        from AIML.url.brand_engine import clean_homoglyphs
+        cleaned_domain = clean_homoglyphs(domain)
+        dehyphenated_domain = cleaned_domain.replace("-", "")
+
+        target_brands = [
+            # Finance
+            "paypal", "chase", "wellsfargo", "bankofamerica", "citibank", "capitalone",
+            "hsbc", "barclays", "americanexpress", "amex", "stripe",
+            # Tech
+            "microsoft", "google", "apple", "amazon", "github", "openai", "chatgpt",
+            # Crypto
+            "metamask", "trustwallet", "binance", "coinbase", "kraken", "kucoin",
+            "blockchain", "opensea",
+            # Social / SaaS
+            "facebook", "instagram", "linkedin", "twitter", "discord", "slack",
+            "telegram", "snapchat", "tiktok", "twitch", "spotify",
+            # Media & Storage
+            "netflix", "dropbox", "trello", "zoom", "youtube",
+            # Gaming
+            "steam", "epicgames", "roblox",
+            # Logistics
+            "dhl", "fedex", "ups", "usps",
+            # ISP
+            "comcast", "xfinity", "yahoo",
+        ]
+        _found_brand_impersonation = False
         for brand in target_brands:
-            if brand in domain and not domain.endswith(f"{brand}.com") and not domain.endswith(f"{brand}.ai") and not domain.endswith(f"{brand}.org") and not domain.endswith(f"{brand}.net"):
+            if brand in cleaned_domain and not domain.endswith(f"{brand}.com") and not domain.endswith(f"{brand}.ai") and not domain.endswith(f"{brand}.org") and not domain.endswith(f"{brand}.net"):
                 raw_score += 35
                 signals.append({"signal": "brand_impersonation", "severity": 0.35, "evidence": f"Brand token '{brand}' found in non-canonical domain: {domain}"})
+                _found_brand_impersonation = True
                 break
+
+        if not _found_brand_impersonation:
+            for brand in target_brands:
+                if brand in dehyphenated_domain and not dehyphenated_domain.endswith(f"{brand}.com") and not dehyphenated_domain.endswith(f"{brand}.ai") and not dehyphenated_domain.endswith(f"{brand}.org") and not dehyphenated_domain.endswith(f"{brand}.net"):
+                    raw_score += 35
+                    signals.append({"signal": "brand_impersonation", "severity": 0.35, "evidence": f"Brand token '{brand}' found in dehyphenated non-canonical domain: {domain}"})
+                    _found_brand_impersonation = True
+                    break
 
         # Signal 6: Insecure HTTP Protocol
         if parsed.scheme == "http" and domain not in ("localhost", "127.0.0.1"):
@@ -401,10 +421,25 @@ def extract_url_features(url: str) -> dict:
             signals.append({"signal": "insecure_http", "severity": 0.15, "evidence": "Unencrypted HTTP protocol"})
 
         # Signal 7: Credential & Sensitive Path Keywords
-        kw_hits = [kw for kw in ("login", "signin", "verify", "verification", "password", "account", "banking", "secure", "update") if kw in path_query]
+        credential_keywords = (
+            # Classic
+            "login", "signin", "verify", "verification", "password", "account", "banking", "secure", "security", "update", "upgrade", "portal", "access",
+            # Action-lure
+            "unlock", "restore", "recovery", "reset", "reactivate", "suspended", "resolve", "apply", "interview", "confirm", "support",
+            # Crypto
+            "wallet", "seed", "phrase", "backup", "mnemonic",
+            # Reward-scam
+            "claim", "redeem", "gift", "reward", "free", "nitro", "skins", "vbucks",
+            # Delivery
+            "tracking", "delivery", "shipment", "package",
+            # Identity / access
+            "auth", "credential", "badge", "invite", "member", "cardmember",
+        )
+        kw_hits = [kw for kw in credential_keywords if kw in path_query or kw in domain]
+        _found_credential_lure = bool(kw_hits)
         if kw_hits:
             has_brand_or_http = any(s["signal"] in ("brand_impersonation", "insecure_http", "suspicious_tld") for s in signals)
-            kw_weight = 15 if has_brand_or_http else 5
+            kw_weight = 20 if has_brand_or_http else 8
             raw_score += kw_weight
             signals.append({"signal": "credential_keywords", "severity": kw_weight / 100.0, "evidence": f"Sensitive path keywords: {', '.join(kw_hits[:3])}"})
 
@@ -412,6 +447,12 @@ def extract_url_features(url: str) -> dict:
         if "@" in parsed.netloc or "%" in parsed.path:
             raw_score += 20
             signals.append({"signal": "url_obfuscation", "severity": 0.20, "evidence": "URL contains user-info @ symbol or hex-encoded path"})
+
+        # Brand Impersonation & High-Confidence Lure Compounding
+        if _found_brand_impersonation:
+            has_corroborating_lure = _found_credential_lure or any(s["signal"] == "suspicious_tld" for s in signals)
+            if has_corroborating_lure:
+                raw_score = max(raw_score, 85)
 
         final_score = min(100, max(0, raw_score))
         prob = round(final_score / 100.0, 3)
@@ -428,6 +469,9 @@ def extract_url_features(url: str) -> dict:
             "verdict": verdict,
             "signals": signals,
             "explanation": f"Feature Correlation Engine evaluated {len(signals)} risk signals ({final_score}% risk)",
+            "brand_impersonation": _found_brand_impersonation,
+            "credential_lure_detected": _found_credential_lure,
+            "suspicious_tld": any(s["signal"] == "suspicious_tld" for s in signals),
             "evidence": {
                 "signal_count": len(signals),
                 "signals": [s["evidence"] for s in signals]
@@ -620,13 +664,13 @@ def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
 
 
 def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[str] = None) -> dict:
-    if "url" not in MODELS:
-        return {"error": "URL model not loaded", "model": "url"}
-
     if FAST_SCAN_MODE:
         fast = _heuristic_url_result(url)
         if fast is not None:
             return fast
+
+    if "url" not in MODELS:
+        return {"error": "URL model not loaded", "model": "url"}
 
     # 1. Fast-path trusted domain routing & brand impersonation check
     from AIML.url.brand_engine import check_brand_impersonation
@@ -644,10 +688,7 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
         if domain.startswith("www."):
             domain = domain[4:]
             
-        for trusted in TRUSTED_DOMAINS:
-            if domain == trusted or domain.endswith("." + trusted):
-                is_trusted = True
-                break
+
     except Exception:
         pass
 
@@ -657,7 +698,7 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
 
     # 2.5 Fast-Path / Cascaded Decision Check
     from AIML.url.fusion_engine import fuse_url_intelligence
-    cascade_res = fuse_url_intelligence(url, None, brand_result, lexical_tensor, is_trusted)
+    cascade_res = fuse_url_intelligence(url, None, brand_result, lexical_tensor)
     if cascade_res["evidence"]["fusion_method"] in {
         "Cascade Level 1: Static Threat Signature Override",
         "Cascade Level 2: Static Clean Pass Override"
@@ -670,6 +711,9 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
             "model": "url",
             "xai_words": [],
             "explanation": cascade_res["explanation"],
+            "brand_impersonation": brand_result.get("matched", False),
+            "credential_lure_detected": len(cascade_res.get("evidence", {}).get("lexical_anomalies", [])) > 0,
+            "suspicious_tld": "suspicious_top_level_domain" in cascade_res.get("evidence", {}).get("lexical_anomalies", []),
             "evidence": cascade_res["evidence"]
         }
 
@@ -691,15 +735,13 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
 
     # 4. Evidence Fusion & Calibration
     from AIML.url.fusion_engine import fuse_url_intelligence
-    fusion_result = fuse_url_intelligence(url, probs, brand_result, lexical_tensor, is_trusted)
+    fusion_result = fuse_url_intelligence(url, probs, brand_result, lexical_tensor)
 
-    # 4.5 Evaluate form_actions
+    # 4.5 Evaluate form_actions (Informational annotation, risk evaluation delegated to ContextualRiskEngine)
     if form_actions:
         for action in form_actions:
             if action.startswith("http://"):
-                fusion_result["risk_score"] = max(fusion_result["risk_score"], 85.0)
-                fusion_result["prediction"] = "malicious"
-                fusion_result["explanation"] += f" | ✗ High Risk: Form submits to unencrypted HTTP ({action})"
+                fusion_result["explanation"] += f" | ✗ Form submits to unencrypted HTTP ({action})"
             else:
                 try:
                     action_domain = urlparse(action).netloc.lower()
@@ -708,9 +750,7 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
                         action_root = action_root[4:]
                     
                     if action_root and action_root != domain and not action_root.endswith("." + domain):
-                        fusion_result["risk_score"] = max(fusion_result["risk_score"], 75.0)
-                        fusion_result["prediction"] = "malicious" if fusion_result["risk_score"] >= 76 else "warning"
-                        fusion_result["explanation"] += f" | ⚠ Suspicious: Form submits to third-party domain ({action_root})"
+                        fusion_result["explanation"] += f" | ℹ Form submits to external domain ({action_root})"
                 except Exception:
                     pass
 
@@ -724,6 +764,11 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
             if xai_words:
                 fusion_result["explanation"] += f" | AI focused on: {', '.join(xai_words)}"
 
+    brand_matched = brand_result.get("matched", False)
+    lexical_anoms = fusion_result.get("evidence", {}).get("lexical_anomalies", [])
+    has_lure_kw = any("phishing_keywords" in str(a) for a in lexical_anoms) or len(lexical_anoms) > 0
+    has_susp_tld = "suspicious_top_level_domain" in lexical_anoms
+
     return {
         "prediction": fusion_result["prediction"],
         "confidence": fusion_result["confidence"],
@@ -732,6 +777,9 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
         "model": "url",
         "xai_words": xai_words,
         "explanation": fusion_result["explanation"],
+        "brand_impersonation": brand_matched,
+        "credential_lure_detected": has_lure_kw,
+        "suspicious_tld": has_susp_tld,
         "evidence": fusion_result["evidence"]
     }
 

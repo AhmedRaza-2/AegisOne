@@ -8,25 +8,75 @@ import re
 from urllib.parse import urlparse
 
 PROTECTED_BRANDS = {
+    # Search & Productivity
     "google": ["gmail", "googlemail", "goggle"],
     "github": [],
-    "paypal": ["paypa1", "paypaI", "paypa1l"],
     "microsoft": ["office365", "msoffice", "outlook", "live", "onedrive"],
     "apple": ["icloud", "appleid", "itunes"],
     "amazon": ["aws"],
-    "netflix": [],
+    "openai": ["chatgpt"],
+    "zoom": [],
+    # Financial — Major Banks
+    "paypal": ["paypa1", "paypaI", "paypa1l"],
+    "wellsfargo": ["wells-fargo", "welsfargo"],
+    "bankofamerica": ["bank-of-america"],
+    "chase": [],
+    "citibank": ["citi"],
+    "capitalone": ["capital-one"],
+    "hsbc": [],
+    "barclays": [],
+    "americanexpress": ["american-express", "amex"],
+    "stripe": [],
+    # Crypto & Web3
+    "metamask": [],
+    "trustwallet": ["trust-wallet"],
+    "blockchain": [],
+    "kraken": [],
+    "kucoin": [],
+    "binance": [],
+    "coinbase": [],
+    "opensea": [],
+    # Social & Communication
     "facebook": ["fb"],
     "instagram": ["insta"],
     "linkedin": [],
     "twitter": ["x.com"],
+    "discord": [],
+    "slack": [],
+    "telegram": [],
+    "whatsapp": [],
+    "tiktok": ["tik-tok"],
+    "snapchat": [],
+    "twitch": [],
+    "spotify": [],
+    # Media & Streaming
+    "netflix": [],
+    "youtube": [],
+    "hulu": [],
+    "disneyplus": ["disney-plus", "disney"],
+    "hbomax": ["hbo-max", "hbo"],
+    # Storage & SaaS
     "dropbox": [],
-    "zoom": [],
-    "openai": ["chatgpt"],
+    "trello": [],
+    "asana": [],
+    # Logistics & Delivery
+    "dhl": [],
+    "fedex": [],
+    "ups": [],
+    "usps": [],
+    # Gaming & Entertainment
+    "steam": [],
+    "epicgames": ["epic-games"],
+    "roblox": [],
+    # ISP / Telecom
+    "comcast": [],
+    "xfinity": [],
+    "yahoo": [],
 }
 
 # Homoglyph character mappings
 HOMOGLYPH_MAP = {
-    '0': 'o', '1': 'l', 'l': 'i', 'i': 'l', 'vv': 'w', 'rn': 'm', 'cl': 'd',
+    '0': 'o', '1': 'l', 'vv': 'w', 'rn': 'm', 'cl': 'd',
     'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x', # Cyrillic lookalikes
     'ѕ': 's', 'і': 'i', 'ј': 'j', 'ԝ': 'w',
 }
@@ -140,25 +190,35 @@ def check_brand_impersonation(url: str) -> dict:
         cleaned_sld = clean_homoglyphs(sld)
         cleaned_full_sld = clean_homoglyphs(full_sld)
 
+        # Normalize hyphenated brand tokens: "wells-fargo" → "wellsfargo" for matching
+        dehyphenated_sld = cleaned_sld.replace("-", "")
+        dehyphenated_full_sld = cleaned_full_sld.replace("-", "")
+
         best_brand = None
         highest_similarity = 0.0
         reason = "No impersonation detected"
 
         # Check against protected brands
         for brand, aliases in PROTECTED_BRANDS.items():
-            # If the domain is exactly the brand or ends with a legit TLD of the brand, skip
-            if domain == brand or domain.endswith("." + brand):
+            targets = [brand] + aliases
+            
+            # If the exact SLD matches the brand, it is likely the official brand domain
+            # or a direct registration. It is NOT a typo or subdomain impersonation.
+            if sld in targets:
                 continue
                 
-            targets = [brand] + aliases
             for target in targets:
+                # Dehyphenate target for matching against dehyphenated domain
+                dehyphenated_target = target.replace("-", "")
+
                 # 1. Exact match in subdomains or SLD (e.g. paypal.verification-update.com)
-                # But check if it is not just a minor suffix
-                if target in cleaned_full_sld and domain != target and not domain.endswith("." + target):
+                # Also check dehyphenated forms: "wells-fargo" matches "wellsfargo" brand token
+                sld_match = (target in cleaned_full_sld or
+                             (len(dehyphenated_target) >= 4 and dehyphenated_target in dehyphenated_full_sld))
+                if sld_match and domain != target and not domain.endswith("." + target):
                     # Brand keyword found in domain, but domain is not the brand!
-                    # For example, paypal-security.com
                     # Verify it's not a false positive for sites like 'pc.ign.com' (checking 'ig')
-                    if len(target) >= 4:
+                    if len(target) >= 4 or len(dehyphenated_target) >= 4:
                         highest_similarity = 1.0
                         best_brand = brand
                         reason = f"Protected brand '{brand}' keyword detected in untrusted domain structure."
@@ -167,7 +227,9 @@ def check_brand_impersonation(url: str) -> dict:
                 # 2. Similarity match (Typo-squatting / Homoglyphs)
                 sim_sld = jaro_winkler_similarity(cleaned_sld, target)
                 sim_full = jaro_winkler_similarity(cleaned_full_sld, target)
-                max_sim = max(sim_sld, sim_full)
+                # Also compare dehyphenated forms
+                sim_dehyph = jaro_winkler_similarity(dehyphenated_sld, dehyphenated_target)
+                max_sim = max(sim_sld, sim_full, sim_dehyph)
 
                 # Flag high Jaro-Winkler similarity (typically > 0.82)
                 if max_sim > 0.85 and max_sim > highest_similarity:

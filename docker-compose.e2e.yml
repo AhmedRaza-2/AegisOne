@@ -1,0 +1,60 @@
+version: "3.9"
+
+# AegisOne E2E Test Compose File
+#
+# Adds Mailpit (fake SMTP + email inspection UI) to the AegisOne stack
+# WITHOUT touching the production docker-compose.yml.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
+#
+# Mailpit web UI:  http://localhost:8025
+# Mailpit SMTP:    localhost:1025  (send test emails here)
+# Mailpit API:     http://localhost:8025/api/v1
+#
+# Environment variables injected into the backend service:
+#   SMTP_HOST=mailpit
+#   SMTP_PORT=1025
+#   SMTP_USER=   (empty — Mailpit doesn't require auth)
+#   SMTP_PASS=   (empty)
+#
+# This file ONLY adds Mailpit and overrides SMTP env vars.
+# All other services (postgres, backend, frontend) come from docker-compose.yml.
+
+services:
+  # ── Mailpit: SMTP Capture + Email Inspector ──────────────────────────────
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: aegisone_mailpit
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI + REST API
+    environment:
+      MP_MAX_MESSAGES: 5000          # Keep up to 5000 messages in memory
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"  # Accept any username/password
+      MP_UI_AUTH: ""                   # No UI authentication required
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8025/api/v1/info"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 3s
+    networks:
+      - aegis_net
+
+  # ── Backend override: point SMTP at Mailpit ───────────────────────────────
+  # These vars tell the AegisOne API to use Mailpit for all outbound email.
+  backend:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      # Override the setup key so the test seeder can provision the org
+      SETUP_KEY: "${E2E_SETUP_KEY:-aegis-setup-key-change-me}"
+
+networks:
+  aegis_net:
+    # Uses the network defined in the parent docker-compose.yml
+    external: false
+    name: aegisone_network

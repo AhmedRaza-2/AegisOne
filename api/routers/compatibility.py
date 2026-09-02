@@ -113,8 +113,147 @@ async def _get_user_info(db: AsyncSession, user_email: str | None, request: Requ
 
 # --- Compatibility Endpoints ---
 
+from pydantic import BaseModel
+from typing import Dict, Any, List
+
+class ContextualScanRequest(BaseModel):
+    url: str = ""
+    text: str = ""
+    urls: List[str] = []
+    images: List[str] = []
+    dom_signals: Dict[str, Any] = {}
+    
+class ContextualEnvelopeRequest(BaseModel):
+    url: str = ""
+    evidence: Dict[str, Any] = {}
+    
+from api.services.contextual_risk_engine import ContextualRiskEngine
+_contextual_engine = ContextualRiskEngine()
+
+@router.post("/analyze/contextual")
+async def api_contextual(request: ContextualEnvelopeRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    start = time.time()
+    
+    # Run contextual fusion with pure envelope
+    contextual_result = _contextual_engine.resolve(request.evidence)
+    
+    # Extract final decision
+    final_risk = contextual_result["final_risk"]
+    decision = contextual_result["decision"]
+    
+    user_id = current_user.id
+    org_id = current_user.organization_id or "org_default"
+    
+    scan = WebsiteScan(
+        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        organization_id=org_id,
+        user_id=user_id,
+        scan_type="contextual",
+        url=request.url[:2048] if request.url else "Page Content",
+        domain=request.url.split("/")[2] if "//" in request.url else "page_scan",
+        risk_score=final_risk,
+        threat_type=contextual_result["evidence_summary"]["semantic"],
+        decision=decision.lower(),
+        scan_duration_ms=round((time.time() - start) * 1000, 1),
+        xai_explanation=json.dumps(contextual_result)
+    )
+    db.add(scan)
+    await db.commit()
+    
+    contextual_result["latency_ms"] = scan.scan_duration_ms
+    
+    print(f"\n[AEGIS CONTEXTUAL ENGINE] 🔍 INCOMING CONTEXTUAL SCAN")
+    print(f" ├─ Target   : {request.url[:100]}")
+    print(f" ├─ Complete : {contextual_result['scan_completeness']}")
+    print(f" ├─ Corrob.  : {contextual_result['contextual_analysis']['corroboration_level']}")
+    print(f" ├─ Final    : {final_risk:.1f}% Risk ({decision})")
+    print(f" └─ Latency  : {scan.scan_duration_ms}ms\n", flush=True)
+    
+    return contextual_result
+
+@router.post("/analyze/full_page")
+async def api_full_page(request: ContextualScanRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    start = time.time()
+    
+    text_result = {"phishing_probability": 0}
+    if request.text and len(request.text.strip()) > 20:
+        text_result = await predict_text(request.text[:3000])
+        
+    url_results = []
+    if request.url:
+        u_res = await predict_url(request.url)
+        if isinstance(u_res, dict):
+            url_results.append(u_res)
+            
+    if request.urls:
+        tasks = []
+        for u in request.urls[:30]:
+            tasks.append(predict_url(u))
+        res_list = await asyncio.gather(*tasks, return_exceptions=True)
+        for u_res in res_list:
+            if isinstance(u_res, dict):
+                url_results.append(u_res)
+                
+    # Skipping images for brevity/performance unless provided
+    image_results = []
+    
+    text_risk = text_result.get("phishing_probability", 0) * 100
+    
+    # Calculate url risk max
+    if not url_results:
+        url_risk = 0.0
+    else:
+        high_conf = [u.get("phishing_probability", 0) * 100 for u in url_results if u.get("phishing_probability", 0) >= 0.85]
+        url_risk = max(high_conf) if high_conf else 0.0
+        
+    evidence_envelope = {
+        "url": { "available": bool(url_results), "risk": url_risk },
+        "text": { "available": bool(request.text), "risk": text_risk },
+        "visual": { "available": False, "risk": 0.0 },
+        "dom": { "available": True, "signals": request.dom_signals }
+    }
+    
+    # Run contextual fusion
+    contextual_result = _contextual_engine.resolve(evidence_envelope)
+    
+    # Extract final decision
+    final_risk = contextual_result["final_risk"]
+    decision = contextual_result["decision"]
+    
+    user_id = current_user.id
+    org_id = current_user.organization_id or "org_default"
+    
+    scan = WebsiteScan(
+        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        organization_id=org_id,
+        user_id=user_id,
+        scan_type="full_page",
+        url=request.url[:2048] if request.url else "Page Content",
+        domain=request.url.split("/")[2] if "//" in request.url else "page_scan",
+        risk_score=final_risk,
+        threat_type=contextual_result["evidence_summary"]["semantic"],
+        decision=decision.lower(),
+        scan_duration_ms=round((time.time() - start) * 1000, 1),
+        xai_explanation=json.dumps(contextual_result)  # Storing the rich context in the DB
+    )
+    db.add(scan)
+    await db.commit()
+    
+    contextual_result["latency_ms"] = scan.scan_duration_ms
+    contextual_result["url_results"] = url_results
+    contextual_result["image_results"] = image_results
+    contextual_result["text_result"] = text_result
+    
+    print(f"\n[AEGIS CONTEXTUAL ENGINE] 🔍 INCOMING FULL PAGE SCAN")
+    print(f" ├─ Target   : {request.url[:100]}")
+    print(f" ├─ Raw Text : {text_risk:.1f}%")
+    print(f" ├─ Corrob.  : {contextual_result['contextual_analysis']['corroboration_level']}")
+    print(f" ├─ Final    : {final_risk:.1f}% Risk ({decision})")
+    print(f" └─ Latency  : {scan.scan_duration_ms}ms\n", flush=True)
+    
+    return contextual_result
 @router.post("/analyze/url")
-async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), form_actions: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), form_actions: str = Form(None), dom_signals: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     validate_url_for_ssrf(url)
     start = time.time()
     
@@ -125,11 +264,38 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
         except Exception:
             pass
 
+    dom_signals_dict = {}
+    if dom_signals:
+        try:
+            dom_signals_dict = json.loads(dom_signals)
+        except Exception:
+            pass
+
     result = await predict_url(url, actions_list)
     
-    # Store the scan for dashboard analytics
     score = result.get("phishing_probability", 0) * 100
-    decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
+    evidence_envelope = {
+        "url": { 
+            "available": True, 
+            "risk": score,
+            "confidence": result.get("confidence", 0.0),
+            "source_type": "known_malicious" if result.get("evidence", {}).get("fusion_method", "").startswith("Cascade") else "heuristic_ml",
+            # Pass structured signal flags so ContextualRiskEngine can evaluate multi-signal block eligibility
+            "results": [{
+                "brand_impersonation": result.get("brand_impersonation", False),
+                "credential_lure_detected": result.get("credential_lure_detected", False),
+                "suspicious_tld": result.get("suspicious_tld", False),
+                "score": score,
+            }]
+        },
+        "text": { "available": False, "risk": 0.0 },
+        "visual": { "available": False, "risk": 0.0 },
+        "dom": { "available": bool(dom_signals_dict), "signals": dom_signals_dict }
+    }
+    
+    contextual_result = _contextual_engine.resolve(evidence_envelope)
+    final_risk = contextual_result["final_risk"]
+    decision = contextual_result["decision"]
     
     user_id = current_user.id
     org_id = current_user.organization_id or "org_default"
@@ -141,22 +307,30 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
         scan_type=scan_type,
         url=url[:2048],
         domain=url.split("/")[2] if "//" in url else url[:255],
-        risk_score=score,
+        risk_score=final_risk,
         threat_type=result.get("category", "benign"),
-        decision=decision,
+        decision=decision.lower(),
         scan_duration_ms=round((time.time() - start) * 1000, 1)
     )
     db.add(scan)
     await db.commit()
     
-    result["latency_ms"] = scan.scan_duration_ms
+    contextual_result["latency_ms"] = scan.scan_duration_ms
+    
+    # Map back fields expected by old clients
+    contextual_result["phishing_probability"] = final_risk / 100.0
+    contextual_result["prediction"] = "malicious" if decision == "BLOCK" else ("suspicious" if decision == "SUSPICIOUS" else "legitimate")
+    contextual_result["category"] = result.get("category", "benign")
+    contextual_result["top_words"] = result.get("top_words", [])
+    
     print(f"\n[AEGIS AI ENGINE] 🔗 INCOMING URL SCAN REQUEST")
     print(f" ├─ User    : {current_user.email}")
     print(f" ├─ Target  : {url[:100]}")
     print(f" ├─ Category: {result.get('category', 'benign')}")
-    print(f" ├─ Score   : {score:.1f}% Risk ({decision.upper()})")
+    print(f" ├─ Score   : {final_risk:.1f}% Risk ({decision.upper()})")
     print(f" └─ Latency : {scan.scan_duration_ms}ms\n", flush=True)
-    return result
+    return contextual_result
+
 
 
 @router.post("/analyze/text")
@@ -681,10 +855,17 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
             safe_dump["details"].pop("username", None)
             safe_dump["details"].pop("email", None)
             
+        user_id_str = str(event.user_id) if event.user_id is not None else None
+        
+        try:
+            user_id_int = int(event.user_id) if event.user_id is not None else None
+        except ValueError:
+            user_id_int = None
+
         entry = SecurityEvent(
             event_id=event_id,
             organization_id=event.org_id or DEFAULT_POLICY["org_id"],
-            user_id=event.user_id,
+            user_id=user_id_str,
             device_id=event.device_id,
             event_type=event.type,
             severity="high" if (event.risk_score or 0) >= 80 else "medium" if (event.risk_score or 0) >= 50 else "low",
@@ -713,7 +894,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
             db.add(DownloadEvent(
                 download_id=event_id,
                 organization_id=event.org_id or DEFAULT_POLICY["org_id"],
-                user_id=event.user_id,
+                user_id=user_id_str,
                 filename=str(raw_filename)[:500],
                 extension=str(details.get("extension", ""))[:32],
                 sha256=str(details.get("sha256", ""))[:64],
@@ -727,7 +908,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
             db.add(ThreatReport(
                 report_id=event_id,
                 organization_id=event.org_id or DEFAULT_POLICY["org_id"],
-                user_id=event.user_id,
+                user_id=user_id_str,
                 website=event.url or event.domain or "",
                 reason=reason_val,
                 status=status_val,
@@ -749,7 +930,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
             db.add(WebsiteScan(
                 scan_id=event_id,
                 organization_id=event.org_id or DEFAULT_POLICY["org_id"],
-                user_id=event.user_id,
+                user_id=user_id_int,
                 device_id=event.device_id,
                 url=event.url or event.domain or "unknown",
                 domain=event.domain or "unknown",

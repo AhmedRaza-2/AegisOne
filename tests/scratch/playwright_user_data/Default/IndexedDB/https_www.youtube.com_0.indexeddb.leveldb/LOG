@@ -1,0 +1,18 @@
+2026/09/01-18:02:40.595 7874 Reusing MANIFEST D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\IndexedDB\https_www.youtube.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/09/01-18:02:40.596 7874 Recovering log #3
+2026/09/01-18:02:40.598 7874 Reusing old log D:\Coding Projects\AegisOne\tests\scratch\playwright_user_data\Default\IndexedDB\https_www.youtube.com_0.indexeddb.leveldb/000003.log 
+2026/09/01-18:02:40.809 5bdc Level-0 table #5: started
+2026/09/01-18:02:40.822 5bdc Level-0 table #5: 28917 bytes OK
+2026/09/01-18:02:40.827 5bdc Delete type=0 #3
+2026/09/01-18:02:40.829 5bdc Manual compaction at level-0 from '\x00\x03\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x04\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/01-18:02:41.583 5bdc Level-0 table #7: started
+2026/09/01-18:02:41.618 5bdc Level-0 table #7: 1912 bytes OK
+2026/09/01-18:02:41.622 5bdc Delete type=0 #4
+2026/09/01-18:02:41.623 5bdc Manual compaction at level-0 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/01-18:02:41.624 5bdc Manual compaction at level-1 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at '\x00\x05\x00\x00\xc8\x0b\x00S\x00W\x00H\x00e\x00a\x00l\x00t\x00h\x00L\x00o\x00g' @ 456 : 1
+2026/09/01-18:02:41.624 5bdc Compacting 1@1 + 1@2 files
+2026/09/01-18:02:41.656 5bdc Generated table #8@1: 59 keys, 1340 bytes
+2026/09/01-18:02:41.656 5bdc Compacted 1@1 + 1@2 files => 1340 bytes
+2026/09/01-18:02:41.659 5bdc compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/09/01-18:02:41.661 5bdc Delete type=2 #7
+2026/09/01-18:02:41.662 5bdc Manual compaction at level-1 from '\x00\x05\x00\x00\xc8\x0b\x00S\x00W\x00H\x00e\x00a\x00l\x00t\x00h\x00L\x00o\x00g' @ 456 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)

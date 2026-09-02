@@ -108,6 +108,14 @@ export function clearTabCache(tabId) {
   _tabCache.delete(tabId);
 }
 
+export async function clearAllCache() {
+  _memCache.clear();
+  _tabCache.clear();
+  try {
+    await chrome.storage.local.clear();
+  } catch (_) {}
+}
+
 // ── Internal helpers ──────────────────────────────────────
 function _isExpired(entry) {
   return Date.now() - (entry.cached_at || 0) > CACHE.DOMAIN_TTL_MS;

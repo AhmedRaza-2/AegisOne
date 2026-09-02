@@ -147,7 +147,7 @@ class SecurityEventPayload(BaseModel):
     timestamp: str | None = None
     org_id: str | None = None
     device_id: str | None = None
-    user_id: str | None = None
+    user_id: int | None = None
     details: Dict[str, Any] | None = None
 
 
