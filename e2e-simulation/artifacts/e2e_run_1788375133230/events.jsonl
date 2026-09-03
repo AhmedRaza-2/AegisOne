@@ -1,0 +1,7 @@
+{"run_id":"e2e_run_1788375133230","timestamp":"2026-09-02T18:52:15.220Z","action":"RUN_STARTED","role":"system","actor":"system","organization":"org_e2e_run_1788375133230"}
+{"run_id":"e2e_run_1788375133230","timestamp":"2026-09-02T18:52:21.147Z","actor":"e2e.admin@aegisone.e2etest.local","role":"admin","organization":"org_e2e_run_1788375133230","action":"OBSERVER_BASELINE","result":"scans=1639, threats=84"}
+{"run_id":"e2e_run_1788375133230","timestamp":"2026-09-02T18:52:24.108Z","actor":"manager.bob@e2etest.aegisone.local","role":"manager","organization":"org_e2e_run_1788375133230","action":"OBSERVER_BASELINE","result":"scans=0, threats=0"}
+{"run_id":"e2e_run_1788375133230","timestamp":"2026-09-02T18:52:24.111Z","action":"TEST_START","actor":"safe.alice@e2etest.aegisone.local","role":"employee","test_case_id":"SAFE-001","url":"https://github.com/"}
+{"run_id":"e2e_run_1788375133230","timestamp":"2026-09-02T18:52:38.361Z","action":"TEST_ERROR","actor":"safe.alice@e2etest.aegisone.local","role":"employee","test_case_id":"SAFE-001","result":"TEST_HARNESS_FAILURE"}
+{"run_id":"e2e_run_1788375133230","timestamp":"2026-09-02T18:52:39.190Z","action":"TEST_START","actor":"risky.charlie@e2etest.aegisone.local","role":"employee","test_case_id":"PHISH-001","url":"http://paypal-secure-login.xyz/auth"}
+{"run_id":"e2e_run_1788375133230","timestamp":"2026-09-02T18:53:16.636Z","action":"TEST_ERROR","actor":"risky.charlie@e2etest.aegisone.local","role":"employee","test_case_id":"PHISH-001","result":"DASHBOARD_PROPAGATION_FAILURE"}

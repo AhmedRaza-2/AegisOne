@@ -188,7 +188,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // ── Auth Sync (always handled, regardless of shield state) ──
       if (msg.type === "AUTH_UPDATED") {
         invalidateAuthCache();
-        if (msg.email) await chrome.storage.local.set({ user_email: msg.email });
+        if (msg.email) {
+          await chrome.storage.local.set({ user_email: msg.email });
+          await ensureDeviceId();
+          await fetchOrgPolicy();
+          flushNow();
+        }
         sendResponse({ ok: true });
         return;
       }

@@ -1,11 +1,11 @@
 {
   "scenario": "vertical-slice",
   "seed": "20260831",
-  "orgId": "org_e2e_run_1788381594787",
+  "orgId": "org_e2e_run_1788362399351",
   "scale": 3,
-  "startedAt": "2026-09-02T20:40:03.273Z",
-  "totalDurationMs": 15544,
-  "passed": false,
+  "startedAt": "2026-09-02T15:19:59.790Z",
+  "totalDurationMs": 41501,
+  "passed": true,
   "actors": {
     "admin": "e2e.admin@aegisone.e2etest.local",
     "managers": [],
@@ -33,16 +33,8 @@
     "dashboardTotalScans": 0,
     "dashboardThreatsDetected": 0
   },
-  "phases": [
-    {
-      "phase": "Vertical Slice Execution",
-      "passed": false,
-      "durationMs": 0,
-      "details": {},
-      "error": "INFRASTRUCTURE_FAILURE: Failed to provision org - Request failed with status code 500"
-    }
-  ],
+  "phases": [],
   "discrepancies": [],
-  "generatedAt": "2026-09-02T20:40:18.817Z",
+  "generatedAt": "2026-09-02T15:20:41.291Z",
   "version": "1.0.0"
 }

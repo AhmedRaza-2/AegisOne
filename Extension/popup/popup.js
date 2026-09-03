@@ -216,34 +216,54 @@ async function loadCurrentPage() {
   let data = bgRes.data;
   const url = bgRes.url || tab?.url || "";
 
+  const health = await sendMsg({ type: "CHECK_HEALTH" }).catch(() => ({ online: false }));
+  const isOnline = health?.online !== false;
+
   // Query content script directly for live DOM metrics (links, images, forms)
   if (tab?.id) {
     try {
       const pageState = await chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_STATE" }).catch(() => null);
       if (pageState?.ok) {
-        if (!data) data = pageState.data || { score: 0, verdict: "safe" };
-        data.links_count = pageState.links_count ?? data.links_count;
-        data.images_count = pageState.images_count ?? data.images_count;
-        data.form_count = pageState.form_count ?? data.form_count;
+        if (!data) data = pageState.data;
+        if (data) {
+          data.links_count = pageState.links_count ?? data.links_count;
+          data.images_count = pageState.images_count ?? data.images_count;
+          data.form_count = pageState.form_count ?? data.form_count;
+        }
       }
     } catch (_) {}
   }
 
   _currentTabData = data;
-  const displayData = _mergeDisplayData(data);
-  _updateScanMeta(displayData?.scanned_at || new Date().toISOString());
 
   document.getElementById("currentUrl").textContent =
     url ? url.replace(/^https?:\/\//, "").slice(0, 52) : "—";
 
-  if (!displayData || displayData.score == null) {
-    _setVerdict({ score: 0, verdict: "safe" });
+  if (!isOnline && (!data || data.score === -1 || data.verdict === "scan_incomplete" || data.verdict === "offline")) {
+    _setVerdict({ score: -1, verdict: "offline", threat_type: "backend_offline" });
     _renderBreakdown(null);
-    _requestFreshScan(true);
     return;
   }
 
-  _setVerdict(displayData);
+  const displayData = _mergeDisplayData(data);
+  _updateScanMeta(displayData?.scanned_at || new Date().toISOString());
+
+  if (!displayData || displayData.score == null) {
+    if (!isOnline) {
+      _setVerdict({ score: -1, verdict: "offline", threat_type: "backend_offline" });
+    } else {
+      _setVerdict({ score: 0, verdict: "safe" });
+      _requestFreshScan(true);
+    }
+    _renderBreakdown(null);
+    return;
+  }
+
+  if (!isOnline && (displayData.score === -1 || displayData.verdict === "scan_incomplete" || displayData.verdict === "offline")) {
+    _setVerdict({ score: -1, verdict: "offline", threat_type: "backend_offline" });
+  } else {
+    _setVerdict(displayData);
+  }
   _renderBreakdown(displayData.breakdown, displayData.top_factors);
 }
 
@@ -274,7 +294,9 @@ function _setVerdict({ score, verdict, threat_type }) {
   const bar = document.getElementById("riskBarContainer");
   const banner = document.getElementById("backendOfflineBanner");
 
-  if (score === -1 || verdict === "offline" || threat_type === "backend_offline") {
+  const isOffline = score === -1 || verdict === "offline" || threat_type === "backend_offline" || verdict === "scan_incomplete" || threat_type === "scan_incomplete";
+
+  if (isOffline) {
     if (banner) banner.style.display = "flex";
     box.className = "verdict-card danger";
     icon.textContent = "🔴";
@@ -282,6 +304,7 @@ function _setVerdict({ score, verdict, threat_type }) {
     detail.textContent = "Contact Security Administrator";
     bar.style.display = "block";
     fill.style.width = "100%";
+    fill.style.background = "#ef4444";
     fill.className = "risk-fill danger";
     pct.textContent = "OFFLINE";
     pct.style.color = "#ef4444";
@@ -313,8 +336,10 @@ function _setVerdict({ score, verdict, threat_type }) {
 
   bar.style.display = "block";
   fill.style.width = `${score}%`;
+  fill.style.background = "";
   fill.className = `risk-fill ${score < 30 ? "low" : score < 60 ? "med" : "high"}`;
   pct.textContent = `${score}%`;
+  pct.style.color = "";
 }
 
 function _renderBreakdown(breakdown) {
@@ -471,6 +496,10 @@ async function checkServer() {
     el.textContent = isOk ? "✓ Active" : "Offline";
     el.className = `model-badge ${isOk ? "ok" : "err"}`;
   });
+
+  if (!isOnline && (!_currentTabData || _currentTabData.score === -1 || _currentTabData.verdict === "scan_incomplete" || _currentTabData.verdict === "offline")) {
+    _setVerdict({ score: -1, verdict: "offline", threat_type: "backend_offline" });
+  }
 }
 
 // ── xAI Copilot Feature ────────────────────────────────────

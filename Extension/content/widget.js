@@ -105,9 +105,11 @@ export function updateWidget(data) {
   }
   widget._aegisData = { score, verdict, top_factors, threat_type };
 
+  const isOffline = score === -1 || verdict === "offline" || threat_type === "backend_offline" || verdict === "scan_incomplete" || threat_type === "scan_incomplete";
+
   let cls, iconText, titleText, bubbleIcon;
-  if (score === -1 || verdict === "offline" || threat_type === "backend_offline") {
-    cls = "danger";  iconText = "🔴"; titleText = "API Offline (Contact Admin)"; bubbleIcon = "🔴";
+  if (isOffline) {
+    cls = "danger";  iconText = "🔴"; titleText = "API Offline"; bubbleIcon = "🔴";
   } else if (score >= 80) {
     cls = "danger";  iconText = "🚨"; titleText = "Phishing Detected"; bubbleIcon = "🚨";
   } else if (score >= 50) {
@@ -128,7 +130,7 @@ export function updateWidget(data) {
     bubble.title = `AegisOne Protection — ${titleText}. Click to expand.`;
   }
 
-  if (score === -1 || verdict === "offline" || threat_type === "backend_offline") {
+  if (isOffline) {
     fill.style.width = "100%";
     fill.style.background = "#ef4444";
     pct.textContent = "OFFLINE";
@@ -266,7 +268,19 @@ function _setupControls(widget) {
 function _buildLocalXai(score, top_factors, threat_type) {
   let summary, main_reasons, recommendations;
 
-  if (score >= 80) {
+  const isOffline = score === -1 || threat_type === "backend_offline" || threat_type === "scan_incomplete";
+
+  if (isOffline) {
+    summary = "🔴 AegisOne Backend API Offline. Contact Security Administrator to enable live AI protection.";
+    main_reasons = [
+      "🔴 AegisOne Backend Security API Server is disconnected or unreachable",
+      "⚠️ Real-time model inference and threat scoring are currently unavailable"
+    ];
+    recommendations = [
+      "🔌 Ensure the AegisOne backend server (unified_server.py) is started",
+      "Contact your organization's IT Security Administrator for assistance"
+    ];
+  } else if (score >= 80) {
     summary = `🚨 High-Risk Phishing Detected! AegisOne's neural AI flagged this target (${score}% risk). Do not enter any credentials.`;
     main_reasons = (top_factors || []).map(f => f.label || f).filter(Boolean);
     if (!main_reasons.length) main_reasons = [

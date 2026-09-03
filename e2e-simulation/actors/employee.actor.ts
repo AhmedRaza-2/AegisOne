@@ -125,13 +125,26 @@ export class FullBrowserEmployeeActor {
 
       return { detected: warningVisible, decision: warningVisible ? 'block' : 'allow' };
     } catch (err) {
-      console.error(`  ✗ [${this.emp.id}] Navigation failed for ${url}`);
-      // Navigation errors (blocked pages, etc.) are expected for phishing URLs
       const errMsg = (err as Error).message;
-      const blocked = errMsg.includes('net::ERR') || errMsg.includes('blocked');
+      
+      // Explicitly distinguish between an extension block and a network/DNS failure
+      const isBlockedByClient = errMsg.includes('net::ERR_BLOCKED_BY_CLIENT') || errMsg.includes('blocked by client');
+      const isDnsFailure = errMsg.includes('net::ERR_NAME_NOT_RESOLVED');
+      
+      if (isDnsFailure) {
+        console.error(`  ✗ [${this.emp.id}] DNS failure for ${url} (Extension could not scan)`);
+        return { detected: false, decision: 'dns_failure' };
+      }
+
+      if (isBlockedByClient) {
+        console.log(`  ✓ [${this.emp.id}] Extension explicitly blocked navigation to ${url}`);
+      } else {
+        console.error(`  ✗ [${this.emp.id}] Navigation failed for ${url}: ${errMsg}`);
+      }
+
       return {
-        detected: blocked,
-        decision: blocked ? 'block' : 'allow',
+        detected: isBlockedByClient,
+        decision: isBlockedByClient ? 'block' : 'error',
       };
     }
   }

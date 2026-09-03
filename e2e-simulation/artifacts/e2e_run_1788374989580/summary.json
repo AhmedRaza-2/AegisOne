@@ -1,0 +1,56 @@
+{
+  "run_id": "e2e_run_1788374989580",
+  "scenario": "vertical-slice",
+  "status": "INCOMPLETE",
+  "failure_class": null,
+  "tests": {
+    "SAFE-001": {
+      "status": "FAIL",
+      "failure_class": "NAVIGATION_FAILURE",
+      "error": "NAVIGATION_FAILURE: Failed to visit URL - this.requirePage is not a function",
+      "contract_results": {
+        "test_id": "SAFE-001",
+        "navigation": false,
+        "extension": false,
+        "scan": false,
+        "verdict": false,
+        "security_event": false,
+        "db_persistence": false,
+        "manager_visibility": false,
+        "admin_visibility": false,
+        "overall": false
+      },
+      "timings": {
+        "detection_ms": null,
+        "persistence_ms": null,
+        "dashboard_propagation_ms": null,
+        "ui_render_ms": null,
+        "total_e2e_ms": null
+      }
+    },
+    "PHISH-001": {
+      "status": "FAIL",
+      "failure_class": "NAVIGATION_FAILURE",
+      "error": "NAVIGATION_FAILURE: Failed to visit URL - this.requirePage is not a function",
+      "contract_results": {
+        "test_id": "PHISH-001",
+        "navigation": false,
+        "extension": false,
+        "scan": false,
+        "verdict": false,
+        "security_event": false,
+        "db_persistence": false,
+        "manager_visibility": false,
+        "admin_visibility": false,
+        "overall": false
+      },
+      "timings": {
+        "detection_ms": null,
+        "persistence_ms": null,
+        "dashboard_propagation_ms": null,
+        "ui_render_ms": null,
+        "total_e2e_ms": null
+      }
+    }
+  }
+}

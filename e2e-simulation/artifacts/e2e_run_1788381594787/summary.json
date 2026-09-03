@@ -1,0 +1,7 @@
+{
+  "run_id": "e2e_run_1788381594787",
+  "scenario": "vertical-slice",
+  "status": "FAIL",
+  "failure_class": "INFRASTRUCTURE_FAILURE",
+  "tests": {}
+}

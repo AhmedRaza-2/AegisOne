@@ -111,6 +111,7 @@ class DeviceRegisterRequest(BaseModel):
     browser_version: str = "unknown"
     os: str = "unknown"
     user_id: Optional[int] = None
+    user_email: Optional[str] = None
     organization_id: Optional[str] = None
 
 

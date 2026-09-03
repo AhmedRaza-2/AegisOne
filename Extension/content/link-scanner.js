@@ -161,8 +161,6 @@ function _onOut() {
 }
 
 async function _showImageHoverPreview(img, src, token) {
-  _showTooltip(img, { loading: true, url: src });
-
   let res = null;
   try {
     res = await chrome.runtime.sendMessage({ type: MSG.SCAN_HOVER_IMAGE, src });
@@ -170,27 +168,17 @@ async function _showImageHoverPreview(img, src, token) {
 
   if (token !== _hoverToken) return;
 
-  let score = 0;
-  let verdict = "safe";
-  let top_factors = [{ label: "Image Analysis Failed" }];
-
-  if (res?.result) {
-    const prob = res.result.phishing_probability ?? 0;
-    score = Math.round(prob * 100);
-    verdict = res.result.prediction === "phishing" ? "danger" : "safe";
-
-    // Extract factors if available
-    if (res.result.sub_results && res.result.sub_results.length > 0) {
-      top_factors = res.result.sub_results.map(sub => ({
-        label: `[${sub.model}] ${sub.prediction} (${Math.round((sub.phishing_probability || 0) * 100)}%)`
-      }));
-    } else {
-      top_factors = [{ label: "Image Analysis" }];
-    }
-  } else {
-    // If background fetch failed (e.g. CORS or network error), fallback gracefully instead of hiding
-    top_factors = [{ label: "Could not fetch image for analysis" }];
+  if (!res?.result || res.result.score === -1 || res.result.verdict === "offline" || res.result.verdict === "scan_incomplete") {
+    _hideTooltip();
+    return;
   }
+
+  const prob = res.result.phishing_probability ?? 0;
+  const score = Math.round(prob * 100);
+  const verdict = res.result.prediction === "phishing" ? "danger" : "safe";
+  const top_factors = (res.result.sub_results && res.result.sub_results.length > 0)
+    ? res.result.sub_results.map(sub => ({ label: `[${sub.model}] ${sub.prediction} (${Math.round((sub.phishing_probability || 0) * 100)}%)` }))
+    : [{ label: "Image Analysis" }];
 
   _showTooltip(img, { url: src, score, verdict, top_factors });
 
@@ -218,9 +206,6 @@ async function _showImageHoverPreview(img, src, token) {
 
 // ── Core hover preview logic ───────────────────────────
 async function _showHoverPreview(anchor, url, token) {
-  // Immediately show "scanning" state
-  _showTooltip(anchor, { loading: true, url });
-
   let res = null;
   try {
     res = await chrome.runtime.sendMessage({ type: MSG.SCAN_HOVER_URL, url });
@@ -228,7 +213,8 @@ async function _showHoverPreview(anchor, url, token) {
 
   if (token !== _hoverToken) return;
 
-  if (!res?.result) {
+  if (!res?.result || res.result.score === -1 || res.result.verdict === "offline" || res.result.verdict === "scan_incomplete") {
+    // API is offline & no cached result exists — do NOT display any tooltip
     _hideTooltip();
     return;
   }
@@ -262,16 +248,15 @@ async function _showHoverPreview(anchor, url, token) {
 function _showTooltip(anchor, { loading, url, score, verdict, top_factors }) {
   if (!_tooltipEl) _ensureTooltipEl();
 
+  if (score === -1 || verdict === "offline" || verdict === "scan_incomplete") {
+    _hideTooltip();
+    return;
+  }
+
   if (loading) {
     _tooltipEl.innerHTML = `
       <div style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; color:#94a3b8;">
         <span>🛡️</span><span>AI Scanning...</span>
-      </div>
-    `;
-  } else if (score === -1 || verdict === "offline") {
-    _tooltipEl.innerHTML = `
-      <div style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:800; color:#ef4444;">
-        <span>⚠️</span><span>Backend Offline</span>
       </div>
     `;
   } else {

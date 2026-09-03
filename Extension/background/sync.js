@@ -187,12 +187,15 @@ async function _registerOrHeartbeat(deviceId, register = false) {
     // config.json not present or could not be loaded, fall back
   }
 
+  const { user_email } = await chrome.storage.local.get("user_email");
+
   const payload = {
     device_id: deviceId,
     browser: _detectBrowser(),
     browser_version: _detectBrowserVersion(),
     os: _detectOS(),
     user_id: userId,
+    user_email: user_email || null,
     organization_id: orgId
   };
 

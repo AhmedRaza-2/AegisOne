@@ -16,6 +16,7 @@
 import { runPhishingCampaign } from '../scenarios/phishing-campaign';
 import { runSafeBrowsingScenario } from '../scenarios/safe-browsing';
 import { runRealisticOrgScenario } from '../scenarios/realistic-org';
+import { runVerticalSliceScenario } from '../scenarios/vertical-slice';
 import { Reporter } from './reporter';
 import { Config } from '../config';
 
@@ -72,13 +73,19 @@ async function main(): Promise<void> {
         });
         break;
 
+      case 'vertical-slice':
+        result = await runVerticalSliceScenario();
+        break;
+
       default:
         console.error(`Unknown scenario: ${scenarioArg}`);
         console.error('Available: phishing-campaign, safe-browsing');
         process.exit(1);
     }
 
-    reporter.printFinalReport(result.state);
+    if (scenarioArg !== 'vertical-slice') {
+      reporter.printFinalReport(result.state);
+    }
     const jsonPath = reporter.writeJSONReport(result.state);
     reporter.writeLatestSymlink(result.state, jsonPath);
 

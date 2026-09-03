@@ -159,11 +159,15 @@
         features,
       });
 
-      if (scanResult?.result) {
+      if (scanResult?.result && scanResult.result.score !== -1 && scanResult.result.verdict !== "scan_incomplete" && scanResult.result.verdict !== "offline") {
         _currentScanData = scanResult.result;
         _exposeTelemetryToDOM("aegis-scan-data", scanResult.result);
         setCurrentRisk(scanResult.result.score);
         updateWidget(scanResult.result);
+      } else {
+        const offlineData = scanResult?.result || { score: -1, verdict: "offline", threat_type: "backend_offline" };
+        _currentScanData = offlineData;
+        updateWidget(offlineData);
       }
 
       // ── Diagnostic channel (test harness only — no scoring impact) ───
@@ -710,6 +714,12 @@
 
   // ── Deep Page Scan (text + links, NO images — images only on right-click) ──
   async function _triggerDeepPageScan(updateWidget, updateThreatCount, applyDangerBadges, showWarningModal) {
+    const health = await safeSendMessage({ type: "CHECK_HEALTH" }).catch(() => null);
+    if (!health || health.online === false) {
+      updateWidget({ score: -1, verdict: "offline", threat_type: "backend_offline" });
+      return;
+    }
+
     const btn = document.getElementById("aegis-btn-scan");
     if (btn) { btn.textContent = "⏳"; btn.disabled = true; }
 

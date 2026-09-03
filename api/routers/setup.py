@@ -40,6 +40,7 @@ class Employee(BaseModel):
 
 class SetupExecuteRequest(BaseModel):
     employees: List[Employee]
+    orgId: Optional[str] = "org_default"
     smtpUser: Optional[str] = None
     smtpPass: Optional[str] = None
     smtpHost: Optional[str] = None
@@ -424,7 +425,7 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                     role=emp.role.lower(),
                     department=dept_val,
                     account_status="approved",
-                    organization_id="org_default"
+                    organization_id=request.orgId or "org_default"
                 )
                 db.add(db_user)
                 emails_to_send.append(emp)
@@ -438,7 +439,8 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 emails_to_send.append(emp)
 
         # Mirror a lightweight setup structure in the database for the setup wizard.
-        org = await _get_or_create_org(db, "org_default", "AegisOne")
+        org_id_val = request.orgId or "org_default"
+        org = await _get_or_create_org(db, org_id_val, "AegisOne")
         if request.smtpHost:
             org.smtp_host = request.smtpHost
         if request.smtpPort:

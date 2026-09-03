@@ -215,6 +215,12 @@ export function initEmailGuard() {
     }
 
     const rows = document.querySelectorAll("tr.zA");
+    if (rows.length === 0) return;
+
+    // Check backend health first
+    const health = await safeSendMessage({ type: "CHECK_HEALTH" }).catch(() => null);
+    const isOnline = health?.online !== false;
+
     const toScan = [];
 
     rows.forEach(row => {
@@ -253,20 +259,29 @@ export function initEmailGuard() {
 
       if (_scannedEmailsMap.has(emailKey)) {
         const cached = _scannedEmailsMap.get(emailKey);
-        if (cached.verdict !== "offline") {
+        if (cached && cached.verdict !== "offline" && cached.verdict !== "unscanned" && cached.score != null && cached.score >= 0) {
           _injectRowBadge(row, cached.verdict, cached.score, emailKey);
           return;
         }
-        // Retry offline emails only after 30s cooldown
-        const lastFailed = _failedRetriesMap.get(emailKey) || 0;
-        if (Date.now() - lastFailed < 30_000) {
-          _injectRowBadge(row, "offline", null, emailKey);
-          return;
+        if (cached && (cached.verdict === "unscanned" || cached.verdict === "offline")) {
+          const age = Date.now() - (cached.timestamp || 0);
+          if (!isOnline || age < 60_000) {
+            row.querySelector(".aegis-row-badge")?.remove();
+            row.querySelector(".aegis-row-left-bar")?.remove();
+            return;
+          }
         }
       }
 
-      // Mark as scanning
-      _scannedEmailsMap.set(emailKey, { score: -1, verdict: "scanning" });
+      if (!isOnline) {
+        _scannedEmailsMap.set(emailKey, { score: null, verdict: "unscanned", timestamp: Date.now() });
+        row.querySelector(".aegis-row-badge")?.remove();
+        row.querySelector(".aegis-row-left-bar")?.remove();
+        return;
+      }
+
+      // Mark as scanning only if online!
+      _scannedEmailsMap.set(emailKey, { score: -1, verdict: "scanning", timestamp: Date.now() });
       _injectRowBadge(row, "scanning", 0, emailKey);
 
       toScan.push({ row, emailKey, rowSender, rowSubject, combined });
@@ -274,9 +289,9 @@ export function initEmailGuard() {
 
     for (const item of toScan) {
       _enqueue(() => _scanOneRow(item)).catch(() => {
-        _scannedEmailsMap.set(item.emailKey, { score: null, verdict: "offline" });
-        _failedRetriesMap.set(item.emailKey, Date.now());
-        _updateRowBadge(item.emailKey, "offline", null);
+        _scannedEmailsMap.set(item.emailKey, { score: null, verdict: "unscanned", timestamp: Date.now() });
+        item.row.querySelector(".aegis-row-badge")?.remove();
+        item.row.querySelector(".aegis-row-left-bar")?.remove();
       });
     }
 
@@ -293,9 +308,9 @@ export function initEmailGuard() {
       });
 
       if (!res || res.ok !== true || !res.result) {
-        _scannedEmailsMap.set(emailKey, { score: null, verdict: "offline" });
-        _failedRetriesMap.set(emailKey, Date.now());
-        _updateRowBadge(emailKey, "offline", null);
+        _scannedEmailsMap.set(emailKey, { score: null, verdict: "unscanned", timestamp: Date.now() });
+        row.querySelector(".aegis-row-badge")?.remove();
+        row.querySelector(".aegis-row-left-bar")?.remove();
         return;
       }
 
@@ -324,9 +339,9 @@ export function initEmailGuard() {
       _updateRowBadge(emailKey, verdict, unifiedScore);
       _syncCompositeScreenScore();
     } catch (_) {
-      _scannedEmailsMap.set(emailKey, { score: null, verdict: "offline" });
-      _failedRetriesMap.set(emailKey, Date.now());
-      _updateRowBadge(emailKey, "offline", null);
+      _scannedEmailsMap.set(emailKey, { score: null, verdict: "unscanned", timestamp: Date.now() });
+      row.querySelector(".aegis-row-badge")?.remove();
+      row.querySelector(".aegis-row-left-bar")?.remove();
     }
   }
 
@@ -423,17 +438,8 @@ export function initEmailGuard() {
       `;
       badge.textContent = "⏳ Scanning...";
     } else if (verdict === "offline") {
-      badge.style.cssText = `
-        display: inline-flex; align-items: center; gap: 3px;
-        padding: 1px 6px; margin-right: 6px; border-radius: 12px;
-        background: rgba(148,163,184,0.15); border: 1px solid rgba(148,163,184,0.3);
-        color: #94a3b8; font-size: 9px; font-weight: 700;
-        font-family: 'Inter', -apple-system, sans-serif;
-        vertical-align: middle; white-space: nowrap; pointer-events: none;
-        flex-shrink: 0;
-      `;
-      badge.textContent = "🔌 Offline";
-      badge.title = "AegisOne service offline";
+      // Do NOT inject offline badge onto email row
+      return;
     } else {
       const BADGE_STYLES = {
         safe:       { bg: "rgba(16,185,129,0.13)", border: "rgba(16,185,129,0.4)", color: "#34d399" },
@@ -605,8 +611,10 @@ export function initEmailGuard() {
       });
 
       if (!scanRes || scanRes.ok !== true || !scanRes.result) {
-        _scannedEmailsMap.set(emailKey, { score: null, verdict: "offline" });
-        _injectOpenEmailBanner(null, "offline", bodyContainer);
+        if (record && record.verdict !== "offline" && record.score != null && record.score >= 0) {
+          _processedOpenKeys.add(emailKey);
+          _injectOpenEmailBanner(record.score, record.verdict, bodyContainer);
+        }
         return;
       }
 
@@ -723,6 +731,7 @@ export function initEmailGuard() {
   }
 
   function _injectOpenEmailBanner(score, verdict, bodyContainer) {
+    if (verdict === "offline" || score == null || score === -1) return;
     if (document.getElementById("aegis-email-banner")) return;
     const target = bodyContainer || document.querySelector(".a3s.aiL, .a3s")?.parentElement;
     if (!target) return;

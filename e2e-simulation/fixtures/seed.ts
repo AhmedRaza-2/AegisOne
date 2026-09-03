@@ -59,6 +59,7 @@ export async function seedOrganization(state: ScenarioState): Promise<void> {
   // SMTP fields are left empty — we're using Mailpit, so no real email sending here
   const payload = {
     employees: allPersonnel,
+    orgId: state.orgId,
     smtpUser: null,
     smtpPass: null,
     smtpHost: 'mailpit',

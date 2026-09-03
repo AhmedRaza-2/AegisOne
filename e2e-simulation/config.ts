@@ -73,9 +73,8 @@ export const Config = (() => {
   ],
   // These will be detected as phishing/suspicious by AegisOne's models
   SUSPICIOUS_URLS: [
-    'http://paypal-secure-login.xyz/auth',
-    'http://update-apple-id.com/login',
-    'http://office-365-secure.com',
+    'http://paypal.8.8.8.8.nip.io/auth',
+    'http://security-update-office365.8.8.8.8.nip.io/login',
   ],
   };
 })();

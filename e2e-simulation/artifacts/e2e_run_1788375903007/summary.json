@@ -1,0 +1,56 @@
+{
+  "run_id": "e2e_run_1788375903007",
+  "scenario": "vertical-slice",
+  "status": "INCOMPLETE",
+  "failure_class": null,
+  "tests": {
+    "SAFE-001": {
+      "status": "PASS",
+      "failure_class": null,
+      "error": null,
+      "contract_results": {
+        "test_id": "SAFE-001",
+        "navigation": true,
+        "extension": true,
+        "scan": true,
+        "verdict": true,
+        "security_event": true,
+        "db_persistence": true,
+        "manager_visibility": true,
+        "admin_visibility": true,
+        "overall": true
+      },
+      "timings": {
+        "detection_ms": 10076,
+        "persistence_ms": null,
+        "dashboard_propagation_ms": null,
+        "ui_render_ms": null,
+        "total_e2e_ms": 10076
+      }
+    },
+    "PHISH-001": {
+      "status": "FAIL",
+      "failure_class": "DASHBOARD_PROPAGATION_FAILURE",
+      "error": "DASHBOARD_PROPAGATION_FAILURE: Timeout waiting for polling request to show threat event",
+      "contract_results": {
+        "test_id": "PHISH-001",
+        "navigation": true,
+        "extension": true,
+        "scan": true,
+        "verdict": true,
+        "security_event": false,
+        "db_persistence": false,
+        "manager_visibility": false,
+        "admin_visibility": false,
+        "overall": false
+      },
+      "timings": {
+        "detection_ms": 6346,
+        "persistence_ms": null,
+        "dashboard_propagation_ms": null,
+        "ui_render_ms": null,
+        "total_e2e_ms": 6346
+      }
+    }
+  }
+}

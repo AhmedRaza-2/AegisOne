@@ -765,6 +765,13 @@ async def add_policy_allowlist(payload: AllowlistRequest, current_user: User = D
 @router.post("/devices/register")
 async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Depends(get_db)):
     try:
+        from api.database.models import User
+        if payload.user_email:
+            user = await db.scalar(select(User).where(User.email == payload.user_email))
+            if user:
+                payload.user_id = user.id
+                payload.organization_id = getattr(user, "organization_id", None) or payload.organization_id
+
         # Try to find existing device
         device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
         if not device:

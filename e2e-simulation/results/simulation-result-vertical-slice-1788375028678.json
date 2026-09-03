@@ -1,0 +1,99 @@
+{
+  "scenario": "vertical-slice",
+  "seed": "20260831",
+  "orgId": "org_e2e_run_1788374989580",
+  "scale": 3,
+  "startedAt": "2026-09-02T18:49:50.541Z",
+  "totalDurationMs": 38138,
+  "passed": false,
+  "actors": {
+    "admin": "e2e.admin@aegisone.e2etest.local",
+    "managers": [],
+    "employees": 3,
+    "fullBrowser": 2,
+    "synthetic": 1
+  },
+  "expected": {
+    "totalEmailsSent": 0,
+    "totalEmailsDelivered": 0,
+    "totalClicks": 0,
+    "totalReports": 0,
+    "totalIgnored": 0,
+    "totalWebsiteScans": 0,
+    "totalSyntheticScans": 0,
+    "totalThreatsDetected": 0,
+    "totalThreatReports": 0
+  },
+  "actual": {
+    "websiteScansInDB": 0,
+    "securityEventsInDB": 0,
+    "threatReportsInDB": 0,
+    "apiTotalScans": 0,
+    "apiThreatsDetected": 0,
+    "dashboardTotalScans": 0,
+    "dashboardThreatsDetected": 0
+  },
+  "phases": [
+    {
+      "phase": "SAFE-001",
+      "passed": false,
+      "durationMs": 0,
+      "details": {
+        "status": "FAIL",
+        "failure_class": "NAVIGATION_FAILURE",
+        "error": "NAVIGATION_FAILURE: Failed to visit URL - this.requirePage is not a function",
+        "contract_results": {
+          "test_id": "SAFE-001",
+          "navigation": false,
+          "extension": false,
+          "scan": false,
+          "verdict": false,
+          "security_event": false,
+          "db_persistence": false,
+          "manager_visibility": false,
+          "admin_visibility": false,
+          "overall": false
+        },
+        "timings": {
+          "detection_ms": null,
+          "persistence_ms": null,
+          "dashboard_propagation_ms": null,
+          "ui_render_ms": null,
+          "total_e2e_ms": null
+        }
+      }
+    },
+    {
+      "phase": "PHISH-001",
+      "passed": false,
+      "durationMs": 0,
+      "details": {
+        "status": "FAIL",
+        "failure_class": "NAVIGATION_FAILURE",
+        "error": "NAVIGATION_FAILURE: Failed to visit URL - this.requirePage is not a function",
+        "contract_results": {
+          "test_id": "PHISH-001",
+          "navigation": false,
+          "extension": false,
+          "scan": false,
+          "verdict": false,
+          "security_event": false,
+          "db_persistence": false,
+          "manager_visibility": false,
+          "admin_visibility": false,
+          "overall": false
+        },
+        "timings": {
+          "detection_ms": null,
+          "persistence_ms": null,
+          "dashboard_propagation_ms": null,
+          "ui_render_ms": null,
+          "total_e2e_ms": null
+        }
+      }
+    }
+  ],
+  "discrepancies": [],
+  "generatedAt": "2026-09-02T18:50:28.679Z",
+  "version": "1.0.0"
+}

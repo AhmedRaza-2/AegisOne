@@ -101,7 +101,7 @@
 
   // Inject security badge into WhatsApp chat bubble
   function injectBadge(bubbleEl, verdict, riskScore, category) {
-    if (!bubbleEl || bubbleEl.querySelector(".aegis-wsp-badge")) return;
+    if (!bubbleEl || verdict === "offline" || riskScore === -1 || verdict === "scan_incomplete" || bubbleEl.querySelector(".aegis-wsp-badge")) return;
 
     const badge = document.createElement("div");
     badge.className = "aegis-wsp-badge";
@@ -151,6 +151,15 @@
       img.addEventListener("mouseenter", async () => {
         if (activeImageTooltip) activeImageTooltip.remove();
 
+        if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+
+        // Check backend health before attempting vision scan
+        const health = await new Promise(res => {
+          chrome.runtime.sendMessage({ type: "CHECK_HEALTH" }, r => res(r));
+        }).catch(() => null);
+
+        if (!health || health.online === false) return;
+
         const rect = img.getBoundingClientRect();
         const tooltip = document.createElement("div");
         tooltip.className = "aegis-img-tooltip";
@@ -187,24 +196,22 @@
           return;
         }
 
-        if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-          chrome.runtime.sendMessage(
-            { type: "SCAN_WHATSAPP_BATCH", payload: { messages: [{ text: "Image Scan", image_base64: base64, chat_title: getActiveChatTitle() }] } },
-            (response) => {
-              if (response && response.results && response.results[0]) {
-                const res = response.results[0];
-                const isPhish = res.verdict === "phishing" || res.risk_score >= 76;
-                const icon = isPhish ? "🚨" : "🛡️";
-                tooltip.style.borderColor = isPhish ? "rgba(239, 68, 68, 0.6)" : "rgba(16, 185, 129, 0.6)";
-                tooltip.style.background = isPhish ? "rgba(69, 10, 10, 0.95)" : "rgba(6, 78, 59, 0.95)";
-                tooltip.innerHTML = `<span>${icon}</span><span>${isPhish ? `Threat (${res.risk_score}%)` : `Verified Safe`}</span>`;
-                setTimeout(() => tooltip.remove(), 2000);
-              } else {
-                tooltip.remove();
-              }
+        chrome.runtime.sendMessage(
+          { type: "SCAN_WHATSAPP_BATCH", payload: { messages: [{ text: "Image Scan", image_base64: base64, chat_title: getActiveChatTitle() }] } },
+          (response) => {
+            if (response && response.results && response.results[0] && response.results[0].verdict !== "offline") {
+              const res = response.results[0];
+              const isPhish = res.verdict === "phishing" || res.risk_score >= 76;
+              const icon = isPhish ? "🚨" : "🛡️";
+              tooltip.style.borderColor = isPhish ? "rgba(239, 68, 68, 0.6)" : "rgba(16, 185, 129, 0.6)";
+              tooltip.style.background = isPhish ? "rgba(69, 10, 10, 0.95)" : "rgba(6, 78, 59, 0.95)";
+              tooltip.innerHTML = `<span>${icon}</span><span>${isPhish ? `Threat (${res.risk_score}%)` : `Verified Safe`}</span>`;
+              setTimeout(() => tooltip.remove(), 2000);
+            } else {
+              tooltip.remove();
             }
-          );
-        }
+          }
+        );
       });
 
       img.addEventListener("mouseleave", () => {
@@ -253,9 +260,20 @@
   }
 
   // Flush queued messages to background service worker
-  function flushBatchQueue() {
+  async function flushBatchQueue() {
     queueTimer = null;
     if (messageQueue.length === 0) return;
+
+    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+
+    const health = await new Promise(res => {
+      chrome.runtime.sendMessage({ type: "CHECK_HEALTH" }, r => res(r));
+    }).catch(() => null);
+
+    if (!health || health.online === false) {
+      messageQueue.length = 0;
+      return;
+    }
 
     const currentBatch = messageQueue.splice(0, 15);
     const payloadMessages = currentBatch.map(item => ({
@@ -265,21 +283,19 @@
       fingerprint: item.fingerprint
     }));
 
-    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage(
-        { type: "SCAN_WHATSAPP_BATCH", payload: { messages: payloadMessages } },
-        response => {
-          if (response && response.results) {
-            response.results.forEach(res => {
-              const matchedItem = currentBatch.find(b => b.fingerprint === res.fingerprint);
-              if (matchedItem && matchedItem.bubbleEl) {
-                injectBadge(matchedItem.bubbleEl, res.verdict, res.risk_score, res.threat_category);
-              }
-            });
-          }
+    chrome.runtime.sendMessage(
+      { type: "SCAN_WHATSAPP_BATCH", payload: { messages: payloadMessages } },
+      response => {
+        if (response && response.results) {
+          response.results.forEach(res => {
+            const matchedItem = currentBatch.find(b => b.fingerprint === res.fingerprint);
+            if (matchedItem && matchedItem.bubbleEl && res.verdict !== "offline" && res.verdict !== "scan_incomplete") {
+              injectBadge(matchedItem.bubbleEl, res.verdict, res.risk_score, res.threat_category);
+            }
+          });
         }
-      );
-    }
+      }
+    );
   }
 
   // MutationObserver to detect new DOM elements
