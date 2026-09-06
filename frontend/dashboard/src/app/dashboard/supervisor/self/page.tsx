@@ -33,7 +33,7 @@ export default function SupervisorSelfDashboard() {
       const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
       const json = await res.json();
       setData(json);
-      sessionStorage.setItem(cacheKey, JSON.stringify(json));
+      localStorage.setItem(cacheKey, JSON.stringify(json));
       setLoading(false);
     } catch (err) {
       console.error(err);
@@ -46,7 +46,7 @@ export default function SupervisorSelfDashboard() {
   useEffect(() => {
     if (user?.email) {
       const cacheKey = `emp_stats_${user.email}`;
-      const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null;
+      const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
       if (cached) {
         try {
           setData(JSON.parse(cached));
@@ -71,9 +71,9 @@ export default function SupervisorSelfDashboard() {
     return true; // all
   });
 
-  const totalScans = filteredScans.length;
-  const blockedScans = filteredScans.filter((s: any) => s.decision === 'block').length;
-  const securityScore = Math.max(0, 100 - (blockedScans * 2));
+  const blockedScans = filteredScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length;
+  // Use backend health score if available
+  const securityScore = data?.healthScore ?? Math.max(0, 100 - (blockedScans * 2));
   const isProtected = securityScore > 80;
 
   const urlScans = filteredScans.filter((s: any) => s.scanType === 'url');
@@ -90,26 +90,31 @@ export default function SupervisorSelfDashboard() {
     s.inputPreview?.startsWith('Text Snippet:')
   );
 
+  const emailCountFromBackend = data?.scanBreakdown?.email || 0;
+  const emailScansTotal = Math.max(emailScans.length, emailCountFromBackend);
+  // Simple sum of typed scans - no double counting
+  const totalScans = urlScans.length + webScans.length + fileScans.length + imageScans.length + emailScansTotal;
+
   const stats = {
     urls: {
       total: urlScans.length,
-      blocked: urlScans.filter((s: any) => s.decision === 'block').length
+      blocked: urlScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     websites: {
       total: webScans.length,
-      blocked: webScans.filter((s: any) => s.decision === 'block').length
+      blocked: webScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     files: {
       total: fileScans.length,
-      blocked: fileScans.filter((s: any) => s.decision === 'block').length
+      blocked: fileScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     images: {
       total: imageScans.length,
-      blocked: imageScans.filter((s: any) => s.decision === 'block').length
+      blocked: imageScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     emails: {
-      total: emailScans.length,
-      blocked: emailScans.filter((s: any) => s.decision === 'block').length
+      total: emailScansTotal,
+      blocked: emailScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     }
   };
 

@@ -31,7 +31,7 @@ const navByRole: Record<string, NavItem[]> = {
   manager: [
     { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
     { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
-    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail },
+    { label: "Email Security", href: "/dashboard/supervisor/email", icon: Mail },
     { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert },
     { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
@@ -42,7 +42,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
-    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail },
+    { label: "Email Security", href: "/dashboard/admin/email", icon: Mail },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
@@ -54,7 +54,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
     { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
-    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail },
+    { label: "Email Security", href: "/dashboard/admin/email", icon: Mail },
     { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
@@ -245,23 +245,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     const role = user.role;
+    // Allow any authenticated role to access email security pages
+    if (pathname.includes("/email")) {
+      return;
+    }
+
     if (pathname.startsWith("/dashboard/admin") && role !== "super_admin" && role !== "global_admin" && role !== "admin") {
       // Allow department_admin to access approvals page
-      if ((role === "department_admin" || role === "manager") && pathname === "/dashboard/admin/approvals") {
+      if ((role === "department_admin" || role === "manager" || role === "office_admin") && (pathname === "/dashboard/admin/approvals" || pathname === "/dashboard/admin/email")) {
         // allowed
       } else {
         router.replace((role === "department_admin" || role === "manager" || role === "office_admin") ? "/dashboard/supervisor" : "/dashboard/employee");
       }
     } else if (pathname.startsWith("/dashboard/supervisor") && role !== "department_admin" && role !== "office_admin" && role !== "manager") {
-      if ((role === "admin" || role === "super_admin" || role === "global_admin") && (pathname === "/dashboard/supervisor/extension" || pathname === "/dashboard/supervisor/self")) {
+      if ((role === "admin" || role === "super_admin" || role === "global_admin") && (pathname === "/dashboard/supervisor/extension" || pathname === "/dashboard/supervisor/self" || pathname === "/dashboard/supervisor/email")) {
         // allowed
       } else {
-        router.replace(role === "super_admin" || role === "admin" ? "/dashboard/admin" : "/dashboard/employee");
+        router.replace(role === "super_admin" || role === "admin" || role === "global_admin" ? "/dashboard/admin" : "/dashboard/employee");
       }
     } else if (pathname.startsWith("/dashboard/employee") && (role === "super_admin" || role === "global_admin" || role === "admin")) {
-      router.replace("/dashboard/admin");
+      if (!pathname.includes("/email")) {
+        router.replace("/dashboard/admin");
+      }
     } else if (pathname.startsWith("/dashboard/employee") && (role === "department_admin" || role === "office_admin" || role === "manager")) {
-      router.replace("/dashboard/supervisor");
+      if (!pathname.includes("/email")) {
+        router.replace("/dashboard/supervisor");
+      }
     }
   }, [user, isLoading, router, pathname]);
 

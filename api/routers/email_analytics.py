@@ -21,7 +21,7 @@ router = APIRouter(prefix="/analytics", tags=["Email Analytics"])
 
 @router.get("/email")
 async def fetch_email_analytics(
-    period: str = Query("30d", regex="^(7d|30d|90d|all)$"),
+    period: str = Query("24h", regex="^(24h|7d|30d|90d|all)$"),
     scope: str = Query("auto", regex="^(auto|employee|supervisor|admin)$"),
     email: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),

@@ -153,9 +153,9 @@ export function showXAIModal(xai, context = {}) {
     
     // If the visual score is safe (< 20%), ensure the text doesn't claim it was flagged as phishing
     if (s < 20) {
-      summaryText = `AegisOne security analysis completed for this target with a composite risk score of ${s}%. No malicious content, phishing indicators, or suspicious heuristics were detected.`;
-    } else {
-      summaryText = summaryText.replace(/completed for this target with a composite risk score of/gi, "flagged this target as high-risk phishing with a composite risk score of");
+      if (!summaryText || summaryText.includes("flagged")) {
+        summaryText = `AegisOne security analysis completed for this target with a composite risk score of ${s}%. No malicious content, phishing indicators, or suspicious heuristics were detected.`;
+      }
     }
 
     if (isEmailTarget) {

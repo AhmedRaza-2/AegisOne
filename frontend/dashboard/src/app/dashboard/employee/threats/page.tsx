@@ -41,11 +41,13 @@ export default function ThreatCenterPage() {
 
   const recent = data?.recent || [];
 
-  // Calculate stats from real-time data
-  const remediatedCount = recent.filter((t: any) => {
-    const decision = (t.decision || '').toLowerCase();
-    return decision === 'blocked' || decision === 'block';
-  }).length;
+  // Calculate stats from real-time data matching user isolated counts
+  const remediatedCount = data?.remediated !== undefined 
+    ? data.remediated 
+    : recent.filter((t: any) => {
+        const decision = (t.decision || '').toLowerCase();
+        return decision === 'blocked' || decision === 'block';
+      }).length;
   const avgScore = recent.length
     ? (recent.reduce((acc: number, t: any) => acc + (t.riskScore || 0), 0) / recent.length).toFixed(1)
     : "0.0";

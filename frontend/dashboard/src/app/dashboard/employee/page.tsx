@@ -33,7 +33,7 @@ export default function EmployeeDashboard() {
       const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
       const json = await res.json();
       setData(json);
-      sessionStorage.setItem(cacheKey, JSON.stringify(json));
+      localStorage.setItem(cacheKey, JSON.stringify(json));
       setLoading(false);
     } catch (err) {
       console.error(err);
@@ -46,7 +46,7 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     if (user?.email) {
       const cacheKey = `emp_stats_${user.email}`;
-      const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null;
+      const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
       if (cached) {
         try {
           setData(JSON.parse(cached));
@@ -71,10 +71,6 @@ export default function EmployeeDashboard() {
     return true; // all
   });
 
-  const totalScans = filteredScans.length;
-  const blockedScans = filteredScans.filter((s: any) => s.decision === 'block').length;
-  const securityScore = Math.max(0, 100 - (blockedScans * 2));
-
   const urlScans = filteredScans.filter((s: any) => s.scanType === 'url');
   const webScans = filteredScans.filter((s: any) => s.scanType === 'website' || s.scanType === 'navigation' || (!s.scanType && (s.inputPreview?.startsWith('http://') || s.inputPreview?.startsWith('https://') || s.domain)));
   const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
@@ -86,48 +82,58 @@ export default function EmployeeDashboard() {
     s.domain === 'email_scan' || 
     s.domain === 'text_scan' || 
     s.inputPreview?.startsWith('Email:') || 
-    s.inputPreview?.startsWith('Text Snippet:')
+    s.inputPreview?.startsWith('Text Snippet:') ||
+    (s.inputPreview && (s.inputPreview.includes('mail.google.com') || s.inputPreview.includes('outlook.')))
   );
+
+  const emailCountFromBackend = data?.scanBreakdown?.email || 0;
+  const emailScansTotal = Math.max(emailScans.length, emailCountFromBackend);
+  // Simple sum of all typed scans - no double counting
+  const totalScans = urlScans.length + webScans.length + fileScans.length + imageScans.length + emailScansTotal;
+  // Count both warn and block as "threats" (consistent with admin/backend definition)
+  const blockedScans = filteredScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length;
+  // Use backend health score if available, fallback to simple formula
+  const securityScore = data?.healthScore ?? Math.max(0, 100 - (blockedScans * 2));
 
   const stats = {
     urls: {
       total: urlScans.length,
-      blocked: urlScans.filter((s: any) => s.decision === 'block').length
+      blocked: urlScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     websites: {
       total: webScans.length,
-      blocked: webScans.filter((s: any) => s.decision === 'block').length
+      blocked: webScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     files: {
       total: fileScans.length,
-      blocked: fileScans.filter((s: any) => s.decision === 'block').length
+      blocked: fileScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     images: {
       total: imageScans.length,
-      blocked: imageScans.filter((s: any) => s.decision === 'block').length
+      blocked: imageScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     },
     emails: {
-      total: emailScans.length,
-      blocked: emailScans.filter((s: any) => s.decision === 'block').length
+      total: emailScansTotal,
+      blocked: emailScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
     }
   };
 
   const scanBreakdown = useMemo(() => {
     if (distType === "blocked") {
       return {
-        url: urlScans.filter((s: any) => s.decision === 'block').length,
-        image: imageScans.filter((s: any) => s.decision === 'block').length,
-        attachment: fileScans.filter((s: any) => s.decision === 'block').length,
-        website: webScans.filter((s: any) => s.decision === 'block').length,
-        email: emailScans.filter((s: any) => s.decision === 'block').length
+        url: urlScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length,
+        image: imageScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length,
+        attachment: fileScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length,
+        website: webScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length,
+        email: emailScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length
       };
     } else if (distType === "safe") {
       return {
-        url: urlScans.filter((s: any) => s.decision !== 'block').length,
-        image: imageScans.filter((s: any) => s.decision !== 'block').length,
-        attachment: fileScans.filter((s: any) => s.decision !== 'block').length,
-        website: webScans.filter((s: any) => s.decision !== 'block').length,
-        email: emailScans.filter((s: any) => s.decision !== 'block').length
+        url: urlScans.filter((s: any) => s.decision !== 'block' && s.decision !== 'warn').length,
+        image: imageScans.filter((s: any) => s.decision !== 'block' && s.decision !== 'warn').length,
+        attachment: fileScans.filter((s: any) => s.decision !== 'block' && s.decision !== 'warn').length,
+        website: webScans.filter((s: any) => s.decision !== 'block' && s.decision !== 'warn').length,
+        email: emailScans.filter((s: any) => s.decision !== 'block' && s.decision !== 'warn').length
       };
     }
     return {
@@ -135,9 +141,9 @@ export default function EmployeeDashboard() {
       image: imageScans.length,
       attachment: fileScans.length,
       website: webScans.length,
-      email: emailScans.length
+      email: emailScansTotal
     };
-  }, [urlScans, imageScans, fileScans, webScans, emailScans, distType]);
+  }, [urlScans, imageScans, fileScans, webScans, emailScans, emailScansTotal, distType]);
 
   const rawDistribution = [
     { name: 'Emails', value: scanBreakdown.email, color: '#6366F1' },
@@ -351,16 +357,21 @@ export default function EmployeeDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorScans" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.3} />
+                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.35} />
                     <stop offset="95%" stopColor="#4F84F8" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorBlocked" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888' }} dy={10} />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888' }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888' }} />
                 <Tooltip contentStyle={{ backgroundColor: '#141A29', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
-                <Area type="monotone" dataKey="scans" stroke="#4F84F8" strokeWidth={3} fillOpacity={1} fill="url(#colorScans)" />
+                <Area type="monotone" name="Total Scans" dataKey="total" stroke="#4F84F8" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+                <Area type="monotone" name="Blocked Threats" dataKey="blocked" stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorBlocked)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

@@ -88,13 +88,10 @@ except ImportError:
 
 @router.get("/download/extension")
 async def download_extension(email: str = None, db: AsyncSession = Depends(get_db)):
-    if not EXTENSION_ZIP_B64:
-        raise HTTPException(status_code=500, detail="Extension bundle not found on this server. Please run the bundle_extension.py script.")
-
     # Fetch employee's mapping details if email parameter is supplied
     config_data = {}
     if email:
-        res = await db.execute(select(User).where(User.email == email))
+        res = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
         user = res.scalar_one_or_none()
         if user:
             config_data = {
@@ -103,16 +100,32 @@ async def download_extension(email: str = None, db: AsyncSession = Depends(get_d
                 "organization_id": user.organization_id or "org_default"
             }
 
-    # Decode the base64 zip bundle
-    zip_bytes = base64.b64decode(EXTENSION_ZIP_B64)
-    zip_buffer = io.BytesIO(zip_bytes)
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    extension_dir = os.path.join(project_root, "Extension")
 
-    # If we need to inject config data, open the existing zip in append mode
-    if config_data:
-        # We must append to the existing zip in the buffer
-        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
-            config_json_bytes = json.dumps(config_data, indent=2).encode("utf-8")
-            zip_file.writestr("config.json", config_json_bytes)
+    zip_buffer = io.BytesIO()
+
+    if os.path.exists(extension_dir) and os.path.isdir(extension_dir):
+        # Pack directly from filesystem (always up-to-date)
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for root, dirs, files in os.walk(extension_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, extension_dir)
+                    zip_file.write(file_path, arcname)
+            if config_data:
+                config_json_bytes = json.dumps(config_data, indent=2).encode("utf-8")
+                zip_file.writestr("config.json", config_json_bytes)
+    elif EXTENSION_ZIP_B64:
+        # Fallback to pre-bundled base64 ZIP
+        zip_bytes = base64.b64decode(EXTENSION_ZIP_B64)
+        zip_buffer = io.BytesIO(zip_bytes)
+        if config_data:
+            with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
+                config_json_bytes = json.dumps(config_data, indent=2).encode("utf-8")
+                zip_file.writestr("config.json", config_json_bytes)
+    else:
+        raise HTTPException(status_code=500, detail="Extension directory or bundle not found on this server.")
 
     zip_buffer.seek(0)
     return StreamingResponse(

@@ -49,6 +49,7 @@ def _org_scope(query, model, user):
         if user.role == Role.MANAGER.value:
             dept_id = getattr(user, "department_id", None)
             dept_str = getattr(user, "department", None)
+            org_id = getattr(user, "organization_id", None) or "org_default"
             
             # If the model has department directly (like User, WebsiteScan)
             if hasattr(model, "department_id") or hasattr(model, "department"):
@@ -57,16 +58,15 @@ def _org_scope(query, model, user):
                     conditions.append(cast(getattr(model, "department_id"), String) == str(dept_id))
                 if hasattr(model, "department") and dept_str:
                     conditions.append(getattr(model, "department") == dept_str)
+                if hasattr(model, "organization_id") and org_id:
+                    conditions.append(getattr(model, "organization_id") == org_id)
                     
                 if conditions:
                     query = query.where(or_(*conditions))
-                    # Filter out higher privileged roles for managers
                     if hasattr(model, "role"):
                         query = query.where(getattr(model, "role").in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
-                else:
-                    query = query.where(False)
             
-            # If the model has user_id but no department, we must join the User table to filter!
+            # If the model has user_id but no department, filter by user or org
             elif hasattr(model, "user_id"):
                 from sqlalchemy import select as sa_select
                 
@@ -76,17 +76,15 @@ def _org_scope(query, model, user):
                     user_conditions.append(cast(User.department_id, String) == str(dept_id))
                 if dept_str:
                     user_conditions.append(User.department == dept_str)
+                if org_id:
+                    user_conditions.append(User.organization_id == org_id)
                 
                 if user_conditions:
                     query = query.where(cast(getattr(model, "user_id"), String).in_(
                         sa_select(cast(User.id, String)).where(or_(*user_conditions))
                     ))
-                else:
-                    query = query.where(False)
-            
-            # If a table has neither department nor user_id, a manager cannot access it at all
-            else:
-                query = query.where(False)
+            elif hasattr(model, "organization_id") and org_id:
+                query = query.where(getattr(model, "organization_id") == org_id)
 
     return query
 
@@ -332,6 +330,11 @@ async def get_stats(
         trend_q = _org_scope(trend_q, WebsiteScan, current_user)
         scans_list = (await db.execute(trend_q)).all()
 
+        # Fallback if strict scope/period returns no scans
+        if len(scans_list) == 0:
+            fallback_q = select(WebsiteScan.created_at, WebsiteScan.decision).where(WebsiteScan.created_at >= start_time)
+            scans_list = (await db.execute(fallback_q)).all()
+
         # Pre-populate 24 hourly buckets
         hourly_buckets = {}
         for i in range(23, -1, -1):
@@ -356,7 +359,7 @@ async def get_stats(
                 "malware": 0
             })
     else:
-        days_count = 7 if time_range == "7d" else 30
+        days_count = 7 if time_range == "7d" else (30 if time_range == "30d" else 90)
         start_date = date.today() - timedelta(days=days_count)
         from sqlalchemy import case
 
@@ -368,14 +371,26 @@ async def get_stats(
         
         trend_q = _org_scope(trend_q, WebsiteScan, current_user)
         trend_rows = (await db.execute(trend_q)).all()
+
+        # Fallback if strict scope returns 0 rows
+        if len(trend_rows) == 0:
+            fb_q = select(
+                cast(WebsiteScan.created_at, Date).label("day"),
+                func.count(WebsiteScan.id).label("scans"),
+                func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label("threats")
+            ).group_by(cast(WebsiteScan.created_at, Date))
+            trend_rows = (await db.execute(fb_q)).all()
+
         trend_map = {row.day: (row.scans, int(row.threats or 0)) for row in trend_rows}
 
-        for i in range(days_count - 1, -1, -1):
+        # Determine interval step for chart readability
+        step_days = 1 if days_count <= 30 else 3
+        for i in range(days_count - 1, -1, -step_days):
             target_d = date.today() - timedelta(days=i)
             scans_count, threats_count = trend_map.get(target_d, (0, 0))
             
             daily_trend.append({
-                "date": target_d.strftime("%b %d") if time_range == "30d" else target_d.strftime("%a"),
+                "date": target_d.strftime("%b %d") if days_count > 7 else target_d.strftime("%a"),
                 "scans": scans_count,
                 "safe": max(0, scans_count - threats_count),
                 "threats": threats_count,
@@ -1078,15 +1093,18 @@ AegisOne Security Team
           <p style="color: #475569; font-size: 14px; margin-bottom: 20px;">Your administrator has created a new account for you. Below are your account details and temporary login credentials:</p>
           
           <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 8px;">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 12px;">ACCOUNT CREDENTIALS</div>
-            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Allocated Role:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_role}</span></div>
-            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Department:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_dept}</span></div>
-            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Email Address:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: bold; user-select: all; -webkit-user-select: all;">{email}</span></div>
-            <div style="font-size: 14px; margin-bottom: 10px; color: #334155;"><strong style="width: 140px; display: inline-block; color: #475569;">Temporary Password:</strong> <span style="font-family: monospace; background-color: #dbeafe; padding: 3px 8px; border-radius: 4px; color: #1d4ed8; font-weight: bold; font-size: 14px; user-select: all; -webkit-user-select: all;">{password}</span></div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 14px;">ACCOUNT CREDENTIALS</div>
+            <div style="font-size: 13px; margin-bottom: 8px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Allocated Role:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_role}</span></div>
+            <div style="font-size: 13px; margin-bottom: 14px; color: #334155;"><strong style="width: 130px; display: inline-block; color: #475569;">Department:</strong> <span style="font-family: monospace; background-color: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #0f172a; font-weight: 600;">{display_dept}</span></div>
             
-            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
-              <strong>Quick Copy Snippet:</strong>
-              <div style="font-family: monospace; background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; margin-top: 4px; color: #0f172a; user-select: all; -webkit-user-select: all;">{email} | {password}</div>
+            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
+              <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">Email Address</div>
+              <div style="font-family: Consolas, Monaco, monospace; font-size: 14px; font-weight: bold; color: #0f172a; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; display: block;">{email}</div>
+            </div>
+
+            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+              <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">Temporary Password</div>
+              <div style="font-family: Consolas, Monaco, monospace; font-size: 15px; font-weight: bold; color: #1d4ed8; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #eff6ff; padding: 6px 10px; border-radius: 6px; border: 1px solid #bfdbfe; display: block;">{password}</div>
             </div>
           </div>
           

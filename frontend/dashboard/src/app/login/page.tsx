@@ -22,15 +22,37 @@ export default function LoginPage() {
   const [otp, setOtp] = useState("");
   const [requestedRole, setRequestedRole] = useState("employee");
 
+  const [checkingSession, setCheckingSession] = useState(true);
+
   useEffect(() => {
-    // Check if the user just registered
+    // 1. Auto-redirect if user is already logged in (has active session / token)
     if (typeof window !== "undefined") {
+      const token = localStorage.getItem("aegis_access_token") || document.cookie.includes("aegis_access_token=");
+      const userStr = localStorage.getItem("user");
+      if (token && userStr) {
+        try {
+          const parsedUser = JSON.parse(userStr);
+          const userRole = parsedUser.role?.toLowerCase() || "employee";
+          const dest = (userRole === "admin" || userRole === "super_admin" || userRole === "global_admin")
+            ? "/dashboard/admin"
+            : (userRole === "manager" || userRole === "department_admin")
+              ? "/dashboard/supervisor"
+              : "/dashboard/employee";
+          router.replace(dest);
+          return;
+        } catch (e) {
+          console.error("[Login] Error reading existing session:", e);
+        }
+      }
+
+      // 2. Check if the user just registered
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("registered") === "true") {
         setSuccessMsg("Registration successful. Please wait for an admin to approve your account.");
       }
+      setCheckingSession(false);
     }
-  }, []);
+  }, [router]);
 
   const [detectedRole, setDetectedRole] = useState<string>("employee");
 
@@ -159,6 +181,37 @@ export default function LoginPage() {
     }
   };
 
+  if (checkingSession) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-300"
+        style={{ background: "var(--bg-canvas)" }}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4 text-center z-10"
+        >
+          <div
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl animate-pulse"
+            style={{
+              background: "linear-gradient(135deg, var(--blue-600) 0%, var(--navy-800) 100%)",
+              boxShadow: "0 8px 24px rgba(74,127,167,0.35), 0 0 0 1px rgba(74,127,167,0.2)"
+            }}
+          >
+            <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.75} />
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+            <span className="text-sm font-medium tracking-wide" style={{ color: "var(--text-secondary)" }}>
+              Validating AegisOne Session...
+            </span>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden transition-colors duration-300"
@@ -210,9 +263,12 @@ export default function LoginPage() {
           {resetStep === "otp" ? (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               {successMsg && (
-                <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl text-sm"
+                <div className="flex flex-col gap-1 px-3.5 py-3 rounded-xl text-sm"
                   style={{ background: "rgba(47,169,126,0.08)", border: "1px solid rgba(47,169,126,0.2)", color: "var(--success)" }}>
-                  {successMsg}
+                  <span>{successMsg}</span>
+                  <span className="text-xs opacity-80 mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    💡 <b>Dev Mode:</b> Check backend terminal logs for <code>[SECURITY OTP CODE]</code> if SMTP email service is unconfigured.
+                  </span>
                 </div>
               )}
               <div>

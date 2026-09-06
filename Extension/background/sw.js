@@ -29,12 +29,39 @@ const _sessionAllowedUrls = new Set();
 // Per-tab AbortController registry — cancel stale requests on navigation
 const _tabControllers = new Map(); // tabId → AbortController
 
+async function initConfigData() {
+  try {
+    const { user_email } = await chrome.storage.local.get("user_email");
+    if (!user_email) {
+      const configUrl = chrome.runtime.getURL("config.json");
+      const res = await fetch(configUrl);
+      if (res.ok) {
+        const config = await res.json();
+        if (config.email) {
+          await chrome.storage.local.set({
+            user_email: config.email,
+            user_id: config.user_id,
+            organization_id: config.organization_id
+          });
+          invalidateAuthCache();
+          if (DEBUG_MODE) console.log("[AegisOne] Initialized user configuration from config.json:", config.email);
+        }
+      }
+    }
+  } catch (e) {
+    // config.json not present or inaccessible
+  }
+}
+
 // ── Startup ───────────────────────────────────────────────
 chrome.storage.local.get(STORE_KEYS.SHIELD_ENABLED, (d) => {
   SHIELD_ENABLED = d[STORE_KEYS.SHIELD_ENABLED] !== false;
 });
 
+initConfigData();
+
 chrome.runtime.onInstalled.addListener(async () => {
+  await initConfigData();
   await clearAllCache();
   await ensureDeviceId();
   await fetchOrgPolicy();
@@ -43,6 +70,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await initConfigData();
   await clearAllCache();
   await fetchOrgPolicy();
   startSync();

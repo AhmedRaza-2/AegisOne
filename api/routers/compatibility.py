@@ -12,7 +12,7 @@ import httpx
 import asyncio
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Query, Body, Request
 from typing import Dict, Any, List, Optional
-from sqlalchemy import select, desc, func, update, cast, Date
+from sqlalchemy import select, desc, func, update, cast, Date, or_, and_, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
@@ -102,10 +102,10 @@ from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Depends, Q
 async def _get_user_info(db: AsyncSession, user_email: str | None, request: Request | None = None):
     email = user_email
     if not email and request:
-        email = request.headers.get("x-user-email") or request.headers.get("X-User-Email")
+        email = request.headers.get("x-user-email") or request.headers.get("X-User-Email") or request.query_params.get("user_email")
     if not email:
         return None, "org_default"
-    q = await db.execute(select(User).where(User.email == email))
+    q = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
     u = q.scalar_one_or_none()
     if u:
         return u.id, getattr(u, "organization_id", "org_default") or "org_default"
@@ -846,12 +846,14 @@ async def heartbeat_device(payload: DeviceHeartbeatRequest, db: AsyncSession = D
 
 
 @router.post("/events/ingest")
-async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncSession = Depends(get_db)):
+async def ingest_security_events(payload: SecurityEventIngestRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Ingests batch security events from the browser extension.
     Persists them to the database.
     """
     persisted = 0
+    hdr_email = request.headers.get("X-User-Email") or request.headers.get("x-user-email")
+
     for event in payload.events:
         event_id = event.id or str(uuid.uuid4())
         
@@ -876,6 +878,15 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, db: AsyncS
             user_id_int = int(event.user_id) if event.user_id is not None else None
         except ValueError:
             user_id_int = None
+
+        # Resolve user_id if missing but user_email is present
+        evt_email = getattr(event, "user_email", None) or hdr_email
+        if (user_id_int is None or user_id_str is None) and evt_email:
+            u_res = await db.execute(select(User).where(func.lower(User.email) == evt_email.lower().strip()))
+            u_obj = u_res.scalar_one_or_none()
+            if u_obj:
+                user_id_int = u_obj.id
+                user_id_str = str(u_obj.id)
 
         entry = SecurityEvent(
             event_id=event_id,
@@ -1591,123 +1602,90 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     now_utc = datetime.utcnow()
     today_start = now_utc - timedelta(days=30)
     
-    # 1. Fetch user by email to isolate stats
-    user_q = await db.execute(select(User).where(User.email == email))
-    user = user_q.scalar()
-    user_id = user.id if user else None
+    # 1. Fetch user by email to isolate stats (case-insensitive)
+    user_id = None
+    if email:
+        user_q = await db.execute(select(User).where(func.lower(User.email) == email.strip().lower()))
+        user = user_q.scalar()
+        if user:
+            user_id = user.id
+
+    def apply_user_filter(q_obj, model_cls=WebsiteScan):
+        if user_id is not None:
+            # Only return scans belonging to this specific user (strict ownership)
+            return q_obj.where(cast(model_cls.user_id, String) == str(user_id))
+        return q_obj
 
     # 1. Total Scans (All Time)
-    q_base = select(func.count(WebsiteScan.id))
-    if user_id:
-        q_base = q_base.where(WebsiteScan.user_id == user_id)
-    else:
-        q_base = q_base.where(1 == 0)
-    total_scans_q = await db.execute(q_base)
+    total_scans_q = await db.execute(apply_user_filter(select(func.count(WebsiteScan.id))))
     total_scans = total_scans_q.scalar() or 0
     
     # 2. Total Scans (Today)
-    q_today = select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start)
-    if user_id:
-        q_today = q_today.where(WebsiteScan.user_id == user_id)
-    else:
-        q_today = q_today.where(1 == 0)
-    today_scans_q = await db.execute(q_today)
+    today_scans_q = await db.execute(apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start)))
     today_scans = today_scans_q.scalar() or 0
     
     # 3. Safe Scans (Today)
-    today_safe_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "allow")
-    if user_id:
-        today_safe_q = today_safe_q.where(WebsiteScan.user_id == user_id)
-    else:
-        today_safe_q = today_safe_q.where(1 == 0)
+    today_safe_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "allow"))
     today_safe = ((await db.execute(today_safe_q)).scalar() or 0)
     
     # 4. Warnings (Today)
-    today_warnings_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "warn")
-    if user_id:
-        today_warnings_q = today_warnings_q.where(WebsiteScan.user_id == user_id)
-    else:
-        today_warnings_q = today_warnings_q.where(1 == 0)
+    today_warnings_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "warn"))
     today_warns = ((await db.execute(today_warnings_q)).scalar() or 0)
     
     # 5. Blocks (Today)
-    today_blocks_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "block")
-    if user_id:
-        today_blocks_q = today_blocks_q.where(WebsiteScan.user_id == user_id)
-    else:
-        today_blocks_q = today_blocks_q.where(1 == 0)
+    today_blocks_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.created_at >= today_start, WebsiteScan.decision == "block"))
     today_blocks = ((await db.execute(today_blocks_q)).scalar() or 0)
     
     # 6. Detailed Scan Types Breakdown
-    scan_types_q = select(WebsiteScan.scan_type, func.count(WebsiteScan.id)).group_by(WebsiteScan.scan_type)
-    if user_id:
-        scan_types_q = scan_types_q.where(WebsiteScan.user_id == user_id)
-    else:
-        scan_types_q = scan_types_q.where(1 == 0)
-    scan_types_raw = (await db.execute(scan_types_q)).all()
-    types_breakdown = {"website": 0, "url": 0, "text": 0, "image": 0, "attachment": 0}
+    scan_types_raw = (await db.execute(apply_user_filter(select(WebsiteScan.scan_type, func.count(WebsiteScan.id)).group_by(WebsiteScan.scan_type)))).all()
+    types_breakdown = {"website": 0, "url": 0, "text": 0, "image": 0, "attachment": 0, "email": 0}
     for row in scan_types_raw:
         stype = (row[0] or "url").lower()
         if stype in types_breakdown:
             types_breakdown[stype] += row[1]
-            
+        elif stype in ["mail", "email_scan"]:
+            types_breakdown["email"] += row[1]
+
+    # Explicit count for all email scan variations
+    email_count_q = apply_user_filter(
+        select(func.count(WebsiteScan.id)).where(
+            or_(
+                WebsiteScan.scan_type.in_(["email", "mail"]),
+                WebsiteScan.domain == "email_scan",
+                WebsiteScan.url.ilike("Email:%"),
+                WebsiteScan.url.ilike("%#inbox/%"),
+                WebsiteScan.url.ilike("https://mail.google.com%"),
+                WebsiteScan.url.ilike("https://outlook.%"),
+                WebsiteScan.threat_type.ilike("%phishing_email%")
+            )
+        )
+    )
+    explicit_email_count = (await db.execute(email_count_q)).scalar() or 0
+    types_breakdown["email"] = max(types_breakdown["email"], explicit_email_count)
+
     # 7. Critical vs Non-Critical (All Time)
-    critical_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score >= 75)
-    if user_id:
-        critical_q = critical_q.where(WebsiteScan.user_id == user_id)
-    else:
-        critical_q = critical_q.where(1 == 0)
-    critical_count = ((await db.execute(critical_q)).scalar() or 0)
+    critical_count = ((await db.execute(apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score >= 75)))).scalar() or 0)
     non_critical_count = max(0, total_scans - critical_count)
 
     # 8. Credential Events (Today)
-    today_creds_q = select(func.count(SecurityEvent.id)).where(SecurityEvent.timestamp >= today_start, SecurityEvent.event_type == "credential_intercept")
-    if user_id:
-        today_creds_q = today_creds_q.where(SecurityEvent.user_id == str(user_id))
-    else:
-        today_creds_q = today_creds_q.where(1 == 0)
-    today_creds = ((await db.execute(today_creds_q)).scalar() or 0)
+    today_creds = ((await db.execute(apply_user_filter(select(func.count(SecurityEvent.id)).where(SecurityEvent.timestamp >= today_start, SecurityEvent.event_type == "credential_intercept"), SecurityEvent))).scalar() or 0)
     
     # 9. Download Events (Files)
-    files_total_q = select(func.count(DownloadEvent.id))
-    files_ws_total_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document")
-    files_blocked_q = select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "block")
-    files_ws_blocked_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document", WebsiteScan.decision == "block")
-    files_warned_q = select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "warn")
-    files_ws_warned_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document", WebsiteScan.decision == "warn")
-
-    if user_id:
-        files_total_q = files_total_q.where(DownloadEvent.user_id == str(user_id))
-        files_ws_total_q = files_ws_total_q.where(WebsiteScan.user_id == user_id)
-        files_blocked_q = files_blocked_q.where(DownloadEvent.user_id == str(user_id))
-        files_ws_blocked_q = files_ws_blocked_q.where(WebsiteScan.user_id == user_id)
-        files_warned_q = files_warned_q.where(DownloadEvent.user_id == str(user_id))
-        files_ws_warned_q = files_ws_warned_q.where(WebsiteScan.user_id == user_id)
-    else:
-        files_total_q = files_total_q.where(1 == 0)
-        files_ws_total_q = files_ws_total_q.where(1 == 0)
-        files_blocked_q = files_blocked_q.where(1 == 0)
-        files_ws_blocked_q = files_ws_blocked_q.where(1 == 0)
-        files_warned_q = files_warned_q.where(1 == 0)
-        files_ws_warned_q = files_ws_warned_q.where(1 == 0)
+    files_total_q = apply_user_filter(select(func.count(DownloadEvent.id)), DownloadEvent)
+    files_ws_total_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document"))
+    files_blocked_q = apply_user_filter(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "block"), DownloadEvent)
+    files_ws_blocked_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document", WebsiteScan.decision == "block"))
+    files_warned_q = apply_user_filter(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "warn"), DownloadEvent)
+    files_ws_warned_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "document", WebsiteScan.decision == "warn"))
 
     files_total = ((await db.execute(files_total_q)).scalar() or 0) + ((await db.execute(files_ws_total_q)).scalar() or 0)
     files_blocked = ((await db.execute(files_blocked_q)).scalar() or 0) + ((await db.execute(files_ws_blocked_q)).scalar() or 0)
     files_proceeded_at_risk = ((await db.execute(files_warned_q)).scalar() or 0) + ((await db.execute(files_ws_warned_q)).scalar() or 0)
 
     # All-time threats blocked
-    threats_blocked_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"]))
-    web_blocked_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "website", WebsiteScan.decision.in_(["warn", "block"]))
-    url_blocked_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "url", WebsiteScan.decision.in_(["warn", "block"]))
-
-    if user_id:
-        threats_blocked_q = threats_blocked_q.where(WebsiteScan.user_id == user_id)
-        web_blocked_q = web_blocked_q.where(WebsiteScan.user_id == user_id)
-        url_blocked_q = url_blocked_q.where(WebsiteScan.user_id == user_id)
-    else:
-        threats_blocked_q = threats_blocked_q.where(1 == 0)
-        web_blocked_q = web_blocked_q.where(1 == 0)
-        url_blocked_q = url_blocked_q.where(1 == 0)
+    threats_blocked_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["warn", "block"])))
+    web_blocked_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "website", WebsiteScan.decision.in_(["warn", "block"])))
+    url_blocked_q = apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "url", WebsiteScan.decision.in_(["warn", "block"])))
 
     threats_blocked = ((await db.execute(threats_blocked_q)).scalar() or 0)
     web_blocked = ((await db.execute(web_blocked_q)).scalar() or 0)
@@ -1719,9 +1697,20 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     email_scans_cnt = (types_breakdown.get("email", 0) + types_breakdown.get("text", 0)) or 1
     
     web_risk = min(100.0, ((web_blocked / web_scans_cnt) * 100.0)) if web_blocked > 0 else 0.0
-    email_blocked_q = select(func.count(WebsiteScan.id)).where(WebsiteScan.scan_type == "email", WebsiteScan.decision.in_(["warn", "block"]))
-    if user_id:
-        email_blocked_q = email_blocked_q.where(WebsiteScan.user_id == user_id)
+    email_blocked_q = apply_user_filter(
+        select(func.count(WebsiteScan.id)).where(
+            WebsiteScan.decision.in_(["warn", "block"]),
+            or_(
+                WebsiteScan.scan_type.in_(["email", "mail"]),
+                WebsiteScan.domain == "email_scan",
+                WebsiteScan.url.ilike("Email:%"),
+                WebsiteScan.url.ilike("%#inbox/%"),
+                WebsiteScan.url.ilike("https://mail.google.com%"),
+                WebsiteScan.url.ilike("https://outlook.%"),
+                WebsiteScan.threat_type.ilike("%phishing_email%")
+            )
+        )
+    )
     email_blocked = ((await db.execute(email_blocked_q)).scalar() or 0)
     email_risk = min(100.0, ((email_blocked / email_scans_cnt) * 100.0)) if email_blocked > 0 else 0.0
     cred_risk = min(100.0, (today_creds * 25.0))
@@ -1730,20 +1719,8 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     safe_rate = max(0, min(100, round(100 - weighted_risk)))
         
     # Recent scans
-    scans_q = select(WebsiteScan).order_by(WebsiteScan.created_at.desc()).limit(200)
-    if user_id:
-        scans_q = scans_q.where(WebsiteScan.user_id == user_id)
-    else:
-        scans_q = scans_q.where(1 == 0)
-    recent_scans = (await db.execute(scans_q)).scalars().all()
-    
-    # Recent downloads
-    dl_q = select(DownloadEvent).order_by(DownloadEvent.created_at.desc()).limit(200)
-    if user_id:
-        dl_q = dl_q.where(DownloadEvent.user_id == str(user_id))
-    else:
-        dl_q = dl_q.where(1 == 0)
-    recent_downloads = (await db.execute(dl_q)).scalars().all()
+    recent_scans = (await db.execute(apply_user_filter(select(WebsiteScan).order_by(WebsiteScan.created_at.desc()).limit(300)))).scalars().all()
+    recent_downloads = (await db.execute(apply_user_filter(select(DownloadEvent).order_by(DownloadEvent.created_at.desc()).limit(200), DownloadEvent))).scalars().all()
     
     # Combine and sort both lists
     combined_activity = []
@@ -1851,34 +1828,53 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
 
 
 @router.get("/user/threats")
-async def get_user_threats(email: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+    user_id = None
+    if email:
+        user_q = await db.execute(select(User).where(func.lower(User.email) == email.strip().lower()))
+        user = user_q.scalar()
+        if user:
+            user_id = user.id
+
+    def apply_user_filter(q_obj, model_cls=WebsiteScan):
+        if user_id is not None:
+            # Only return scans belonging to this specific user (strict ownership)
+            return q_obj.where(cast(model_cls.user_id, String) == str(user_id))
+        return q_obj
+
     # Get recent blocked/warned website scans
     web_q = await db.execute(
-        select(WebsiteScan)
-        .where(WebsiteScan.decision.in_(["warn", "block"]))
-        .order_by(WebsiteScan.created_at.desc())
-        .limit(50)
+        apply_user_filter(
+            select(WebsiteScan)
+            .where(WebsiteScan.decision.in_(["warn", "block"]))
+            .order_by(WebsiteScan.created_at.desc())
+            .limit(50)
+        )
     )
     web_threats = web_q.scalars().all()
 
     # Get recent blocked/warned downloads
     dl_q = await db.execute(
-        select(DownloadEvent)
-        .where(DownloadEvent.decision.in_(["warn", "block"]))
-        .order_by(DownloadEvent.created_at.desc())
-        .limit(50)
+        apply_user_filter(
+            select(DownloadEvent)
+            .where(DownloadEvent.decision.in_(["warn", "block"]))
+            .order_by(DownloadEvent.created_at.desc())
+            .limit(50),
+            DownloadEvent
+        )
     )
     dl_threats = dl_q.scalars().all()
 
     combined = []
     for w in web_threats:
+        cat = "Malicious Text/Email" if w.scan_type == "text" else "Phishing " + w.scan_type.capitalize() if w.scan_type else "Phishing Website"
         combined.append({
             "id": w.scan_id,
-            "category": "Phishing " + w.scan_type.capitalize() if w.scan_type else "Phishing Website",
+            "category": cat,
             "target": w.url,
             "decision": "Blocked" if w.decision == "block" else "Proceeded at Risk",
             "riskScore": w.risk_score,
-            "timestamp": w.created_at,
+            "timestamp": str(w.created_at),
             "iso_timestamp": str(w.created_at).replace(" ", "T") + "Z"
         })
     
@@ -1889,61 +1885,45 @@ async def get_user_threats(email: str = Query(...), db: AsyncSession = Depends(g
             "target": d.filename,
             "decision": "Blocked" if d.decision == "block" else "Proceeded at Risk",
             "riskScore": d.risk_score,
-            "timestamp": d.created_at,
+            "timestamp": str(d.created_at),
             "iso_timestamp": str(d.created_at).replace(" ", "T") + "Z"
         })
     
-    combined.sort(key=lambda x: x["timestamp"], reverse=True)
+    combined.sort(key=lambda x: str(x["timestamp"]), reverse=True)
 
-    # Remediated count (all blocks)
-    rem_web_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.decision == "block"))
-    rem_dl_q = await db.execute(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision == "block"))
+    # Remediated count (user-scoped blocks)
+    rem_web_q = await db.execute(apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["block", "warn"]))))
+    rem_dl_q = await db.execute(apply_user_filter(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision.in_(["block", "warn"])), DownloadEvent))
     remediated = (rem_web_q.scalar() or 0) + (rem_dl_q.scalar() or 0)
 
     # Calculate average threat score for active threats
     avg_threat_score = 0.0
     if combined:
-        avg_threat_score = round(sum(c["riskScore"] for c in combined[:10]) / len(combined[:10]) / 10, 1)
+        avg_threat_score = round(sum(c["riskScore"] for c in combined[:10]) / len(combined[:10]), 1)
 
     # Dynamic Active Alerts
     active_alerts = []
-    if any("Website" in c["category"] for c in combined[:5]):
+    if any("Website" in c["category"] or "URL" in c["category"] for c in combined[:5]):
         active_alerts.append({
-            "title": "Phishing Spike Detected",
-            "desc": "Multiple phishing URLs intercepted in the last hour.",
+            "title": "Phishing Spike Intercepted",
+            "desc": "Phishing links intercepted and isolated by AegisOne.",
             "time": "Just now",
             "icon": "shield"
         })
-    if any("Attachment" in c["category"] for c in combined[:5]):
+    if any("Attachment" in c["category"] or "Download" in c["category"] for c in combined[:5]):
         active_alerts.append({
             "title": "Malware Payload Intercepted",
-            "desc": "High-risk executable or macro document blocked.",
-            "time": "12 minutes ago",
+            "desc": "High-risk document or macro payload blocked.",
+            "time": "Recent",
             "icon": "alert"
         })
-    if len(active_alerts) == 0:
-        active_alerts.append({
-            "title": "System Secure",
-            "desc": "No active attack vectors detected currently.",
-            "time": "Present",
-            "icon": "check"
-        })
-    
-    global_activity = {
-        "source": "192.168.1.1",
-        "dest": "AWS-US-EAST",
-        "info": "New edge point established in Frankfurt"
-    }
-    if combined:
-        global_activity["dest"] = "BLOCKED-NODE"
-        global_activity["info"] = f"Blocked connection to {combined[0]['target'][:30]}..."
 
     return {
         "recent": combined[:50],
+        "remediated": remediated,
         "remediatedCount": remediated,
         "threatScore": avg_threat_score,
-        "activeAlerts": active_alerts,
-        "globalActivity": global_activity
+        "activeAlerts": active_alerts
     }
 
 

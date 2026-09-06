@@ -131,19 +131,17 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
                 Here are your login credentials:
               </p>
               
-              <div class="credentials-box" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0A5ED6; padding: 20px; border-radius: 8px; font-size: 14px; margin: 24px 0;">
-                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 12px;">LOGIN CREDENTIALS</div>
-                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                  <strong style="color: #475569;">Email Address:</strong>
-                  <code style="font-family: monospace; background: #e2e8f0; padding: 4px 8px; border-radius: 4px; color: #0f172a; font-weight: bold; font-size: 13px; user-select: all; -webkit-user-select: all;">{employee.email}</code>
+              <div class="credentials-box" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0A5ED6; padding: 22px; border-radius: 10px; font-size: 14px; margin: 24px 0;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 16px;">LOGIN CREDENTIALS</div>
+                
+                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;">
+                  <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Email Address</div>
+                  <div style="font-family: Consolas, Monaco, monospace; font-size: 14px; font-weight: bold; color: #0f172a; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; display: block;">{employee.email}</div>
                 </div>
-                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                  <strong style="color: #475569;">Temporary Password:</strong>
-                  <code style="font-family: monospace; background: #dbeafe; padding: 4px 8px; border-radius: 4px; color: #1d4ed8; font-weight: bold; font-size: 14px; user-select: all; -webkit-user-select: all;">{employee.generatedPassword}</code>
-                </div>
-                <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
-                  <strong>Quick Copy Snippet:</strong>
-                  <div style="font-family: monospace; background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; margin-top: 4px; color: #0f172a; user-select: all; -webkit-user-select: all;">{employee.email} | {employee.generatedPassword}</div>
+
+                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;">
+                  <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Temporary Password</div>
+                  <div style="font-family: Consolas, Monaco, monospace; font-size: 15px; font-weight: bold; color: #1d4ed8; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #eff6ff; padding: 8px 12px; border-radius: 6px; border: 1px solid #bfdbfe; display: block;">{employee.generatedPassword}</div>
                 </div>
               </div>
 
@@ -438,17 +436,20 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
                 existing.password_hash = hashed_pwd
                 emails_to_send.append(emp)
 
-        # Mirror a lightweight setup structure in the database for the setup wizard.
+        # Persistent Organization SMTP storage
         org_id_val = request.orgId or "org_default"
         org = await _get_or_create_org(db, org_id_val, "AegisOne")
-        if request.smtpHost:
-            org.smtp_host = request.smtpHost
-        if request.smtpPort:
-            org.smtp_port = request.smtpPort
-        if request.smtpUser:
-            org.smtp_user = request.smtpUser
-        if request.smtpPass:
-            org.smtp_pass = request.smtpPass
+        org_default = await _get_or_create_org(db, "org_default", "AegisOne")
+        
+        for target_org in [org, org_default]:
+            if request.smtpHost:
+                target_org.smtp_host = request.smtpHost
+            if request.smtpPort:
+                target_org.smtp_port = request.smtpPort
+            if request.smtpUser:
+                target_org.smtp_user = request.smtpUser.strip()
+            if request.smtpPass:
+                target_org.smtp_pass = request.smtpPass.replace(" ", "")
 
         # Reset user department references first to avoid ForeignKeyViolationError in Postgres
         await db.execute(
@@ -519,6 +520,13 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
         "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."
     }
 
+@router.get("/dispatch-status/{run_id}")
+async def get_dispatch_status(run_id: str):
+    """Retrieves real-time progress and status of background email dispatch."""
+    if run_id not in _email_dispatch_results:
+        return {"done": False, "results": [], "message": "Dispatch run_id pending or not found"}
+    return _email_dispatch_results[run_id]
+
 @router.post("/smtp/test")
 async def test_smtp(request: SmtpTestRequest):
     """Test SMTP connection without sending an email."""
@@ -556,3 +564,46 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"status": "success", "state": session.state_json}
+
+
+@router.post("/reset-organization")
+async def reset_organization(db: AsyncSession = Depends(get_db)):
+    """Performs a full hard reset of organization setup, purging all non-admin accounts, departments, and security telemetry."""
+    try:
+        from api.database.models import (
+            WebsiteScan, SecurityEvent, DownloadEvent, CredentialEvent, 
+            ManualScan, LoginHistory, Device, SetupSession
+        )
+        # 1. Purge all security scan telemetry & events
+        await db.execute(delete(WebsiteScan))
+        await db.execute(delete(SecurityEvent))
+        await db.execute(delete(DownloadEvent))
+        await db.execute(delete(CredentialEvent))
+        await db.execute(delete(ManualScan))
+
+        # 2. Purge registered devices & login audit history
+        await db.execute(delete(Device))
+        await db.execute(delete(LoginHistory))
+
+        # 3. Clear setup wizard draft sessions
+        await db.execute(delete(SetupSession))
+
+        # 4. Unset foreign key references in BOTH directions to prevent foreign key violation errors in PostgreSQL
+        # a. Clear manager_id foreign key in departments table referencing users
+        await db.execute(update(Department).values(manager_id=None))
+        # b. Clear department_id foreign key in users table referencing departments
+        await db.execute(update(User).values(department_id=None, department=None))
+        await db.flush()
+
+        # 5. Delete all non-admin users (preserve admin, super_admin, and global_admin)
+        await db.execute(delete(User).where(User.role.notin_(["admin", "super_admin", "global_admin"])))
+
+        # 6. Delete all department structures
+        await db.execute(delete(Department))
+
+        await db.commit()
+        return {"status": "success", "message": "Hard reset completed. All non-admin users, departments, and telemetry records successfully erased."}
+    except Exception as e:
+        await db.rollback()
+        print(f"Error performing hard reset: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to reset organization: {str(e)}")

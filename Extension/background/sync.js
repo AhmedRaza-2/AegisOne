@@ -64,18 +64,22 @@ async function _flush() {
     const events = await getUnsyncedEvents();
     if (events.length === 0) return;
 
-    const { [STORE_KEYS.ORG_POLICY]: policy, [STORE_KEYS.DEVICE_ID]: deviceId } =
-      await chrome.storage.local.get([STORE_KEYS.ORG_POLICY, STORE_KEYS.DEVICE_ID]);
+    const { [STORE_KEYS.ORG_POLICY]: policy, [STORE_KEYS.DEVICE_ID]: deviceId, user_email } =
+      await chrome.storage.local.get([STORE_KEYS.ORG_POLICY, STORE_KEYS.DEVICE_ID, "user_email"]);
 
     const enriched = events.map(e => ({
       ...e,
       org_id: policy?.org_id || null,
       device_id: deviceId || null,
+      user_email: user_email || e.user_email || null,
     }));
+
+    const headers = { "Content-Type": "application/json" };
+    if (user_email) headers["X-User-Email"] = user_email;
 
     const res = await fetch(`${API_BASE}/events/ingest`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ events: enriched }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -199,10 +203,13 @@ async function _registerOrHeartbeat(deviceId, register = false) {
     organization_id: orgId
   };
 
+  const headers = { "Content-Type": "application/json" };
+  if (user_email) headers["X-User-Email"] = user_email;
+
   const endpoint = register ? "/devices/register" : "/devices/heartbeat";
   const res = await fetch(`${API_BASE}${endpoint}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(5000),
   });

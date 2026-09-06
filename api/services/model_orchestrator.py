@@ -285,28 +285,45 @@ def _heuristic_text_result(text: str) -> dict | None:
         }
 
     text_lower = text.lower()
+    
+    # Ignore generic browser UI / accessibility snippets
+    if any(ui_kw in text_lower for ui_kw in ["skip to main content", "accessibility help", "choose your city", "keyboard shortcuts", "cookies policy"]):
+        return {
+            "prediction": "legitimate",
+            "confidence": 0.98,
+            "phishing_probability": 0.02,
+            "model": "text",
+            "xai_words": [],
+            "explanation": "Standard UI / navigation element",
+        }
+
     has_url = bool(re.search(r"https?://|www\.", text_lower))
+    
+    # High-confidence credential harvesting / urgency solicitation patterns
+    credential_solicit = any(cs in text_lower for cs in ["enter your password", "confirm your password", "verify your account", "account suspended", "sign in to continue", "log in to your account", "update billing", "urgent action required"])
+    
     keyword_hits = [kw for kw in _TEXT_RISK_KEYWORDS if kw in text_lower]
     urgency_hits = sum(1 for kw in ("urgent", "immediately", "action required", "verify") if kw in text_lower)
 
-    if keyword_hits or (has_url and urgency_hits):
+    # Require strong solicitation signals OR URL + multiple risk keywords before flagging
+    if credential_solicit or (has_url and urgency_hits >= 1 and len(keyword_hits) >= 1) or (len(keyword_hits) >= 2 and urgency_hits >= 1):
         return {
             "prediction": "phishing",
             "confidence": 0.985,
-            "phishing_probability": 0.96,
+            "phishing_probability": 0.94,
             "model": "text",
-            "xai_words": [],
-            "explanation": "Heuristic phishing indicators in text",
+            "xai_words": keyword_hits[:3],
+            "explanation": "Credential harvesting / phishing solicitation in text",
         }
 
-    if len(text) <= _TEXT_SAFE_LENGTH and not has_url and not keyword_hits:
+    if len(text) <= _TEXT_SAFE_LENGTH and not has_url and not credential_solicit:
         return {
             "prediction": "legitimate",
             "confidence": 0.97,
             "phishing_probability": 0.03,
             "model": "text",
             "xai_words": [],
-            "explanation": "Heuristic low-risk short text",
+            "explanation": "Heuristic low-risk text snippet",
         }
 
     return None

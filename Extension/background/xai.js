@@ -69,6 +69,11 @@ export async function explainWithAI(tabData, url, explicitScore) {
     hidden_iframes: scanData.hidden_iframes || [],
     external_scripts: (scanData.external_scripts || []).slice(0, 10),
 
+    // Target & Context signals
+    scan_type: scanData.scan_type || scanData.file_type || (url?.match(/\.(png|jpg|jpeg|gif|webp|svg)/i) ? "image" : "page"),
+    file_type: scanData.file_type || null,
+    is_image: scanData.scan_type === "image" || !!url?.match(/\.(png|jpg|jpeg|gif|webp|svg)/i),
+
     // Metadata
     timestamp: new Date().toISOString(),
     page_title: scanData.page_title || null,

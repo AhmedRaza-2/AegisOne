@@ -783,10 +783,12 @@
       if (clipboardAccess)        score += 20;
       score = Math.min(100, score);
 
-      const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
+      const stored = await chrome.storage.local.get(["device_id", "org_policy", "user_email"]);
+      const headers = { "Content-Type": "application/json" };
+      if (stored.user_email) headers["X-User-Email"] = stored.user_email;
       await fetch(`${API_BASE}/telemetry/scripts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           script_count:    features.script_count || 0,
           obfuscated:      features.js_obfuscated || false,
@@ -796,6 +798,7 @@
           risk_score:      score,
           device_id:       stored.device_id || null,
           org_id:          stored.org_policy?.org_id || null,
+          user_email:      stored.user_email || null,
         }),
         signal: AbortSignal.timeout(5000),
       });
@@ -832,10 +835,12 @@
       if (cookieCount > 20) score += 20;
       score = Math.min(100, score);
 
-      const stored = await chrome.storage.local.get(["device_id", "org_policy"]);
+      const stored = await chrome.storage.local.get(["device_id", "org_policy", "user_email"]);
+      const headers = { "Content-Type": "application/json" };
+      if (stored.user_email) headers["X-User-Email"] = stored.user_email;
       await fetch(`${API_BASE}/telemetry/cookies`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           cookie_count: cookieCount,
           third_party:  thirdParty,
@@ -844,6 +849,7 @@
           risk_score:   score,
           device_id:    stored.device_id || null,
           org_id:       stored.org_policy?.org_id || null,
+          user_email:   stored.user_email || null,
         }),
         signal: AbortSignal.timeout(5000),
       });

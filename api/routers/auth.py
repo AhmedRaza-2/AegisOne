@@ -307,10 +307,20 @@ async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends
     print(f"[SECURITY OTP CODE] Email: {user.email} -> OTP Code: {otp}")
     print(f"==========================================\n")
     
-    # Retrieve organization SMTP settings, fallback to env variables if empty
+    # Retrieve user's organization SMTP settings, or fallback to any org SMTP / environment vars
     from api.database.models import Organization
-    org_res = await db.execute(select(Organization).where(Organization.id == "org_default"))
+    user_org_id = getattr(user, "organization_id", None) or "org_default"
+    org_res = await db.execute(select(Organization).where(Organization.id == user_org_id))
     org = org_res.scalar_one_or_none()
+    
+    # If the user's explicit org does not have SMTP set, query for any org that has configured SMTP credentials
+    if not (org and org.smtp_user and org.smtp_pass):
+        any_org_res = await db.execute(
+            select(Organization).where(Organization.smtp_user != None, Organization.smtp_user != "")
+        )
+        fallback_org = any_org_res.scalars().first()
+        if fallback_org:
+            org = fallback_org
     
     smtp_user = (org.smtp_user if org and org.smtp_user else os.getenv("SMTP_USER")) or ""
     smtp_pass = (org.smtp_pass if org and org.smtp_pass else os.getenv("SMTP_PASS")) or ""

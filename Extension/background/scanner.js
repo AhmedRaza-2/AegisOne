@@ -34,7 +34,32 @@ export async function getAuthenticatedEmail() {
     return _cachedUserEmail;
   }
   const { user_email } = await chrome.storage.local.get("user_email");
-  _cachedUserEmail = user_email || "admin@aegisone.local";
+  if (user_email) {
+    _cachedUserEmail = user_email;
+    _authCheckedAt = Date.now();
+    return _cachedUserEmail;
+  }
+
+  // Fallback: Check if config.json is bundled in extension package
+  try {
+    const configUrl = chrome.runtime.getURL("config.json");
+    const res = await fetch(configUrl);
+    if (res.ok) {
+      const config = await res.json();
+      if (config.email) {
+        await chrome.storage.local.set({
+          user_email: config.email,
+          user_id: config.user_id,
+          organization_id: config.organization_id
+        });
+        _cachedUserEmail = config.email;
+        _authCheckedAt = Date.now();
+        return _cachedUserEmail;
+      }
+    }
+  } catch (_) {}
+
+  _cachedUserEmail = "admin@aegisone.local";
   _authCheckedAt = Date.now();
   return _cachedUserEmail;
 }
@@ -256,15 +281,15 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
   await setCachedResult(url, result);
 
   // ── Store event only if risky ────────────────────────────
-  if (risk.score >= (policy.risk_thresholds?.warning || THRESHOLD.WARNING * 100)) {
+  if (result.score >= (policy.risk_thresholds?.warning || THRESHOLD.WARNING * 100)) {
     await storeEvent({
       type: EVENT_TYPES.WEBSITE_THREAT,
       url,
       domain: result.domain,
-      risk_score: risk.score,
-      verdict: risk.verdict,
-      threat_type: risk.threat_type,
-      features: risk.breakdown,
+      risk_score: result.score,
+      verdict: result.verdict,
+      threat_type: result.threat_type,
+      features: result.breakdown,
       action: "warned",
     });
   }

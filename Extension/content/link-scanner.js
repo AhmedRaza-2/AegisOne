@@ -10,7 +10,7 @@
  * 3. Malicious Link Highlighting — marks dangerous links with a badge
  */
 
-import { MSG, THRESHOLD } from "../../utils/constants.js";
+import { MSG, THRESHOLD, API_BASE } from "../../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../../utils/trusted-domains.js";
 
 const _badged = new WeakSet();
@@ -188,15 +188,19 @@ async function _showImageHoverPreview(img, src, token) {
   }
 
   if (score >= 20) {
-    chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
-      fetch("http://localhost:8000/telemetry/hover", {
+    chrome.storage.local.get(["device_id", "user_email"]).then(({ device_id, user_email }) => {
+      const headers = { "Content-Type": "application/json" };
+      if (user_email) headers["X-User-Email"] = user_email;
+      fetch(`${API_BASE}/telemetry/hover`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           destination: src,
           risk_score: score,
           cached: false,
-          type: "image"
+          type: "image",
+          device_id: device_id || null,
+          user_email: user_email || null,
         }),
         signal: AbortSignal.timeout(4000),
       }).catch(() => { });
@@ -229,14 +233,18 @@ async function _showHoverPreview(anchor, url, token) {
 
   // Module 11 — persist hover scan (best-effort, only if notable)
   if (score >= 20) {
-    chrome.storage.local.get(["device_id"]).then(({ device_id }) => {
-      fetch("http://localhost:8000/telemetry/hover", {
+    chrome.storage.local.get(["device_id", "user_email"]).then(({ device_id, user_email }) => {
+      const headers = { "Content-Type": "application/json" };
+      if (user_email) headers["X-User-Email"] = user_email;
+      fetch(`${API_BASE}/telemetry/hover`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           destination: url,
           risk_score: score,
           cached: res.result.from_cache || false,
+          device_id: device_id || null,
+          user_email: user_email || null,
         }),
         signal: AbortSignal.timeout(4000),
       }).catch(() => { });

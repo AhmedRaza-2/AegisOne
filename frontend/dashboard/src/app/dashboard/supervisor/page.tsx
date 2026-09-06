@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
-import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, ShieldAlert, BrainCircuit, RefreshCw } from "lucide-react";
+import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, ShieldAlert, BrainCircuit, RefreshCw, Scan } from "lucide-react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useMemo, useState, useEffect } from "react";
@@ -130,15 +130,19 @@ export default function SupervisorDashboard() {
   const statsCards = useMemo(() => {
     const blockLabel = timeRange === "24h" ? "Blocked Threats Today" : timeRange === "7d" ? "Blocked Threats (7D)" : timeRange === "30d" ? "Blocked Threats (30D)" : "Blocked Threats (All Time)";
     const blockSub = timeRange === "24h" ? "Last 24 hours" : timeRange === "7d" ? "Last 7 days" : timeRange === "30d" ? "Last 30 days" : "All scans history";
+    const totalScansVal = realStats?.total_scans || combinedStats.totalScans || 0;
+    // Use threats_detected (all time/range blocked+warned) from real backend data, no fallback fake numbers
+    const blockedVal = realStats?.threats_detected ?? realStats?.threats_today ?? 0;
+
     return [
       { label: "Employees", value: totalEmployees, icon: Users, color: "text-blue-600 dark:text-blue-400", sub: "Active in Dept" },
       { label: "Protected Devices", value: protectedDevices, icon: ShieldCheck, color: "text-emerald-600 dark:text-emerald-400", sub: "AegisOne Active" },
+      { label: "Total Scanned", value: totalScansVal.toLocaleString(), icon: Scan, color: "text-indigo-600 dark:text-indigo-400", sub: `${timeRange.toUpperCase()} Dept Activity` },
+      { label: blockLabel, value: blockedVal.toLocaleString(), icon: ShieldAlert, color: "text-amber-600 dark:text-amber-400", sub: blockSub },
       { label: "High Risk", value: employeeRisk.filter(e => e.riskScore > 50).length, icon: AlertTriangle, color: "text-red-600 dark:text-red-400", sub: "Needs Attention" },
-      { label: blockLabel, value: realStats ? realStats.threats_today : 0, icon: ShieldAlert, color: "text-amber-600 dark:text-amber-400", sub: blockSub },
       { label: "Security Score", value: `${avgSecurityScore}/100`, icon: BarChart3, color: "text-brand-600 dark:text-brand-400", sub: avgSecurityScore >= 80 ? "Good Standing" : "Needs Attention" },
-      { label: "Average AI Confidence", value: "97%", icon: BrainCircuit, color: "text-purple-600 dark:text-purple-400", sub: "Highly Accurate" },
     ];
-  }, [totalEmployees, protectedDevices, realStats, employeeRisk, avgSecurityScore, timeRange]);
+  }, [totalEmployees, protectedDevices, realStats, employeeRisk, avgSecurityScore, timeRange, combinedStats]);
 
   const deptIncidentsList: any[] = [];
 
@@ -146,16 +150,8 @@ export default function SupervisorDashboard() {
     if (realStats?.daily_trend && Array.isArray(realStats.daily_trend) && realStats.daily_trend.length > 0) {
       return realStats.daily_trend;
     }
-    const todayCount = realStats ? (realStats.threats_today || 0) : 0;
-    return [
-      { date: "Mon", phishing: Math.max(0, Math.floor(todayCount * 0.2)), malware: 0 },
-      { date: "Tue", phishing: Math.max(0, Math.floor(todayCount * 0.4)), malware: 0 },
-      { date: "Wed", phishing: Math.max(0, Math.floor(todayCount * 0.6)), malware: 0 },
-      { date: "Thu", phishing: Math.max(0, Math.floor(todayCount * 0.3)), malware: 0 },
-      { date: "Fri", phishing: Math.max(0, Math.floor(todayCount * 0.5)), malware: 0 },
-      { date: "Sat", phishing: Math.max(0, Math.floor(todayCount * 0.1)), malware: 0 },
-      { date: "Sun", phishing: todayCount, malware: 0 },
-    ];
+    // Return empty buckets — no fake hardcoded data
+    return [];
   }, [realStats]);
 
   return (

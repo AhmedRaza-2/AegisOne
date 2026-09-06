@@ -60,6 +60,8 @@ export default function AdminSetupPage() {
   // Step 1: Org Info
   const [isSetupCompleted, setIsSetupCompleted] = useState(false);
   const [isEditingSetup, setIsEditingSetup] = useState(false);
+  const [showReconfigureConfirm, setShowReconfigureConfirm] = useState(false);
+  const [resettingOrg, setResettingOrg] = useState(false);
   const [orgName, setOrgName] = useState('');
   const [industry, setIndustry] = useState('');
   const [timezone, setTimezone] = useState('UTC+00:00 (GMT - Universal Time)');
@@ -71,7 +73,7 @@ export default function AdminSetupPage() {
 
   const [draggedEmployeeId, setDraggedEmployeeId] = useState<string | null>(null);
   const [visualSearch, setVisualSearch] = useState('');
-  const [structureViewMode, setStructureViewMode] = useState<'visual' | 'table'>('visual');
+  const [structureViewMode, setStructureViewMode] = useState<'visual' | 'table'>('table');
 
   // Modals
   const [isAddEmpModalOpen, setIsAddEmpModalOpen] = useState(false);
@@ -201,8 +203,48 @@ export default function AdminSetupPage() {
     setEmployees(prev => prev.map(e => e.id === empId ? { ...e, departmentCode: targetDeptCode } : e));
   };
 
+  const handleResetOrganization = async () => {
+    setResettingOrg(true);
+    try {
+      const res = await fetch(`${API_BASE}/setup/reset-organization`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        setIsSetupCompleted(false);
+        setIsEditingSetup(true);
+        setDispatchDone(false);
+        localStorage.removeItem('aegis_setup_done');
+        
+        // Reset local memory state to admin user & empty departments
+        setDepartments([]);
+        setEmployees(prev => {
+          const admin = prev.find(e => e.role.toLowerCase() === 'admin');
+          return admin ? [admin] : [];
+        });
+
+        setShowReconfigureConfirm(false);
+        setStep(1);
+        invalidateCache();
+        showToast('Hard reset completed. All old data, users, & telemetry erased.', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.detail || 'Failed to reset setup.', 'error');
+      }
+    } catch (e) {
+      showToast('Network error resetting setup.', 'error');
+    } finally {
+      setResettingOrg(false);
+    }
+  };
+
+  const [dispatchResults, setDispatchResults] = useState<{ email: string; sent: boolean; error: string | null }[]>([]);
+  const [dispatchSummary, setDispatchSummary] = useState<{ total: number; successCount: number; failedCount: number } | null>(null);
+
   const handleExecuteDispatch = async () => {
     setExecuting(true);
+    setDispatchResults([]);
+    setDispatchSummary(null);
     try {
       const res = await fetch(`${API_BASE}/setup/execute`, {
         method: 'POST',
@@ -227,19 +269,53 @@ export default function AdminSetupPage() {
           document.cookie = `aegis_access_token=${data.access_token}; path=/; SameSite=Lax`;
           document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
         }
-        setDispatchDone(true);
+        
         setIsSetupCompleted(true);
         localStorage.setItem('aegis_setup_done', 'true');
         if (orgName) localStorage.setItem('aegis_org_name', orgName);
-        invalidateCache(); // Invalidate cached dashboard stats & analytics so newly saved employees/departments load instantly!
-        showToast('Rollout and credentials dispatch triggered successfully!');
+        invalidateCache();
+
+        // Poll for background dispatch completion
+        if (data.run_id) {
+          const runId = data.run_id;
+          const pollInterval = setInterval(async () => {
+            try {
+              const statusRes = await fetch(`${API_BASE}/setup/dispatch-status/${runId}`);
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                if (statusData.done) {
+                  clearInterval(pollInterval);
+                  const resList = statusData.results || [];
+                  const successC = resList.filter((r: any) => r.sent).length;
+                  const failC = resList.filter((r: any) => !r.sent).length;
+                  setDispatchResults(resList);
+                  setDispatchSummary({ total: resList.length, successCount: successC, failedCount: failC });
+                  setDispatchDone(true);
+                  setExecuting(false);
+                  if (failC > 0) {
+                    showToast(`Provisioned users! ${successC} emails sent, ${failC} failed due to SMTP authentication.`, 'error');
+                  } else {
+                    showToast('Rollout & credentials dispatched successfully to all users!');
+                  }
+                }
+              }
+            } catch (err) {
+              clearInterval(pollInterval);
+              setDispatchDone(true);
+              setExecuting(false);
+            }
+          }, 1500);
+        } else {
+          setDispatchDone(true);
+          setExecuting(false);
+        }
       } else {
         const err = await res.json();
         showToast(err.detail || 'Dispatch failed', 'error');
+        setExecuting(false);
       }
     } catch (e) {
       showToast('Network error executing dispatch', 'error');
-    } finally {
       setExecuting(false);
     }
   };
@@ -406,8 +482,8 @@ export default function AdminSetupPage() {
     return false;
   };
 
-  // Calculate current progress percentage for horizontal progress bar (capped at 100%)
-  const progressPercentage = Math.min(100, Math.round((step / 5) * 100));
+  // Calculate current progress percentage for horizontal progress bar (100% when setup completed)
+  const progressPercentage = isSetupCompleted && !isEditingSetup ? 100 : Math.min(100, Math.round((step / 5) * 100));
 
   return (
     <div className={`space-y-5 bg-transparent text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
@@ -423,32 +499,25 @@ export default function AdminSetupPage() {
       <main className="w-full">
         <div className="max-w-6xl mx-auto space-y-8 pb-12">
 
-          {isSetupCompleted && !isEditingSetup && (
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-[#141A29] border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-extrabold text-[#0F172A] dark:text-white">Organization Setup is Active & Configured</h2>
-                    <span className="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full font-bold text-[10px] uppercase tracking-wide border border-emerald-200">
-                      Provisioned
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Your tenant <strong className="text-slate-700 dark:text-slate-300">{orgName || 'AegisOne'}</strong> is fully operational. Form inputs are locked to preserve data integrity.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsEditingSetup(true)}
-                className="px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs shadow-sm flex items-center gap-2 transition-all"
-              >
-                <Lock className="w-3.5 h-3.5 text-amber-500" /> Re-Configure / Unlock Fields
-              </button>
+          {/* Top Bar Header with Re-Configure Button */}
+          <div className="flex items-center justify-between gap-4 pb-2">
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">Organization Setup</h1>
+              <p className="text-xs text-slate-500">Configure your company structure, departments, security policies, and user onboarding.</p>
             </div>
-          )}
+            
+            {/* Re-Configure button: Hidden during first time setup, unlocked & clickable only when setup is completed */}
+            {isSetupCompleted && (
+              <button
+                type="button"
+                onClick={() => setShowReconfigureConfirm(true)}
+                className="px-3.5 py-2 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/50 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-600" />
+                Re-Configure Organization
+              </button>
+            )}
+          </div>
 
           {/* Stepper Header with Horizontal Progress Bar */}
           <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 shadow-sm space-y-3">
@@ -556,10 +625,11 @@ export default function AdminSetupPage() {
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Organization Name <span className="text-blue-600">*</span></label>
                     <input
                       type="text"
+                      disabled={isSetupCompleted && !isEditingSetup}
                       value={orgName}
                       onChange={e => setOrgName(e.target.value)}
                       placeholder="INARA"
-                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6]"
+                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6] disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -567,19 +637,21 @@ export default function AdminSetupPage() {
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Industry / Sector <span className="text-blue-600">*</span></label>
                     <input
                       type="text"
+                      disabled={isSetupCompleted && !isEditingSetup}
                       value={industry}
                       onChange={e => setIndustry(e.target.value)}
                       placeholder="e.g. Technology / Information Systems"
-                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6]"
+                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6] disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Primary Timezone</label>
                     <select
+                      disabled={isSetupCompleted && !isEditingSetup}
                       value={timezone}
                       onChange={e => setTimezone(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] text-[#0F172A] dark:text-white rounded-xl px-4 py-3 text-sm font-semibold outline-none cursor-pointer"
+                      className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] text-[#0F172A] dark:text-white rounded-xl px-4 py-3 text-sm font-semibold outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <option value="UTC+00:00 (GMT - Universal Time)">UTC+00:00 (GMT - Universal Time)</option>
                       <option value="UTC+05:00 (PKT - Pakistan Standard Time)">UTC+05:00 (PKT - Pakistan Standard Time)</option>
@@ -615,79 +687,90 @@ export default function AdminSetupPage() {
           {/* STEP 2: REVIEW & EDIT STRUCTURE */}
           {step === 2 && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white shrink-0">Organization Hierarchy</h3>
-                  <span className="text-xs font-bold px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-800 shrink-0">
-                    {departments.length} Departments • {employees.length} Members
-                  </span>
+              <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 flex flex-col gap-4 shadow-sm">
+                
+                {/* Instruction Header Banner */}
+                <div className="px-3.5 py-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/40 flex items-center justify-between text-xs text-blue-900 dark:text-blue-200 font-medium">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span><b>Quick Import Guide:</b> Download the CSV template, populate your departments &amp; employees, then click <b>Upload CSV</b> to import automatically.</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* View Mode Switcher */}
-                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 mr-2">
-                    <button
-                      type="button"
-                      onClick={() => setStructureViewMode('visual')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                        structureViewMode === 'visual'
-                          ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <ListFilter className="w-3.5 h-3.5" /> Visual Cards
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStructureViewMode('table')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                        structureViewMode === 'table'
-                          ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <Table className="w-3.5 h-3.5" /> Editable Table
-                    </button>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white shrink-0">Organization Hierarchy</h3>
+                    <span className="text-xs font-bold px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-800 shrink-0">
+                      {departments.length} Departments • {employees.length} Members
+                    </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const csvContent = "Employee ID,First Name,Last Name,Email,Department Code,Role\nEMP001,Ahmed,Raza,ahmed@company.local,IT,Manager\nEMP002,Ali,Khan,ali@company.local,HR,Employee";
-                      const blob = new Blob([csvContent], { type: 'text/csv' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = 'Employee_Template.csv';
-                      a.click();
-                    }}
-                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-slate-200 border border-slate-200 dark:border-slate-700"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Template
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* View Mode Switcher */}
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 mr-2">
+                      <button
+                        type="button"
+                        onClick={() => setStructureViewMode('table')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                          structureViewMode === 'table'
+                            ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <Table className="w-3.5 h-3.5" /> Editable Table
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStructureViewMode('visual')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                          structureViewMode === 'visual'
+                            ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <ListFilter className="w-3.5 h-3.5" /> Visual Cards
+                      </button>
+                    </div>
 
-                  <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm">
-                    <Upload className="w-3.5 h-3.5" /> Upload CSV
-                    <input
-                      type="file"
-                      accept=".csv"
-                      className="hidden"
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleCsvFile(file);
-                        }
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const csvContent = "Employee ID,First Name,Last Name,Email,Department Code,Role\nEMP001,Ahmed,Raza,ahmed@company.local,IT,Manager\nEMP002,Ali,Khan,ali@company.local,HR,Employee";
+                        const blob = new Blob([csvContent], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'Employee_Template.csv';
+                        a.click();
                       }}
-                    />
-                  </label>
+                      className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-slate-200 border border-slate-200 dark:border-slate-700"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Template
+                    </button>
 
-                  <button onClick={() => setIsAddEmpModalOpen(true)} className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-emerald-100">
-                    <UserPlus className="w-3.5 h-3.5" /> Add Employee
-                  </button>
+                    <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm">
+                      <Upload className="w-3.5 h-3.5" /> Upload CSV
+                      <input
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleCsvFile(file);
+                          }
+                        }}
+                      />
+                    </label>
 
-                  <button onClick={() => setIsAddDeptModalOpen(true)} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-indigo-100">
-                    <Plus className="w-3.5 h-3.5" /> Add Dept
-                  </button>
+                    <button onClick={() => setIsAddEmpModalOpen(true)} className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-emerald-100">
+                      <UserPlus className="w-3.5 h-3.5" /> Add Employee
+                    </button>
+
+                    <button onClick={() => setIsAddDeptModalOpen(true)} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-indigo-100">
+                      <Plus className="w-3.5 h-3.5" /> Add Dept
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1210,13 +1293,38 @@ export default function AdminSetupPage() {
 
               <div className="pt-6">
                 {dispatchDone ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-emerald-700 font-bold rounded-xl max-w-md mx-auto">
-                      Email Dispatch Completed Successfully!
-                    </div>
+                  <div className="space-y-5 max-w-lg mx-auto">
+                    {dispatchSummary && dispatchSummary.failedCount > 0 ? (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-2xl text-left space-y-3">
+                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-extrabold text-sm">
+                          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                          <span>Provisioned with Email Warnings ({dispatchSummary.successCount} Sent / {dispatchSummary.failedCount} Failed)</span>
+                        </div>
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          Accounts were created in the database, but {dispatchSummary.failedCount} email(s) could not be delivered due to <strong>SMTP Bad Credentials (535 Auth Error)</strong>.
+                        </p>
+                        <div className="bg-white dark:bg-[#0F1423] p-3 rounded-xl border border-amber-200 dark:border-amber-800/40 max-h-40 overflow-y-auto space-y-1.5 text-xs font-mono">
+                          {dispatchResults.map((r, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                              <span className="truncate text-slate-700 dark:text-slate-300">{r.email}</span>
+                              {r.sent ? (
+                                <span className="text-emerald-600 font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Sent</span>
+                              ) : (
+                                <span className="text-red-600 font-bold flex items-center gap-1" title={r.error || ''}><AlertCircle className="w-3 h-3" /> SMTP Auth Fail</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-emerald-700 font-bold rounded-xl">
+                        Email Dispatch Completed Successfully! Credentials delivered to all employees.
+                      </div>
+                    )}
+
                     <button
                       onClick={() => router.push('/dashboard/admin')}
-                      className="px-8 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-xl"
+                      className="px-8 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-xl transition-all"
                     >
                       Go to Admin Dashboard
                     </button>
@@ -1364,6 +1472,70 @@ export default function AdminSetupPage() {
               >
                 Start Setup Engine Now <ArrowRight className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* Re-Configure / Reset Confirmation Modal */}
+      {showReconfigureConfirm && (
+        <ModalPortal>
+          <div className="fixed inset-0 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-fadeIn" style={{ zIndex: 9999 }}>
+            <div className="bg-white dark:bg-[#0F172A] border border-red-200 dark:border-red-900/60 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl relative text-center">
+              <button
+                type="button"
+                onClick={() => setShowReconfigureConfirm(false)}
+                className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-extrabold text-[#0F172A] dark:text-white">
+                  Are you sure you want to Re-Configure?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Re-configuring will reset the setup wizard and <strong className="text-red-600 dark:text-red-400 font-bold">permanently delete all non-admin users, departments, and security scan records</strong>.
+                </p>
+              </div>
+
+              <div className="bg-red-50 dark:bg-red-950/40 rounded-xl p-3.5 text-left border border-red-200 dark:border-red-800/40 text-xs text-red-800 dark:text-red-300 space-y-1.5 font-medium">
+                <div className="flex items-center gap-2 font-bold text-red-900 dark:text-red-200 uppercase tracking-wider text-[10px]">
+                  ⚠️ Warning: Destructive Operation
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px] text-red-700 dark:text-red-300">
+                  <li>All employee login accounts will be erased</li>
+                  <li>All department structures will be removed</li>
+                  <li>Organization setup forms will be unlocked for re-entry</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReconfigureConfirm(false)}
+                  disabled={resettingOrg}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetOrganization}
+                  disabled={resettingOrg}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-2"
+                >
+                  {resettingOrg ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Purging Data...</>
+                  ) : (
+                    <>Yes, Reset &amp; Unlock Setup</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </ModalPortal>

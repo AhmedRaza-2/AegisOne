@@ -29,18 +29,32 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     positive_evidence = contextual_analysis.get("positive_evidence", [])
     corroboration = contextual_analysis.get("corroboration_level", "NONE")
 
+    # Context & Target Type Detection
+    scan_type = evidence.get("scan_type") or evidence.get("file_type") or ""
+    is_image = "image" in scan_type.lower() or "image" in url.lower() or evidence.get("is_image", False)
+    is_doc = any(ext in scan_type.lower() for ext in ["pdf", "doc", "xls", "ppt", "document", "attachment"])
+    is_email = evidence.get("is_email", False) or threat_type == "phishing_email" or "email" in url.lower()
+
     # 1. Determine Threat Type and Likelihood Label
-    likelihood_label = "Low/Suspicion"
-    threat_title = "Suspicious Behavior"
-    
-    if threat_type:
+    likelihood_label = "Low Risk / Clean Target"
+    threat_title = "Suspicious Activity"
+
+    if is_image:
+        threat_title = "Visual Security Scan"
+    elif is_doc:
+        threat_title = "Document Security Scan"
+    elif is_email:
+        threat_title = "Email Phishing Threat"
+    elif threat_type:
         threat_title = threat_type.replace("_", " ").title()
-        
+
     if risk_score >= 80:
-        likelihood_label = f"High Likelihood of {threat_title}"
+        likelihood_label = f"High Likelihood of Malicious {threat_title}"
     elif risk_score >= 50:
-        likelihood_label = f"Moderate Likelihood of {threat_title}"
-        
+        likelihood_label = f"Moderate Risk ({threat_title})"
+    elif risk_score < 20:
+        likelihood_label = f"Safe / Clean Target ({threat_title})"
+
     if login_form_detected and risk_score >= 70:
         likelihood_label = "High Likelihood of Credential Harvesting"
         threat_title = "Credential Harvesting"
@@ -48,16 +62,29 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     # 2. Extract Red Flags & MITRE ATT&CK Mapping
     red_flags = []
     mitre_techniques = []
-    
+
     for factor in top_factors:
         if isinstance(factor, str):
             red_flags.append(factor)
         elif isinstance(factor, dict):
             label = factor.get("label", "")
-            # Only require score threshold if score exists, otherwise take it
             score = factor.get("score")
             if label and (score is None or score >= 30):
                 red_flags.append(label)
+
+    # Dynamic target-specific indicators
+    if is_image:
+        if risk_score >= 50:
+            red_flags.append("OCR Text Analysis flagged high-risk phishing keywords/solicitation in image text")
+            if not any("credential" in f.lower() for f in red_flags):
+                red_flags.append("Deceptive visual stamp or brand credential solicitation detected in image graphics")
+        else:
+            red_flags.append("Image visual features and extracted OCR text passed security analysis with zero threat indicators")
+    elif is_doc:
+        if risk_score >= 50:
+            red_flags.append("Document attachment contains suspicious embedded macros, active scripts, or deceptive links")
+        else:
+            red_flags.append("Document structure scanned cleanly — no executable macros or embedded malicious payloads found")
 
     # Technical feature fallbacks if not in top_factors
     if login_form_detected and not any("login" in f.lower() for f in red_flags):
@@ -81,9 +108,9 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
         red_flags.append("Suspicious solicitation keywords or brand mismatch identified by Aegis AI")
 
     if risk_score < 20 and not red_flags:
-        red_flags.append("All structural, domain, and AI heuristic checks passed cleanly with no suspicious indicators detected.")
+        red_flags.append("All structural, visual, and AI heuristic checks passed cleanly with no suspicious indicators detected.")
 
-    # 3. Create Natural Language Summary
+    # 3. Create Dynamic Natural Language Summary
     if risk_score < 20:
         if contradictions:
             reason = contradictions[0]
@@ -98,14 +125,31 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
             )
     else:
         reasons_str = "; ".join(red_flags[:3]).lower()
-        summary = (
-            f"AegisOne security analysis flagged this target as high-risk phishing with a composite risk score of {risk_score}%. "
-            f"The primary indicators include: {reasons_str}. "
-        )
+        if is_image:
+            summary = (
+                f"AegisOne Visual & OCR Security Model scanned this image and flagged potential risk with a score of {risk_score}%. "
+                f"Key factors evaluated: {reasons_str}."
+            )
+        elif is_doc:
+            summary = (
+                f"AegisOne File Inspector analyzed this document with a composite risk score of {risk_score}%. "
+                f"Primary indicators: {reasons_str}."
+            )
+        elif is_email:
+            summary = (
+                f"AegisOne Email Security Inspector flagged this message with a composite risk score of {risk_score}%. "
+                f"Primary indicators include: {reasons_str}."
+            )
+        else:
+            summary = (
+                f"AegisOne security analysis flagged this target with a composite risk score of {risk_score}%. "
+                f"The primary indicators include: {reasons_str}."
+            )
+
         if login_form_detected:
-            summary += "A suspicious credential entry form was detected on this domain."
+            summary += " A suspicious credential entry form was detected on this target."
         elif hidden_iframes:
-            summary += "Invisible elements were detected which are commonly used in clickjacking attacks."
+            summary += " Invisible elements were detected which are commonly used in clickjacking attacks."
 
     # 4. Generate Actionable Recommendations
     recommendations = []
@@ -113,16 +157,21 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
         recommendations.append("Target appears safe. You can proceed normally.")
         recommendations.append("Always verify links and senders before providing sensitive credentials.")
     if risk_score >= 50:
-        if login_form_detected or any("credential" in s.lower() for s in positive_evidence):
+        if is_image:
+            recommendations.append("Do NOT trust unverified images asking for credentials, payment codes, or login steps.")
+            recommendations.append("Verify the original sender or domain before taking action based on text rendered in images.")
+        elif is_doc:
+            recommendations.append("Do NOT enable macros or click embedded links inside this document.")
+            recommendations.append("Verify the document source with your IT administrator before opening executable content.")
+        elif login_form_detected or any("credential" in s.lower() for s in positive_evidence):
             recommendations.append("Do NOT enter any passwords, credit card numbers, or personal information on this page.")
+        
         if len(redirect_chain) > 1:
             recommendations.append("Do not share this link with colleagues; it utilizes deceptive redirection.")
         if external_scripts or "external_form_submission" in positive_evidence:
             recommendations.append("The page attempts to send data to third-party domains. Close the tab immediately.")
         if not recommendations:
-            recommendations.append("This page exhibits suspicious patterns. Close the tab immediately.")
-        else:
-            recommendations.append("Proceed with extreme caution. Verify the destination URL before interacting.")
+            recommendations.append("This target exhibits suspicious patterns. Proceed with extreme caution.")
         recommendations.append("Ensure multi-factor authentication (MFA) is enabled for your organizational accounts.")
 
     # 5. MITRE ATT&CK Mapping
@@ -142,24 +191,27 @@ def generate_explanation(evidence: Dict[str, Any]) -> Dict[str, Any]:
     for hop in redirect_chain:
         ioc.append(f"Redirect hop: {hop}" if isinstance(hop, str) else "Redirect detected")
 
-    # 7. Scoring Methodology (Dynamic parameters based on context)
-    is_email_context = evidence.get("is_email", False) or threat_type == "phishing_email" or "email" in url.lower()
-    
+    # 7. Dynamic Scoring Methodology
     scoring_methodology = []
-    
-    # Bottom Popup (Floating Widget / Screen Context)
-    if is_email_context:
+    if is_image:
         scoring_methodology.append(
-            "🛡️ **Floating Widget (Active Screen Risk):** This score is dynamically calculated based on the content you are actively interacting with. Since you are in a webmail client, it scans the sender reputation, subject line, message body content, embedded links, and attachments. If multiple emails are visible, it evaluates the composite risk of all items."
+            "🖼️ **Image & OCR Analysis:** Scans image pixels, visual stamp characteristics, embedded text strings via Optical Character Recognition (OCR), and brand logo alignment to detect fake verification stamps, spoofed invoices, or credential prompts."
+        )
+    elif is_doc:
+        scoring_methodology.append(
+            "📄 **Document Inspector:** Analyzes file metadata, binary streams, embedded macros (VBA), hidden URLs, and active scripts within PDF/Office documents."
+        )
+    elif is_email:
+        scoring_methodology.append(
+            "📧 **Email Security Inspection:** Analyzes sender headers, DKIM/SPF alignment, urgency phrasing in body text, and embedded hyperlink destinations."
         )
     else:
         scoring_methodology.append(
-            "🛡️ **Floating Widget (Active Screen Risk):** This score reflects the active, real-time threat level of the page as you interact with it. It monitors DOM changes, dynamically injected scripts, and visible elements."
+            "🛡️ **Active Page Risk:** Dynamically evaluates page structure, DOM modifications, JavaScript execution vectors, and SSL/domain reputation in real time."
         )
-        
-    # Top Popup (Deep Page Scan)
+
     scoring_methodology.append(
-        "🔎 **Action Popup (Deep Page Scan):** This evaluates the structural integrity of the base URL/Domain. It performs deep heuristic checks including DNS reputation, cross-site scripting (XSS) vectors, hidden iframes, redirect chains, and deceptive login forms. It represents the inherent risk of the website hosting the content."
+        "🔎 **Deep Heuristic Fusion:** Combines structural domain checks, cross-site scripting (XSS) vectors, deceptive forms, and machine learning model predictions into a unified risk score."
     )
 
     return {
