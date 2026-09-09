@@ -125,17 +125,20 @@ async function callAPI(endpoint, body, isFormData = false) {
       signal: AbortSignal.timeout(CONFIG.URL_SCAN_TIMEOUT_MS),
       headers: {}
     };
+    const scanId = `scan_${crypto.randomUUID?.() || Date.now()}`;
     if (emailToUse) {
       opts.headers["X-User-Email"] = emailToUse;
       if (isFormData && body instanceof FormData) {
         if (!body.has("user_email")) body.append("user_email", emailToUse);
       }
     }
-    if (isFormData) {
+    if (isFormData && body instanceof FormData) {
+      if (!body.has("scan_id")) body.append("scan_id", scanId);
       opts.body = body; // FormData
     } else {
       opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(body);
+      const payload = typeof body === "object" && body !== null ? { scan_id: scanId, ...body } : { scan_id: scanId };
+      opts.body = JSON.stringify(payload);
     }
     const res = await fetch(`${CONFIG.API_BASE}${endpoint}`, opts);
     if (!res.ok) return null;

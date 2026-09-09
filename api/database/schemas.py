@@ -258,6 +258,10 @@ class HealthResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 class AdminStatsResponse(BaseModel):
+    revision: int = 1
+    generated_at: Optional[str] = None
+    scope: Optional[Dict[str, Any]] = None
+    period: Optional[Dict[str, Any]] = None
     total_users: int
     total_scans: int
     scans_today: int

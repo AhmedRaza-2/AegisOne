@@ -17,10 +17,10 @@ import io
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, File, UploadFile, Form, BackgroundTasks, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy import select
 from api.database.db import get_db, get_background_db
 from api.database.models import User, WebsiteScan
+from api.services.revision_service import increment_org_revision
 from api.database.schemas import (
     URLScanRequest, TextScanRequest, ScanResponse, ModelResult, URLResult, ScanType
 )
@@ -114,29 +114,33 @@ async def log_website_scan(
             except Exception:
                 domain = url_or_summary[:255]
 
-            ws = WebsiteScan(
-                scan_id=scan_id,
-                organization_id=getattr(user, "organization_id", "org_default") or "org_default",
-                user_id=getattr(user, "id", None),
-                scan_type=scan_type.value,
-                url=url_or_summary[:2048],
-                domain=domain[:255],
-                risk_score=score,
-                confidence=round(
-                    max((m.get("confidence", 0) for m in models_used if isinstance(m, dict)), default=0.0),
-                    4,
-                ),
-                threat_type=results.get("verdict_label", ""),
-                verdict=decision,
-                decision=decision,
-                modules_used=json.dumps([
-                    m.get("model", "") for m in models_used if isinstance(m, dict)
-                ]),
-                top_factors=json.dumps(top_factors),
-                scan_duration_ms=results.get("processing_time_ms", 0.0),
-            )
-            db.add(ws)
-            await db.commit()
+            existing_scan = (await db.execute(select(WebsiteScan).where(WebsiteScan.scan_id == scan_id))).scalar_one_or_none()
+            if not existing_scan:
+                org_id = getattr(user, "organization_id", "org_default") or "org_default"
+                ws = WebsiteScan(
+                    scan_id=scan_id,
+                    organization_id=org_id,
+                    user_id=getattr(user, "id", None),
+                    scan_type=scan_type.value,
+                    url=url_or_summary[:2048],
+                    domain=domain[:255],
+                    risk_score=score,
+                    confidence=round(
+                        max((m.get("confidence", 0) for m in models_used if isinstance(m, dict)), default=0.0),
+                        4,
+                    ),
+                    threat_type=results.get("verdict_label", ""),
+                    verdict=decision,
+                    decision=decision,
+                    modules_used=json.dumps([
+                        m.get("model", "") for m in models_used if isinstance(m, dict)
+                    ]),
+                    top_factors=json.dumps(top_factors),
+                    scan_duration_ms=results.get("processing_time_ms", 0.0),
+                )
+                db.add(ws)
+                await increment_org_revision(db, org_id)
+                await db.commit()
         except Exception as e:
             logger.error(f"[AegisOne:ScanLog] Error: {e}")
 

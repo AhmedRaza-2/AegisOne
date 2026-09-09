@@ -354,3 +354,11 @@ CREATE INDEX ix_xai_reports_scan_id ON xai_reports (scan_id);
 
 CREATE UNIQUE INDEX ix_xai_reports_xai_id ON xai_reports (xai_id);
 
+CREATE TABLE organization_analytics_state (
+	organization_id VARCHAR(64) NOT NULL, 
+	revision BIGINT DEFAULT 1 NOT NULL, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(), 
+	PRIMARY KEY (organization_id)
+);
+
+

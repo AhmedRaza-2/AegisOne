@@ -564,3 +564,17 @@ class SetupSession(Base):
     id = Column(String(64), primary_key=True)
     state_json = Column(JSON, nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 17. ORGANIZATION ANALYTICS STATE (REVISION SYSTEM)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class OrganizationAnalyticsState(Base):
+    """Monotonic organization analytics revision tracker."""
+    __tablename__ = "organization_analytics_state"
+
+    organization_id = Column(String(64), primary_key=True)
+    revision        = Column(Integer,    default=1, nullable=False)
+    updated_at      = Column(DateTime,   server_default=func.now(), onupdate=func.now())
+

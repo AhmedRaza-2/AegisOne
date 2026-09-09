@@ -34,6 +34,9 @@ from api.database.schemas import AdminStatsResponse
 from api.auth.roles import require_role, Role
 from api.auth.password import hash_password
 from api.services.model_orchestrator import get_model_status
+from api.services.revision_service import get_org_revision, increment_org_revision
+from api.services.scope_resolver import resolve_analytics_scope
+from api.services.analytics_rebuilder import rebuild_dashboard_statistics
 from pydantic import BaseModel
 
 class ResetPasswordRequest(BaseModel):
@@ -408,7 +411,23 @@ async def get_stats(
                 "malware": 0
             })
 
+    current_revision = await get_org_revision(db, org_id)
+    scope_obj = await resolve_analytics_scope(db, current_user, time_range)
+
     return AdminStatsResponse(
+        revision=current_revision,
+        generated_at=datetime.utcnow().isoformat() + "Z",
+        scope={
+            "organization_id": scope_obj.org_id,
+            "department_id": scope_obj.department_id,
+            "role": scope_obj.role,
+            "timezone": scope_obj.timezone,
+        },
+        period={
+            "start": scope_obj.start_time.isoformat() + "Z" if scope_obj.start_time else None,
+            "end": scope_obj.end_time.isoformat() + "Z",
+            "time_range": scope_obj.time_range,
+        },
         total_users=total_users,
         total_scans=total_scans,
         scans_today=scans_today,
@@ -441,6 +460,134 @@ async def refresh_daily_stats(
     org_id = getattr(current_user, "organization_id", None) or "org_default"
     bg_tasks.add_task(_compute_and_store_daily_stats, db, org_id, date.today())
     return {"status": "refresh queued", "date": date.today().isoformat(), "org_id": org_id}
+
+
+@router.post("/stats/rebuild")
+async def rebuild_stats(
+    days: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(Role.ORG_ADMIN)),
+):
+    """
+    Synchronously rebuilds derived dashboard_statistics explicitly from raw event tables.
+    Guarantees aggregate recovery if pre-aggregated statistics ever drift.
+    """
+    org_id = getattr(current_user, "organization_id", None) or "org_default"
+    start_d = datetime.utcnow().date() - timedelta(days=days)
+    end_d = datetime.utcnow().date()
+    
+    rebuilt_days = await rebuild_dashboard_statistics(db, org_id, start_d, end_d)
+    current_revision = await get_org_revision(db, org_id)
+    
+    return {
+        "status": "success",
+        "org_id": org_id,
+        "rebuilt_days": rebuilt_days,
+        "revision": current_revision,
+        "rebuilt_at": datetime.utcnow().isoformat() + "Z"
+    }
+
+
+@router.get("/analytics/drilldown")
+async def analytics_drilldown(
+    metric: str = Query("threats_blocked", description="Metric type to drilldown into"),
+    time_range: str = Query("24h"),
+    department_id: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(Role.MANAGER)),
+):
+    """
+    Auditability API — returns exact constituent raw records behind any summary metric.
+    Maps aggregate numbers directly to verified raw rows.
+    """
+    scope = await resolve_analytics_scope(db, current_user, time_range, department_id)
+    offset = (page - 1) * limit
+    
+    if metric in ("threats_blocked", "phishing_scans", "suspicious_scans", "safe_scans"):
+        q = select(WebsiteScan).where(WebsiteScan.organization_id == scope.org_id)
+        if scope.start_time:
+            q = q.where(WebsiteScan.created_at >= scope.start_time)
+        if scope.department_id:
+            q = q.where(WebsiteScan.department_id == str(scope.department_id))
+            
+        if metric == "threats_blocked":
+            q = q.where(WebsiteScan.decision == "block")
+        elif metric == "phishing_scans":
+            q = q.where(or_(WebsiteScan.decision == "block", WebsiteScan.verdict == "danger"))
+        elif metric == "suspicious_scans":
+            q = q.where(WebsiteScan.decision == "warn")
+        elif metric == "safe_scans":
+            q = q.where(WebsiteScan.decision == "allow")
+            
+        count_q = select(func.count()).select_from(q.subquery())
+        total_rows = (await db.execute(count_q)).scalar() or 0
+        
+        res = await db.execute(q.order_by(WebsiteScan.created_at.desc()).offset(offset).limit(limit))
+        items = res.scalars().all()
+        
+        records = [
+            {
+                "id": scan.id,
+                "scan_id": scan.scan_id,
+                "timestamp": scan.created_at.isoformat() if scan.created_at else None,
+                "url": scan.url,
+                "domain": scan.domain,
+                "risk_score": scan.risk_score,
+                "verdict": scan.verdict,
+                "decision": scan.decision,
+                "threat_type": scan.threat_type,
+                "user_id": scan.user_id,
+                "device_id": scan.device_id,
+            }
+            for scan in items
+        ]
+    else:
+        q = select(SecurityEvent).where(SecurityEvent.organization_id == scope.org_id)
+        if scope.start_time:
+            q = q.where(SecurityEvent.timestamp >= scope.start_time)
+            
+        if metric == "high_risk":
+            q = q.where(SecurityEvent.severity == "high")
+        elif metric == "credential_events":
+            q = q.where(SecurityEvent.event_type == "credential_warning")
+        elif metric == "download_events":
+            q = q.where(SecurityEvent.event_type.in_(["download_blocked", "download_allowed"]))
+            
+        count_q = select(func.count()).select_from(q.subquery())
+        total_rows = (await db.execute(count_q)).scalar() or 0
+        
+        res = await db.execute(q.order_by(SecurityEvent.timestamp.desc()).offset(offset).limit(limit))
+        items = res.scalars().all()
+        
+        records = [
+            {
+                "id": ev.id,
+                "event_id": ev.event_id,
+                "timestamp": ev.timestamp.isoformat() if ev.timestamp else None,
+                "event_type": ev.event_type,
+                "severity": ev.severity,
+                "risk_score": ev.risk_score,
+                "decision": ev.decision,
+                "url": ev.url,
+                "domain": ev.domain,
+                "user_id": ev.user_id,
+                "device_id": ev.device_id,
+            }
+            for ev in items
+        ]
+        
+    current_revision = await get_org_revision(db, scope.org_id)
+    return {
+        "organization_id": scope.org_id,
+        "revision": current_revision,
+        "metric": metric,
+        "total_rows": total_rows,
+        "page": page,
+        "limit": limit,
+        "records": records
+    }
 
 
 # ── /events ───────────────────────────────────────────────────────────────────

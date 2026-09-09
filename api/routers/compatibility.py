@@ -72,6 +72,7 @@ from api.services.model_orchestrator import (
 )
 from api.services.content_router import route_image_input
 from api.services.xai_service import generate_explanation
+from api.services.revision_service import increment_org_revision, get_org_revision
 
 router = APIRouter(tags=["Compatibility & XAI"])
 
@@ -244,10 +245,23 @@ async def api_full_page(request: ContextualScanRequest, current_user: User = Dep
     
     return contextual_result
 @router.post("/analyze/url")
-async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), form_actions: str = Form(None), dom_signals: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), form_actions: str = Form(None), dom_signals: str = Form(None), scan_id: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     validate_url_for_ssrf(url)
     start = time.time()
     
+    target_scan_id = scan_id or request.headers.get("x-scan-id")
+    if target_scan_id:
+        existing = (await db.execute(select(WebsiteScan).where(WebsiteScan.scan_id == target_scan_id))).scalar_one_or_none()
+        if existing and existing.xai_explanation:
+            try:
+                cached_res = json.loads(existing.xai_explanation)
+                cached_res["latency_ms"] = existing.scan_duration_ms
+                return cached_res
+            except Exception:
+                pass
+    else:
+        target_scan_id = f"scan_{uuid.uuid4().hex[:12]}"
+        
     actions_list = None
     if form_actions:
         try:
@@ -299,8 +313,15 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
     user_id = current_user.id
     org_id = current_user.organization_id or "org_default"
     
+    verdict_mapped = "safe" if decision.lower() in ("allow", "safe") else "warning" if decision.lower() in ("warn", "warning") else "danger"
+    contextual_result["latency_ms"] = round((time.time() - start) * 1000, 1)
+    contextual_result["phishing_probability"] = final_risk / 100.0
+    contextual_result["prediction"] = "malicious" if decision == "BLOCK" else ("suspicious" if decision == "SUSPICIOUS" else "legitimate")
+    contextual_result["category"] = result.get("category", "benign")
+    contextual_result["top_words"] = result.get("top_words", [])
+
     scan = WebsiteScan(
-        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        scan_id=target_scan_id,
         organization_id=org_id,
         user_id=user_id,
         scan_type=scan_type,
@@ -308,10 +329,13 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
         domain=url.split("/")[2] if "//" in url else url[:255],
         risk_score=final_risk,
         threat_type=result.get("category", "benign"),
+        verdict=verdict_mapped,
         decision=decision.lower(),
-        scan_duration_ms=round((time.time() - start) * 1000, 1)
+        scan_duration_ms=contextual_result["latency_ms"],
+        xai_explanation=json.dumps(contextual_result)
     )
     db.add(scan)
+    await increment_org_revision(db, org_id)
     await db.commit()
     
     contextual_result["latency_ms"] = scan.scan_duration_ms

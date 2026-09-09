@@ -105,12 +105,15 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
       headers: { "X-User-Email": user_email }
     };
 
+    const scanId = `scan_${crypto.randomUUID?.() || Date.now()}`;
     if (isFormData && body instanceof FormData) {
       if (!body.has("user_email")) body.append("user_email", user_email);
+      if (!body.has("scan_id")) body.append("scan_id", scanId);
       opts.body = body;
     } else {
       opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify({ ...body, user_email });
+      const payload = typeof body === "object" && body !== null ? { scan_id: scanId, ...body, user_email } : { scan_id: scanId, user_email };
+      opts.body = JSON.stringify(payload);
     }
 
     const baseUrl = await getApiBaseUrl();

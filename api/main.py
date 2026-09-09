@@ -119,11 +119,35 @@ async def lifespan(app: FastAPI):
                 except Exception:
                     pass
 
+        # Create organization_analytics_state table if not existing
+        if dialect_name == "postgresql":
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS organization_analytics_state (
+                    organization_id VARCHAR(64) PRIMARY KEY,
+                    revision BIGINT DEFAULT 1 NOT NULL,
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+                );
+            """))
+        else:
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS organization_analytics_state (
+                    organization_id VARCHAR(64) PRIMARY KEY,
+                    revision INTEGER DEFAULT 1 NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+
     async with async_session() as db:
+        from api.database.models import OrganizationAnalyticsState
         # ── Ensure org_default exists (PostgreSQL enforces FKs — orgs row must exist before departments)
         org_exists = (await db.execute(select(Organization).where(Organization.id == "org_default"))).scalars().first()
         if not org_exists:
             db.add(Organization(id="org_default", name="AegisOne", domain=None, plan="standard", timezone="UTC"))
+            await db.flush()
+
+        rev_exists = (await db.execute(select(OrganizationAnalyticsState).where(OrganizationAnalyticsState.organization_id == "org_default"))).scalars().first()
+        if not rev_exists:
+            db.add(OrganizationAnalyticsState(organization_id="org_default", revision=1))
             await db.flush()
 
         # ── Clean up stale mock telemetry from previous runs (safe on empty tables too)
