@@ -4,6 +4,7 @@ import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/components/ui/toast";
+import { getApiBaseUrl } from "@/lib/api";
 
 export function getRoleBadge(role: string) {
   switch (role) {
@@ -43,10 +44,10 @@ export default function UsersPage() {
       if (!token) return;
 
       const [usersRes, deptsRes] = await Promise.all([
-        fetch("http://localhost:8000/admin/users", {
+        fetch(`${getApiBaseUrl()}/admin/users`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch("http://localhost:8000/admin/departments", {
+        fetch(`${getApiBaseUrl()}/admin/departments`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -89,7 +90,7 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token");
-      const res = await fetch("http://localhost:8000/admin/users", {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -107,7 +108,7 @@ export default function UsersPage() {
       if (res.ok) {
         // Send email via setup logic in the background
         const names = fullName.split(' ');
-        fetch("http://localhost:8000/setup/execute", {
+        fetch(`${getApiBaseUrl()}/setup/execute`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -142,7 +143,7 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token");
-      const res = await fetch(`http://localhost:8000/admin/users/${id}/status`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -165,7 +166,7 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem("aegis_access_token");
-      const res = await fetch(`http://localhost:8000/admin/users/${id}/password?new_password=${encodeURIComponent(newPassword)}`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users/${id}/password?new_password=${encodeURIComponent(newPassword)}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`

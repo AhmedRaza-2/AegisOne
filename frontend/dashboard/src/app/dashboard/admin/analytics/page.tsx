@@ -1,9 +1,10 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-import { BarChart3, ShieldCheck, Activity, Globe, Download, Key, Image as ImageIcon, Building2, Users, AlertTriangle, TrendingUp, Search } from "lucide-react";
+import { BarChart3, ShieldCheck, Activity, Globe, Download, Key, Image as ImageIcon, Building2, Users, AlertTriangle, TrendingUp, Search, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import { useMemo, useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -13,10 +14,36 @@ export default function AdminAnalyticsPage() {
   const [realStats, setRealStats] = useState<any>(null);
   const [departments, setDepartments] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
-  const [selectedDeptId, setSelectedDeptId] = useState<number | "all">("all");
+  const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("aegis_time_range");
+      if (saved === "24h" || saved === "7d" || saved === "30d" || saved === "all") return saved;
+    }
+    return "24h";
+  });
+  
+  const [selectedDeptId, setSelectedDeptId] = useState<number | "all">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("aegis_selected_dept");
+      if (saved) return saved === "all" ? "all" : parseInt(saved, 10);
+    }
+    return "all";
+  });
+  
   const [search, setSearch] = useState("");
-  const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all">("24h");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const updateTimeRange = (range: "24h" | "7d" | "30d" | "all") => {
+    setTimeRange(range);
+    if (typeof window !== "undefined") localStorage.setItem("aegis_time_range", range);
+  };
+
+  const updateSelectedDept = (deptId: number | "all") => {
+    setSelectedDeptId(deptId);
+    if (typeof window !== "undefined") localStorage.setItem("aegis_selected_dept", deptId.toString());
+  };
 
   const getHeaders = () => {
     const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
@@ -28,12 +55,13 @@ export default function AdminAnalyticsPage() {
     let isMounted = true;
 
     const fetchData = async () => {
+      if (isMounted) setRefreshing(true);
       try {
         const headers = getHeaders();
         const [sData, dData, uData] = await Promise.all([
-          fetchWithCache(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers }),
-          fetchWithCache(`http://localhost:8000/admin/departments`, { headers }),
-          fetchWithCache(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
+          fetchWithCache(`${getApiBaseUrl()}/admin/stats?time_range=${timeRange}`, { headers }).catch(() => null),
+          fetchWithCache(`${getApiBaseUrl()}/admin/departments`, { headers }).catch(() => null),
+          fetchWithCache(`${getApiBaseUrl()}/admin/users?time_range=${timeRange}`, { headers }).catch(() => null)
         ]);
 
         if (isMounted) {
@@ -44,14 +72,20 @@ export default function AdminAnalyticsPage() {
       } catch (err) {
         console.error("[Admin Analytics] Fetch error:", err);
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     };
 
     fetchData();
     const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, [user, timeRange, logout]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [user, timeRange, logout, refreshTrigger]);
 
   if (!user) return null;
 
@@ -108,10 +142,18 @@ export default function AdminAnalyticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRefreshTrigger((prev) => prev + 1)}
+            disabled={refreshing}
+            className="p-1.5 text-surface-500 hover:text-brand-600 bg-surface-100 dark:bg-white/[0.04] hover:bg-surface-200 dark:hover:bg-white/[0.08] rounded-xl transition-all mr-1 disabled:opacity-50"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
           {(["24h", "7d", "30d", "all"] as const).map((range) => (
             <button
               key={range}
-              onClick={() => setTimeRange(range)}
+              onClick={() => updateTimeRange(range)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${timeRange === range
                   ? "bg-brand-600 text-white shadow-sm"
                   : "bg-surface-100 dark:bg-white/[0.04] text-surface-600 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-white/[0.08]"
@@ -169,7 +211,7 @@ export default function AdminAnalyticsPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
-            onClick={() => setSelectedDeptId("all")}
+            onClick={() => updateSelectedDept("all")}
             className={`p-4 rounded-2xl border text-left transition-all ${selectedDeptId === "all"
                 ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
                 : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
@@ -188,7 +230,7 @@ export default function AdminAnalyticsPage() {
             return (
               <button
                 key={dept.id}
-                onClick={() => setSelectedDeptId(dept.id)}
+                onClick={() => updateSelectedDept(dept.id)}
                 className={`p-4 rounded-2xl border text-left transition-all ${isSelected
                     ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
                     : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"

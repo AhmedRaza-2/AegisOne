@@ -3,6 +3,7 @@ import { ClipboardList, Search, RefreshCw, ShieldAlert, CheckCircle2 } from "luc
 import { useState, useEffect, useMemo, useDeferredValue } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -31,7 +32,7 @@ export default function AuditPage() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/admin/audit", { headers: getHeaders() });
+      const res = await fetch(`${getApiBaseUrl()}/admin/audit`, { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);

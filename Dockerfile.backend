@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PyTorch CPU first (lightweight 170MB vs 530MB CUDA wheel, prevents download timeouts)
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
 
 # Copy requirements file and install remaining dependencies
 COPY requirements.txt .

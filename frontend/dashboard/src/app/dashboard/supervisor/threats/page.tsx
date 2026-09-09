@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { ShieldAlert, Activity, Users, MessageSquare, AlertTriangle, BookOpen, ShieldCheck, Download, Key, Shield, Info, X, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -75,7 +76,7 @@ export default function ThreatCenterPage() {
 
     const loadData = () => {
       // Fetch Users
-      fetch("http://localhost:8000/admin/users", { headers })
+      fetch(`${getApiBaseUrl()}/admin/users`, { headers })
         .then(res => res.json())
         .then(data => {
           if (data.users) {
@@ -85,7 +86,7 @@ export default function ThreatCenterPage() {
         .catch(err => console.error("Users load error:", err));
 
       // Fetch Live Events
-      fetch("http://localhost:8000/admin/events?page=1&page_size=100", { headers })
+      fetch(`${getApiBaseUrl()}/admin/events?page=1&page_size=100`, { headers })
         .then(res => res.json())
         .then(data => {
           if (data.events) {

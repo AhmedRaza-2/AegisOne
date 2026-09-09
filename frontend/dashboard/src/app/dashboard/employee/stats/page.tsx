@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
 import { TrendingUp, Activity, BarChart2, Shield } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -14,7 +15,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/personal-stats?email=${encodeURIComponent(user.email)}`)
+      fetch(`${getApiBaseUrl()}/user/personal-stats?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });

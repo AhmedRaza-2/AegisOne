@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>AegisOne — Extension Debug Diagnostics</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', monospace;
+      background: #0a0f1e;
+      color: #e2e8f0;
+      padding: 24px;
+      min-width: 600px;
+    }
+
+    h1 {
+      color: #60a5fa;
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 12px;
+    }
+
+    .row:last-child {
+      border-bottom: none;
+    }
+
+    .label {
+      color: #94a3b8;
+    }
+
+    .value {
+      font-family: monospace;
+      font-size: 11px;
+      max-width: 350px;
+      word-break: break-all;
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .badge-ok {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-err {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .badge-warn {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-idle {
+      background: rgba(100, 116, 139, 0.15);
+      color: #64748b;
+      border: 1px solid rgba(100, 116, 139, 0.3);
+    }
+
+    #log {
+      background: #000;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 11px;
+      font-family: monospace;
+      height: 220px;
+      overflow-y: auto;
+      color: #22d3ee;
+      white-space: pre-wrap;
+    }
+
+    .log-ok {
+      color: #10b981;
+    }
+
+    .log-err {
+      color: #ef4444;
+    }
+
+    .log-warn {
+      color: #f59e0b;
+    }
+
+    .log-info {
+      color: #60a5fa;
+    }
+
+    button {
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      border: none;
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-bottom: 12px;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    button.secondary {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #818cf8;
+    }
+
+    input[type="text"] {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      width: 320px;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🔬 AegisOne Extension Diagnostics</h1>
+  <p class="subtitle">Run tests to diagnose connectivity between the Extension and the AegisOne Backend.</p>
+
+  <!-- Server URL Config -->
+  <div class="card">
+    <div class="card-title">⚙️ Current Server Target</div>
+    <div class="row">
+      <span class="label">Configured server_url (chrome.storage)</span>
+      <span class="value" id="valStoredUrl">Loading…</span>
+    </div>
+    <div class="row">
+      <span class="label">constants.js API_BASE fallback</span>
+      <span class="value" id="valConstBase">Loading…</span>
+    </div>
+    <div class="row">
+      <span class="label">Effective URL used by extension</span>
+      <span class="value" id="valEffectiveUrl"><strong>Loading…</strong></span>
+    </div>
+    <br>
+    <div style="display:flex;align-items:center;">
+      <input type="text" id="inputOverrideUrl" placeholder="http://10.120.172.173:8000">
+      <button id="btnSetUrl">Set &amp; Re-run</button>
+    </div>
+  </div>
+
+  <!-- Status grid -->
+  <div class="card">
+    <div class="card-title">📡 Connection Tests</div>
+    <div class="row">
+      <span class="label">GET /health</span>
+      <span class="badge badge-idle" id="st-health">PENDING</span>
+    </div>
+    <div class="row">
+      <span class="label">OPTIONS /auth/login (CORS preflight)</span>
+      <span class="badge badge-idle" id="st-cors">PENDING</span>
+    </div>
+    <div class="row">
+      <span class="label">POST /auth/login (reachability)</span>
+      <span class="badge badge-idle" id="st-auth">PENDING</span>
+    </div>
+    <div class="row">
+      <span class="label">GET /health response time</span>
+      <span class="badge badge-idle" id="st-latency">PENDING</span>
+    </div>
+    <div class="row">
+      <span class="label">chrome.storage server_url readable</span>
+      <span class="badge badge-idle" id="st-storage">PENDING</span>
+    </div>
+  </div>
+
+  <!-- Response Detail -->
+  <div class="card">
+    <div class="card-title">🩺 /health Response Body</div>
+    <div class="row">
+      <span class="label">Status</span>
+      <span class="value" id="res-status">—</span>
+    </div>
+    <div class="row">
+      <span class="label">Body</span>
+      <span class="value" id="res-body" style="max-width:400px;">—</span>
+    </div>
+    <div class="row">
+      <span class="label">CORS header: Access-Control-Allow-Origin</span>
+      <span class="value" id="res-cors">—</span>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div style="margin-bottom:8px;">
+    <button id="btnRun">▶ Run All Tests</button>
+    <button class="secondary" id="btnClearLog">Clear Log</button>
+  </div>
+  <div id="log">Press "Run All Tests" to begin diagnostics…</div>
+
+  <script type="module">
+    import { API_BASE, getApiBaseUrl } from "../utils/constants.js";
+
+    const log = document.getElementById("log");
+    const append = (msg, cls = "log-info") => {
+      const span = document.createElement("span");
+      span.className = cls;
+      span.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      log.appendChild(span);
+      log.scrollTop = log.scrollHeight;
+    };
+
+    const setBadge = (id, text, type) => {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = `badge badge-${type}`;
+    };
+
+    async function loadStorageInfo() {
+      const { server_url } = await chrome.storage.local.get("server_url");
+      document.getElementById("valStoredUrl").textContent = server_url || "(not set — using fallback)";
+      document.getElementById("valConstBase").textContent = API_BASE;
+      const effective = await getApiBaseUrl();
+      document.getElementById("valEffectiveUrl").innerHTML = `<strong>${effective}</strong>`;
+      document.getElementById("inputOverrideUrl").value = server_url || API_BASE;
+      return { server_url, effective };
+    }
+
+    async function runTests(baseUrl) {
+      log.innerHTML = "";
+      append(`Starting diagnostics against: ${baseUrl}`, "log-info");
+      append("─".repeat(60), "log-info");
+
+      // 1. chrome.storage readable
+      try {
+        const { server_url } = await chrome.storage.local.get("server_url");
+        setBadge("st-storage", "OK", "ok");
+        append(`✅ chrome.storage readable. server_url = "${server_url || 'not set'}"`, "log-ok");
+      } catch (e) {
+        setBadge("st-storage", "ERROR", "err");
+        append(`❌ chrome.storage failed: ${e.message}`, "log-err");
+      }
+
+      // 2. GET /health
+      let healthOk = false;
+      try {
+        const t0 = performance.now();
+        const res = await fetch(`${baseUrl}/health`, {
+          signal: AbortSignal.timeout(5000)
+        });
+        const latency = Math.round(performance.now() - t0);
+        const text = await res.text();
+        const corsHeader = res.headers.get("access-control-allow-origin") || "(not present)";
+
+        document.getElementById("res-status").textContent = `${res.status} ${res.statusText}`;
+        document.getElementById("res-body").textContent = text.slice(0, 300);
+        document.getElementById("res-cors").textContent = corsHeader;
+
+        if (res.ok) {
+          setBadge("st-health", "✅ OK", "ok");
+          setBadge("st-latency", `${latency}ms`, latency < 1000 ? "ok" : "warn");
+          append(`✅ /health responded ${res.status} in ${latency}ms`, "log-ok");
+          append(`   Body: ${text.slice(0, 200)}`, "log-ok");
+          healthOk = true;
+        } else {
+          setBadge("st-health", `${res.status}`, "err");
+          setBadge("st-latency", `${latency}ms`, "warn");
+          append(`⚠️ /health responded ${res.status}: ${text.slice(0, 200)}`, "log-warn");
+        }
+
+        if (corsHeader === "(not present)") {
+          append(`⚠️ CORS header 'Access-Control-Allow-Origin' is MISSING from /health response!`, "log-warn");
+          append(`   This will block browser extension requests (CORS policy).`, "log-warn");
+        } else {
+          append(`✅ CORS header present: ${corsHeader}`, "log-ok");
+        }
+      } catch (e) {
+        setBadge("st-health", "FAILED", "err");
+        setBadge("st-latency", "timeout", "err");
+        document.getElementById("res-status").textContent = `FETCH ERROR: ${e.name}`;
+        document.getElementById("res-body").textContent = e.message;
+
+        append(`❌ /health fetch FAILED: ${e.name} — ${e.message}`, "log-err");
+        if (e.name === "TimeoutError") {
+          append(`   ➜ Server is unreachable or firewall is blocking port 8000.`, "log-err");
+          append(`   ➜ Make sure the server is running: docker compose ps`, "log-err");
+        }
+        if (e.message?.includes("Failed to fetch") || e.message?.includes("NetworkError")) {
+          append(`   ➜ Network error. Possible causes:`, "log-err");
+          append(`     1. Backend container is not running.`, "log-err");
+          append(`     2. Windows Firewall blocking port 8000.`, "log-err");
+          append(`     3. Wrong IP address — verify with ipconfig on server laptop.`, "log-err");
+        }
+      }
+
+      // 3. CORS preflight OPTIONS
+      try {
+        const res = await fetch(`${baseUrl}/auth/login`, {
+          method: "OPTIONS",
+          headers: {
+            "Origin": location.origin || "chrome-extension://test",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type, x-user-email",
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+        if (res.ok || res.status === 204 || res.status === 400) {
+          setBadge("st-cors", "OK", "ok");
+          append(`✅ CORS preflight (OPTIONS /auth/login) returned ${res.status}`, "log-ok");
+        } else {
+          setBadge("st-cors", `${res.status}`, "warn");
+          append(`⚠️ CORS preflight returned ${res.status} — check backend CORS config`, "log-warn");
+        }
+      } catch (e) {
+        setBadge("st-cors", "BLOCKED", "err");
+        append(`❌ CORS preflight FAILED: ${e.name} — ${e.message}`, "log-err");
+        append(`   ➜ Backend is not accepting cross-origin requests.`, "log-err");
+        append(`   ➜ Check CORS middleware in api/main.py.`, "log-err");
+      }
+
+      // 4. POST /auth/login reachability (intentional bad login)
+      try {
+        const res = await fetch(`${baseUrl}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-User-Email": "debug@test.local" },
+          body: JSON.stringify({ email: "debug@test.local", password: "wrongpassword123" }),
+          signal: AbortSignal.timeout(5000)
+        });
+        if (res.status === 401 || res.status === 400 || res.status === 422) {
+          setBadge("st-auth", `${res.status} (Reachable)`, "ok");
+          append(`✅ POST /auth/login is reachable — responded ${res.status} (expected: login rejected)`, "log-ok");
+        } else if (res.ok) {
+          setBadge("st-auth", "OK", "ok");
+          append(`✅ POST /auth/login reachable (unexpected 200 — debug creds may have worked)`, "log-ok");
+        } else {
+          setBadge("st-auth", `${res.status}`, "warn");
+          append(`⚠️ POST /auth/login responded ${res.status}`, "log-warn");
+        }
+      } catch (e) {
+        setBadge("st-auth", "FAILED", "err");
+        append(`❌ POST /auth/login FAILED: ${e.name} — ${e.message}`, "log-err");
+      }
+
+      append("─".repeat(60), "log-info");
+      if (healthOk) {
+        append("🎉 Backend is reachable! If extension still shows offline:", "log-ok");
+        append("   • Reload the extension at chrome://extensions", "log-ok");
+        append("   • Make sure server_url is saved correctly in ⚙️ Controls tab", "log-ok");
+      } else {
+        append("🚨 DIAGNOSIS SUMMARY:", "log-err");
+        append("   1. Confirm server is running:  docker compose ps", "log-err");
+        append("   2. Confirm IP is correct:       ipconfig (check Wi-Fi IPv4)", "log-err");
+        append("   3. Confirm firewall is open:    netsh advfirewall firewall show rule name='AegisOne Server Ports'", "log-err");
+        append("   4. Try from server laptop itself — go to: ${getApiBaseUrl()}/docs", "log-err");
+      }
+    }
+
+    // Init
+    loadStorageInfo().then(({ effective }) => {
+      document.getElementById("btnRun").addEventListener("click", async () => {
+        const effective2 = await getApiBaseUrl();
+        await runTests(effective2);
+      });
+
+      document.getElementById("btnSetUrl").addEventListener("click", async () => {
+        const newUrl = document.getElementById("inputOverrideUrl").value.trim().replace(/\/$/, "");
+        if (!newUrl) return;
+        await chrome.storage.local.set({ server_url: newUrl });
+        append(`💾 Saved server_url = ${newUrl}`, "log-info");
+        await loadStorageInfo();
+        await runTests(newUrl);
+      });
+
+      document.getElementById("btnClearLog").addEventListener("click", () => {
+        log.innerHTML = "";
+      });
+    });
+  </script>
+</body>
+
+</html>

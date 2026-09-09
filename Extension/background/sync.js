@@ -11,7 +11,7 @@
  *  - Heartbeat updates setBackendOnline flag in scanner
  */
 
-import { API_BASE, EVENT_SYNC_INTERVAL_MS, STORE_KEYS, SYNC_BACKOFF_STEPS, DEBUG_MODE } from "../utils/constants.js";
+import { API_BASE, getApiBaseUrl, EVENT_SYNC_INTERVAL_MS, STORE_KEYS, SYNC_BACKOFF_STEPS, DEBUG_MODE } from "../utils/constants.js";
 import { getUnsyncedEvents, markSynced } from "./event-store.js";
 import { setBackendOnline } from "./scanner.js";
 
@@ -77,7 +77,8 @@ async function _flush() {
     const headers = { "Content-Type": "application/json" };
     if (user_email) headers["X-User-Email"] = user_email;
 
-    const res = await fetch(`${API_BASE}/events/ingest`, {
+    const baseUrl = await getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/events/ingest`, {
       method: "POST",
       headers,
       body: JSON.stringify({ events: enriched }),
@@ -123,7 +124,8 @@ export async function fetchOrgPolicy() {
     const { [STORE_KEYS.DEVICE_ID]: deviceId } = await chrome.storage.local.get(STORE_KEYS.DEVICE_ID);
     if (!deviceId) return;
 
-    const res = await fetch(`${API_BASE}/policy/current?device_id=${deviceId}`, {
+    const baseUrl = await getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/policy/current?device_id=${deviceId}`, {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return;
@@ -207,7 +209,8 @@ async function _registerOrHeartbeat(deviceId, register = false) {
   if (user_email) headers["X-User-Email"] = user_email;
 
   const endpoint = register ? "/devices/register" : "/devices/heartbeat";
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  const baseUrl = await getApiBaseUrl();
+  const res = await fetch(`${baseUrl}${endpoint}`, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),

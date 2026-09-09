@@ -10,10 +10,17 @@ const THRESHOLD_DANGER = 80;
 let _ageCountdownTimer = null;
 let _currentTabData = null;
 
+let _currentServerUrl = "http://127.0.0.1:8000";
+
+function getApiBaseUrl() {
+  return _currentServerUrl;
+}
+
 async function init() {
   await loadShieldState();
   await loadWidgetState();
   await loadControlToggles();
+  await loadServerUrlSetting();
   await loadPopupStats();
   await loadCurrentPage();
   await loadRecentEvents();
@@ -22,14 +29,47 @@ async function init() {
   setupDashboardButton();
 }
 
+
+
+async function loadServerUrlSetting() {
+  const input = document.getElementById("inputServerUrl");
+  const btnSave = document.getElementById("btnSaveServerUrl");
+  
+  const stored = await chrome.storage.local.get("server_url");
+  if (stored.server_url) {
+    _currentServerUrl = stored.server_url;
+    if (input) input.value = stored.server_url;
+  } else {
+    const health = await sendMsg({ type: "CHECK_HEALTH" }).catch(() => null);
+    if (health?.url) {
+      _currentServerUrl = health.url;
+      if (input) input.value = health.url;
+    }
+  }
+
+  btnSave?.addEventListener("click", async () => {
+    const rawVal = input.value.trim();
+    if (!rawVal) return;
+    const formatted = rawVal.replace(/\/$/, "");
+    await chrome.storage.local.set({ server_url: formatted });
+    await sendMsg({ type: "CHECK_HEALTH" }).catch(() => { });
+    await checkServer();
+    btnSave.textContent = "Saved!";
+    setTimeout(() => { btnSave.textContent = "Save"; }, 2000);
+  });
+}
+
 function setupDashboardButton() {
   const btn = document.getElementById("btnOpenDashboard");
   if (btn) {
-    btn.addEventListener("click", async () => {
-      const stored = await chrome.storage.local.get(["dashboard_port", "dashboard_url"]);
-      const port = stored.dashboard_port || 3002;
-      const targetUrl = stored.dashboard_url || `http://localhost:${port}/login`;
-      chrome.tabs.create({ url: targetUrl });
+    btn.addEventListener("click", () => {
+      let host = "127.0.0.1";
+      try {
+        host = new URL(_currentServerUrl).hostname;
+      } catch (e) {
+        console.error("Invalid server url", e);
+      }
+      chrome.tabs.create({ url: `http://${host}:3002/login` });
     });
   }
 }
@@ -46,7 +86,7 @@ async function loadWidgetState() {
       await chrome.storage.local.set({ widgetVisible: isVisible });
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_WIDGET_VISIBILITY", visible: isVisible }).catch(() => {});
+        chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_WIDGET_VISIBILITY", visible: isVisible }).catch(() => { });
       }
     });
   }
@@ -142,7 +182,7 @@ async function loadPopupStats() {
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     let scans = 0;
@@ -152,10 +192,11 @@ async function loadPopupStats() {
 
     // Source 1: Try fetching real-time combined user stats from API (matches Dashboard 1:1)
     const deviceId = stored.device_id || "";
+    const serverUrl = stored.server_url || "http://192.168.100.5:8000";
     const apiEndpoints = [];
-    if (userEmail) apiEndpoints.push(`http://localhost:8000/user/stats?email=${encodeURIComponent(userEmail)}`);
-    if (deviceId) apiEndpoints.push(`http://localhost:8000/user/stats?device_id=${encodeURIComponent(deviceId)}`);
-    apiEndpoints.push("http://localhost:8000/user/stats");
+    if (userEmail) apiEndpoints.push(`${serverUrl}/user/stats?email=${encodeURIComponent(userEmail)}`);
+    if (deviceId) apiEndpoints.push(`${serverUrl}/user/stats?device_id=${encodeURIComponent(deviceId)}`);
+    apiEndpoints.push(`${serverUrl}/user/stats`);
 
     for (const url of apiEndpoints) {
       try {
@@ -163,24 +204,35 @@ async function loadPopupStats() {
         if (res.ok) {
           const data = await res.json();
           const scanList = data.scans || data.recentScans || [];
-          if (Array.isArray(scanList) && scanList.length > 0) {
-            scans = scanList.length;
-            blocked = scanList.filter(s => s.decision === "block" || s.riskLevel === "danger" || (s.riskScore || 0) >= 80).length;
-            safe = Math.max(0, scans - blocked);
-            fetchedFromApi = true;
-            break;
-          } else if (data.totalScans != null && data.totalScans > 0) {
+          if (data.totalScans != null && data.totalScans > 0) {
             scans = data.totalScans;
             blocked = data.threatsBlocked || 0;
             safe = Math.max(0, scans - blocked);
             fetchedFromApi = true;
             break;
+          } else if (Array.isArray(scanList) && scanList.length > 0) {
+            scans = scanList.length;
+            blocked = scanList.filter(s => s.decision === "block" || s.riskLevel === "danger" || (s.riskScore || 0) >= 80).length;
+            safe = Math.max(0, scans - blocked);
+            fetchedFromApi = true;
+            break;
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
-    // Source 2: Fallback to background events if API is offline
+    // Source 2: Fallback to restored_analytics if API is offline or initial state
+    if (!fetchedFromApi) {
+      const restored = stored.restored_analytics || (await chrome.storage.local.get("restored_analytics")).restored_analytics;
+      if (restored && restored.total > 0) {
+        scans = restored.total;
+        safe = (restored.urls || 0) + (restored.emails || 0);
+        blocked = Math.max(0, scans - safe);
+        fetchedFromApi = true;
+      }
+    }
+
+    // Source 3: Fallback to background events
     if (!fetchedFromApi) {
       const eventsRes = await sendMsg({ type: "GET_EVENTS", limit: 500 });
       const events = Array.isArray(eventsRes?.events) ? eventsRes.events : (Array.isArray(stored.sec_events_v2) ? stored.sec_events_v2 : []);
@@ -231,7 +283,7 @@ async function loadCurrentPage() {
           data.form_count = pageState.form_count ?? data.form_count;
         }
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   _currentTabData = data;
@@ -385,9 +437,9 @@ async function loadRecentEvents() {
 
   // Source 1: Try fetching combined activity log from /user/stats API
   let apiUrl = "";
-  if (userEmail) apiUrl = `http://localhost:8000/user/stats?email=${encodeURIComponent(userEmail)}`;
-  else if (deviceId) apiUrl = `http://localhost:8000/user/stats?device_id=${encodeURIComponent(deviceId)}`;
-  else apiUrl = "http://localhost:8000/user/stats";
+  if (userEmail) apiUrl = `${getApiBaseUrl()}/user/stats?email=${encodeURIComponent(userEmail)}`;
+  else if (deviceId) apiUrl = `${getApiBaseUrl()}/user/stats?device_id=${encodeURIComponent(deviceId)}`;
+  else apiUrl = `${getApiBaseUrl()}/user/stats`;
 
   try {
     const apiRes = await fetch(apiUrl, { signal: AbortSignal.timeout(1200) });
@@ -397,7 +449,7 @@ async function loadRecentEvents() {
         combinedEvents = apiData.recentScans;
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // Source 2: Fallback to background events
   if (combinedEvents.length === 0) {
@@ -425,7 +477,7 @@ async function loadRecentEvents() {
   list.innerHTML = combinedEvents.slice(0, 15).map(item => {
     const score = item.riskScore ?? item.risk_score ?? 0;
     const stype = (item.scanType || item.type || "url").toLowerCase();
-    
+
     let icon = "🌐";
     let typeLabel = "Website Scan";
 
@@ -472,7 +524,12 @@ async function checkServer() {
   const health = await sendMsg({ type: "CHECK_HEALTH" });
   const dot = document.getElementById("serverDot");
   const banner = document.getElementById("backendOfflineBanner");
+  const inputUrl = document.getElementById("inputServerUrl");
   const isOnline = health?.online !== false;
+
+  if (health?.url && inputUrl && (!inputUrl.value || inputUrl.value.includes("10.120") || inputUrl.value.includes("192.168"))) {
+    inputUrl.value = health.url;
+  }
 
   if (dot) {
     dot.className = `server-dot ${isOnline ? "online" : "offline"}`;

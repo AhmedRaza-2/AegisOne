@@ -5,6 +5,7 @@ import { ShieldCheck, Users, AlertTriangle, TrendingUp, BarChart3, ArrowUpRight,
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useMemo, useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -30,8 +31,8 @@ export default function SupervisorDashboard() {
 
     try {
       const [statsRes, usersRes] = await Promise.all([
-        fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers }),
-        fetch(`http://localhost:8000/admin/users?time_range=${timeRange}`, { headers })
+        fetch(`${getApiBaseUrl()}/admin/stats?time_range=${timeRange}`, { headers }),
+        fetch(`${getApiBaseUrl()}/admin/users?time_range=${timeRange}`, { headers })
       ]);
 
       if (statsRes.status === 401 || usersRes.status === 401) {

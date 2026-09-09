@@ -49,6 +49,7 @@
         "config.json",
         "test_runner.html",
         "test_runner.js",
+        "debug.html",
         "icons/*.png"
       ],
       "matches": [

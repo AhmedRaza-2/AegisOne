@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { Shield, Mail, Lock, ArrowLeft, User, Building, BadgeIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -21,7 +22,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/auth/register", {
+      const response = await fetch(`${getApiBaseUrl()}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

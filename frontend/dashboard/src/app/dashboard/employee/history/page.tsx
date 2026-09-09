@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { scanHistory } from "@/lib/mock-data";
 import { History, CheckCircle, AlertTriangle, XCircle, Download, Calendar } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -40,7 +41,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`)
+      fetch(`${getApiBaseUrl()}/user/stats?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(data => {
           setDbScans(data.scans || []);

@@ -12,9 +12,9 @@
  *  - No console.log in production (DEBUG_MODE guard)
  */
 
-import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
+import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE, getApiBaseUrl } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
-import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache } from "./scanner.js";
+import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics } from "./scanner.js";
 import { getCachedResult, getTabCache, setTabCache, clearTabCache, clearAllCache } from "./cache.js";
 import { initDownloadGuard, handleDownloadDecision } from "./download-guard.js";
 import { explainWithAI, generateLocalExplanation } from "./xai.js";
@@ -65,6 +65,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   await clearAllCache();
   await ensureDeviceId();
   await fetchOrgPolicy();
+  await restoreAnalytics();
   startSync();
   _setupContextMenu();
 });
@@ -73,6 +74,7 @@ chrome.runtime.onStartup.addListener(async () => {
   await initConfigData();
   await clearAllCache();
   await fetchOrgPolicy();
+  await restoreAnalytics();
   startSync();
 });
 
@@ -646,7 +648,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
           try {
             const { user_email } = await chrome.storage.local.get("user_email");
-            await fetch(`${API_BASE}/policy/allowlist`, {
+            const baseUrl = await getApiBaseUrl();
+            await fetch(`${baseUrl}/policy/allowlist`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",

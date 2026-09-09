@@ -152,7 +152,8 @@ export default function RegisterPage() {
 
       // Send Admin Welcome & Credentials email via public auth API
       try {
-        await fetch("http://localhost:8000/auth/send-admin-credentials", {
+        const apiHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+        await fetch(`http://${apiHost}:8000/auth/send-admin-credentials`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

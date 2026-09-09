@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { MessageSquare, Megaphone, Users, CheckCircle2, XCircle, Plus, X, Globe, Send } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,7 +44,7 @@ export default function ManagerCommunicationPage() {
   useEffect(() => {
     if (!user) return;
     const fetchContacts = () => {
-      fetch("http://localhost:8000/communication/contacts", { headers: getHeaders() })
+      fetch(`${getApiBaseUrl()}/communication/contacts`, { headers: getHeaders() })
         .then(r => r.json())
         .then(data => {
           if (Array.isArray(data)) {
@@ -78,7 +79,7 @@ export default function ManagerCommunicationPage() {
   useEffect(() => {
     if (!user) return;
     const load = () =>
-      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
+      fetch(`${getApiBaseUrl()}/communication/announcements`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
     load();
     const id = setInterval(load, 10000);
@@ -89,7 +90,7 @@ export default function ManagerCommunicationPage() {
     if (!activeContact) return;
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
-      fetch(`http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
+      fetch(`${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => { });
     load();
     pollRef.current = setInterval(load, 5000);
@@ -98,13 +99,13 @@ export default function ManagerCommunicationPage() {
 
   const handleSend = async (text: string) => {
     if (!activeContact) return;
-    const res = await fetch("http://localhost:8000/communication/send", {
+    const res = await fetch(`${getApiBaseUrl()}/communication/send`, {
       method: "POST", headers: getHeaders(),
       body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: text })
     });
     if (res.ok) {
       const data = await fetch(
-        `http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
+        `${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
       ).then(r => r.json());
       if (Array.isArray(data)) setThread(data);
     } else {
@@ -116,14 +117,14 @@ export default function ManagerCommunicationPage() {
   const handleBroadcast = async () => {
     if (!bContent.trim() || !user?.department_id) return;
     setBSending(true);
-    const res = await fetch("http://localhost:8000/communication/send", {
+    const res = await fetch(`${getApiBaseUrl()}/communication/send`, {
       method: "POST", headers: getHeaders(),
       body: JSON.stringify({ msg_type: "broadcast", department_id: user.department_id, title: bTitle, content: bContent })
     });
     if (res.ok) {
       showToast("Broadcast sent to your department!", "success");
       setBContent(""); setShowBroadcast(false);
-      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
+      fetch(`${getApiBaseUrl()}/communication/announcements`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); });
     } else { const e = await res.json(); showToast(e.detail || "Failed", "error"); }
     setBSending(false);

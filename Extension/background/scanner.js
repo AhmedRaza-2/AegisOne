@@ -12,7 +12,7 @@
  *  - Graceful degradation: falls back to cache on API failure
  */
 
-import { API_BASE, API_TIMEOUT_MS, THRESHOLD, VERDICT, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
+import { API_BASE, getApiBaseUrl, API_TIMEOUT_MS, THRESHOLD, VERDICT, EVENT_TYPES, DEBUG_MODE } from "../utils/constants.js";
 import { isInternalURL, isDangerousFileURL, getRootDomain } from "../utils/trusted-domains.js";
 import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
@@ -113,7 +113,8 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
       opts.body = JSON.stringify({ ...body, user_email });
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, opts);
+    const baseUrl = await getApiBaseUrl();
+    const res = await fetch(`${baseUrl}${endpoint}`, opts);
     if (res.status === 401) {
       invalidateAuthCache();
       if (DEBUG_MODE) console.warn(`[AegisOne:Scanner] 401 on ${endpoint}`);
@@ -511,15 +512,42 @@ export async function requestXAI(evidence) {
  */
 export async function checkHealth() {
   try {
-    const res = await fetch(`${API_BASE}/health`, {
+    const baseUrl = await getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/health`, {
       signal: AbortSignal.timeout(3000),
     });
     const data = await res.json();
     setBackendOnline(true);
-    return { online: true, data };
+    return { online: true, url: baseUrl, data };
   } catch {
     setBackendOnline(false);
     return { online: false };
+  }
+}
+
+/**
+ * Fetch persistent cumulative analytics counters from server DB and sync to local storage.
+ */
+export async function restoreAnalytics() {
+  try {
+    const baseUrl = await getApiBaseUrl();
+    const headers = {};
+    const { user_email } = await chrome.storage.local.get("user_email");
+    if (user_email) headers["X-User-Email"] = user_email;
+
+    const res = await fetch(`${baseUrl}/extension/analytics/restore`, {
+      headers,
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.status === "success" && data.counts) {
+        await chrome.storage.local.set({ restored_analytics: data.counts });
+        if (DEBUG_MODE) console.log("[AegisOne] Restored analytics from backend DB:", data.counts);
+      }
+    }
+  } catch (e) {
+    if (DEBUG_MODE) console.warn("[AegisOne] Analytics restore skipped:", e);
   }
 }
 

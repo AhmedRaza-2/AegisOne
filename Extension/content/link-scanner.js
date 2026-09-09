@@ -10,7 +10,7 @@
  * 3. Malicious Link Highlighting — marks dangerous links with a badge
  */
 
-import { MSG, THRESHOLD, API_BASE } from "../../utils/constants.js";
+import { MSG, THRESHOLD, API_BASE, getApiBaseUrl } from "../../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../../utils/trusted-domains.js";
 
 const _badged = new WeakSet();
@@ -188,10 +188,11 @@ async function _showImageHoverPreview(img, src, token) {
   }
 
   if (score >= 20) {
-    chrome.storage.local.get(["device_id", "user_email"]).then(({ device_id, user_email }) => {
+    chrome.storage.local.get(["device_id", "user_email"]).then(async ({ device_id, user_email }) => {
       const headers = { "Content-Type": "application/json" };
       if (user_email) headers["X-User-Email"] = user_email;
-      fetch(`${API_BASE}/telemetry/hover`, {
+      const baseUrl = await getApiBaseUrl();
+      fetch(`${baseUrl}/telemetry/hover`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -233,10 +234,11 @@ async function _showHoverPreview(anchor, url, token) {
 
   // Module 11 — persist hover scan (best-effort, only if notable)
   if (score >= 20) {
-    chrome.storage.local.get(["device_id", "user_email"]).then(({ device_id, user_email }) => {
+    chrome.storage.local.get(["device_id", "user_email"]).then(async ({ device_id, user_email }) => {
       const headers = { "Content-Type": "application/json" };
       if (user_email) headers["X-User-Email"] = user_email;
-      fetch(`${API_BASE}/telemetry/hover`, {
+      const baseUrl = await getApiBaseUrl();
+      fetch(`${baseUrl}/telemetry/hover`, {
         method: "POST",
         headers,
         body: JSON.stringify({

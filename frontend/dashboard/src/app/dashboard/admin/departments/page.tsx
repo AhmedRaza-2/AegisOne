@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import {
   Building2, Plus, Users, Trash2, X, Key, ShieldCheck,
   CheckCircle2, XCircle, ChevronRight, UserPlus, Lock, Search, AlertCircle, Mail, Settings, Save, Eye, EyeOff
@@ -68,9 +69,9 @@ export default function DepartmentsPage() {
   const fetchData = async () => {
     try {
       const [dData, uData, sData] = await Promise.all([
-        fetchWithCache("http://localhost:8000/admin/departments", { headers: getHeaders() }),
-        fetchWithCache("http://localhost:8000/admin/users", { headers: getHeaders() }),
-        fetchWithCache("http://localhost:8000/admin/smtp-settings", { headers: getHeaders() })
+        fetchWithCache(`${getApiBaseUrl()}/admin/departments`, { headers: getHeaders() }),
+        fetchWithCache(`${getApiBaseUrl()}/admin/users`, { headers: getHeaders() }),
+        fetchWithCache(`${getApiBaseUrl()}/admin/smtp-settings`, { headers: getHeaders() })
       ]);
 
       if (dData) setDepartments(dData.departments || []);
@@ -140,7 +141,7 @@ export default function DepartmentsPage() {
     if (!deptName.trim()) return;
 
     try {
-      const res = await fetch("http://localhost:8000/admin/departments", {
+      const res = await fetch(`${getApiBaseUrl()}/admin/departments`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -171,7 +172,7 @@ export default function DepartmentsPage() {
     if (!fullName || !email || !password) return;
 
     try {
-      const res = await fetch("http://localhost:8000/admin/users", {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -204,7 +205,7 @@ export default function DepartmentsPage() {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:8000/admin/users/${userId}/reset-password`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users/${userId}/reset-password`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ new_password: newPwInput })
@@ -225,7 +226,7 @@ export default function DepartmentsPage() {
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
     try {
-      const res = await fetch(`http://localhost:8000/admin/users/${userToDelete.id}`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users/${userToDelete.id}`, {
         method: "DELETE",
         headers: getHeaders()
       });
@@ -247,7 +248,7 @@ export default function DepartmentsPage() {
   const handleDepartmentChange = async (userId: number, newDeptId: string) => {
     const parsedDeptId = newDeptId ? parseInt(newDeptId) : null;
     try {
-      const res = await fetch(`http://localhost:8000/admin/users/${userId}/department`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users/${userId}/department`, {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify({ department_id: parsedDeptId })
@@ -267,7 +268,7 @@ export default function DepartmentsPage() {
   const handleSaveSmtp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/admin/smtp-settings", {
+      const res = await fetch(`${getApiBaseUrl()}/admin/smtp-settings`, {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -292,7 +293,7 @@ export default function DepartmentsPage() {
   const handleToggleStatus = async (userObj: any) => {
     const nextStatus = userObj.account_status === "disabled" || userObj.account_status === "suspended" ? "approved" : "disabled";
     try {
-      const res = await fetch(`http://localhost:8000/admin/users/${userObj.id}/status`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users/${userObj.id}/status`, {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({ status: nextStatus, reason: "Admin status update" })
@@ -521,7 +522,7 @@ export default function DepartmentsPage() {
                               onChange={async (e) => {
                                 const newRole = e.target.value;
                                 try {
-                                  const endpoint = newRole === "manager" || newRole === "department_admin" ? `http://localhost:8000/admin/users/${u.id}/promote` : `http://localhost:8000/admin/users/${u.id}/demote`;
+                                  const endpoint = newRole === "manager" || newRole === "department_admin" ? `${getApiBaseUrl()}/admin/users/${u.id}/promote` : `${getApiBaseUrl()}/admin/users/${u.id}/demote`;
                                   const res = await fetch(endpoint, { method: "PUT", headers: getHeaders() });
                                   if (res.ok) {
                                     showToast(`Role updated to ${newRole}`, "success");

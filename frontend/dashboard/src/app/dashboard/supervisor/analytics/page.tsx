@@ -4,6 +4,7 @@ import { BarChart3, ShieldCheck, Activity, Globe, Download, Key, Image as ImageI
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { useMemo, useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -22,7 +23,7 @@ export default function DepartmentAnalyticsPage() {
 
       console.log(`[Supervisor Analytics] Fetching stats (range: ${timeRange})`);
 
-      fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers })
+      fetch(`${getApiBaseUrl()}/admin/stats?time_range=${timeRange}`, { headers })
         .then(res => {
           if (res.status === 401) {
             logout();

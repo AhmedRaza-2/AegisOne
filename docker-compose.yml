@@ -76,5 +76,16 @@ services:
       - backend
     restart: unless-stopped
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # Landing Page — AegisOne marketing & entry portal
+  # ──────────────────────────────────────────────────────────────────────────
+  landing:
+    build:
+      context: ./frontend/landing
+    container_name: aegisone-landing
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
 volumes:
   aegisone-pg-data: # PostgreSQL data — persists across restarts

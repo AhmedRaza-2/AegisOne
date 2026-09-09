@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { motion } from "framer-motion";
 import { Activity, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -33,7 +34,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://localhost:8000/user/analytics?email=${encodeURIComponent(user.email)}`)
+        fetch(`${getApiBaseUrl()}/user/analytics?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => {
             setData(res);

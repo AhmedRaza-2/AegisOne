@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { MessageSquare, Megaphone, Users, CheckCircle2, XCircle, Globe } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,7 +40,7 @@ export default function EmployeeCommunicationPage() {
   // Load contacts once
   useEffect(() => {
     if (!user) return;
-    fetch("http://localhost:8000/communication/contacts", { headers: getHeaders() })
+    fetch(`${getApiBaseUrl()}/communication/contacts`, { headers: getHeaders() })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -53,7 +54,7 @@ export default function EmployeeCommunicationPage() {
   useEffect(() => {
     if (!user) return;
     const load = () =>
-      fetch("http://localhost:8000/communication/announcements", { headers: getHeaders() })
+      fetch(`${getApiBaseUrl()}/communication/announcements`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
     load();
     const id = setInterval(load, 10000);
@@ -65,7 +66,7 @@ export default function EmployeeCommunicationPage() {
     if (!activeContact) return;
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
-      fetch(`http://localhost:8000/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
+      fetch(`${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => { });
     load();
     pollRef.current = setInterval(load, 5000);
@@ -75,13 +76,13 @@ export default function EmployeeCommunicationPage() {
   const handleSend = async (text: string) => {
     if (!activeContact) return;
     try {
-      const res = await fetch("http://localhost:8000/communication/send", {
+      const res = await fetch(`${getApiBaseUrl()}/communication/send`, {
         method: "POST", headers: getHeaders(),
         body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: text })
       });
       if (res.ok) {
         const data = await fetch(
-          `http://localhost:8000/communication/conversation/${activeContact.id}`,
+          `${getApiBaseUrl()}/communication/conversation/${activeContact.id}`,
           { headers: getHeaders() }
         ).then(r => r.json());
         if (Array.isArray(data)) setThread(data);

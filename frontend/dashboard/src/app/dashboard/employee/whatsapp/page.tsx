@@ -1,4 +1,5 @@
 "use client";
+import { getApiBaseUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   MessageSquare, ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2,
@@ -39,7 +40,7 @@ export default function EmployeeWhatsAppSecurityPage() {
     if (!user?.email) return;
     setRefreshing(true);
     try {
-      const res = await fetch(`http://localhost:8000/analytics/whatsapp?email=${encodeURIComponent(user.email)}&role=employee`);
+      const res = await fetch(`${getApiBaseUrl()}/analytics/whatsapp?email=${encodeURIComponent(user.email)}&role=employee`);
       const json = await res.json();
       setData(json);
       setLoading(false);
@@ -57,7 +58,7 @@ export default function EmployeeWhatsAppSecurityPage() {
 
   const submitFeedback = async (scanId: string, feedbackType: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/analytics/whatsapp/${scanId}/feedback`, {
+      const res = await fetch(`${getApiBaseUrl()}/analytics/whatsapp/${scanId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_feedback: feedbackType, comments: "Reported via Employee Portal" })

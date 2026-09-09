@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { FileBarChart, Download, Filter, RefreshCw, ShieldAlert, Users, Activity, CheckCircle2, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -28,14 +29,14 @@ export default function ReportsPage() {
 
     try {
       // Fetch stats
-      const statsRes = await fetch(`http://localhost:8000/admin/stats?time_range=${timeRange}`, { headers });
+      const statsRes = await fetch(`${getApiBaseUrl()}/admin/stats?time_range=${timeRange}`, { headers });
       if (statsRes.ok) {
         const data = await statsRes.json();
         setStats(data);
       }
 
       // Fetch users
-      const usersRes = await fetch(`http://localhost:8000/admin/users?range=${timeRange}`, { headers });
+      const usersRes = await fetch(`${getApiBaseUrl()}/admin/users?range=${timeRange}`, { headers });
       if (usersRes.ok) {
         const uData = await usersRes.json();
         if (uData.users) setUsersList(uData.users);

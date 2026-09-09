@@ -13,6 +13,76 @@ export const DEBUG_MODE = false;
 // e.g. http://192.168.1.100:8000 for a server on your LAN
 // The popup allows overriding this via the "Server URL" setting (stored in chrome.storage.local)
 export const API_BASE = "http://localhost:8000";
+
+let _cachedLiveServerUrl = null;
+
+async function _probeServer(url) {
+  try {
+    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(1200) });
+    if (res.ok) {
+      const data = await res.json();
+      return data.status === "ok" || Boolean(data.models);
+    }
+  } catch (_) { }
+  return false;
+}
+
+export async function getApiBaseUrl() {
+  // 1. Check user explicitly saved server_url in storage
+  try {
+    const { server_url } = await chrome.storage.local.get("server_url");
+    if (server_url && server_url.trim()) {
+      const clean = server_url.trim().replace(/\/$/, "");
+      if (await _probeServer(clean)) {
+        _cachedLiveServerUrl = clean;
+        return clean;
+      }
+    }
+  } catch (_) { }
+
+  // 2. Return cached detected URL if still healthy
+  if (_cachedLiveServerUrl && await _probeServer(_cachedLiveServerUrl)) {
+    return _cachedLiveServerUrl;
+  }
+
+  // 3. Auto-detect live server by inspecting open browser tabs & hostnames
+  const candidates = new Set();
+
+  if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.query) {
+    try {
+      const tabs = await chrome.tabs.query({});
+      for (const t of tabs) {
+        if (t.url && (t.url.includes(":3002") || t.url.includes(":3000") || t.url.includes(":8000") || t.url.includes("aegis"))) {
+          try {
+            const u = new URL(t.url);
+            if (u.hostname && u.hostname !== "localhost" && u.hostname !== "127.0.0.1") {
+              candidates.add(`http://${u.hostname}:8000`);
+            }
+          } catch (_) { }
+        }
+      }
+    } catch (_) { }
+  }
+
+  if (typeof location !== "undefined" && location.hostname && location.hostname !== "localhost" && location.hostname !== "127.0.0.1" && !location.protocol.includes("extension")) {
+    candidates.add(`http://${location.hostname}:8000`);
+  }
+
+  candidates.add("http://localhost:8000");
+  candidates.add("http://127.0.0.1:8000");
+
+  for (const candidate of candidates) {
+    if (await _probeServer(candidate)) {
+      _cachedLiveServerUrl = candidate;
+      try {
+        await chrome.storage.local.set({ server_url: candidate });
+      } catch (_) { }
+      return candidate;
+    }
+  }
+
+  return _cachedLiveServerUrl || "http://localhost:8000";
+}
 export const API_TIMEOUT_MS = 6000;
 export const HEALTH_CHECK_INTERVAL_MS = 30_000;
 export const EVENT_SYNC_INTERVAL_MS = 30_000;

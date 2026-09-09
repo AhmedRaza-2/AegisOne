@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -28,14 +29,14 @@ export default function AdminDashboard() {
     const selectedRange = overrideTimeRange || timeRange;
     if (isManual) {
       setRefreshing(true);
-      invalidateCache("http://localhost:8000/admin/");
+      invalidateCache(`${getApiBaseUrl()}/admin/`);
     }
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
       const headers = { Authorization: `Bearer ${token || ""}` };
       const [data, dData] = await Promise.all([
-        fetchWithCache(`http://localhost:8000/admin/stats?time_range=${selectedRange}`, { headers }, isManual ? 0 : 15000),
-        fetchWithCache("http://localhost:8000/admin/departments", { headers }, isManual ? 0 : 15000)
+        fetchWithCache(`${getApiBaseUrl()}/admin/stats?time_range=${selectedRange}`, { headers }, isManual ? 0 : 15000),
+        fetchWithCache(`${getApiBaseUrl()}/admin/departments`, { headers }, isManual ? 0 : 15000)
       ]);
       if (data) setStats(data);
       if (dData) setDepartments(dData.departments || []);

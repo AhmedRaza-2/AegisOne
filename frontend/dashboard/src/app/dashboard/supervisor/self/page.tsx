@@ -1,4 +1,5 @@
 "use client";
+import { getApiBaseUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2, Globe, FileText,
@@ -30,7 +31,7 @@ export default function SupervisorSelfDashboard() {
     if (isManual) setRefreshing(true);
     const cacheKey = `emp_stats_${user.email}`;
     try {
-      const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
+      const res = await fetch(`${getApiBaseUrl()}/user/stats?email=${encodeURIComponent(user.email)}`);
       const json = await res.json();
       setData(json);
       localStorage.setItem(cacheKey, JSON.stringify(json));

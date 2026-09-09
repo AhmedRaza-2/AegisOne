@@ -9,8 +9,8 @@
  * Example: NEXT_PUBLIC_API_BASE=http://192.168.1.100:8000
  */
 
-function resolveApiBase(): string {
-  // 1. Explicit override via env var (set in Docker or .env.local)
+export function getApiBaseUrl(): string {
+  // 1. Explicit override via env var
   if (process.env.NEXT_PUBLIC_API_BASE) {
     return process.env.NEXT_PUBLIC_API_BASE.replace(/\/$/, "");
   }
@@ -18,9 +18,6 @@ function resolveApiBase(): string {
   // 2. Browser-side detection: use same host as the page, port 8000
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") {
-      return "http://localhost:8000";
-    }
     return `http://${host}:8000`;
   }
 
@@ -28,4 +25,5 @@ function resolveApiBase(): string {
   return "http://localhost:8000";
 }
 
-export const API_BASE = resolveApiBase();
+export const API_BASE = getApiBaseUrl();
+

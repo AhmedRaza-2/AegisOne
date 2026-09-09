@@ -31,23 +31,29 @@ async def get_current_user(
                 if user and user.is_active and user.account_status not in ("suspended", "disabled", "rejected"):
                     return user
 
-    # 2. Fallback: Authenticate via X-User-Email header or query params for extension background client scans
+    # 2. Fallback: Authenticate via X-User-Email header, query params, or form fields
     email = request.headers.get("X-User-Email") or request.headers.get("x-user-email") or request.query_params.get("user_email")
+    if not email:
+        try:
+            form = await request.form()
+            email = form.get("user_email") or form.get("email")
+        except Exception:
+            pass
+
     if email:
-        result = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
+        result = await db.execute(select(User).where(func.lower(User.email) == str(email).lower().strip()))
         user = result.scalar_one_or_none()
         if user and user.is_active and user.account_status not in ("suspended", "disabled", "rejected"):
             return user
 
-    # 3. Extension Fallback: Return any active user in database so client scans proceed
-    active_user_res = await db.execute(select(User).where(User.is_active == True))
-    active_user = active_user_res.scalars().first()
-    if active_user:
-        return active_user
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentication required — provide valid Bearer token or active X-User-Email",
+    # 3. Extension Fallback: Return a dummy user so client scans proceed anonymously
+    # instead of wrongly attributing scans to the first active user (Admin).
+    return User(
+        id=None,
+        organization_id="org_default",
+        email="anonymous@aegisone.local",
+        role="employee",
+        is_active=True
     )
 
 

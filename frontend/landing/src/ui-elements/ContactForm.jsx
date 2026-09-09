@@ -14,7 +14,8 @@ const ContactForm = () => {
         setError('')
 
         try {
-            const res = await fetch('http://localhost:8000/public/contact', {
+            const apiHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+            const res = await fetch(`http://${apiHost}:8000/public/contact`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)

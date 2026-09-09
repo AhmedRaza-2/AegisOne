@@ -31,7 +31,6 @@ export default function App() {
   const API_BASE = (() => {
     if (typeof window === 'undefined') return 'http://localhost:8000';
     const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:8000';
     return `http://${host}:8000`;
   })();
 
@@ -224,7 +223,7 @@ export default function App() {
   const pollEmailStatus = (runId: string) => {
     const poll = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/setup/email-status/${runId}`);
+        const res = await fetch(`${API_BASE}/setup/email-status/${runId}`);
         if (res.ok) {
           const data = await res.json();
           if (data.done) {
@@ -1574,7 +1573,7 @@ export default function App() {
                         setDispatchDone(false);
                         setDispatchError(null);
                         try {
-                          const response = await fetch('http://localhost:8000/setup/execute', {
+                          const response = await fetch(`${API_BASE}/setup/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({

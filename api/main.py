@@ -167,21 +167,24 @@ app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_SIZE)
 # 3. CORS
 cors_allowed_origins = os.environ.get("AEGIS_ALLOWED_ORIGINS", "").split(",")
 cors_allowed_origins = [o.strip() for o in cors_allowed_origins if o.strip()]
-if not cors_allowed_origins:
-    cors_allowed_origins = [
-        "http://localhost:3000",
-        "http://localhost:3002",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3002",
-    ]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if cors_allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # Allow any HTTP/HTTPS or Chrome Extension origin for seamless local Wi-Fi & extension access
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^(https?://.*|chrome-extension://.*)$",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

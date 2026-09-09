@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
@@ -217,7 +218,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const checkHealth = () => {
-      fetch("http://localhost:8000/health")
+      fetch(`${getApiBaseUrl()}/health`)
         .then(res => res.json())
         .then(data => {
           setSystemHealth(data);
@@ -282,7 +283,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
       // Skip if no valid token
       if (!token || token.startsWith("token_setup_")) return;
-      fetch("http://localhost:8000/communication/inbox", {
+      fetch(`${getApiBaseUrl()}/communication/inbox`, {
         headers: { "Authorization": `Bearer ${token}` }
       })
         .then(res => {
@@ -363,7 +364,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setVerifyMsg("");
     setVerifyError("");
     try {
-      await fetch("http://localhost:8000/auth/forgot-password", {
+      await fetch(`${getApiBaseUrl()}/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email })
@@ -382,7 +383,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setResetting(true);
     setVerifyError("");
     try {
-      const res = await fetch("http://localhost:8000/auth/verify-reset-otp", {
+      const res = await fetch(`${getApiBaseUrl()}/auth/verify-reset-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user?.email, otp })

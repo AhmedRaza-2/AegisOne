@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import {
   ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2, Globe, FileText,
   Lock, BrainCircuit, Activity, ChevronRight, Server, Clock, Download, Image as ImageIcon, Scan,
@@ -30,7 +31,7 @@ export default function EmployeeDashboard() {
     if (isManual) setRefreshing(true);
     const cacheKey = `emp_stats_${user.email}`;
     try {
-      const res = await fetch(`http://localhost:8000/user/stats?email=${encodeURIComponent(user.email)}`);
+      const res = await fetch(`${getApiBaseUrl()}/user/stats?email=${encodeURIComponent(user.email)}`);
       const json = await res.json();
       setData(json);
       localStorage.setItem(cacheKey, JSON.stringify(json));

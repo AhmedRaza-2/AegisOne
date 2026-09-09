@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { getApiBaseUrl } from "@/lib/api";
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import {
@@ -51,7 +52,7 @@ const ModalPortal = ({ children }: { children: React.ReactNode }) => {
 export default function AdminSetupPage() {
   const { user, invalidateCache } = useAuth();
   const router = useRouter();
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = `${getApiBaseUrl()}`;
 
   const [step, setStep] = useState<number>(1);
   const [loading, setLoading] = useState(false);

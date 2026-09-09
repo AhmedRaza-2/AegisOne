@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { 
   Mail, ShieldCheck, AlertTriangle, ShieldAlert, 
   RefreshCw, Calendar, ChevronRight, FileText, CheckCircle2, 
@@ -14,6 +15,7 @@ interface ScanItem {
   url: string;
   subject?: string;
   sender?: string;
+  recipient?: string;
   thread_url?: string;
   domain: string;
   risk_score: number;
@@ -57,7 +59,7 @@ export default function EmployeeEmailSecurityPage() {
     try {
       const token = getToken();
       const userEmail = user?.email || "";
-      const url = `http://localhost:8000/analytics/email?period=${period}&scope=auto${userEmail ? `&email=${encodeURIComponent(userEmail)}` : ''}`;
+      const url = `${getApiBaseUrl()}/analytics/email?period=${period}&scope=auto${userEmail ? `&email=${encodeURIComponent(userEmail)}` : ''}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });

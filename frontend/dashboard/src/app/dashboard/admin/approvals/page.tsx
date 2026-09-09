@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { CheckCircle2, XCircle, ShieldAlert, Shield, Users, Search } from "lucide-react";
 import { motion } from "framer-motion";
+import { getApiBaseUrl } from "@/lib/api";
 
 export default function ApprovalsPage() {
   const { user } = useAuth();
@@ -15,7 +16,7 @@ export default function ApprovalsPage() {
     const fetchPending = async () => {
       try {
         const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-        const res = await fetch("http://localhost:8000/admin/users/pending", {
+        const res = await fetch(`${getApiBaseUrl()}/admin/users/pending`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -35,7 +36,7 @@ export default function ApprovalsPage() {
     setActionLoading(userId);
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
-      const res = await fetch(`http://localhost:8000/admin/users/${userId}/status`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/users/${userId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

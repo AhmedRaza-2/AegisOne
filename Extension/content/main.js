@@ -66,7 +66,7 @@
   async function init() {
     try {
       const [
-        { STORE_KEYS, API_BASE },
+        { STORE_KEYS, API_BASE, getApiBaseUrl },
         { createWidget, updateWidget, updateThreatCount },
         { initSearchBadges },
         { initLinkScanner, applyDangerBadges },
@@ -92,41 +92,35 @@
       const isAllowlistedPage = _matchesDomainList(getRootDomain(location.href), allowlist);
 
       // ── Sync Dashboard Logged-In User ───────────────
-      // One-time sync at page load (catches full-page navigations)
-      if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname.includes("aegisone")) {
-        try {
-          const rawUser = localStorage.getItem("user");
-          if (rawUser) {
-            const userObj = JSON.parse(rawUser);
-            if (userObj && userObj.email) {
-              chrome.storage.local.set({ user_email: userObj.email });
-              safeSendMessage({ type: "AUTH_UPDATED", email: userObj.email });
-            }
-          } else {
-            chrome.storage.local.remove(["user_email"]);
-            safeSendMessage({ type: "AUTH_CLEARED" });
+      // One-time sync at page load (catches full-page navigations & SPA logins on any host)
+      try {
+        const rawUser = localStorage.getItem("user");
+        if (rawUser) {
+          const userObj = JSON.parse(rawUser);
+          if (userObj && userObj.email) {
+            chrome.storage.local.set({ user_email: userObj.email });
+            safeSendMessage({ type: "AUTH_UPDATED", email: userObj.email });
           }
-        } catch (e) {}
+        }
+      } catch (e) {}
 
-        // ── Live login/logout listeners (SPA client-side navigation) ──
-        // Dashboard fires these events so we don't need a full page reload
-        window.addEventListener("aegis-user-login", (e) => {
-          try {
-            const email = e.detail?.email;
-            if (email) {
-              chrome.storage.local.set({ user_email: email });
-              safeSendMessage({ type: "AUTH_UPDATED", email });
-            }
-          } catch (_) {}
-        });
+      // ── Live login/logout listeners (SPA client-side navigation) ──
+      window.addEventListener("aegis-user-login", (e) => {
+        try {
+          const email = e.detail?.email;
+          if (email) {
+            chrome.storage.local.set({ user_email: email });
+            safeSendMessage({ type: "AUTH_UPDATED", email });
+          }
+        } catch (_) {}
+      });
 
-        window.addEventListener("aegis-user-logout", () => {
-          try {
-            chrome.storage.local.remove(["user_email"]);
-            safeSendMessage({ type: "AUTH_CLEARED" });
-          } catch (_) {}
-        });
-      }
+      window.addEventListener("aegis-user-logout", () => {
+        try {
+          chrome.storage.local.remove(["user_email"]);
+          safeSendMessage({ type: "AUTH_CLEARED" });
+        } catch (_) {}
+      });
 
       // ── Widget ──────────────────────────────────────
       _widget = createWidget();
@@ -786,7 +780,8 @@
       const stored = await chrome.storage.local.get(["device_id", "org_policy", "user_email"]);
       const headers = { "Content-Type": "application/json" };
       if (stored.user_email) headers["X-User-Email"] = stored.user_email;
-      await fetch(`${API_BASE}/telemetry/scripts`, {
+      const baseUrl = await getApiBaseUrl();
+      await fetch(`${baseUrl}/telemetry/scripts`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -838,7 +833,8 @@
       const stored = await chrome.storage.local.get(["device_id", "org_policy", "user_email"]);
       const headers = { "Content-Type": "application/json" };
       if (stored.user_email) headers["X-User-Email"] = stored.user_email;
-      await fetch(`${API_BASE}/telemetry/cookies`, {
+      const baseUrl = await getApiBaseUrl();
+      await fetch(`${baseUrl}/telemetry/cookies`, {
         method: "POST",
         headers,
         body: JSON.stringify({

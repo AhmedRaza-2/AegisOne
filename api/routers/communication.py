@@ -34,15 +34,17 @@ async def get_contacts(
 ):
     """
     Returns the list of users that the current user is allowed to message.
-    - Employee  → only their department manager(s)
-    - Manager   → their department employees + all admins
-    - Admin     → all managers in the org
+    All users in the same organization can message each other.
     """
+    org_id = getattr(current_user, "organization_id", None) or "org_default"
     contacts = []
 
     # Everyone can message anyone else in the same organization
     result = await db.execute(
-        select(User).where(User.id != current_user.id)
+        select(User).where(
+            User.id != current_user.id,
+            User.organization_id == org_id
+        )
     )
     contacts = result.scalars().all()
 
@@ -82,6 +84,13 @@ async def get_contacts(
                 "unread_count": unread_counts.get(u.id, 0),
                 "last_message_at": last_interaction[u.id].isoformat() if u.id in last_interaction else None
             })
+
+    # Sort: contacts with recent messages first, then alphabetically
+    unique_contacts.sort(key=lambda x: (
+        0 if x["last_message_at"] else 1,
+        -(0 if not x["last_message_at"] else 1),
+        x["full_name"]
+    ))
 
     return unique_contacts
 
@@ -150,15 +159,11 @@ async def send_message(
         if not receiver:
             raise HTTPException(status_code=404, detail="Receiver not found")
 
-        # Block Employee ↔ Admin
-        if is_employee(current_user) and is_admin(receiver):
-            raise HTTPException(status_code=403, detail="Employees cannot message admins directly")
-        if is_admin(current_user) and is_employee(receiver):
-            raise HTTPException(status_code=403, detail="Admins cannot message employees directly")
-
         # Block self-messaging
         if receiver.id == current_user.id:
             raise HTTPException(status_code=400, detail="Cannot message yourself")
+        
+        print(f"[COMM LOG] 📩 DIRECT MESSAGE SENT: From {current_user.email} (ID: {current_user.id}) to {receiver.email} (ID: {receiver.id})", flush=True)
 
     elif msg.msg_type == "broadcast":
         # Manager → Department broadcast

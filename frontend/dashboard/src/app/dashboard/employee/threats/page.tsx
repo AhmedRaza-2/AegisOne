@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor, BrainCircuit, X } from "lucide-react";
 import Link from "next/link";
@@ -18,7 +19,7 @@ export default function ThreatCenterPage() {
   useEffect(() => {
     if (user?.email) {
       const fetchData = () => {
-        fetch(`http://localhost:8000/user/threats?email=${encodeURIComponent(user.email)}`)
+        fetch(`${getApiBaseUrl()}/user/threats?email=${encodeURIComponent(user.email)}`)
           .then(res => res.json())
           .then(res => {
             setData(res);

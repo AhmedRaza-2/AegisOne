@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
 import { Clock, Activity, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -14,7 +15,7 @@ export default function TimelinePage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/timeline?email=${encodeURIComponent(user.email)}`)
+      fetch(`${getApiBaseUrl()}/user/timeline?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });

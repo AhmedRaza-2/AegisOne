@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
 import { Key, Shield, ShieldAlert, Activity, EyeOff, Lock, Unlock } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -20,7 +21,7 @@ export default function CredentialsPage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/credentials?email=${encodeURIComponent(user.email)}`)
+      fetch(`${getApiBaseUrl()}/user/credentials?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => { setData(res); setLoading(false); })
         .catch(err => { console.error(err); setLoading(false); });

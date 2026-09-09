@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
 import { Link as LinkIcon, Activity, Globe, Shield, ExternalLink, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -25,7 +26,7 @@ export default function UrlIntelligencePage() {
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://localhost:8000/user/url-intelligence?email=${encodeURIComponent(user.email)}`)
+      fetch(`${getApiBaseUrl()}/user/url-intelligence?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(res => {
           setData(res);

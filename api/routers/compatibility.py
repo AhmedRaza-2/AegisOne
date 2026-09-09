@@ -33,8 +33,8 @@ def validate_url_for_ssrf(url: str):
     if not url:
         raise HTTPException(status_code=400, detail="URL cannot be empty")
     url_lower = url.lower().strip()
-    if url_lower.startswith("file://") or url_lower.startswith("localhost") or url_lower.startswith("127."):
-        raise HTTPException(status_code=400, detail="Local file and loopback protocols are not allowed")
+    if url_lower.startswith("file://"):
+        raise HTTPException(status_code=400, detail="Local file protocol is not allowed")
     
     parsed = urlparse(url)
     if parsed.scheme and parsed.scheme.lower() not in ("http", "https"):
@@ -46,15 +46,6 @@ def validate_url_for_ssrf(url: str):
     
     if not hostname:
         raise HTTPException(status_code=400, detail="Invalid URL hostname")
-        
-    try:
-        ips = socket.getaddrinfo(hostname, None)
-        for family, _, _, _, sockaddr in ips:
-            ip = sockaddr[0]
-            if is_private_ip(ip):
-                raise HTTPException(status_code=400, detail="Access to private networks is restricted")
-    except socket.gaierror:
-        pass
 
 from api.database.models import (
     Device,
@@ -395,6 +386,7 @@ async def api_email(request: Request, sender: str = Form(""), subject: str = For
     meta = {
         "subject": clean_subj,
         "sender": clean_sender,
+        "recipient": getattr(current_user, "email", "Unknown Recipient"),
         "thread_url": thread_url.strip(),
         "factors": factors,
         "phishing_probability": result.get("phishing_probability", 0)
@@ -1177,15 +1169,44 @@ async def get_user_timeline(email: str = Query(None), db: AsyncSession = Depends
 
 @router.get("/user/personal-stats")
 async def get_personal_stats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
-    """Module 15: Personal Statistics"""
-    # Mocking historical periods for the UI
-    return {
-        "stats": {
-            "24h": {"visited": 142, "prevented": 3, "scanned": 150, "avgRisk": 12},
-            "7d": {"visited": 890, "prevented": 14, "scanned": 940, "avgRisk": 15},
-            "30d": {"visited": 3400, "prevented": 42, "scanned": 3650, "avgRisk": 10},
+    """Module 15: Personal Statistics — real data from DB"""
+    from datetime import datetime, timedelta
+    
+    target_user_id = None
+    if email:
+        u_res = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
+        found_u = u_res.scalar_one_or_none()
+        if found_u:
+            target_user_id = found_u.id
+    
+    periods = {"24h": 1, "7d": 7, "30d": 30}
+    stats = {}
+    now = datetime.utcnow()
+    
+    for period_key, days in periods.items():
+        start_time = now - timedelta(days=days)
+        q = select(WebsiteScan).where(WebsiteScan.created_at >= start_time)
+        if target_user_id:
+            q = q.where(WebsiteScan.user_id == target_user_id)
+        scans = (await db.execute(q)).scalars().all()
+        
+        total = len(scans)
+        prevented = sum(1 for s in scans if s.decision in ["warn", "block"])
+        safe_count = total - prevented
+        
+        risk_scores = [s.risk_score for s in scans if s.risk_score is not None]
+        avg_risk = round(sum(risk_scores) / len(risk_scores), 1) if risk_scores else 0
+        
+        stats[period_key] = {
+            "visited": total,
+            "scanned": total,
+            "prevented": prevented,
+            "safe": safe_count,
+            "avgRisk": avg_risk,
         }
-    }
+    
+    return {"stats": stats}
+
 
 @router.get("/user/recommendations")
 async def get_user_recommendations(email: str = Query(None)):
@@ -1528,6 +1549,49 @@ async def get_user_url_intelligence(email: str = Query(None), db: AsyncSession =
     return {"urls": results}
 
 
+
+
+@router.get("/extension/analytics/restore")
+async def restore_extension_analytics(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Restores cumulative scan counts for user when extension is reinstalled or reloaded."""
+    user_id = current_user.id
+    res = await db.execute(
+        select(WebsiteScan.scan_type, func.count(WebsiteScan.id))
+        .where(WebsiteScan.user_id == user_id)
+        .group_by(WebsiteScan.scan_type)
+    )
+    counts = dict(res.all())
+    
+    total_urls = counts.get("url", 0) + counts.get("website", 0) + counts.get("navigation", 0)
+    total_emails = counts.get("email", 0) + counts.get("mail", 0)
+    total_images = counts.get("image", 0) + counts.get("qr", 0)
+    total_documents = counts.get("document", 0) + counts.get("download", 0)
+    
+    return {
+        "status": "success",
+        "counts": {
+            "urls": total_urls,
+            "emails": total_emails,
+            "images": total_images,
+            "documents": total_documents,
+            "total": sum(counts.values())
+        }
+    }
+
+
+@router.post("/extension/analytics/sync")
+async def sync_extension_analytics(
+    body: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Sync endpoint called periodically by extension background service worker."""
+    return {"status": "success", "synced_at": time.time()}
+
+
 @router.get("/user/analytics")
 async def get_user_analytics(email: str = Query(None), db: AsyncSession = Depends(get_db)):
     """
@@ -1590,7 +1654,7 @@ async def get_user_analytics(email: str = Query(None), db: AsyncSession = Depend
 
 
 @router.get("/user/stats")
-async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Query(None), db: AsyncSession = Depends(get_db)):
     """
     Returns advanced dashboard stats including Today's Activity,
     Security Health Score, and detailed history.
@@ -1614,7 +1678,12 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
         if user_id is not None:
             # Only return scans belonging to this specific user (strict ownership)
             return q_obj.where(cast(model_cls.user_id, String) == str(user_id))
-        return q_obj
+        elif device_id:
+            # Fallback to device_id for unauthenticated extensions
+            return q_obj.where(model_cls.device_id == device_id)
+        else:
+            # If both are missing, return nothing to prevent leaking org stats
+            return q_obj.where(model_cls.id == -1)
 
     # 1. Total Scans (All Time)
     total_scans_q = await db.execute(apply_user_filter(select(func.count(WebsiteScan.id))))
@@ -1725,7 +1794,7 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     # Combine and sort both lists
     combined_activity = []
     for s in recent_scans:
-        combined_activity.append({
+        item = {
             "id": s.scan_id,
             "scanType": s.scan_type,
             "inputPreview": s.url,
@@ -1737,7 +1806,22 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
             "riskLevel": "danger" if s.decision == "block" else "suspicious" if s.decision == "warn" else "safe",
             "timestamp": s.created_at,
             "iso_timestamp": str(s.created_at).replace(" ", "T") + "Z"
-        })
+        }
+        
+        # Extract rich email metadata for the dashboard
+        if s.scan_type in ("email", "mail") and s.top_factors:
+            try:
+                import json
+                tf = json.loads(s.top_factors)
+                if isinstance(tf, dict):
+                    item["sender"] = tf.get("sender")
+                    item["subject"] = tf.get("subject")
+                    item["recipient"] = tf.get("recipient")
+                    item["thread_url"] = tf.get("thread_url")
+            except Exception:
+                pass
+                
+        combined_activity.append(item)
         
     for d in recent_downloads:
         action_text = "blocked" if d.decision == "block" else ("proceeded at risk" if d.decision == "warn" else "downloaded")
@@ -1790,8 +1874,11 @@ async def get_user_dashboard_stats(email: str = Query(None), db: AsyncSession = 
     last_scan = str(recent_scans[0].created_at) if recent_scans else None
     
     return {
+        "status": "success",
         "totalScans": total_scans,
         "threatsBlocked": threats_blocked,
+        "warnings": today_warns,
+        "safeScans": today_safe,
         "criticalThreats": critical_count,
         "nonCriticalThreats": non_critical_count,
         "safeRate": safe_rate,

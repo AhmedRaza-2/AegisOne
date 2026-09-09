@@ -10,7 +10,7 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, cast, Date, or_, and_, case, String
 
@@ -32,7 +32,12 @@ from api.database.models import (
 )
 from api.database.schemas import AdminStatsResponse
 from api.auth.roles import require_role, Role
+from api.auth.password import hash_password
 from api.services.model_orchestrator import get_model_status
+from pydantic import BaseModel
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -51,38 +56,43 @@ def _org_scope(query, model, user):
             dept_str = getattr(user, "department", None)
             org_id = getattr(user, "organization_id", None) or "org_default"
             
-            # If the model has department directly (like User, WebsiteScan)
+            # If the model has department directly (like User)
             if hasattr(model, "department_id") or hasattr(model, "department"):
                 conditions = []
                 if hasattr(model, "department_id") and dept_id is not None:
                     conditions.append(cast(getattr(model, "department_id"), String) == str(dept_id))
                 if hasattr(model, "department") and dept_str:
                     conditions.append(getattr(model, "department") == dept_str)
-                if hasattr(model, "organization_id") and org_id:
-                    conditions.append(getattr(model, "organization_id") == org_id)
+                # Always include manager themselves by ID
+                if hasattr(model, "id"):
+                    conditions.append(getattr(model, "id") == user.id)
                     
                 if conditions:
                     query = query.where(or_(*conditions))
                     if hasattr(model, "role"):
                         query = query.where(getattr(model, "role").in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
             
-            # If the model has user_id but no department, filter by user or org
+            # If the model has user_id (like WebsiteScan, SecurityEvent)
+            # filter by users in manager's department only
             elif hasattr(model, "user_id"):
                 from sqlalchemy import select as sa_select
                 
-                user_conditions = []
+                # Build dept user conditions — do NOT include org_id here
+                # (org_id as OR would match everyone in org, defeating dept filter)
+                user_conditions = [User.id == user.id]  # always include manager
                 if dept_id is not None:
                     user_conditions.append(User.department_id == dept_id)
-                    user_conditions.append(cast(User.department_id, String) == str(dept_id))
                 if dept_str:
                     user_conditions.append(User.department == dept_str)
-                if org_id:
-                    user_conditions.append(User.organization_id == org_id)
                 
-                if user_conditions:
-                    query = query.where(cast(getattr(model, "user_id"), String).in_(
-                        sa_select(cast(User.id, String)).where(or_(*user_conditions))
-                    ))
+                dept_user_ids_subq = sa_select(cast(User.id, String)).where(
+                    User.organization_id == org_id,
+                    or_(*user_conditions)
+                )
+                
+                query = query.where(
+                    cast(getattr(model, "user_id"), String).in_(dept_user_ids_subq)
+                )
             elif hasattr(model, "organization_id") and org_id:
                 query = query.where(getattr(model, "organization_id") == org_id)
 
@@ -929,7 +939,7 @@ async def get_users(
     db: AsyncSession = Depends(get_db),
     manager: User = Depends(require_role(Role.MANAGER))
 ):
-    """List employees. Managers only see their own department."""
+    """List employees. Managers only see their own department (including themselves)."""
     org_id = getattr(manager, "organization_id", None) or "org_default"
     q = select(User).where(User.organization_id == org_id)
     if manager.role == Role.MANAGER.value:
@@ -941,11 +951,13 @@ async def get_users(
             conditions.append(User.department_id == dept_id)
         if dept_str:
             conditions.append(User.department == dept_str)
+        # Always include the manager themselves regardless of dept filter
+        conditions.append(User.id == manager.id)
             
         if conditions:
             q = q.where(or_(*conditions))
         else:
-            q = q.where(False)
+            q = q.where(User.id == manager.id)
             
         q = q.where(User.role.in_([Role.EMPLOYEE.value, Role.MANAGER.value]))
     
@@ -1036,14 +1048,21 @@ async def get_users(
         
     return {"users": users_response}
 
-def send_welcome_email(email: str, name: str, password: str, department: str, role: str, org_smtp: dict = None):
+def send_welcome_email(email: str, name: str, password: str, department: str, role: str, org_smtp: dict = None, request_host: str = None):
     smtp_user = (org_smtp.get("smtp_user") if org_smtp else None) or os.getenv("SMTP_USER")
     smtp_pass = (org_smtp.get("smtp_pass") if org_smtp else None) or os.getenv("SMTP_PASS")
     smtp_host = (org_smtp.get("smtp_host") if org_smtp else None) or os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int((org_smtp.get("smtp_port") if org_smtp else None) or os.getenv("SMTP_PORT", 587))
+    
+    # Prioritize the actual request host if it's not localhost/127.0.0.1
+    server_host = request_host or os.getenv("SERVER_HOST")
+    if server_host and server_host not in ["localhost", "127.0.0.1", "0.0.0.0"]:
+        portal_url = f"http://{server_host}:3002"
+    else:
+        portal_url = os.getenv("AEGIS_DASHBOARD_URL") or os.getenv("DASHBOARD_URL") or "http://localhost:3002"
 
     if not smtp_user or not smtp_pass:
-        print("SMTP credentials missing. Cannot send welcome email.")
+        print(f"[SMTP WARNING] Cannot send welcome email to {email}: SMTP credentials not configured (Set SMTP_USER & SMTP_PASS in .env or Organization Settings).", flush=True)
         return
     smtp_user = smtp_user.strip()
     smtp_pass = smtp_pass.replace(" ", "")
@@ -1064,7 +1083,7 @@ Role: {display_role}
 Department: {display_dept}
 Temporary Password: {password}
 
-Log in to your AegisOne Portal at: http://localhost:3002/login
+Log in to your AegisOne Portal at: {portal_url}/login
 
 For security reasons, please change your password upon your first login.
 
@@ -1109,7 +1128,7 @@ AegisOne Security Team
           </div>
           
           <div style="text-align: center; margin: 28px 0;">
-            <a href="http://localhost:3002/login" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; text-decoration: none; font-weight: 600; padding: 12px 24px; border-radius: 8px; font-size: 14px;">Log In to AegisOne Portal</a>
+            <a href="{portal_url}/login" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; text-decoration: none; font-weight: 600; padding: 12px 24px; border-radius: 8px; font-size: 14px;">Log In to AegisOne Portal</a>
           </div>
           
           <p style="font-size: 13px; color: #64748b; margin-bottom: 24px;">For security reasons, you will be prompted to change this temporary password upon your first login.</p>
@@ -1153,6 +1172,7 @@ AegisOne Security Team
 
 @router.post("/users")
 async def create_user(
+    request: Request,
     req: UserCreate,
     force_transfer: bool = Query(False),
     db: AsyncSession = Depends(get_db),
@@ -1226,7 +1246,8 @@ async def create_user(
     } if org_obj else None
 
     # Send email notifications
-    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role, org_smtp=org_smtp)
+    req_host = request.url.hostname
+    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role, org_smtp=org_smtp, request_host=req_host)
     
     return {"status": "success", "user_id": new_user.id}
 
@@ -1301,14 +1322,20 @@ async def update_smtp_settings(
     await db.commit()
     return {"status": "success"}
 
+@router.post("/users/{user_id}/reset-password")
 @router.put("/users/{user_id}/password")
 async def reset_user_password(
     user_id: int,
-    new_password: str,
+    req: ResetPasswordRequest = None,
+    new_password: str = Query(None),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(Role.MANAGER))
 ):
-    """Force reset user password. Managers can only reset their own department."""
+    """Force reset user password. Accepts JSON body { new_password: '...' } or query parameter."""
+    actual_password = req.new_password if (req and req.new_password) else new_password
+    if not actual_password:
+        raise HTTPException(status_code=400, detail="new_password is required in request body or query parameter")
+
     admin_org_id = getattr(admin, "organization_id", None) or "org_default"
     q = select(User).where(User.id == user_id)
     if admin.role not in [Role.SUPER_ADMIN.value, Role.GLOBAL_ADMIN.value]:
@@ -1331,9 +1358,10 @@ async def reset_user_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found or access denied")
         
-    from api.auth.password import hash_password
-    user.password_hash = hash_password(new_password)
+    user.password_hash = hash_password(actual_password)
     await db.commit()
+
+    print(f"[ADMIN LOG] 🔑 PASSWORD RESET SUCCESS: Admin {admin.email} (ID: {admin.id}) reset password for user {user.email} (ID: {user.id})", flush=True)
 
     # Dispatch email notification to the user in background
     from api.database.models import Organization
@@ -1361,7 +1389,7 @@ async def reset_user_password(
                   <p>Hello <strong>{user.full_name}</strong>,</p>
                   <p>Your AegisOne enterprise login password has been updated by an administrator.</p>
                   <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 14px; margin: 20px 0; text-align: center;">
-                    <strong>Temporary Password:</strong> <span style="color: #0A5ED6; font-weight: bold; font-size: 16px;">{new_password}</span>
+                    <strong>Temporary Password:</strong> <span style="color: #0A5ED6; font-weight: bold; font-size: 16px;">{actual_password}</span>
                   </div>
                   <p style="color: #64748b; font-size: 13px;">For security reasons, please log in and change this temporary password immediately inside your account settings.</p>
                   <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
@@ -1382,8 +1410,9 @@ async def reset_user_password(
             server.login(smtp_user, smtp_pass.replace(" ", ""))
             server.sendmail(smtp_user, user.email, msg.as_string())
             server.quit()
+            print(f"[SMTP LOG] Sent password reset notification email to {user.email}", flush=True)
         except Exception as e:
-            print(f"[SMTP ERROR] Failed to send password update email to {user.email}: {e}")
+            print(f"[SMTP ERROR] Failed to send password update email to {user.email}: {e}", flush=True)
 
     return {"status": "success"}
 
@@ -1636,5 +1665,49 @@ async def delete_organization(
         raise HTTPException(status_code=404, detail="Organization not found")
     
     await db.delete(org)
+    await db.commit()
+    return {"status": "success"}
+
+class SmtpUpdateReq(BaseModel):
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_pass: str
+
+@router.get("/smtp-settings")
+async def get_smtp_settings(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Get SMTP settings for the admin's organization."""
+    res = await db.execute(select(Organization).where(Organization.id == admin.organization_id))
+    org = res.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+        
+    return {
+        "smtp_host": org.smtp_host,
+        "smtp_port": org.smtp_port,
+        "smtp_user": org.smtp_user,
+        "smtp_pass": org.smtp_pass
+    }
+
+@router.put("/smtp-settings")
+async def update_smtp_settings(
+    req: SmtpUpdateReq,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.ADMIN))
+):
+    """Update SMTP settings for the admin's organization."""
+    res = await db.execute(select(Organization).where(Organization.id == admin.organization_id))
+    org = res.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+        
+    org.smtp_host = req.smtp_host
+    org.smtp_port = req.smtp_port
+    org.smtp_user = req.smtp_user
+    org.smtp_pass = req.smtp_pass
+    
     await db.commit()
     return {"status": "success"}
