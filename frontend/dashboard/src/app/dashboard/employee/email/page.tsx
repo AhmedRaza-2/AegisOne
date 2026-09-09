@@ -256,7 +256,19 @@ export default function EmployeeEmailSecurityPage() {
                   const isPhish = scan.verdict === "phishing";
                   const isSusp = scan.verdict === "suspicious";
 
-                  const emailSubject = scan.subject || scan.url;
+                  let emailSubject = scan.subject || scan.url || "Email Security Scan";
+                  if (emailSubject.startsWith("Email: ")) {
+                    emailSubject = emailSubject.replace(/^Email:\s*/, "");
+                    if (emailSubject.includes(" (From: ")) {
+                      emailSubject = emailSubject.split(" (From: ")[0];
+                    }
+                  }
+                  if (emailSubject.startsWith("http://") || emailSubject.startsWith("https://")) {
+                    if (emailSubject.includes("mail.google.com")) emailSubject = "Gmail Security Scan";
+                    else if (emailSubject.includes("outlook.")) emailSubject = "Outlook Security Scan";
+                    else emailSubject = "Webmail Security Scan";
+                  }
+
                   const emailSender = scan.sender || "";
                   const gmailLink = scan.thread_url || (scan.url.startsWith("http") ? scan.url : null);
 

@@ -81,6 +81,32 @@ chrome.runtime.onStartup.addListener(async () => {
 // ── Download Interception ─────────────────────────────────
 initDownloadGuard();
 
+// ── Pop-up Window / Tab Interception ───────────────────────
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (!tab.url || isInternalURL(tab.url)) return;
+  if (tab.openerTabId || tab.type === "popup") {
+    const result = await enqueue(`popup:${tab.url}`, () => scanURL(tab.url));
+    if (result && result.score >= THRESHOLD.WARNING * 100) {
+      safeNotify({
+        title: "🚨 AegisOne: Phishing Pop-up Intercepted!",
+        message: `${tab.url.slice(0, 60)}\nRisk: ${result.score}% — ${result.threat_type || "phishing_popup"}`,
+        iconUrl: "icons/icon48.png",
+        priority: 2,
+      });
+
+      storeEvent({
+        type: EVENT_TYPES.PHISHING_BLOCKED,
+        url: tab.url,
+        domain: getRootDomain(tab.url),
+        risk_score: result.score,
+        verdict: result.verdict,
+        threat_type: "phishing_popup",
+        action: "warned"
+      });
+    }
+  }
+});
+
 // ── Tab Navigation Scan ───────────────────────────────────
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !tab.url) return;
@@ -474,6 +500,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               top_factors: msg.top_factors,
               emailXai: msg.emailXai,
             }).catch(() => { });
+          }
+          sendResponse({ ok: true });
+          break;
+        }
+
+        case "POPUP_WINDOW_FLAGGED": {
+          if (msg.score >= 50) {
+            safeNotify({
+              title: "🚨 AegisOne: High-Risk Pop-up Window Flagged!",
+              message: `${(msg.url || "").slice(0, 60)}\nRisk: ${msg.score}% — ${msg.verdict || "phishing_popup"}`,
+              iconUrl: "icons/icon48.png",
+              priority: 2,
+            });
+            storeEvent({
+              type: EVENT_TYPES.PHISHING_BLOCKED,
+              url: msg.url || "Pop-up Window",
+              domain: getRootDomain(msg.url || ""),
+              risk_score: msg.score,
+              verdict: msg.verdict || "danger",
+              threat_type: "phishing_popup",
+              action: "flagged"
+            });
           }
           sendResponse({ ok: true });
           break;

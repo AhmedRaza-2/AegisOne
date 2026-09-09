@@ -75,6 +75,7 @@
         { getRootDomain, isTrusted },
         { initEmailGuard },
         { initWhatsappGuard },
+        { initPopupGuard },
       ] = await Promise.all([
         import(chrome.runtime.getURL("utils/constants.js")),  // imports API_BASE, DEBUG_MODE, etc.
         import(chrome.runtime.getURL("content/widget.js")),
@@ -85,6 +86,7 @@
         import(chrome.runtime.getURL("utils/trusted-domains.js")),
         import(chrome.runtime.getURL("content/plugins/email-guard.js")),
         import(chrome.runtime.getURL("content/plugins/whatsapp-guard.js")),
+        import(chrome.runtime.getURL("content/plugins/popup-guard.js")),
       ]);
 
       const policy = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
@@ -514,6 +516,21 @@
         updateWidget({ score, verdict, threat_type });
       });
 
+      document.addEventListener("aegis:popup-scanned", (e) => {
+        const { score, verdict, threat_type, top_factors } = e.detail || {};
+        const currentScore = _currentScanData?.score || 0;
+        const mergedScore = Math.max(currentScore, score || 0);
+        _currentScanData = {
+          ..._currentScanData,
+          score: mergedScore,
+          verdict: mergedScore >= 75 ? "danger" : mergedScore >= 50 ? "warning" : "safe",
+          threat_type: threat_type || _currentScanData?.threat_type || "phishing_popup",
+          top_factors: [...(top_factors || []), ...(_currentScanData?.top_factors || [])].slice(0, 5)
+        };
+        setCurrentRisk(mergedScore);
+        updateWidget(_currentScanData);
+      });
+
       // ── SPA Navigation Watcher (event-driven, zero CPU polling) ─────
       // Replaces setInterval(1500ms) with native browser navigation events.
       // Covers: back/forward, pushState, replaceState, hash changes.
@@ -588,7 +605,7 @@
         };
       })();
 
-      // ── Pluggable Platform Adapters (Email & WhatsApp) ─────
+      // ── Pluggable Platform Adapters (Email, WhatsApp, Pop-up & Ad Guard) ─────
       const storedPlugins = await chrome.storage.local.get(["enableEmailGuard", "enableWhatsappGuard"]);
       if (storedPlugins.enableEmailGuard !== false) {
         initEmailGuard();
@@ -596,6 +613,7 @@
       if (storedPlugins.enableWhatsappGuard !== false) {
         initWhatsappGuard();
       }
+      initPopupGuard();
 
       // ── Clipboard Protection ────────────────────────
       _initClipboardProtection();

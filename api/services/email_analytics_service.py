@@ -68,13 +68,18 @@ async def get_email_analytics(
             WebsiteScan.domain == "email_scan",
             WebsiteScan.url.ilike("Email:%"),
             WebsiteScan.url.ilike("%#inbox/%"),
-            WebsiteScan.url.ilike("%mail.google.com%"),
-            WebsiteScan.url.ilike("%outlook.%"),
+            WebsiteScan.url.ilike("%#message/%"),
+            WebsiteScan.url.ilike("%#all/%"),
+            WebsiteScan.url.ilike("%mail.google.com/mail/%"),
+            WebsiteScan.url.ilike("%outlook.live.com/mail/%"),
+            WebsiteScan.url.ilike("%outlook.office.com/mail/%"),
             WebsiteScan.threat_type.ilike("%phishing_email%")
         ),
         ~WebsiteScan.url.ilike("%SignOutOptions%"),
         ~WebsiteScan.url.ilike("https://mail.google.com/mail/u/0/?ogbl"),
-        ~WebsiteScan.url.ilike("https://mail.google.com/mail/u/0/")
+        ~WebsiteScan.url.ilike("https://mail.google.com/mail/u/0/"),
+        ~WebsiteScan.url.ilike("%chatgpt.com%"),
+        ~WebsiteScan.url.ilike("Text Snippet:%")
     )
 
     q = select(WebsiteScan).where(base_email_where)
@@ -113,14 +118,11 @@ async def get_email_analytics(
     res = await db.execute(q.order_by(WebsiteScan.created_at.desc()))
     scans = res.scalars().all()
 
-    # Multi-level Fallback: If strict period/scope filter returns 0 scans, fetch base email scans or all DB scans
-    if len(scans) == 0:
+    # Safe Fallback: If time/scope filter returns 0 email scans, try base email scans without time restriction
+    if len(scans) == 0 and start_date:
         fallback_q = select(WebsiteScan).where(base_email_where).order_by(WebsiteScan.created_at.desc())
         fallback_res = await db.execute(fallback_q)
         scans = fallback_res.scalars().all()
-        if len(scans) == 0:
-            all_res = await db.execute(select(WebsiteScan).order_by(WebsiteScan.created_at.desc()))
-            scans = all_res.scalars().all()
 
     # Calculate Aggregate Summary Metrics
     total_scanned = len(scans)
