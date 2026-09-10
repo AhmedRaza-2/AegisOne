@@ -11,12 +11,60 @@
  *  - Risk Aggregation → Merges pop-up risk probability into main page score & widget.
  */
 
-import { isInternalURL, getRootDomain } from "../../utils/trusted-domains.js";
+import { isInternalURL, getRootDomain, isExternalLink } from "../../utils/trusted-domains.js";
 
 const _scannedPopups = new WeakSet();
 const _scannedImages = new Set();
 const _scannedLinks = new Set();
 let _popupScanTimer = null;
+
+// Trusted domains where DOM popup scanning should be skipped (e.g., chat/mail web apps with dynamic custom UI)
+const EXCLUDED_DOMAINS = [
+  "web.whatsapp.com",
+  "whatsapp.com",
+  "discord.com",
+  "slack.com",
+  "web.telegram.org",
+  "telegram.org",
+  "teams.microsoft.com",
+  "mail.google.com",
+  "outlook.office.com",
+  "outlook.live.com",
+  "messenger.com"
+];
+
+/**
+ * Check if an element or its context is an audio player, voice note, or media control
+ */
+function _isAudioOrMediaElement(el) {
+  if (!el || !(el instanceof HTMLElement)) return false;
+
+  // 1. Direct audio/video tag
+  const tag = el.tagName ? el.tagName.toLowerCase() : "";
+  if (tag === "audio" || tag === "video" || tag === "source") return true;
+
+  // 2. Contains audio/video tags
+  if (el.querySelector("audio, video")) return true;
+
+  // 3. Inspect attributes, class names, IDs, data-attributes, aria-labels for voice notes/media signatures
+  const contentStr = (
+    (el.className || "") + " " +
+    (el.id || "") + " " +
+    (el.getAttribute("data-icon") || "") + " " +
+    (el.getAttribute("data-testid") || "") + " " +
+    (el.getAttribute("aria-label") || "")
+  ).toLowerCase();
+
+  const MEDIA_KEYWORDS = ["audio", "voice", "ptt", "waveform", "player", "speech", "media-player", "audio-player", "sound", "record"];
+  if (MEDIA_KEYWORDS.some(k => contentStr.includes(k))) return true;
+
+  // 4. Check parent hierarchy for audio / voice note / chat message structures
+  if (el.closest && el.closest("[data-icon*='ptt'], [data-testid*='audio'], [class*='audio'], [class*='voice'], [class*='msg']")) {
+    return true;
+  }
+
+  return false;
+}
 
 function safeSendMessage(msg) {
   if (typeof chrome === "undefined" || !chrome?.runtime?.id) {
@@ -61,20 +109,24 @@ export function initPopupGuard() {
  * Detect pop-up DOM elements, overlays, modals, and ad containers
  */
 function _detectPopupElements() {
+  // Skip DOM popup scanning on trusted web apps with heavy custom UI (like WhatsApp, Discord, Slack, Gmail)
+  const currentHost = location.hostname.toLowerCase();
+  if (EXCLUDED_DOMAINS.some(domain => currentHost === domain || currentHost.endsWith("." + domain))) {
+    return [];
+  }
+
   const candidates = [];
 
   // Query selector for explicit popups, modals, dialogs, and ad containers
   const selector = `
     [role="dialog"], [role="alertdialog"],
     .modal, .popup, .overlay, .lightbox, .interstitial,
-    .ad-container, .ad-wrapper, .ad-banner, .adbox, .ad-slot,
-    [id*="popup"], [class*="popup"], [id*="modal"], [class*="modal"],
-    [id*="ad-"], [class*="ad-"], [id*="ad_"], [class*="ad_"],
+    .ad-container, .ad-wrapper, .ad-banner, .adbox, .ad-slot, .ad_container, .ad_wrapper,
     iframe[src*="ad"], iframe[src*="banner"], iframe[src*="doubleclick"]
   `;
 
   document.querySelectorAll(selector).forEach(el => {
-    if (el && !_scannedPopups.has(el) && _isVisible(el)) {
+    if (el && !_scannedPopups.has(el) && _isVisible(el) && !_isAudioOrMediaElement(el)) {
       candidates.push(el);
     }
   });
@@ -83,6 +135,7 @@ function _detectPopupElements() {
   document.querySelectorAll("div, section, aside").forEach(el => {
     if (_scannedPopups.has(el)) return;
     try {
+      if (_isAudioOrMediaElement(el)) return;
       const style = window.getComputedStyle(el);
       const zIndex = parseInt(style.zIndex, 10);
       const isFixedOrAbs = style.position === "fixed" || style.position === "absolute";
@@ -277,6 +330,8 @@ function _attachPopupBadge(el, score) {
  * Intercept clicks inside high-risk popups
  */
 function _onPopupClick(e) {
+  if (_isAudioOrMediaElement(e.target)) return;
+
   const popupEl = e.target.closest("[data-aegis-popup-risk]");
   if (!popupEl) return;
 
@@ -286,11 +341,16 @@ function _onPopupClick(e) {
   const targetLink = e.target.closest("a[href], button");
   if (!targetLink) return;
 
+  const href = targetLink.href || targetLink.getAttribute("data-url") || location.href;
+
+  // Do not intercept same-origin or non-external app links
+  if (!href || !isExternalLink(href)) {
+    return;
+  }
+
   // Intercept click on high-risk popup links
   e.preventDefault();
   e.stopPropagation();
-
-  const href = targetLink.href || targetLink.getAttribute("data-url") || location.href;
 
   import(chrome.runtime.getURL("content/modals.js")).then(({ showWarningModal }) => {
     showWarningModal({

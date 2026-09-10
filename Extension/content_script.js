@@ -61,21 +61,23 @@
       bottom: 20px !important;
       right: 20px !important;
       z-index: 2147483647 !important;
-      font-family: 'Inter', -apple-system, sans-serif !important;
-      font-size: 12px !important;
-      width: 220px !important;
-      border-radius: 12px !important;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-size: 11px !important;
+      width: 195px !important;
+      border-radius: 14px !important;
       overflow: hidden !important;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
-      border: 1px solid #2d3548 !important;
-      background: #0d1117 !important;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(11, 15, 26, 0.98)) !important;
       color: #e2e8f0 !important;
       transition: all 0.3s ease !important;
       user-select: none !important;
+      backdrop-filter: blur(20px) saturate(180%) !important;
+      -webkit-font-smoothing: antialiased !important;
     }
     #aegis-widget.minimized {
-      width: 44px !important;
-      height: 44px !important;
+      width: 42px !important;
+      height: 42px !important;
       border-radius: 50% !important;
       cursor: pointer !important;
     }
@@ -83,9 +85,9 @@
       display: flex !important;
       align-items: center !important;
       justify-content: space-between !important;
-      padding: 8px 10px !important;
-      background: #161b27 !important;
-      border-bottom: 1px solid #2d3548 !important;
+      padding: 8px 11px !important;
+      background: rgba(255, 255, 255, 0.03) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
       cursor: move !important;
     }
     #aegis-widget-header .brand {
@@ -93,45 +95,47 @@
       align-items: center !important;
       gap: 6px !important;
       font-weight: 700 !important;
-      font-size: 11px !important;
+      font-size: 12px !important;
+      color: #f8fafc !important;
     }
     #aegis-widget-controls {
       display: flex !important;
-      gap: 4px !important;
+      gap: 3px !important;
     }
     #aegis-widget-controls button {
       background: none !important;
       border: none !important;
       color: #64748b !important;
       cursor: pointer !important;
-      font-size: 13px !important;
-      padding: 0 2px !important;
+      font-size: 11px !important;
+      padding: 2px 4px !important;
       line-height: 1 !important;
+      border-radius: 4px !important;
     }
-    #aegis-widget-controls button:hover { color: #e2e8f0 !important; }
-    #aegis-widget-body { padding: 10px !important; }
+    #aegis-widget-controls button:hover { color: #f8fafc !important; background: rgba(255,255,255,0.1) !important; }
+    #aegis-widget-body { padding: 9px 11px !important; }
     #aegis-widget-status {
       display: flex !important;
       align-items: center !important;
       gap: 8px !important;
-      padding: 8px !important;
-      border-radius: 8px !important;
-      background: #1a1f2e !important;
-      border: 1px solid #2d3548 !important;
+      padding: 7px 9px !important;
+      border-radius: 9px !important;
+      background: rgba(255, 255, 255, 0.04) !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
       margin-bottom: 8px !important;
     }
-    #aegis-widget-status.safe { border-color: rgba(16,185,129,0.4) !important; background: rgba(16,185,129,0.08) !important; }
-    #aegis-widget-status.warning { border-color: rgba(245,158,11,0.4) !important; background: rgba(245,158,11,0.08) !important; }
-    #aegis-widget-status.danger { border-color: rgba(239,68,68,0.4) !important; background: rgba(239,68,68,0.08) !important; }
-    #aegis-widget-status.scanning { border-color: rgba(99,102,241,0.4) !important; background: rgba(99,102,241,0.08) !important; }
-    #aegis-status-icon { font-size: 20px !important; }
-    #aegis-status-text .title { font-weight: 700 !important; font-size: 11px !important; }
-    #aegis-status-text .sub { font-size: 10px !important; color: #64748b !important; margin-top: 1px !important; }
+    #aegis-widget-status.safe { border-color: rgba(16,185,129,0.3) !important; background: rgba(16,185,129,0.1) !important; }
+    #aegis-widget-status.warning { border-color: rgba(245,158,11,0.3) !important; background: rgba(245,158,11,0.1) !important; }
+    #aegis-widget-status.danger { border-color: rgba(239,68,68,0.4) !important; background: rgba(239,68,68,0.14) !important; }
+    #aegis-widget-status.scanning { border-color: rgba(99,102,241,0.3) !important; background: rgba(99,102,241,0.1) !important; }
+    #aegis-status-icon { font-size: 15px !important; }
+    #aegis-status-text .title { font-weight: 700 !important; font-size: 11.5px !important; color: #f8fafc !important; }
+    #aegis-status-text .sub { font-size: 9.5px !important; color: #64748b !important; margin-top: 1px !important; }
     #aegis-risk-bar-wrap { margin-bottom: 6px !important; }
-    #aegis-risk-label { display: flex !important; justify-content: space-between !important; font-size: 10px !important; color: #64748b !important; margin-bottom: 3px !important; }
-    #aegis-risk-bar { height: 3px !important; background: #2d3548 !important; border-radius: 2px !important; }
+    #aegis-risk-label { display: flex !important; justify-content: space-between !important; font-size: 9px !important; color: #64748b !important; margin-bottom: 3px !important; font-weight: 700 !important; }
+    #aegis-risk-bar { height: 4px !important; background: rgba(255,255,255,0.08) !important; border-radius: 2px !important; }
     #aegis-risk-fill { height: 100% !important; border-radius: 2px !important; transition: width 0.5s !important; background: #10b981 !important; }
-    #aegis-threat-count { font-size: 10px !important; color: #64748b !important; text-align: center !important; }
+    #aegis-threat-count { font-size: 9.5px !important; color: #64748b !important; text-align: center !important; }
     /* Minimized bubble */
     #aegis-mini-bubble {
       display: none !important;
