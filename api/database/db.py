@@ -65,6 +65,7 @@ async def init_db():
             AuditLog,
             HoverScan,
             Message,
+            EmailSecurityEvent,
         )
         await conn.run_sync(Base.metadata.create_all)
     logger.info("PostgreSQL Database initialized successfully.")

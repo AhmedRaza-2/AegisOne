@@ -572,7 +572,9 @@ async def reset_organization(db: AsyncSession = Depends(get_db)):
     try:
         from api.database.models import (
             WebsiteScan, SecurityEvent, DownloadEvent, CredentialEvent, 
-            ManualScan, LoginHistory, Device, SetupSession
+            ManualScan, LoginHistory, Device, SetupSession,
+            EmailSecurityEvent, ThreatReport, DashboardStatistic,
+            OrganizationAnalyticsState, HoverScan
         )
         # 1. Purge all security scan telemetry & events
         await db.execute(delete(WebsiteScan))
@@ -580,6 +582,13 @@ async def reset_organization(db: AsyncSession = Depends(get_db)):
         await db.execute(delete(DownloadEvent))
         await db.execute(delete(CredentialEvent))
         await db.execute(delete(ManualScan))
+        await db.execute(delete(EmailSecurityEvent))
+        await db.execute(delete(HoverScan))
+
+        # 1.5. Purge analytics caching & reports
+        await db.execute(delete(ThreatReport))
+        await db.execute(delete(DashboardStatistic))
+        await db.execute(delete(OrganizationAnalyticsState))
 
         # 2. Purge registered devices & login audit history
         await db.execute(delete(Device))

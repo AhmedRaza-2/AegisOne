@@ -578,3 +578,51 @@ class OrganizationAnalyticsState(Base):
     revision        = Column(Integer,    default=1, nullable=False)
     updated_at      = Column(DateTime,   server_default=func.now(), onupdate=func.now())
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 18. EMAIL SECURITY EVENTS (Privacy-First Email Telemetry)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class EmailSecurityEvent(Base):
+    """
+    Privacy-preserving email security telemetry.
+
+    Design contract:
+    - Email body, HTML, attachments, and thread URLs are NEVER stored here.
+    - subject_preview / sender_preview are ONLY returned in API responses
+      to the owning user (matching user_id). Admin and supervisor scopes
+      receive aggregated statistics only, never individual event rows.
+    - factor_codes stores raw XAI top-words from the ML model (not email content).
+    """
+    __tablename__ = "email_security_events"
+
+    id              = Column(Integer,     primary_key=True, autoincrement=True)
+    scan_id         = Column(String(100), unique=True, nullable=False, index=True)
+    user_id         = Column(Integer,     ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    organization_id = Column(String(64),  nullable=True, default="org_default", index=True)
+    department_id   = Column(Integer,     ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+
+    scanned_at      = Column(DateTime,   server_default=func.now(), index=True)
+
+    risk_score      = Column(Integer,    default=0)
+    verdict         = Column(String(50), default="safe")    # safe | suspicious | phishing
+    decision        = Column(String(50), default="allow")   # allow | warn | block
+    severity        = Column(String(20), nullable=True)     # low | medium | high | critical
+
+    threat_type     = Column(String(100), nullable=True)    # safe_email | phishing_email
+    factor_codes    = Column(JSON,        nullable=True)    # Raw XAI top-words: ["bank", "password"]
+    model_version   = Column(String(50),  nullable=True)
+
+    # Employee-only metadata — ONLY returned when requester is the owning user.
+    # Never returned to admin or supervisor scopes.
+    subject_preview = Column(String(200), nullable=True)   # Truncated email subject (max 200 chars)
+    sender_preview  = Column(String(200), nullable=True)   # Sender display name/address (max 200 chars)
+
+    scan_duration_ms = Column(Float, default=0.0)
+
+    __table_args__ = (
+        Index("ix_ese_org_scanned", "organization_id", "scanned_at"),
+        Index("ix_ese_user_scanned", "user_id", "scanned_at"),
+        Index("ix_ese_dept_scanned", "department_id", "scanned_at"),
+    )
+

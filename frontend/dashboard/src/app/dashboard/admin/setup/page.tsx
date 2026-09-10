@@ -563,6 +563,9 @@ export default function AdminSetupPage() {
             </div>
           </div>
 
+          {/* Main Wizard Content Wrapper with Blur Effect */}
+          <div className={`transition-all duration-500 ease-in-out ${isSetupCompleted && !isEditingSetup ? 'opacity-40 blur-[3px] pointer-events-none select-none grayscale-[30%]' : ''}`}>
+
           {/* STEP 1: ORGANIZATION PROFILE */}
           {step === 1 && (
             <div className="space-y-5 animate-fadeIn">
@@ -1352,6 +1355,8 @@ export default function AdminSetupPage() {
               </div>
             </div>
           )}
+
+          </div>
 
         </div>
       </main>

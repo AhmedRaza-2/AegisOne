@@ -392,55 +392,111 @@ async def api_text(request: Request, text: str = Form(...), current_user: User =
     return result
 
 @router.post("/analyze/email")
-async def api_email(request: Request, sender: str = Form(""), subject: str = Form(""), body: str = Form(""), thread_url: str = Form(""), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_email(
+    request: Request,
+    sender: str = Form(""),
+    subject: str = Form(""),
+    body: str = Form(""),
+    thread_url: str = Form(""),
+    scan_id: str = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Email phishing analysis endpoint.
+
+    Privacy contract:
+    - Email body and thread_url are used transiently for ML inference ONLY.
+    - They are discarded immediately after inference and NEVER persisted.
+    - Only security telemetry (risk score, verdict, factor codes) is stored.
+    - subject_preview / sender_preview are stored for the employee's own reference
+      and are NEVER returned to admin or supervisor analytics scopes.
+    """
+    from api.database.models import EmailSecurityEvent
+
     start = time.time()
+
+    # Idempotency: if this scan_id was already processed, return cached result
+    target_scan_id = scan_id or request.headers.get("x-scan-id")
+    if target_scan_id:
+        existing = (
+            await db.execute(
+                select(EmailSecurityEvent).where(EmailSecurityEvent.scan_id == target_scan_id)
+            )
+        ).scalar_one_or_none()
+        if existing:
+            return {
+                "phishing_probability": existing.risk_score / 100.0,
+                "prediction": existing.threat_type or ("phishing_email" if existing.risk_score >= 50 else "safe_email"),
+                "verdict": existing.verdict,
+                "decision": existing.decision,
+                "top_words": existing.factor_codes or [],
+                "latency_ms": existing.scan_duration_ms,
+                "_cached": True,
+            }
+    else:
+        target_scan_id = f"scan_{uuid.uuid4().hex[:12]}"
+
+    # ── ML Inference (body used here only, immediately discarded) ───────────
     result = await predict_email(sender, subject, body)
+    # body is no longer referenced after this point
+    del body
+
     score = result.get("phishing_probability", 0) * 100
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
-    
+    verdict = "phishing" if score >= 75 else "suspicious" if score >= 35 else "safe"
+    severity = "critical" if score >= 90 else "high" if score >= 75 else "medium" if score >= 50 else "low"
+
     user_id = current_user.id
     org_id = current_user.organization_id or "org_default"
+    dept_id = getattr(current_user, "department_id", None)
 
-    clean_subj = subject.strip() or "Untitled Email"
-    clean_sender = sender.strip() or "Unknown Sender"
-    display_title = f"Email: {clean_subj[:80]} (From: {clean_sender[:50]})"
+    # Truncate subject/sender for employee reference only (max 200 chars)
+    subj_preview = (subject.strip() or "")[:200] or None
+    sndr_preview = (sender.strip() or "")[:200] or None
 
-    # Store rich email metadata JSON in top_factors
-    factors = result.get("top_words") or result.get("xai_words") or []
-    meta = {
-        "subject": clean_subj,
-        "sender": clean_sender,
-        "recipient": getattr(current_user, "email", "Unknown Recipient"),
-        "thread_url": thread_url.strip(),
-        "factors": factors,
-        "phishing_probability": result.get("phishing_probability", 0)
-    }
-    
-    scan = WebsiteScan(
-        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
-        organization_id=org_id,
+    # Raw XAI top-words from model (these are model-internal tokens, not email quotes)
+    factor_codes = result.get("top_words") or result.get("xai_words") or []
+    if isinstance(factor_codes, list):
+        factor_codes = [str(w)[:40] for w in factor_codes[:20]]  # cap each word length
+
+    model_ver = result.get("model_version", "email-v1")
+
+    event = EmailSecurityEvent(
+        scan_id=target_scan_id,
         user_id=user_id,
-        scan_type="email",
-        url=display_title,
-        domain="email_scan",
-        risk_score=score,
-        threat_type=result.get("prediction", "phishing_email" if score >= 50 else "safe_email"),
+        organization_id=org_id,
+        department_id=dept_id,
+        risk_score=round(score),
+        verdict=verdict,
         decision=decision,
-        top_factors=json.dumps(meta),
-        scan_duration_ms=round((time.time() - start) * 1000, 1)
+        severity=severity,
+        threat_type=result.get("prediction", "phishing_email" if score >= 50 else "safe_email"),
+        factor_codes=factor_codes,
+        model_version=model_ver,
+        subject_preview=subj_preview,
+        sender_preview=sndr_preview,
+        scan_duration_ms=round((time.time() - start) * 1000, 1),
     )
-    db.add(scan)
+    db.add(event)
+    await increment_org_revision(db, org_id)
     await db.commit()
- 
-    result["latency_ms"] = scan.scan_duration_ms
-    print(f"\n[AEGIS AI ENGINE] 📧 INCOMING EMAIL SCAN REQUEST")
-    print(f" ├─ User   : {current_user.email}")
-    print(f" ├─ Sender : {sender or '(no sender)'}")
-    print(f" ├─ Subject: {subject or '(no subject)'}")
-    print(f" ├─ Body   : {body[:120]}...")
-    print(f" ├─ Score  : {score:.1f}% Phishing Probability ({decision.upper()})")
-    print(f" └─ Latency: {scan.scan_duration_ms}ms\n", flush=True)
-    return result
+
+    # ── Safe console log (NO body content) ─────────────────────────────────
+    print(f"\n[AEGIS AI ENGINE] 📧 EMAIL SCAN")
+    print(f" ├─ User    : {current_user.email}")
+    print(f" ├─ Score   : {score:.1f}% ({decision.upper()})")
+    print(f" ├─ Factors : {factor_codes[:5]}")
+    print(f" └─ Latency : {event.scan_duration_ms}ms\n", flush=True)
+
+    return {
+        "phishing_probability": score / 100.0,
+        "prediction": event.threat_type,
+        "verdict": verdict,
+        "decision": decision,
+        "top_words": factor_codes,
+        "latency_ms": event.scan_duration_ms,
+    }
 
 
 @router.post("/analyze/image")
@@ -1739,21 +1795,13 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
         elif stype in ["mail", "email_scan"]:
             types_breakdown["email"] += row[1]
 
-    # Explicit count for all email scan variations
-    email_count_q = apply_user_filter(
-        select(func.count(WebsiteScan.id)).where(
-            or_(
-                WebsiteScan.scan_type.in_(["email", "mail"]),
-                WebsiteScan.domain == "email_scan",
-                WebsiteScan.url.ilike("Email:%"),
-                WebsiteScan.url.ilike("%#inbox/%"),
-                WebsiteScan.url.ilike("https://mail.google.com%"),
-                WebsiteScan.url.ilike("https://outlook.%"),
-                WebsiteScan.threat_type.ilike("%phishing_email%")
-            )
-        )
-    )
-    explicit_email_count = (await db.execute(email_count_q)).scalar() or 0
+    # Explicit email count — now sourced from EmailSecurityEvent table
+    from api.database.models import EmailSecurityEvent as _ESE
+    explicit_email_count_q = (
+        select(func.count(_ESE.id))
+        .where(cast(_ESE.user_id, String) == str(user_id))
+    ) if user_id is not None else select(func.count(_ESE.id)).where(_ESE.id == -1)
+    explicit_email_count = (await db.execute(explicit_email_count_q)).scalar() or 0
     types_breakdown["email"] = max(types_breakdown["email"], explicit_email_count)
 
     # 7. Critical vs Non-Critical (All Time)
@@ -1790,35 +1838,41 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
     email_scans_cnt = (types_breakdown.get("email", 0) + types_breakdown.get("text", 0)) or 1
     
     web_risk = min(100.0, ((web_blocked / web_scans_cnt) * 100.0)) if web_blocked > 0 else 0.0
-    email_blocked_q = apply_user_filter(
-        select(func.count(WebsiteScan.id)).where(
-            WebsiteScan.decision.in_(["warn", "block"]),
-            or_(
-                WebsiteScan.scan_type.in_(["email", "mail"]),
-                WebsiteScan.domain == "email_scan",
-                WebsiteScan.url.ilike("Email:%"),
-                WebsiteScan.url.ilike("%#inbox/%"),
-                WebsiteScan.url.ilike("https://mail.google.com%"),
-                WebsiteScan.url.ilike("https://outlook.%"),
-                WebsiteScan.threat_type.ilike("%phishing_email%")
-            )
+    # Email blocked count — sourced from EmailSecurityEvent
+    _email_blocked_q = (
+        select(func.count(_ESE.id))
+        .where(
+            cast(_ESE.user_id, String) == str(user_id),
+            _ESE.decision.in_(["warn", "block"])
         )
-    )
-    email_blocked = ((await db.execute(email_blocked_q)).scalar() or 0)
+    ) if user_id is not None else select(func.count(_ESE.id)).where(_ESE.id == -1)
+    email_blocked = (await db.execute(_email_blocked_q)).scalar() or 0
     email_risk = min(100.0, ((email_blocked / email_scans_cnt) * 100.0)) if email_blocked > 0 else 0.0
     cred_risk = min(100.0, (today_creds * 25.0))
     
     weighted_risk = (0.45 * web_risk) + (0.35 * email_risk) + (0.20 * cred_risk)
     safe_rate = max(0, min(100, round(100 - weighted_risk)))
         
-    # Recent scans
+    # Recent scans (website/url/text/image only — email rows are no longer in WebsiteScan)
     recent_scans = (await db.execute(apply_user_filter(select(WebsiteScan).order_by(WebsiteScan.created_at.desc()).limit(300)))).scalars().all()
     recent_downloads = (await db.execute(apply_user_filter(select(DownloadEvent).order_by(DownloadEvent.created_at.desc()).limit(200), DownloadEvent))).scalars().all()
+
+    # Recent email security events — for employee activity feed
+    recent_email_events_q = (
+        select(_ESE)
+        .where(cast(_ESE.user_id, String) == str(user_id))
+        .order_by(_ESE.scanned_at.desc())
+        .limit(200)
+    ) if user_id is not None else select(_ESE).where(_ESE.id == -1)
+    recent_email_events = (await db.execute(recent_email_events_q)).scalars().all()
     
-    # Combine and sort both lists
+    # Combine and sort all activity lists
     combined_activity = []
     for s in recent_scans:
-        item = {
+        # Skip legacy email rows from WebsiteScan (they are now in EmailSecurityEvent)
+        if (s.scan_type or "").lower() in ("email", "mail") or (s.domain or "") == "email_scan":
+            continue
+        combined_activity.append({
             "id": s.scan_id,
             "scanType": s.scan_type,
             "inputPreview": s.url,
@@ -1830,23 +1884,33 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
             "riskLevel": "danger" if s.decision == "block" else "suspicious" if s.decision == "warn" else "safe",
             "timestamp": s.created_at,
             "iso_timestamp": str(s.created_at).replace(" ", "T") + "Z"
-        }
-        
-        # Extract rich email metadata for the dashboard
-        if s.scan_type in ("email", "mail") and s.top_factors:
-            try:
-                import json
-                tf = json.loads(s.top_factors)
-                if isinstance(tf, dict):
-                    item["sender"] = tf.get("sender")
-                    item["subject"] = tf.get("subject")
-                    item["recipient"] = tf.get("recipient")
-                    item["thread_url"] = tf.get("thread_url")
-            except Exception:
-                pass
-                
-        combined_activity.append(item)
-        
+        })
+
+    # Add email security events to activity feed (employee-only subject/sender preview)
+    for e in recent_email_events:
+        score = e.risk_score or 0
+        verdict = e.verdict or "safe"
+        decision = e.decision or "allow"
+        ts = e.scanned_at
+        combined_activity.append({
+            "id": e.scan_id,
+            "scanType": "email",
+            "inputPreview": e.subject_preview or "Email scan",
+            "domain": "email_scan",
+            "riskScore": score,
+            "threatType": e.threat_type or "safe_email",
+            "topFactors": None,
+            "decision": decision,
+            "riskLevel": "danger" if decision == "block" else "suspicious" if decision == "warn" else "safe",
+            "severity": e.severity or "",
+            "factor_codes": e.factor_codes or [],
+            # Employee-only previews
+            "subject": e.subject_preview or "",
+            "sender": e.sender_preview or "",
+            "timestamp": ts,
+            "iso_timestamp": str(ts).replace(" ", "T") + "Z" if ts else "",
+        })
+
     for d in recent_downloads:
         action_text = "blocked" if d.decision == "block" else ("proceeded at risk" if d.decision == "warn" else "downloaded")
         combined_activity.append({
