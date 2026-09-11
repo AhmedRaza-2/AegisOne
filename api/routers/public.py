@@ -3,7 +3,7 @@ AegisOne API — Public Router
 """
 import os
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from email.message import EmailMessage
 
@@ -87,7 +87,7 @@ except ImportError:
     EXTENSION_ZIP_B64 = None
 
 @router.get("/download/extension")
-async def download_extension(email: str = None, db: AsyncSession = Depends(get_db)):
+async def download_extension(request: Request, email: str = None, db: AsyncSession = Depends(get_db)):
     # Fetch employee's mapping details if email parameter is supplied
     config_data = {}
     if email:
@@ -99,6 +99,8 @@ async def download_extension(email: str = None, db: AsyncSession = Depends(get_d
                 "user_id": user.id,
                 "organization_id": user.organization_id or "org_default"
             }
+            
+    config_data["api_base"] = str(request.base_url).rstrip('/')
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     extension_dir = os.path.join(project_root, "Extension")

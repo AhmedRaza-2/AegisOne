@@ -10,11 +10,11 @@ $wifiIP = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi" -ErrorAc
 
 if (-not $wifiIP) {
     # Fallback to first non-loopback IPv4 address
-    $wifiIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Type -Ne "Loopback" | Select-Object -First 1).IPAddress
+    $wifiIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } | Select-Object -ExpandProperty IPAddress -First 1)
 }
 
 if (-not $wifiIP) {
-    $wifiIP = "10.120.172.173" # Fallback to detected IP
+    $wifiIP = "127.0.0.1"
 }
 
 Write-Host "[+] Detected Server Local IP: $wifiIP" -ForegroundColor Green

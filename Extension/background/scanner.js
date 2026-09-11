@@ -46,15 +46,23 @@ export async function getAuthenticatedEmail() {
     const res = await fetch(configUrl);
     if (res.ok) {
       const config = await res.json();
+      const toSet = {};
       if (config.email) {
-        await chrome.storage.local.set({
-          user_email: config.email,
-          user_id: config.user_id,
-          organization_id: config.organization_id
-        });
-        _cachedUserEmail = config.email;
-        _authCheckedAt = Date.now();
-        return _cachedUserEmail;
+        toSet.user_email = config.email;
+        toSet.user_id = config.user_id;
+        toSet.organization_id = config.organization_id;
+      }
+      if (config.api_base) {
+        toSet.server_url = config.api_base;
+      }
+      
+      if (Object.keys(toSet).length > 0) {
+        await chrome.storage.local.set(toSet);
+        if (toSet.user_email) {
+          _cachedUserEmail = config.email;
+          _authCheckedAt = Date.now();
+          return _cachedUserEmail;
+        }
       }
     }
   } catch (_) {}

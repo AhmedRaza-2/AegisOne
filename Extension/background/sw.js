@@ -31,20 +31,28 @@ const _tabControllers = new Map(); // tabId → AbortController
 
 async function initConfigData() {
   try {
-    const { user_email } = await chrome.storage.local.get("user_email");
-    if (!user_email) {
+    const { user_email, server_url } = await chrome.storage.local.get(["user_email", "server_url"]);
+    if (!user_email || !server_url) {
       const configUrl = chrome.runtime.getURL("config.json");
       const res = await fetch(configUrl);
       if (res.ok) {
         const config = await res.json();
+        const toSet = {};
         if (config.email) {
-          await chrome.storage.local.set({
-            user_email: config.email,
-            user_id: config.user_id,
-            organization_id: config.organization_id
-          });
-          invalidateAuthCache();
-          if (DEBUG_MODE) console.log("[AegisOne] Initialized user configuration from config.json:", config.email);
+          toSet.user_email = config.email;
+          toSet.user_id = config.user_id;
+          toSet.organization_id = config.organization_id;
+        }
+        if (config.api_base) {
+          toSet.server_url = config.api_base;
+        }
+        
+        if (Object.keys(toSet).length > 0) {
+          await chrome.storage.local.set(toSet);
+          if (toSet.user_email) {
+            invalidateAuthCache();
+            if (DEBUG_MODE) console.log("[AegisOne] Initialized user configuration from config.json:", config.email);
+          }
         }
       }
     }

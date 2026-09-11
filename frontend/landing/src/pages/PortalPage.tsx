@@ -70,11 +70,20 @@ export default function PortalPage() {
 
   const isApproved = org.status === 'active';
 
+  const hostIP = typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? window.location.hostname
+    : '';
+
+  const serverHostExportLinux = hostIP ? `export SERVER_HOST="${hostIP}" && ` : '';
+  const serverHostExportWin = hostIP 
+    ? `$env:SERVER_HOST="${hostIP}"; ` 
+    : `$env:SERVER_HOST = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } | Select-Object -ExpandProperty IPAddress -First 1); `;
+
   // Linux/macOS
-  const linuxCommand = `mkdir -p AegisOne && cd AegisOne && curl -sSL https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml -o docker-compose.yml && export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose up -d`;
+  const linuxCommand = `mkdir -p AegisOne && cd AegisOne && curl -sSL https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml -o docker-compose.yml && ${serverHostExportLinux}export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose pull && docker compose up -d --force-recreate`;
 
   // Windows PowerShell
-  const windowsCommand = `mkdir AegisOne -ErrorAction SilentlyContinue; Set-Location AegisOne; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml" -OutFile "docker-compose.yml"; $env:ORG_ID="${org.org_id}"; $env:LICENSE_KEY="${org.license_key}"; $env:DEPLOYMENT_TOKEN="${org.deployment_token}"; $env:ADMIN_EMAIL="${org.admin_email}"; docker compose up -d`;
+  const windowsCommand = `mkdir AegisOne -ErrorAction SilentlyContinue; Set-Location AegisOne; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml" -OutFile "docker-compose.yml"; ${serverHostExportWin}$env:ORG_ID="${org.org_id}"; $env:LICENSE_KEY="${org.license_key}"; $env:DEPLOYMENT_TOKEN="${org.deployment_token}"; $env:ADMIN_EMAIL="${org.admin_email}"; docker compose pull; docker compose up -d --force-recreate`;
 
   const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 

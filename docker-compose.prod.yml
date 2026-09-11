@@ -55,8 +55,6 @@ services:
     ports:
       - "3002:3000"
     environment:
-      NEXT_PUBLIC_API_BASE: "http://${SERVER_HOST:-localhost}:8000"
-      NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST:-localhost}:8000"
       AEGIS_DASHBOARD_URL: "http://${SERVER_HOST:-localhost}:3002"
     depends_on:
       - backend
