@@ -18,6 +18,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, File, UploadFile, Form, BackgroundTasks, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from api.database.db import get_db, get_background_db
 from api.database.models import User, WebsiteScan
 from api.services.revision_service import increment_org_revision
