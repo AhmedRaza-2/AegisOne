@@ -4,7 +4,7 @@ import uuid
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Header
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Header, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -12,6 +12,7 @@ from sqlalchemy import delete, update
 from api.database.db import get_db
 from api.database.models import User, Organization, Department, SetupSession
 from api.auth.password import hash_password
+from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 
 router = APIRouter(
     prefix="/setup",
@@ -88,97 +89,109 @@ class SetupSessionSaveRequest(BaseModel):
 
 def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587, dashboard_url: str = "http://localhost:3002"):
     """
-    Sends a beautifully formatted Welcome Email to the user with their credentials.
+    Sends a formatted Welcome Email to the user with their credentials using unified MIME.
     """
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Welcome to AegisOne — Complete Your Account Setup"
-        msg["From"] = f"AegisOne Security <{smtp_user}>"
-        msg["To"] = employee.email
         role_display = "Administrator" if employee.role.lower() == "admin" else employee.role.title()
+        subject = "Welcome to AegisOne — Complete Your Account Setup"
 
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; }}
-              .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 36px; border: 1px solid #e2e8f0; }}
-              .header {{ text-align: center; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9; }}
-              .logo {{ font-size: 24px; font-weight: bold; color: #0A5ED6; }}
-              .title {{ font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 8px; }}
-              .badge {{ display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }}
-              .credentials-box {{ background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; font-size: 14px; margin: 24px 0; }}
-              .credentials-row {{ margin-bottom: 8px; display: flex; justify-content: space-between; }}
-              .credentials-label {{ font-weight: 600; color: #64748b; }}
-              .credentials-value {{ font-family: monospace; color: #0f172a; font-weight: bold; }}
-              .btn-container {{ text-align: center; margin: 32px 0; }}
-              .btn {{ background-color: #0A5ED6; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 15px; }}
-              .security-note {{ background-color: #f0f9ff; border-left: 4px solid #0284c7; padding: 16px; border-radius: 4px; font-size: 13px; color: #0369a1; margin: 24px 0; }}
-              .footer {{ text-align: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; }}
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <div class="logo">🛡️ AegisOne</div>
-              </div>
-              <h2 class="title">Welcome, {employee.firstName}!</h2>
-              <div class="badge">{role_display}</div>
-              <p style="font-size: 15px; color: #475569; line-height: 1.6;">
-                Your enterprise account for <strong>AegisOne Unified Threat Management</strong> has been provisioned.
-                Here are your login credentials:
-              </p>
-              
-              <div class="credentials-box" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0A5ED6; padding: 22px; border-radius: 10px; font-size: 14px; margin: 24px 0;">
-                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 16px;">LOGIN CREDENTIALS</div>
-                
-                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;">
-                  <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Email Address</div>
-                  <div style="font-family: Consolas, Monaco, monospace; font-size: 14px; font-weight: bold; color: #0f172a; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; display: block;">{employee.email}</div>
-                </div>
+        text_content = f"""Hello {employee.firstName},
 
-                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;">
-                  <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Temporary Password</div>
-                  <div style="font-family: Consolas, Monaco, monospace; font-size: 15px; font-weight: bold; color: #1d4ed8; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #eff6ff; padding: 8px 12px; border-radius: 6px; border: 1px solid #bfdbfe; display: block;">{employee.generatedPassword}</div>
-                </div>
-              </div>
+Welcome to AegisOne Unified Threat Management!
 
-              <div class="security-note">
-                <strong>Security note:</strong> For security reasons, please change this temporary password immediately after logging in from your account settings.
-              </div>
-              
-              <div class="btn-container">
-                <a href="{dashboard_url}/login" class="btn">Log In to AegisOne</a>
-              </div>
-              
-              <p style="font-size: 13px; color: #475569;">If you need assistance, contact your IT Administrator.</p>
-              <div class="footer">
-                <p>&copy; 2026 AegisOne Unified Threat Management. All rights reserved.</p>
-                <p>This is an automated administrative message. Please do not reply to this email.</p>
-              </div>
-            </div>
-          </body>
-        </html>
-        """
+Your enterprise account has been provisioned. Below are your login credentials:
 
-        part = MIMEText(html, "html")
-        msg.attach(part)
+Role: {role_display}
+Email: {employee.email}
+Temporary Password: {employee.generatedPassword}
 
-        # Connect to server — SMTP_SSL for 465, STARTTLS for 587
-        if int(smtp_port) == 465:
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
-        else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, employee.email, msg.as_string())
-        server.quit()
-        print(f"Successfully sent email to {employee.email}")
-        return {"email": employee.email, "sent": True, "error": None}
+Log in to your AegisOne Portal at: {dashboard_url}/login
+
+Security Note: For security reasons, please change your temporary password immediately after logging in.
+
+Best regards,
+AegisOne Security Team
+"""
+
+        html = f"""<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>
+      body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; }}
+      .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 36px; border: 1px solid #e2e8f0; }}
+      .header {{ text-align: center; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9; }}
+      .logo {{ font-size: 24px; font-weight: bold; color: #0A5ED6; }}
+      .title {{ font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 8px; }}
+      .badge {{ display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }}
+      .credentials-box {{ background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; font-size: 14px; margin: 24px 0; }}
+      .btn-container {{ text-align: center; margin: 32px 0; }}
+      .btn {{ background-color: #0A5ED6; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 15px; }}
+      .security-note {{ background-color: #f0f9ff; border-left: 4px solid #0284c7; padding: 16px; border-radius: 4px; font-size: 13px; color: #0369a1; margin: 24px 0; }}
+      .footer {{ text-align: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; }}
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="logo">🛡️ AegisOne</div>
+      </div>
+      <h2 class="title">Welcome, {employee.firstName}!</h2>
+      <div class="badge">{role_display}</div>
+      <p style="font-size: 15px; color: #475569; line-height: 1.6;">
+        Your enterprise account for <strong>AegisOne Unified Threat Management</strong> has been provisioned.
+        Here are your login credentials:
+      </p>
+      
+      <div class="credentials-box" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0A5ED6; padding: 22px; border-radius: 10px; font-size: 14px; margin: 24px 0;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 16px;">ACCOUNT CREDENTIALS</div>
+        
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Email Address</div>
+          <div style="font-family: Consolas, Monaco, monospace; font-size: 14px; font-weight: bold; color: #0f172a; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; display: block;">{employee.email}</div>
+        </div>
+
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Temporary Password</span>
+            <span style="font-size: 10px; color: #2563eb; font-weight: 600;">(Click text to select all)</span>
+          </div>
+          <div style="font-family: Consolas, Monaco, monospace; font-size: 15px; font-weight: bold; color: #1d4ed8; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #eff6ff; padding: 8px 12px; border-radius: 6px; border: 1px solid #bfdbfe; display: block;">{employee.generatedPassword}</div>
+        </div>
+      </div>
+
+      <div class="security-note">
+        <strong>Security note:</strong> For security reasons, please change this temporary password immediately after logging in from your account settings.
+      </div>
+      
+      <div class="btn-container">
+        <a href="{dashboard_url}/login" class="btn">Log In to AegisOne</a>
+      </div>
+      
+      <p style="font-size: 13px; color: #475569;">If you need assistance, contact your IT Administrator.</p>
+      <div class="footer">
+        <p>&copy; 2026 AegisOne Unified Threat Management. All rights reserved.</p>
+        <p>This is an automated administrative message. Please do not reply to this email.</p>
+      </div>
+    </div>
+  </body>
+</html>"""
+
+        org_smtp = {
+            "smtp_user": smtp_user,
+            "smtp_pass": smtp_pass,
+            "smtp_host": smtp_host,
+            "smtp_port": smtp_port,
+        }
+        res = send_unified_email(
+            to_email=employee.email,
+            subject=subject,
+            html_content=html,
+            text_content=text_content,
+            org_smtp=org_smtp,
+            sender_name="AegisOne Security"
+        )
+        return {"email": employee.email, "sent": res["sent"], "error": res["error"]}
     except Exception as e:
         print(f"Failed to send email to {employee.email}: {str(e)}")
         return {"email": employee.email, "sent": False, "error": str(e)}
@@ -187,15 +200,14 @@ def background_email_task(run_id: str, employees: List[Employee],
                           smtp_user_override: Optional[str] = None,
                           smtp_pass_override: Optional[str] = None,
                           smtp_host_override: Optional[str] = None,
-                          smtp_port_override: Optional[int] = None):
+                          smtp_port_override: Optional[int] = None,
+                          request: Optional[Request] = None):
     # Credentials come from the setup page first, then fall back to environment.
     smtp_user = (smtp_user_override or os.getenv("SMTP_USER") or "").strip()
-    # Gmail app passwords contain spaces when displayed — strip them before auth.
     smtp_pass = (smtp_pass_override or os.getenv("SMTP_PASS") or "").replace(" ", "")
     smtp_host = smtp_host_override or os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = smtp_port_override or int(os.getenv("SMTP_PORT", "587"))
-    # Dashboard URL for email login link — set AEGIS_DASHBOARD_URL in docker-compose env
-    dashboard_url = os.getenv("AEGIS_DASHBOARD_URL", "http://localhost:3002").rstrip("/")
+    dashboard_url = get_dynamic_dashboard_url(request)
 
     if not smtp_user or not smtp_pass:
         msg = "SMTP credentials (SMTP_USER, SMTP_PASS) are missing. Emails cannot be sent."
@@ -211,6 +223,7 @@ def background_email_task(run_id: str, employees: List[Employee],
     for emp in employees:
         results.append(send_welcome_email(emp, smtp_user, smtp_pass, smtp_host, smtp_port, dashboard_url))
     _email_dispatch_results[run_id] = {"done": True, "results": results}
+
 
 
 async def _get_or_create_org(db: AsyncSession, org_id: str, org_name: Optional[str] = None) -> Organization:

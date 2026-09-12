@@ -1,7 +1,7 @@
 """
 AegisOne API — Auth Router
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -12,6 +12,7 @@ from api.auth.password import hash_password, verify_password
 from api.auth.jwt_handler import create_access_token, create_refresh_token, decode_refresh_token
 from api.auth.roles import require_role, Role
 from api.dependencies import get_current_user
+from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 import os
 import smtplib
 import random
@@ -148,81 +149,90 @@ async def register(
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
-def send_password_reset_email(email: str, new_password: str):
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
-    if not smtp_user or not smtp_pass:
-        print("SMTP credentials missing.")
-        return
-    # Gmail app passwords contain spaces when displayed — strip them before auth.
-    smtp_user = smtp_user.strip()
-    smtp_pass = smtp_pass.replace(" ", "")
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "AegisOne - Temporary Password Reset"
-        msg["From"] = smtp_user
-        msg["To"] = email
-        html = f"""
-        <html>
-          <body style="font-family: sans-serif; padding: 20px;">
-            <h3>AegisOne Security</h3>
-            <p>Your password has been successfully reset.</p>
-            <p><strong>New Temporary Password:</strong> <span style="background:#f1f5f9; padding: 4px 8px; border-radius: 4px; font-family: monospace;">{new_password}</span></p>
-            <p>Please login at <a href="http://localhost:3002/login">http://localhost:3002/login</a></p>
-          </body>
-        </html>
-        """
-        msg.attach(MIMEText(html, "html"))
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, email, msg.as_string())
-        server.quit()
-        print(f"Reset email sent to {email}")
-    except Exception as e:
-        print(f"Failed to send reset email: {e}")
+def send_password_reset_email(email: str, new_password: str, request: Optional[Request] = None):
+    portal_url = get_dynamic_dashboard_url(request)
+    subject = "AegisOne — Temporary Password Reset"
+    
+    text = f"""Hello,
 
-def send_admin_credentials_email(email: str, full_name: str, password: str, org_name: str = "Enterprise"):
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
-    if not smtp_user or not smtp_pass:
-        print("SMTP credentials missing.")
-        return
-    # Gmail app passwords contain spaces when displayed — strip them before auth.
-    smtp_user = smtp_user.strip()
-    smtp_pass = smtp_pass.replace(" ", "")
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"AegisOne Admin Credentials - {org_name}"
-        msg["From"] = f"AegisOne Security <{smtp_user}>"
-        msg["To"] = email
-        html = f"""
-        <html>
-          <body style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; color: #0f172a;">
-            <div style="max-width: 550px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px;">
-              <h2 style="color: #0a5ed6; margin-top: 0;">Welcome Administrator</h2>
-              <p>Hello <strong>{full_name}</strong>,</p>
-              <p>Your organization account (<strong>{org_name}</strong>) has been registered. Below are your Administrator account credentials for the AegisOne Security Dashboard:</p>
-              <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; font-family: monospace; margin: 20px 0;">
-                <p style="margin: 5px 0;"><strong>Login URL:</strong> <a href="http://localhost:3002/login">http://localhost:3002/login</a></p>
-                <p style="margin: 5px 0;"><strong>Admin Email:</strong> {email}</p>
-                <p style="margin: 5px 0;"><strong>Password:</strong> {password}</p>
-                <p style="margin: 5px 0;"><strong>Role:</strong> Administrator</p>
-              </div>
-              <p>Log in to access your security portal and manage your organization's endpoints.</p>
-              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
-              <p style="font-size: 12px; color: #64748b;">AegisOne Unified Threat Management</p>
-            </div>
-          </body>
-        </html>
-        """
-        msg.attach(MIMEText(html, "html"))
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, email, msg.as_string())
-        server.quit()
-        print(f"Successfully sent admin credentials email to {email}")
-    except Exception as e:
-        print(f"Failed to send admin credentials email to {email}: {e}")
+Your AegisOne account password has been successfully reset.
+
+New Temporary Password: {new_password}
+
+Please login to your security portal at: {portal_url}/login
+
+Best regards,
+AegisOne Security Team
+"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background-color: #f8fafc; color: #0f172a;">
+    <div style="max-width: 550px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px;">
+      <h3 style="color: #0A5ED6; margin-top: 0;">AegisOne Security</h3>
+      <p>Your password has been successfully reset.</p>
+      <div style="background:#f8fafc; border: 1px solid #e2e8f0; padding: 14px; border-radius: 8px; margin: 16px 0;">
+        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">New Temporary Password</div>
+        <div style="font-family: Consolas, Monaco, monospace; font-size: 15px; font-weight: bold; color: #1d4ed8; word-break: break-all; -webkit-user-select: all; user-select: all; background: #eff6ff; padding: 8px 12px; border-radius: 6px; border: 1px solid #bfdbfe;">{new_password}</div>
+      </div>
+      <p>Log in at <a href="{portal_url}/login" style="color: #0A5ED6; font-weight: 600;">{portal_url}/login</a></p>
+    </div>
+  </body>
+</html>"""
+
+    send_unified_email(to_email=email, subject=subject, html_content=html, text_content=text)
+
+
+def send_admin_credentials_email(email: str, full_name: str, password: str, org_name: str = "Enterprise", request: Optional[Request] = None):
+    portal_url = get_dynamic_dashboard_url(request)
+    subject = f"AegisOne Admin Credentials — {org_name}"
+    
+    text = f"""Hello {full_name},
+
+Welcome Administrator! Your organization account ({org_name}) has been registered.
+
+Administrator Account Credentials:
+- Login URL: {portal_url}/login
+- Admin Email: {email}
+- Temporary Password: {password}
+- Role: Administrator
+
+Log in to access your security portal and manage your organization's endpoints.
+
+Best regards,
+AegisOne Unified Threat Management
+"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background-color: #f8fafc; color: #0f172a;">
+    <div style="max-width: 550px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px;">
+      <h2 style="color: #0a5ed6; margin-top: 0;">Welcome Administrator</h2>
+      <p>Hello <strong>{full_name}</strong>,</p>
+      <p>Your organization account (<strong>{org_name}</strong>) has been registered. Below are your Administrator account credentials for the AegisOne Security Dashboard:</p>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0A5ED6; padding: 18px; border-radius: 10px; font-family: monospace; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Login URL:</strong> <a href="{portal_url}/login" style="color: #0A5ED6;">{portal_url}/login</a></p>
+        <p style="margin: 5px 0;"><strong>Admin Email:</strong> {email}</p>
+        <p style="margin: 5px 0;"><strong>Role:</strong> Administrator</p>
+        <div style="margin-top: 10px; background: #ffffff; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Temporary Password</span>
+            <span style="font-size: 10px; color: #2563eb; font-weight: 600;">(Click text to select all)</span>
+          </div>
+          <span style="font-size: 15px; font-weight: bold; color: #1d4ed8; -webkit-user-select: all; user-select: all; display: block; background: #eff6ff; padding: 6px 10px; border-radius: 4px; border: 1px solid #bfdbfe;">{password}</span>
+        </div>
+      </div>
+      <p>Log in to access your security portal and manage your organization's endpoints.</p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
+      <p style="font-size: 12px; color: #64748b;">AegisOne Unified Threat Management</p>
+    </div>
+  </body>
+</html>"""
+
+    send_unified_email(to_email=email, subject=subject, html_content=html, text_content=text)
+
 
 class AdminCredentialsNotifyRequest(BaseModel):
     email: str
@@ -231,9 +241,8 @@ class AdminCredentialsNotifyRequest(BaseModel):
     org_name: Optional[str] = "Enterprise"
 
 @router.post("/send-admin-credentials")
-async def send_admin_credentials_notify(req: AdminCredentialsNotifyRequest, db: AsyncSession = Depends(get_db)):
+async def send_admin_credentials_notify(req: AdminCredentialsNotifyRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """API endpoint to dispatch welcome/credentials email to organization admin upon registration or setup."""
-    # Ensure admin user exists in local DB or create/update them
     stmt = select(User).where(User.email == req.email)
     existing = (await db.execute(stmt)).scalars().first()
     if not existing:
@@ -249,47 +258,44 @@ async def send_admin_credentials_notify(req: AdminCredentialsNotifyRequest, db: 
         db.add(db_user)
         await db.commit()
     
-    send_admin_credentials_email(req.email, req.full_name, req.password, req.org_name or "Enterprise")
+    send_admin_credentials_email(req.email, req.full_name, req.password, req.org_name or "Enterprise", request=request)
     return {"status": "ok", "message": f"Admin credentials email dispatched to {req.email}"}
 
-def send_otp_email(email: str, otp: str, smtp_user: str, smtp_pass: str, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
-    if not smtp_user or not smtp_pass:
-        return
-    # Gmail app passwords contain spaces when displayed — strip them before auth.
-    smtp_user = smtp_user.strip()
-    smtp_pass = smtp_pass.replace(" ", "")
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "AegisOne - Password Reset Verification Code"
-        msg["From"] = f"AegisOne Security <{smtp_user}>"
-        msg["To"] = email
-        html = f"""
-        <html>
-          <body style="font-family: sans-serif; padding: 20px;">
-            <h3>AegisOne Security</h3>
-            <p>You requested a password reset. Please use the following 6-digit verification code to proceed.</p>
-            <p><strong>Verification Code:</strong> <span style="background:#f1f5f9; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 18px;">{otp}</span></p>
-            <p>If you did not request this, please ignore this email.</p>
-          </body>
-        </html>
-        """
-        msg.attach(MIMEText(html, "html"))
-        
-        # Connect to server — SMTP_SSL for 465, STARTTLS for 587
-        if int(smtp_port) == 465:
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
-        else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, email, msg.as_string())
-        server.quit()
-        print(f"Successfully sent OTP email to {email}")
-    except Exception as e:
-        print(f"Failed to send OTP email: {e}")
+def send_otp_email(email: str, otp: str, smtp_user: str = None, smtp_pass: str = None, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
+    subject = "AegisOne — Password Reset Verification Code"
+    
+    text = f"""Hello,
+
+You requested a password reset for your AegisOne account.
+
+Verification Code: {otp}
+
+If you did not request this, please ignore this email.
+
+Best regards,
+AegisOne Security Team
+"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
+      <h3 style="color: #0A5ED6; margin-top: 0;">AegisOne Security</h3>
+      <p>You requested a password reset. Please use the following 6-digit verification code to proceed:</p>
+      <div style="background:#f1f5f9; padding: 12px; border-radius: 8px; text-align: center; margin: 16px 0;">
+        <span style="font-family: Consolas, Monaco, monospace; font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #0f172a; -webkit-user-select: all; user-select: all;">{otp}</span>
+      </div>
+      <p style="font-size: 13px; color: #64748b;">If you did not request this verification code, please ignore this message.</p>
+    </div>
+  </body>
+</html>"""
+
+    org_smtp = None
+    if smtp_user and smtp_pass:
+        org_smtp = {"smtp_user": smtp_user, "smtp_pass": smtp_pass, "smtp_host": smtp_host, "smtp_port": smtp_port}
+
+    send_unified_email(to_email=email, subject=subject, html_content=html, text_content=text, org_smtp=org_smtp)
 
 @router.post("/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):

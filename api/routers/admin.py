@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, cast, Date, or_, and_, case, String
 
 from api.database.db import get_db
+from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 from api.database.models import (
     Organization,
     Department,
@@ -1174,10 +1175,7 @@ async def get_users(
         today_warns = stats["today_warns"]
         today_creds = creds_map.get(r.id, 0)
         
-        # Match employee dashboard health score logic exactly
         health_score = max(0, 100 - (threats * 2))
-        
-        # Risk score is the inverse of health score for UI mapping (100 - health_score)
         risk_score = 100 - health_score
         
         users_response.append({
@@ -1195,32 +1193,21 @@ async def get_users(
         
     return {"users": users_response}
 
-def send_welcome_email(email: str, name: str, password: str, department: str, role: str, org_smtp: dict = None, request_host: str = None):
-    smtp_user = (org_smtp.get("smtp_user") if org_smtp else None) or os.getenv("SMTP_USER")
-    smtp_pass = (org_smtp.get("smtp_pass") if org_smtp else None) or os.getenv("SMTP_PASS")
-    smtp_host = (org_smtp.get("smtp_host") if org_smtp else None) or os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int((org_smtp.get("smtp_port") if org_smtp else None) or os.getenv("SMTP_PORT", 587))
-    
-    # Prioritize the actual request host if it's not localhost/127.0.0.1
-    server_host = request_host or os.getenv("SERVER_HOST")
-    if server_host and server_host not in ["localhost", "127.0.0.1", "0.0.0.0"]:
-        portal_url = f"http://{server_host}:3002"
-    else:
-        portal_url = os.getenv("AEGIS_DASHBOARD_URL") or os.getenv("DASHBOARD_URL") or "http://localhost:3002"
 
-    if not smtp_user or not smtp_pass:
-        print(f"[SMTP WARNING] Cannot send welcome email to {email}: SMTP credentials not configured (Set SMTP_USER & SMTP_PASS in .env or Organization Settings).", flush=True)
-        return
-    smtp_user = smtp_user.strip()
-    smtp_pass = smtp_pass.replace(" ", "")
-    
+def send_welcome_email(email: str, name: str, password: str, department: str, role: str, org_smtp: dict = None, request_host: str = None, request: Request = None):
+    if request:
+        portal_url = get_dynamic_dashboard_url(request, org_smtp)
+    else:
+        server_host = request_host or os.getenv("SERVER_HOST")
+        if server_host and server_host not in ["localhost", "127.0.0.1", "0.0.0.0"]:
+            portal_url = f"http://{server_host}:3002"
+        else:
+            portal_url = get_dynamic_dashboard_url(None, org_smtp)
+
     display_dept = "IT" if department == "Information Technology" else department
     display_role = role.capitalize()
     
-    try:
-        from email.utils import formatdate, make_msgid
-        
-        text_content = f"""Hello {name},
+    text_content = f"""Hello {name},
 
 Welcome to AegisOne Enterprise Security!
 
@@ -1238,7 +1225,7 @@ Best regards,
 AegisOne Security Team
 """
 
-        html_content = f"""<!DOCTYPE html>
+    html_content = f"""<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
@@ -1269,7 +1256,10 @@ AegisOne Security Team
             </div>
 
             <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
-              <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">Temporary Password</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Temporary Password</span>
+                <span style="font-size: 10px; color: #2563eb; font-weight: 600;">(Click text to select all)</span>
+              </div>
               <div style="font-family: Consolas, Monaco, monospace; font-size: 15px; font-weight: bold; color: #1d4ed8; word-break: break-all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; user-select: all; background: #eff6ff; padding: 6px 10px; border-radius: 6px; border: 1px solid #bfdbfe; display: block;">{password}</div>
             </div>
           </div>
@@ -1288,34 +1278,17 @@ AegisOne Security Team
       </tr>
     </table>
   </body>
-</html>
-"""
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Welcome to AegisOne Enterprise Security"
-        msg["From"] = f"AegisOne Security <{smtp_user}>"
-        msg["To"] = email
-        msg["Reply-To"] = smtp_user
-        msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(domain=smtp_user.split('@')[-1] if '@' in smtp_user else 'aegisone.com')
-        
-        part1 = MIMEText(text_content, "plain", "utf-8")
-        part2 = MIMEText(html_content, "html", "utf-8")
-        msg.attach(part1)
-        msg.attach(part2)
+</html>"""
 
-        if smtp_port == 465:
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
-        else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, email, msg.as_string())
-        server.quit()
-        print(f"Welcome email successfully sent to {email}")
-    except Exception as e:
-        print(f"Failed to send welcome email: {e}")
+    send_unified_email(
+        to_email=email,
+        subject="Welcome to AegisOne Enterprise Security",
+        html_content=html_content,
+        text_content=text_content,
+        org_smtp=org_smtp,
+        sender_name="AegisOne Security"
+    )
+
 
 @router.post("/users")
 async def create_user(
@@ -1394,7 +1367,7 @@ async def create_user(
 
     # Send email notifications
     req_host = request.url.hostname
-    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role, org_smtp=org_smtp, request_host=req_host)
+    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role, org_smtp=org_smtp, request_host=req_host, request=request)
     
     return {"status": "success", "user_id": new_user.id}
 
