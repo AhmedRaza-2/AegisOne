@@ -1321,17 +1321,29 @@ export default function AdminSetupPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-emerald-700 font-bold rounded-xl">
-                        Email Dispatch Completed Successfully! Credentials delivered to all employees.
+                      <div className="space-y-4">
+                        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-center shadow-sm">
+                          <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="w-7 h-7" />
+                          </div>
+                          <h3 className="text-emerald-800 dark:text-emerald-400 font-extrabold text-xl mb-2">Organization Setup Complete!</h3>
+                          <p className="text-emerald-700 dark:text-emerald-500 text-sm leading-relaxed max-w-sm mx-auto">
+                            Email dispatch completed successfully. Credentials have been delivered to all employees. 
+                            <br/><br/>
+                            <strong>You are all done!</strong> Keep going and head over to your new dashboard.
+                          </p>
+                        </div>
                       </div>
                     )}
 
-                    <button
-                      onClick={() => router.push('/dashboard/admin')}
-                      className="px-8 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-xl transition-all"
-                    >
-                      Go to Admin Dashboard
-                    </button>
+                    <div className="pt-4">
+                      <button
+                        onClick={() => router.push('/dashboard/admin')}
+                        className="w-full px-8 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-extrabold rounded-xl text-base shadow-xl transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
+                      >
+                        Go to Admin Dashboard <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex justify-center gap-4">

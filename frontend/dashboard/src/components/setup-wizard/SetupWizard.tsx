@@ -1638,7 +1638,7 @@ export default function App() {
                     <button onClick={() => setStep(6)} className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold px-6 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm">
                       Back
                     </button>
-                    <button onClick={() => window.location.href = 'http://localhost:3002/login'} className="flex items-center gap-2 bg-slate-900 dark:bg-blue-600 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-black dark:hover:bg-blue-700 transition-colors text-sm">
+                    <button onClick={() => window.location.href = `http://${window.location.hostname}:3002/login`} className="flex items-center gap-2 bg-slate-900 dark:bg-blue-600 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-black dark:hover:bg-blue-700 transition-colors text-sm">
                       Go to Full Dashboard <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>

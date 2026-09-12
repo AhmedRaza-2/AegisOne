@@ -76,7 +76,7 @@ import base64
 from fastapi.responses import StreamingResponse
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from api.database.db import get_db
 from api.database.models import User
 

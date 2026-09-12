@@ -466,7 +466,7 @@ async def refresh_daily_stats(
 async def rebuild_stats(
     days: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ORG_ADMIN)),
+    current_user: User = Depends(require_role(Role.ADMIN)),
 ):
     """
     Synchronously rebuilds derived dashboard_statistics explicitly from raw event tables.
