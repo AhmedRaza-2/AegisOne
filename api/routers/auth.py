@@ -74,6 +74,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
+        id=user.id,
         role=user.role,
         full_name=user.full_name,
         department=user.department or "IT",
@@ -102,6 +103,7 @@ async def refresh_tokens(req: RefreshRequest, db: AsyncSession = Depends(get_db)
     return TokenResponse(
         access_token=create_access_token(data={"sub": user.email, "role": user.role}),
         refresh_token=create_refresh_token(data={"sub": user.email, "role": user.role}),
+        id=user.id,
         role=user.role,
         full_name=user.full_name,
         department=user.department or "IT",
