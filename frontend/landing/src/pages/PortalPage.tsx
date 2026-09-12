@@ -37,6 +37,7 @@ export default function PortalPage() {
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [osTab, setOsTab] = useState<'linux' | 'windows'>('linux');
+  const [serverHost, setServerHost] = useState('localhost');
 
   useEffect(() => {
     (async () => {
@@ -265,9 +266,31 @@ export default function PortalPage() {
                     Your AegisOne instance is initialized and ready. Click below to launch the step-by-step setup engine and configure your organization.
                   </p>
 
+                  <div className="bg-[#eff6ff] p-4 rounded-xl border border-blue-100 mb-6 max-w-lg md:mx-0 mx-auto">
+                    <label className="block text-sm font-bold text-[#4A7FA7] mb-2 text-left">
+                      Where is your AegisOne Dashboard running?
+                    </label>
+                    <input 
+                      type="text" 
+                      value={serverHost}
+                      onChange={(e) => setServerHost(e.target.value)}
+                      className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-[#4A7FA7] focus:outline-none"
+                      placeholder="e.g. 192.168.100.5 or localhost"
+                    />
+                    <p className="text-xs text-blue-600 mt-2 text-left">
+                      Enter your server's local IP address if you are testing from another device on the network.
+                    </p>
+                  </div>
+
                   <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                     <a
-                      href={`http://${window.location.hostname}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.admin_name || org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`}
+                      href={(() => {
+                        let host = serverHost.trim() || 'localhost';
+                        host = host.replace(/^https?:\/\//, ''); // Strip protocol
+                        host = host.split('/')[0];               // Strip path
+                        host = host.split(':')[0];               // Strip port
+                        return `http://${host}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.admin_name || org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`;
+                      })()}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-2 bg-[#4A7FA7] hover:bg-[#3D6C90] text-white font-bold px-8 py-4 rounded-xl text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
