@@ -87,5 +87,24 @@ services:
       - "3000:3000"
     restart: unless-stopped
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # Database Backup — Automatic daily backups of PostgreSQL
+  # ──────────────────────────────────────────────────────────────────────────
+  db-backup:
+    image: prodrigestivill/postgres-backup-local
+    container_name: aegisone-db-backup
+    restart: always
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: aegisone
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aegisone_secret}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+    volumes:
+      - ./aegisone-backups:/backups
+    depends_on:
+      - db
+
 volumes:
   aegisone-pg-data: # PostgreSQL data — persists across restarts
