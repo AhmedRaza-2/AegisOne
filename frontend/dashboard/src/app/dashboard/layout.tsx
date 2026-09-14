@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import {
   Shield, LayoutDashboard, Search, History, AlertTriangle, Users, Settings,
-  Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, Bell, Menu, X,
+  Activity, FileBarChart, LogOut, ChevronLeft, ChevronRight, ChevronDown, Bell, Menu, X, Folder,
   UserCog, BarChart3, ClipboardList, ShieldCheck, Scan, Flag, Sun, Moon, Globe,
   Download, Key, Image, Monitor, Server, Clock, TrendingUp, Lightbulb, User, BrainCircuit, ShieldAlert, Building2, FileText, MessageSquare, Network, Puzzle, Mail
 } from "lucide-react";
@@ -17,50 +17,51 @@ interface NavItem {
   label: string;
   href: string;
   icon: typeof LayoutDashboard;
+  group?: string;
 }
 
 const navByRole: Record<string, NavItem[]> = {
   employee: [
-    { label: "Security Overview", href: "/dashboard/employee", icon: ShieldCheck },
-    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail },
-    { label: "Browser Protection", href: "/dashboard/employee/browser", icon: Puzzle },
-    { label: "Threat Center", href: "/dashboard/employee/threats", icon: ShieldAlert },
-    { label: "Communication", href: "/dashboard/employee/communication", icon: MessageSquare },
-    { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan },
-    { label: "History", href: "/dashboard/employee/history", icon: History },
+    { label: "Security Overview", href: "/dashboard/employee", icon: ShieldCheck, group: "" },
+    { label: "Email Security", href: "/dashboard/employee/email", icon: Mail, group: "Protection" },
+    { label: "Browser Protection", href: "/dashboard/employee/browser", icon: Puzzle, group: "Protection" },
+    { label: "Threat Center", href: "/dashboard/employee/threats", icon: ShieldAlert, group: "Protection" },
+    { label: "Manual Scan", href: "/dashboard/employee/scan", icon: Scan, group: "Tools" },
+    { label: "Communication", href: "/dashboard/employee/communication", icon: MessageSquare, group: "General" },
+    { label: "History", href: "/dashboard/employee/history", icon: History, group: "General" },
   ],
   manager: [
-    { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard },
-    { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users },
-    { label: "Email Security", href: "/dashboard/supervisor/email", icon: Mail },
-    { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert },
-    { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare },
-    { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart },
-    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
-    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
+    { label: "Dashboard", href: "/dashboard/supervisor", icon: LayoutDashboard, group: "" },
+    { label: "Employees", href: "/dashboard/supervisor/employees", icon: Users, group: "Team" },
+    { label: "Email Security", href: "/dashboard/supervisor/email", icon: Mail, group: "Security" },
+    { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert, group: "Security" },
+    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle, group: "Security" },
+    { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare, group: "General" },
+    { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart, group: "Analytics" },
+    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3, group: "Analytics" },
   ],
   admin: [
-    { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
-    { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2 },
-    { label: "Email Security", href: "/dashboard/admin/email", icon: Mail },
-    { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
-    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
-    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
-    { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle },
-    { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
-    { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList },
+    { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard, group: "" },
+    { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3, group: "" },
+    { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare, group: "" },
+    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3, group: "" },
+    { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2, group: "Team" },
+    { label: "Email Security", href: "/dashboard/admin/email", icon: Mail, group: "Protection" },
+    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle, group: "Protection" },
+    { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle, group: "Monitoring" },
+    { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList, group: "Monitoring" },
+    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck, group: "Settings" },
   ],
   super_admin: [
-    { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck },
-    { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe },
-    { label: "Email Security", href: "/dashboard/admin/email", icon: Mail },
-    { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
-    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3 },
-    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle },
-    { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare },
-    { label: "AI Models", href: "/dashboard/admin/models", icon: Activity },
+    { label: "Platform Overview", href: "/dashboard/admin", icon: LayoutDashboard, group: "" },
+    { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3, group: "" },
+    { label: "Communication", href: "/dashboard/admin/communication", icon: MessageSquare, group: "" },
+    { label: "Organizations", href: "/dashboard/admin/organizations", icon: Globe, group: "Global" },
+    { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck, group: "Global" },
+    { label: "Email Security", href: "/dashboard/admin/email", icon: Mail, group: "Security" },
+    { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle, group: "Security" },
+    { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3, group: "Security" },
+    { label: "AI Models", href: "/dashboard/admin/models", icon: Activity, group: "System" },
   ],
 };
 
@@ -78,15 +79,61 @@ function SidebarContent({
   toggleTheme,
   unreadCount,
 }: any) {
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    Protection: true, Security: true, Team: true, Monitoring: true, Settings: true, General: true, Tools: true, Analytics: true, Global: true, System: true
+  });
+
+  const toggleGroup = (group: string) => {
+    setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  const groupedItems = navItems.reduce((acc: Record<string, any[]>, item: any) => {
+    const g = item.group || "ungrouped";
+    if (!acc[g]) acc[g] = [];
+    acc[g].push(item);
+    return acc;
+  }, {});
+
+  const renderNavItem = (item: any, inset: boolean = false) => {
+    const isRoot = item.href === "/dashboard/admin" || item.href === "/dashboard/supervisor" || item.href === "/dashboard/employee";
+    const active = isRoot ? pathname === item.href : pathname.startsWith(item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={() => setMobileOpen(false)}
+        prefetch={true}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all relative group ${inset ? "ml-4" : ""} ${active
+          ? "bg-surface-100 dark:bg-white/[0.04] text-brand-600 dark:text-brand-400 font-semibold shadow-sm"
+          : "text-surface-600 hover:text-surface-900 hover:bg-surface-50 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02]"
+          }`}
+        title={collapsed ? item.label : undefined}
+      >
+        <item.icon className={`shrink-0 transition-colors ${active ? 'w-[18px] h-[18px]' : 'w-[18px] h-[18px] group-hover:text-surface-800 dark:group-hover:text-surface-300'}`} />
+        {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+
+        {item.label === "Communication" && unreadCount > 0 && (
+          collapsed ? (
+            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-[#141A29]"></div>
+          ) : (
+            <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-sm">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )
+        )}
+      </Link>
+    );
+  };
+
   return (
     <>
-      <div className="h-16 flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
+      <div className="h-[72px] flex flex-col justify-center px-6 shrink-0 border-b border-surface-200 dark:border-white/[0.04]">
         {!collapsed ? (
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="AegisOne Logo" className="w-9 h-9 object-contain shrink-0" />
             <div className="flex flex-col">
-              <span className="text-xl font-bold tracking-tight text-brand-600 dark:text-[#4F84F8]">AegisOne</span>
-              <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest mt-0.5">{roleBadge?.label || "Enterprise"} Portal</span>
+              <span className="text-[17px] font-bold tracking-tight text-brand-600 dark:text-[#4F84F8] leading-tight">AegisOne</span>
+              <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest font-semibold">{roleBadge?.label || "Enterprise"} Portal</span>
             </div>
           </div>
         ) : (
@@ -96,37 +143,28 @@ function SidebarContent({
         )}
       </div>
 
-      <nav className="flex-1 py-6 space-y-1 overflow-y-auto custom-scrollbar">
-        {navItems.map((item: any) => {
-          const isRoot = item.href === "/dashboard/admin" || item.href === "/dashboard/supervisor" || item.href === "/dashboard/employee";
-          const active = isRoot ? pathname === item.href : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              prefetch={true}
-              className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all relative ${active
-                ? "bg-surface-100 dark:bg-white/[0.02] text-surface-900 dark:text-white border-l-2 border-brand-500 dark:border-[#4F84F8]"
-                : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02] border-l-2 border-transparent"
-                }`}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className={`shrink-0 ${active ? 'w-4 h-4' : 'w-[15px] h-[15px]'}`} />
-              {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+        {/* Render ungrouped items first */}
+        {groupedItems["ungrouped"] && (
+          <div className="mb-2 space-y-1">
+            {groupedItems["ungrouped"].map((item: any) => renderNavItem(item))}
+          </div>
+        )}
 
-              {item.label === "Communication" && unreadCount > 0 && (
-                collapsed ? (
-                  <div className="absolute top-3 right-4 w-2 h-2 rounded-full bg-brand-500"></div>
-                ) : (
-                  <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )
-              )}
-            </Link>
-          );
-        })}
+        {/* Single subtle divider below ungrouped items */}
+        {groupedItems["ungrouped"] && Object.keys(groupedItems).length > 1 && (
+          <div className="flex justify-center py-2">
+            <div className="w-full h-[1px] bg-surface-200 dark:bg-white/[0.04] mx-2"></div>
+          </div>
+        )}
+
+        {/* Render grouped items statically without any more dividers */}
+        <div className="space-y-1">
+          {Object.entries(groupedItems).map(([group, items]: [string, any]) => {
+            if (group === "ungrouped") return null;
+            return items.map((item: any) => renderNavItem(item, false));
+          })}
+        </div>
       </nav>
 
       <div className="p-4 shrink-0 mt-auto border-t border-surface-200 dark:border-white/[0.04] relative">

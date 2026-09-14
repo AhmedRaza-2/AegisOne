@@ -150,6 +150,9 @@ async def send_message(
     - Employee → Admin direct: BLOCKED
     - Admin → Employee direct: BLOCKED
     """
+    if current_user.id is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     if msg.msg_type == "direct":
         if not msg.receiver_id:
             raise HTTPException(status_code=400, detail="receiver_id required for direct message")

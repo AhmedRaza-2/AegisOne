@@ -180,6 +180,7 @@ class WebsiteScan(Base):
     # JSON list: ["url_model", "text_model", ...]
     top_factors      = Column(Text,        default="[]")
     # JSON list of reason strings — no raw page content
+    xai_explanation  = Column(Text,        nullable=True)
     scan_duration_ms = Column(Float,       default=0.0)
     from_cache       = Column(Boolean,     default=False)
     created_at       = Column(DateTime,    server_default=func.now(), index=True)

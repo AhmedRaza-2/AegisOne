@@ -975,7 +975,7 @@ export default function AdminSetupPage() {
                                     }}
                                     className="w-24 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono font-bold"
                                   />
-                                  <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+                                  <Edit2 className="w-3 h-3 text-slate-400 opacity-50 group-hover/cell:opacity-100 transition-opacity" />
                                 </div>
                               </td>
                               <td className="py-2.5 px-4">
@@ -998,7 +998,7 @@ export default function AdminSetupPage() {
                                     }}
                                     className="w-24 bg-transparent outline-none text-slate-700 dark:text-slate-300 border-b border-transparent focus:border-blue-500"
                                   />
-                                  <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+                                  <Edit2 className="w-3 h-3 text-slate-400 opacity-50 group-hover/cell:opacity-100 transition-opacity" />
                                 </div>
                               </td>
                               <td className="py-2.5 px-4 font-mono text-slate-600 dark:text-slate-400">
@@ -1012,7 +1012,7 @@ export default function AdminSetupPage() {
                                     }}
                                     className="w-56 bg-transparent outline-none border-b border-transparent focus:border-blue-500 font-mono"
                                   />
-                                  <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+                                  <Edit2 className="w-3 h-3 text-slate-400 opacity-50 group-hover/cell:opacity-100 transition-opacity" />
                                 </div>
                               </td>
                               <td className="py-2.5 px-4">
