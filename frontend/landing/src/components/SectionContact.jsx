@@ -23,14 +23,14 @@ const SectionContact = () => {
         <section id="contact" className="px-4">
             <div className="max-w-7xl mx-auto py-20">
 
-                <SectionHeading heading="Request Enterprise Demo" content="Ready to secure your organization? Get in touch with our security team to schedule a demo or trial." />
+                <SectionHeading heading="See AegisOne in Action" content="Have questions or want a quick walkthrough? We'd love to help you protect your team." />
 
                 <div className='grid gap-10 md:grid-cols-2'>
                     <div>
-                        <h3>Let's secure your organization</h3>
+                        <h3>Let's keep your team safe</h3>
                         <p className='mt-4'>
-                            Have questions about onboarding, custom policies, or model integration?
-                            Our security response team is here to assist.
+                            Have questions about setup, custom policies, or browser compatibility?
+                            Our friendly team is here to help you get started quickly.
                         </p>
                         <div className='mt-6 flex flex-col gap-6'>
                             {

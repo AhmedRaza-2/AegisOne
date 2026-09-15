@@ -142,12 +142,7 @@ export default function AdminCommunicationPage() {
   useEffect(() => {
     if (!activeContact) { setThread([]); return; }
     fetch(`${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
-      .then(r => r.json()).then(d => { 
-        if (Array.isArray(d)) {
-          setThread(d); 
-          setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
-        }
-      });
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); });
   }, [activeContact]);
 
   const handleSend = async (text: string) => {

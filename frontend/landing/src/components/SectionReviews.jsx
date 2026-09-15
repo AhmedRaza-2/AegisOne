@@ -61,8 +61,8 @@ const SectionReviews = () => {
         <section id="reviews" className="py-14 overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 mb-10">
                 <SectionHeading
-                    heading="Trusted by Security Experts"
-                    content="Hear from CISOs, IT security directors, and DevOps teams protecting their workforces with AegisOne"
+                    heading="Trusted by Teams & Leaders"
+                    content="See how organizations keep employees safe from scams without slowing down their workday"
                 />
             </div>
 

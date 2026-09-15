@@ -3,24 +3,24 @@ import SectionHeading from '../ui-elements/SectionHeading'
 
 const SectionTechStack = () => {
     const technologies = [
-        { name: "FastAPI", category: "Backend Gateway" },
-        { name: "PyTorch", category: "Deep Learning Core" },
-        { name: "Transformers", category: "DistilBERT NLP" },
-        { name: "EfficientNet-B3", category: "Computer Vision" },
-        { name: "Tesseract OCR", category: "Text Extraction" },
-        { name: "PostgreSQL", category: "Relational DB" },
-        { name: "Redis", category: "Aggressive Cache" },
-        { name: "SQLAlchemy", category: "Python ORM" },
-        { name: "Manifest V3", category: "Browser Extension" },
-        { name: "Docker", category: "Containerization" },
-        { name: "React & Vite", category: "Frontend Dashboard" },
-        { name: "Framer Motion", category: "Animations" },
+        { name: "FastAPI", category: "Fast API Engine" },
+        { name: "PyTorch", category: "AI Detection Models" },
+        { name: "Transformers", category: "Smart Text & URL Analysis" },
+        { name: "EfficientNet-B3", category: "Logo & Brand Vision" },
+        { name: "Tesseract OCR", category: "Visual Text Reader" },
+        { name: "PostgreSQL", category: "Secure Database" },
+        { name: "Redis", category: "Instant Memory Cache" },
+        { name: "SQLAlchemy", category: "Data Layer" },
+        { name: "Manifest V3", category: "Chrome & Edge Extension" },
+        { name: "Docker", category: "One-Command Setup" },
+        { name: "React & Vite", category: "Clean Web Dashboard" },
+        { name: "Framer Motion", category: "Smooth Interfaces" },
     ];
 
     return (
         <section id="stack" className="py-14 px-4">
             <div className='max-w-7xl m-auto'>
-                <SectionHeading heading="Enterprise-Grade Architecture" content="Built on secure, robust, and scalable technologies trusted by global enterprises" />
+                <SectionHeading heading="Fast, Modern Technology" content="Built with lightweight, privacy-first tools engineered to protect your team in milliseconds" />
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {technologies.map((tech, index) => (

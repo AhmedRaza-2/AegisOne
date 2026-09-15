@@ -2,9 +2,17 @@
   "name": "aegisone-root",
   "version": "2.1.0",
   "description": "AegisOne AI Security Copilot Platform",
+  "type": "module",
   "scripts": {
+    "dev": "npm --prefix frontend/landing run dev",
+    "build": "npm --prefix frontend/landing run build && mkdir -p dist && cp -rf frontend/landing/dist/* dist/",
+    "lint": "npm --prefix frontend/landing run lint",
+    "preview": "npm --prefix frontend/landing run preview",
+    "postinstall": "npm --prefix frontend/landing install",
     "test:extension": "python tests/run_extension_tests.py --sweep",
     "test:extension:real": "python tests/run_real_extension_tests.py --sweep"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {}
 }
+

@@ -67,12 +67,7 @@ export default function EmployeeCommunicationPage() {
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
       fetch(`${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
-        .then(r => r.json()).then(d => { 
-          if (Array.isArray(d)) {
-            setThread(d); 
-            setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
-          }
-        }).catch(() => { });
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setThread(d); }).catch(() => { });
     load();
     pollRef.current = setInterval(load, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };

@@ -90,21 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("user", JSON.stringify(parsedUser));
         setCookie("aegis_access_token", token);
         setCookie("aegis_user", JSON.stringify(parsedUser));
-
-        // Background fetch to ensure we have the absolute latest user data (including ID)
-        fetch(`${API_BASE}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data && data.id) {
-            const updatedUser = { ...parsedUser, ...data };
-            setUser(updatedUser);
-            localStorage.setItem("user", JSON.stringify(updatedUser));
-            setCookie("aegis_user", JSON.stringify(updatedUser));
-          }
-        })
-        .catch(err => console.error("[AuthProvider] Failed to fetch latest user info:", err));
       } catch (e) {
         console.error("[AuthProvider] Error parsing session:", e);
       }
@@ -153,7 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = data.access_token;
       const userRole = data.role || requestedRole || "employee";
       const loggedUser = {
-        id: data.id,
         email: email,
         full_name: data.full_name || email.split("@")[0],
         role: userRole,
