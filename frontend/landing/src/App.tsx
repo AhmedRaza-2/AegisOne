@@ -15,8 +15,6 @@ import InvisibleRisk from './components/InvisibleRisk';
 import OnboardingFlow from './components/OnboardingFlow';
 import DeploymentStack from './components/DeploymentStack';
 import ReadySection from './components/ReadySection';
-import Footer from './components/Footer';
-
 import { 
   ShieldCheck, X, Check, Server, Database, Key, Send, Copy, Sparkles, 
   ArrowRight, Calendar, Clock, Mail, User, MessageSquare, ExternalLink, ShieldAlert
@@ -190,7 +188,11 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1" id="main-content">
         <div className="animate-fadeIn">
-          <HeroSection />
+          <HeroSection
+            onSelectPlan={(planId, billingCycle) => {
+              navigate(`/register?plan=${planId}&billing=${billingCycle}`);
+            }}
+          />
           <SectionServices />
           <SectionProcess />
           <SectionTechStack />

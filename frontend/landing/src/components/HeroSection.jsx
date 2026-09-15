@@ -1,8 +1,25 @@
+import { useState } from "react"
 import { ArrowDown, ArrowRight, ChevronDown, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
 import Button from "../ui-elements/Button"
+import PricingPanel from "./PricingPanel"
 
-const HeroSection = () => {
+const HeroSection = ({ onSelectPlan }) => {
+    const [showPricingPanel, setShowPricingPanel] = useState(false);
+
+    const handleGetStartedClick = () => {
+        setShowPricingPanel(true);
+        setTimeout(() => {
+            const el = document.getElementById('pricing-panel');
+            if (el) {
+                const headerOffset = 110; // Account for fixed SiteHeader height
+                const elementPosition = el.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+            }
+        }, 150);
+    };
+
     return (
         <section className="px-4 min-h-svh bg-gradient">
             <div className="min-h-svh max-w-7xl mx-auto pt-16 pb-10 flex flex-col items-center justify-center gap-6 text-center">
@@ -43,11 +60,18 @@ const HeroSection = () => {
                     transition={{ duration: 0.8, delay: 1 }}
                     className="w-full flex flex-col sm:flex-row justify-center gap-4"
                 >
-                    <Button href="/register">
+                    <Button onClick={handleGetStartedClick}>
                         Get Started
                         <ArrowRight className="group-hover:translate-x-2 transition-transform" size={20} />
                     </Button>
                 </motion.div>
+
+                {/* Inline Expandable Pricing & Packages Panel */}
+                <PricingPanel
+                    isOpen={showPricingPanel}
+                    onClose={() => setShowPricingPanel(false)}
+                    onSelectPlan={onSelectPlan}
+                />
 
                 {/* Full-Fledged SaaS Dashboard Screenshot Preview Mockup */}
                 <motion.div

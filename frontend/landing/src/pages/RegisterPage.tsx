@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
 import {
   Building2, User, Mail, Lock, Phone, Globe, Users, Briefcase,
-  ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff, X
+  ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff, X, Sparkles, Check
 } from 'lucide-react';
 import { registerOrganization } from '../lib/org-service';
+import { PRICING_PLANS, getPlanByEmployeeCount, getPlanById, isValidPlan } from '../config/pricingConfig';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const INDUSTRIES = [
@@ -21,11 +22,9 @@ const COUNTRIES = [
 ];
 
 const EMP_RANGES = [
-  { label: '1 – 25', value: 25 },
-  { label: '26 – 100', value: 100 },
-  { label: '101 – 500', value: 500 },
-  { label: '501 – 1000', value: 1000 },
-  { label: '1000+', value: 5000 },
+  { label: '1 – 100 Employees', value: 100 },
+  { label: '101 – 1000 Employees', value: 500 },
+  { label: '1000+ Employees', value: 1000 },
 ];
 
 // ─── Step Indicator ──────────────────────────────────────────────────────────
@@ -81,6 +80,7 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
 
   // Form state
   const [form, setForm] = useState({
@@ -95,6 +95,27 @@ export default function RegisterPage() {
     confirm_password: '',
     agreed: false,
   });
+
+  // Parse URL query params on mount for plan & billing
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const planParam = params.get('plan');
+    const billingParam = params.get('billing');
+
+    if (billingParam === 'monthly' || billingParam === 'annual') {
+      setBillingCycle(billingParam);
+    }
+
+    if (isValidPlan(planParam)) {
+      const initialPlan = getPlanById(planParam);
+      setForm(prev => ({ ...prev, employee_count: initialPlan.apiValue }));
+    }
+  }, []);
+
+  // Derive active package tier dynamically from employee_count (real-time bi-directional sync)
+  const activePlan = useMemo(() => {
+    return getPlanByEmployeeCount(form.employee_count);
+  }, [form.employee_count]);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setError('');
@@ -190,7 +211,7 @@ export default function RegisterPage() {
           <div className="w-[600px] h-[600px] bg-[#4A7FA7]/5 rounded-full blur-[120px]" />
         </div>
 
-        <div className="w-full max-w-lg relative z-10">
+        <div className="w-full max-w-2xl relative z-10">
 
           {/* Header — single clean title */}
           <div className="text-center mb-4">
@@ -212,54 +233,82 @@ export default function RegisterPage() {
           <div className="bg-white border border-[#E1EBF2] rounded-2xl p-5 md:p-6 shadow-md">
             <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} className="space-y-4" noValidate>
 
-              {/* ── STEP 1: Organization ── */}
-              {step === 1 && (
-                <>
-                  <Field label="Organization Name" icon={<Building2 className="w-3 h-3 text-[#4A6D8C]" />}>
-                    <input
-                      id="org-name"
-                      type="text"
-                      className={inputCls}
-                      placeholder="e.g. ABC Software House"
-                      value={form.name}
-                      onChange={set('name')}
-                      autoFocus
-                    />
-                  </Field>
+                  {/* ── STEP 1: Organization ── */}
+                  {step === 1 && (
+                    <>
+                      <Field label="Organization Name" icon={<Building2 className="w-3 h-3 text-[#4A6D8C]" />}>
+                        <input
+                          id="org-name"
+                          type="text"
+                          className={inputCls}
+                          placeholder="e.g. ABC Software House"
+                          value={form.name}
+                          onChange={set('name')}
+                          autoFocus
+                        />
+                      </Field>
 
-                  <Field label="Industry" icon={<Briefcase className="w-3 h-3 text-[#4A6D8C]" />}>
-                    <select id="industry" className={selectCls} value={form.industry} onChange={set('industry')}>
-                      <option value="">Select industry...</option>
-                      {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
-                    </select>
-                  </Field>
+                      <Field label="Industry" icon={<Briefcase className="w-3 h-3 text-[#4A6D8C]" />}>
+                        <select id="industry" className={selectCls} value={form.industry} onChange={set('industry')}>
+                          <option value="">Select industry...</option>
+                          {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
+                        </select>
+                      </Field>
 
-                  <Field label="Country / Region" icon={<Globe className="w-3 h-3 text-[#4A6D8C]" />}>
-                    <select id="country" className={selectCls} value={form.country} onChange={set('country')}>
-                      <option value="">Select country...</option>
-                      {COUNTRIES.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                  </Field>
+                      <Field label="Country / Region" icon={<Globe className="w-3 h-3 text-[#4A6D8C]" />}>
+                        <select id="country" className={selectCls} value={form.country} onChange={set('country')}>
+                          <option value="">Select country...</option>
+                          {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                      </Field>
 
-                  <Field label="Approximate Employees" icon={<Users className="w-3 h-3 text-[#4A6D8C]" />}>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                      {EMP_RANGES.map(r => (
-                        <button
-                          type="button"
-                          key={r.value}
-                          onClick={() => setForm(p => ({ ...p, employee_count: r.value }))}
-                          className={`py-2 px-1 rounded-lg border text-xs font-semibold transition-all ${form.employee_count === r.value
-                              ? 'bg-[#0A5ED6]/10 border-[#0A5ED6] text-[#0A5ED6]'
-                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-[#0A5ED6]'
-                            }`}
-                        >
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                </>
-              )}
+                      {/* Single Unified Protection Plan & Organization Size Selector */}
+                      <Field label="Security Package & Workforce Scale" icon={<Users className="w-3 h-3 text-[#4A6D8C]" />}>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          {EMP_RANGES.map(r => {
+                            const plan = getPlanByEmployeeCount(r.value);
+                            const isSelected = form.employee_count === r.value;
+                            const price = billingCycle === 'annual' ? plan.annualEquivalentMonthly : plan.monthlyPrice;
+
+                            return (
+                              <button
+                                type="button"
+                                key={r.value}
+                                onClick={() => setForm(p => ({ ...p, employee_count: r.value }))}
+                                className={`p-3.5 rounded-xl border transition-all text-left flex flex-col justify-between relative cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-gradient-to-b from-blue-50/80 to-white border-[#0A5ED6] ring-2 ring-[#0A5ED6]/20 shadow-sm'
+                                    : 'bg-[#F6FAFD] border-[#E1EBF2] hover:border-[#0A5ED6]/50 hover:bg-white text-slate-700'
+                                }`}
+                              >
+                                {isSelected && (
+                                  <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-[#0A5ED6] text-white flex items-center justify-center">
+                                    <Check className="w-3 h-3" />
+                                  </div>
+                                )}
+
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className={`text-xs font-extrabold ${isSelected ? 'text-[#0A5ED6]' : 'text-[#0A1931]'}`}>
+                                      {plan.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-semibold text-slate-600 block mb-2">
+                                    {r.label}
+                                  </span>
+                                </div>
+
+                                <div className="border-t border-[#E1EBF2]/80 pt-2 flex items-baseline justify-between w-full">
+                                  <span className="text-sm font-extrabold text-[#0A1931]">${price}<span className="text-[10px] font-normal text-slate-500">/mo</span></span>
+                                  <span className="text-[10px] text-slate-400 font-medium">{billingCycle === 'annual' ? 'Billed annually' : 'Monthly'}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </Field>
+                    </>
+                  )}
 
               {/* ── STEP 2: Admin ── */}
               {step === 2 && (
