@@ -5,33 +5,33 @@ import SectionHeading from "../ui-elements/SectionHeading"
 const steps = [
     {
         icon: Activity,
-        title: "Invisible Protection Layer",
-        description: "The AegisOne agent runs silently in the background of your employees' browsers, protecting them without disrupting their workflow.",
+        title: "Quiet Background Protection",
+        description: "AegisOne runs seamlessly inside employee browsers, protecting every click without slowing down web pages or interrupting tasks.",
     },
     {
         icon: Shield,
-        title: "Instant Policy Enforcement",
-        description: "Every action is instantly verified against your custom organizational security policies—without data ever leaving your network.",
+        title: "Instant Safety Check",
+        description: "Every link and page is checked against your safety rules in a fraction of a second, with zero data ever leaving your trusted office.",
     },
     {
         icon: Cpu,
-        title: "Zero-Trust Analysis",
-        description: "Key threat indicators are extracted and analyzed locally, ensuring your company's proprietary data remains completely confidential.",
+        title: "Private On-Device Review",
+        description: "Scans run locally on your own equipment, ensuring your company documents and sensitive info stay 100% confidential.",
     },
     {
         icon: GitFork,
-        title: "Smart Threat Detection",
-        description: "Sophisticated AI models automatically categorize and neutralize incoming threats, phishing links, and malicious downloads before they reach the user.",
+        title: "Smart Threat Blocking",
+        description: "Intelligent AI filters quickly flag and block deceptive websites, fake forms, and malicious downloads before harm can occur.",
     },
     {
         icon: Brain,
-        title: "Continuous Learning Engine",
-        description: "Our system constantly adapts to new, unseen phishing attacks and sophisticated social engineering techniques in real-time.",
+        title: "Always Learning & Adapting",
+        description: "Our system automatically stays up to date against brand new scams, phishing patterns, and tricky lookalike domains in real time.",
     },
     {
         icon: Lock,
-        title: "Automated Incident Response",
-        description: "Threats are blocked immediately, and your security team receives instant alerts and actionable data to proactively manage organizational risk.",
+        title: "Clear Alerts & Fast Reports",
+        description: "Suspicious pages are stopped on the spot, and your IT dashboard gets clear, simple summaries to keep everyone protected.",
     },
 ]
 
@@ -40,7 +40,7 @@ const SectionProcess = () => {
     return (
         <section id="process" className="px-4">
             <div className="max-w-7xl mx-auto py-14">
-                <SectionHeading heading="Frictionless Security Lifecycle" content="Protecting your organization from the first click to the final block, entirely in the background." />
+                <SectionHeading heading="How AegisOne Works" content="Effortless protection from the first click to the final warning, running quietly in the background." />
 
                 <div className="relative flex flex-col gap-2">
 

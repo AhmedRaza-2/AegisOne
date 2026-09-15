@@ -11,7 +11,7 @@
 
   :root {
     --text-color: #0A1931;
-    --background-color: #F6FAFD;
+    --background-color: #FAFAFA;
     --font-primary: "Outfit", sans-serif;
   }
 
@@ -52,7 +52,7 @@
 }
 
 @utility bg-gradient {
-  background-image: linear-gradient(to top, #FFFFFF, #F6FAFD);
+  background-image: linear-gradient(to top, #FFFFFF, #FAFAFA);
 }
 
 /* Globally reduce the font size of the website by 5% */

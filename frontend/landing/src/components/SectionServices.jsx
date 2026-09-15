@@ -5,33 +5,33 @@ import SectionHeading from "../ui-elements/SectionHeading";
 const services = [
     {
         icon: Link,
-        title: "Link Protection",
-        description: "Automatically blocks fraudulent links, preventing your employees from accidentally handing over corporate credentials.",
+        title: "Fake Link Protection",
+        description: "Automatically spots and blocks deceptive links before employees can accidentally give away their passwords.",
     },
     {
         icon: FileText,
-        title: "Social Engineering Defense",
-        description: "Analyzes language and context to stop targeted executive spoofing and invoice fraud attempts in their tracks.",
+        title: "Scam & Spoof Defense",
+        description: "Detects urgent email scams, fake executive messages, and invoice tricks before anyone sends sensitive info.",
     },
     {
         icon: Eye,
-        title: "Brand Impersonation Shield",
-        description: "Identifies fake login pages and QR code exploits disguised as the trusted enterprise tools your company uses daily.",
+        title: "Brand & Login Shield",
+        description: "Identifies lookalike login pages and sneaky QR codes disguised as Microsoft, Google, or daily workplace apps.",
     },
     {
         icon: FileDown,
-        title: "Safe File Gateway",
-        description: "Stops weaponized documents and ransomware from ever touching your employees' hard drives or company network.",
+        title: "Safe Downloads",
+        description: "Catches malicious attachments and hidden files before they ever reach your computer or office network.",
     },
     {
         icon: Brain,
-        title: "Instant Threat Visibility",
-        description: "Gives your SOC team clear, actionable reports on why a threat was blocked, drastically reducing investigation time.",
+        title: "Clear, Friendly Warnings",
+        description: "Explains exactly why a page was flagged in plain English so your team understands what happened without confusion.",
     },
     {
         icon: ShieldAlert,
-        title: "Zero Liability Tracking",
-        description: "Protects your company from compliance risks. Security events are logged, but raw employee browsing history remains 100% private.",
+        title: "100% Private Browsing",
+        description: "Blocks threats reliably without ever tracking, recording, or snooping on employees' personal browsing habits.",
     },
 ];
 
@@ -40,7 +40,7 @@ const SectionServices = () => {
     return (
         <section id="services" className="px-4">
             <div className="max-w-7xl m-auto py-14">
-                <SectionHeading heading="Enterprise Risk Mitigation" content="A unified defense framework securing your organization across every vector of attack." />
+                <SectionHeading heading="Simple, Complete Protection" content="Everything your team needs to browse safely without complicated setups or annoying interruptions." />
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {services.map((service, index) => {

@@ -4,23 +4,23 @@ import { Cpu, Eye, Target, Shield } from "lucide-react";
 const values = [
     {
         icon: Cpu,
-        title: "Zero Disruption",
-        description: "Runs silently in the background without slowing down devices or interrupting employee workflows.",
+        title: "Zero Slowdowns",
+        description: "Runs smoothly in the background without hogging RAM, freezing pages, or interrupting your workday.",
     },
     {
         icon: Eye,
-        title: "Clear Threat Context",
-        description: "Security alerts are provided in plain English, ensuring your team knows exactly why a site was blocked.",
+        title: "Clear, Friendly Warnings",
+        description: "Alerts explain exactly why a link or page was flagged in plain English—no confusing error codes.",
     },
     {
         icon: Target,
-        title: "Unified Risk Management",
-        description: "Comprehensive protection across URLs, text, images, and attachments under a single pane of glass.",
+        title: "All-in-One Safety",
+        description: "Comprehensive protection against phishing links, fake login screens, and malicious file downloads.",
     },
     {
         icon: Shield,
-        title: "100% Data Privacy",
-        description: "Aggregates critical security metrics without ever tracking or storing your employees' private browsing history.",
+        title: "100% Privacy by Design",
+        description: "Blocks online threats without ever tracking, logging, or snooping on employees' personal browsing habits.",
     },
 ];
 
@@ -221,12 +221,12 @@ const SectionGallery = () => {
 
                     {/* Text content */}
                     <div className='lg:order-1'>
-                        <h2>Core <span className='text-gradient bg-clip-text text-transparent'>Security Principles</span></h2>
+                        <h2>Why Teams Love <span className='text-gradient bg-clip-text text-transparent'>AegisOne</span></h2>
                         <p className='text-base text-zinc-500 mt-3'>
-                            AegisOne is designed to be the ultimate safety net for your workforce. It protects your company from sophisticated phishing, credential theft, and deceptive web content, stopping threats before they ever compromise your network.
+                            AegisOne is built to be a reliable safety net for your everyday workday. Instead of complex software that slows your browser down or invades privacy, AegisOne works quietly behind the scenes to keep scams, malicious downloads, and fake logins away.
                         </p>
                         <p className='mt-4 text-base text-zinc-500'>
-                            We handle all the heavy lifting on our secure enterprise infrastructure. Your employees get instant, clear warnings directly at the point of risk — ensuring zero disruption to their daily productivity while maintaining total data sovereignty.
+                            Your employees get instant, easy-to-understand guidance directly in their browser — ensuring peace of mind with zero disruption to daily productivity and complete privacy for everyone.
                         </p>
                         <div className='mt-6 grid gap-4 md:grid-cols-2'>
                             {values.map((value, index) => (
