@@ -523,9 +523,180 @@ class Incident(Base):
     resolved_at = Column(DateTime, nullable=True)
     resolved_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    # Additive fields for Phase 1-5 Feedback & Learning Lifecycle
+    incident_id = Column(String(100), unique=True, nullable=True, index=True)
+    organization_id = Column(String(64), nullable=True, default="org_default", index=True)
+    report_type = Column(String(50), nullable=True, default="false_positive")
+    detection_event_ref = Column(String(255), nullable=True)
+    model_version = Column(String(50), nullable=True)
+    predicted_class = Column(String(50), nullable=True)
+    risk_score = Column(Integer, nullable=True)
+    admin_decision = Column(String(50), nullable=True) # FALSE_POSITIVE, FALSE_NEGATIVE, CONFIRMED_PHISHING, BENIGN, INVALID, NEEDS_INVESTIGATION
+    admin_notes = Column(Text, nullable=True)
+    verified_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+
     scan = relationship("ScanLog", back_populates="incidents")
     reporter = relationship("User", foreign_keys=[reported_by_id], back_populates="reported_incidents")
     resolver = relationship("User", foreign_keys=[resolved_by_id], back_populates="resolved_incidents")
+    verifier = relationship("User", foreign_keys=[verified_by_id])
+    reports = relationship("IncidentReport", back_populates="incident", cascade="all, delete-orphan")
+
+
+class IncidentReport(Base):
+    """Individual employee report linked to a correlated Incident."""
+    __tablename__ = "incident_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    report_id = Column(String(100), unique=True, nullable=False, index=True)
+    incident_id = Column(Integer, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, default="org_default", index=True)
+    
+    report_type = Column(String(50), nullable=False, default="false_positive") # false_positive, false_negative, phishing, benign, incorrect_detection
+    target_type = Column(String(50), nullable=False, default="url") # url, email, text, image, file
+    target_ref = Column(String(500), nullable=True) # URL, email subject, scan ID
+    
+    scan_id = Column(String(100), nullable=True)
+    event_id = Column(String(100), nullable=True)
+    model_version = Column(String(50), nullable=True)
+    predicted_class = Column(String(50), nullable=True)
+    risk_score = Column(Integer, nullable=True)
+    
+    user_notes = Column(Text, nullable=True)
+    status = Column(String(50), default="submitted") # submitted, under_review, verified, rejected
+    
+    created_at = Column(DateTime, server_default=func.now())
+    
+    reporter = relationship("User", foreign_keys=[user_id])
+    incident = relationship("Incident", foreign_keys=[incident_id], back_populates="reports")
+
+
+class TrainingCandidate(Base):
+    """Verified feedback sample converted into local training sample candidate."""
+    __tablename__ = "training_candidates"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    candidate_id = Column(String(100), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, default="org_default", index=True)
+    incident_id = Column(Integer, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
+    
+    model_type = Column(String(50), nullable=False, index=True) # url, email, text, image
+    label = Column(String(50), nullable=False) # phishing, benign
+    content_fingerprint = Column(String(128), nullable=False, index=True) # sha256 normalized hash for deduplication
+    
+    sample_data = Column(JSON, nullable=False) # Normalized sample dict (URL, text, features, etc.)
+    verified_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    status = Column(String(50), default="pending", index=True) # pending, used, rejected
+    used_in_job_id = Column(String(100), nullable=True)
+    
+    created_at = Column(DateTime, server_default=func.now())
+    used_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_tc_org_fingerprint", "organization_id", "content_fingerprint", unique=True),
+    )
+
+
+class TrainingJob(Base):
+    """Async background model retraining job."""
+    __tablename__ = "training_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(String(100), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, default="org_default", index=True)
+    
+    model_type = Column(String(50), nullable=False) # url, email, text, image
+    base_model_version = Column(String(50), nullable=False)
+    target_adapter_version = Column(String(50), nullable=False)
+    
+    candidate_count = Column(Integer, default=0)
+    training_method = Column(String(50), default="lora") # lora, fine_tuning, cpu_fallback
+    
+    status = Column(String(50), default="queued", index=True) # queued, running, completed, failed, rejected
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    metrics_json = Column(JSON, nullable=True) # {accuracy, precision, recall, f1, fpr, fnr}
+    error_message = Column(Text, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class ModelVersion(Base):
+    """Model registry for base models and local adapters."""
+    __tablename__ = "model_versions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    version_id = Column(String(100), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, default="org_default", index=True) # "global" or org_id
+    
+    model_type = Column(String(50), nullable=False, index=True) # url, email, text, image
+    version_tag = Column(String(50), nullable=False) # e.g. "v1.0", "v23"
+    base_global_version = Column(String(50), nullable=True)
+    
+    is_global_base = Column(Boolean, default=False)
+    artifact_path = Column(String(500), nullable=False)
+    metrics_json = Column(JSON, nullable=True)
+    
+    is_active = Column(Boolean, default=False)
+    is_production = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class OrgLearningPolicy(Base):
+    """Per-organization privacy and contribution policy."""
+    __tablename__ = "org_learning_policies"
+
+    organization_id = Column(String(64), primary_key=True)
+    allow_global_contribution = Column(Boolean, default=False, nullable=False) # OFF BY DEFAULT
+    auto_anonymize = Column(Boolean, default=True, nullable=False)
+    allowed_model_types = Column(JSON, default=["url", "email", "text", "image"])
+    
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("allow_global_contribution", False)
+        kwargs.setdefault("auto_anonymize", True)
+        kwargs.setdefault("allowed_model_types", ["url", "email", "text", "image"])
+        super().__init__(**kwargs)
+
+
+class GlobalContribution(Base):
+    """Approved, privacy-filtered training data contributed to AEGIS Central."""
+    __tablename__ = "global_contributions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    contribution_id = Column(String(100), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    approved_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    model_type = Column(String(50), nullable=False)
+    sample_count = Column(Integer, default=0)
+    anonymized_payload = Column(JSON, nullable=False)
+    
+    status = Column(String(50), default="pending", index=True) # pending, validated, accepted, rejected
+    validation_notes = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class GlobalModelRelease(Base):
+    """Catalog of released AEGIS Global Base models."""
+    __tablename__ = "global_model_releases"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    release_id = Column(String(100), unique=True, nullable=False, index=True)
+    version_tag = Column(String(50), nullable=False, index=True) # e.g. "v10.0"
+    model_type = Column(String(50), nullable=False)
+    checksum = Column(String(128), nullable=True)
+    artifact_url = Column(String(500), nullable=True)
+    metrics_json = Column(JSON, nullable=True)
+    release_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 # ══════════════════════════════════════════════════════════════════════════════

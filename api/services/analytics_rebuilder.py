@@ -33,7 +33,9 @@ async def rebuild_dashboard_statistics(
         target_d = curr_date
 
         def today_filter(col):
-            return cast(col, Date) == target_d
+            start_dt = datetime.combine(target_d, datetime.min.time())
+            end_dt = datetime.combine(target_d, datetime.max.time())
+            return col.between(start_dt, end_dt)
 
         # 1. Scans & Decisions
         total_scans = await db.scalar(

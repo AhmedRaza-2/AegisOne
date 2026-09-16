@@ -25,6 +25,7 @@ if DATABASE_URL.startswith("postgresql"):
 
 engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+AsyncSessionLocal = async_session
 
 
 class Base(DeclarativeBase):
@@ -66,6 +67,14 @@ async def init_db():
             HoverScan,
             Message,
             EmailSecurityEvent,
+            Incident,
+            IncidentReport,
+            TrainingCandidate,
+            TrainingJob,
+            ModelVersion,
+            OrgLearningPolicy,
+            GlobalContribution,
+            GlobalModelRelease,
         )
         await conn.run_sync(Base.metadata.create_all)
     logger.info("PostgreSQL Database initialized successfully.")

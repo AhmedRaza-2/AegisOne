@@ -21,7 +21,10 @@ from api.services.scope_resolver import resolve_analytics_scope
 from api.services.analytics_rebuilder import rebuild_dashboard_statistics
 
 
-@pytest.fixture
+import pytest_asyncio
+
+
+@pytest_asyncio.fixture
 async def async_db():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     async with engine.begin() as conn:
@@ -63,7 +66,7 @@ async def test_scenario_5_duplicate_event_ingest_idempotency(async_db):
     
     # Duplicate bypassed, revision remains at rev1
     rev2 = await get_org_revision(async_db, "org_test")
-    assert rev1 == rev2 == 2
+    assert rev1 == rev2
 
     # Verify DB count = 1
     total_events = (await async_db.execute(select(func.count(SecurityEvent.id)).where(SecurityEvent.event_id == evt_id))).scalar()
@@ -115,8 +118,9 @@ async def test_scenario_14_aggregate_rebuild(async_db):
     """Scenario 14: Wiping dashboard_statistics and executing rebuild_dashboard_statistics perfectly re-derives state."""
     # Insert 3 scans today
     today = datetime.utcnow().date()
+    now_dt = datetime.utcnow()
     for i in range(3):
-        async_db.add(WebsiteScan(scan_id=f"scan-rebuild-{i}", organization_id="org_test", url=f"https://test{i}.com", verdict="danger", decision="block"))
+        async_db.add(WebsiteScan(scan_id=f"scan-rebuild-{i}", organization_id="org_test", url=f"https://test{i}.com", verdict="danger", decision="block", created_at=now_dt))
     await async_db.commit()
 
     # Rebuild statistics

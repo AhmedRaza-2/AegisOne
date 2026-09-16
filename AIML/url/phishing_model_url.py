@@ -79,6 +79,11 @@ def extract_url_numerical_features(url: str) -> torch.Tensor:
     return torch.tensor(features, dtype=torch.float32)
 
 
+def batch_extract_url_features(urls: list) -> torch.Tensor:
+    """Extract numerical feature tensors for a batch of URLs."""
+    return torch.stack([extract_url_numerical_features(u) for u in urls])
+
+
 # ═══════════════════════════════════════════════════════
 # NUMERICAL FEATURE MLP
 # ═══════════════════════════════════════════════════════
