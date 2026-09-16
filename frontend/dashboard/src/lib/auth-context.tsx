@@ -124,6 +124,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Listen for aegis-user-login event dispatched by the setup page's auto-login
+  // so the auth guard in dashboard/layout.tsx can see the user immediately
+  useEffect(() => {
+    const handleLoginEvent = () => {
+      const token = localStorage.getItem("aegis_access_token");
+      const storedUserStr = localStorage.getItem("user");
+      if (token && storedUserStr) {
+        try {
+          const parsedUser = JSON.parse(storedUserStr);
+          setUser(parsedUser);
+        } catch (_) { }
+      }
+    };
+    window.addEventListener('aegis-user-login', handleLoginEvent);
+    return () => window.removeEventListener('aegis-user-login', handleLoginEvent);
+  }, []);
+
   const toggleTheme = () => {
     setTheme(prev => {
       const next = prev === "dark" ? "light" : "dark";

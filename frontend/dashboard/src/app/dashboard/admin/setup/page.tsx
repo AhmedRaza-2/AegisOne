@@ -441,26 +441,68 @@ export default function AdminSetupPage() {
       // Auto-authenticate session if arriving from Landing/Portal with credentials
       const fromLanding = searchParams.get('fromLanding') === 'true';
       const welcomeAlreadyShown = sessionStorage.getItem('aegis_welcome_shown') === 'true';
-      if (fromLanding && !welcomeAlreadyShown) {
-        setShowWelcomeModal(true);
-        sessionStorage.setItem('aegis_welcome_shown', 'true');
-        if (adminEmailParam && adminPasswordParam) {
-          fetch(`${API_BASE}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: adminEmailParam, password: adminPasswordParam })
-          })
-            .then(res => res.ok ? res.json() : null)
-            .then(data => {
-              if (data && data.access_token) {
-                const loggedUser = data.user || { email: adminEmailParam, full_name: adminNameParam, role: 'admin', organization_id: 'org_default' };
-                localStorage.setItem('aegis_access_token', data.access_token);
-                localStorage.setItem('user', JSON.stringify(loggedUser));
-                document.cookie = `aegis_access_token=${data.access_token}; path=/; SameSite=Lax`;
-                document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
+      
+      if (fromLanding) {
+        if (!welcomeAlreadyShown) {
+          setShowWelcomeModal(true);
+          sessionStorage.setItem('aegis_welcome_shown', 'true');
+        }
+        
+        // ALWAYS auto-login if we have credentials and came from landing page,
+        // even if the welcome modal was already shown (e.g. user refreshed the page)
+        if (adminEmailParam && adminPasswordParam && !user) {
+          const attemptAutoLogin = async () => {
+            try {
+              let res = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: adminEmailParam, password: adminPasswordParam })
+              });
+
+              // If login fails (user might not exist in local DB yet), auto-register them using the URL params
+              if (!res.ok) {
+                await fetch(`${API_BASE}/auth/send-admin-credentials`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: adminEmailParam,
+                    full_name: adminNameParam,
+                    password: adminPasswordParam,
+                    org_name: orgNameParam || 'Enterprise'
+                  })
+                });
+
+                // Retry login after registration
+                res = await fetch(`${API_BASE}/auth/login`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: adminEmailParam, password: adminPasswordParam })
+                });
               }
-            })
-            .catch(() => { });
+
+              if (res.ok) {
+                const data = await res.json();
+                if (data && data.access_token) {
+                  const loggedUser = data.user || { email: adminEmailParam, full_name: adminNameParam, role: data.role || 'admin', organization_id: data.organization_id || 'org_default' };
+                  localStorage.setItem('aegis_access_token', data.access_token);
+                  localStorage.setItem('user', JSON.stringify(loggedUser));
+                  document.cookie = `aegis_access_token=${encodeURIComponent(data.access_token)}; path=/; SameSite=Lax`;
+                  document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
+                  
+                  // Notify auth-context so the layout's auth guard sees the user immediately
+                  try {
+                    window.dispatchEvent(new CustomEvent('aegis-user-login', { detail: { email: loggedUser.email } }));
+                  } catch (_) { }
+                  
+                  // Force a shallow re-navigation to the same URL so Next.js re-evaluates the auth state
+                  window.history.replaceState({}, '', window.location.href);
+                }
+              }
+            } catch (err) {
+              console.error("Auto-login failed:", err);
+            }
+          };
+          attemptAutoLogin();
         }
       }
     }
