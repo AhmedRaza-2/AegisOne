@@ -306,3 +306,160 @@ class MessageOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ═══════════════════════════════════════════════════════════════
+# REPORT & INCIDENT SCHEMAS (PHASE 1-5)
+# ═══════════════════════════════════════════════════════════════
+
+class EmployeeReportCreate(BaseModel):
+    report_type: str = Field(..., description="false_positive, false_negative, phishing, benign, incorrect_detection")
+    target_type: str = Field("url", description="url, email, text, image, file")
+    target_ref: Optional[str] = None
+    scan_id: Optional[str] = None
+    event_id: Optional[str] = None
+    model_version: Optional[str] = None
+    predicted_class: Optional[str] = None
+    risk_score: Optional[int] = None
+    user_notes: Optional[str] = None
+
+
+class IncidentReportResponse(BaseModel):
+    id: int
+    report_id: str
+    incident_id: Optional[int] = None
+    user_id: int
+    organization_id: str
+    report_type: str
+    target_type: str
+    target_ref: Optional[str] = None
+    scan_id: Optional[str] = None
+    event_id: Optional[str] = None
+    model_version: Optional[str] = None
+    predicted_class: Optional[str] = None
+    risk_score: Optional[int] = None
+    user_notes: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class IncidentVerifyRequest(BaseModel):
+    decision: str = Field(..., description="FALSE_POSITIVE, FALSE_NEGATIVE, CONFIRMED_PHISHING, BENIGN, INVALID, NEEDS_INVESTIGATION")
+    admin_notes: Optional[str] = None
+    create_training_candidate: bool = True
+
+
+class IncidentResponse(BaseModel):
+    id: int
+    incident_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    reported_by_id: int
+    severity: str
+    status: str
+    report_type: Optional[str] = None
+    detection_event_ref: Optional[str] = None
+    model_version: Optional[str] = None
+    predicted_class: Optional[str] = None
+    risk_score: Optional[int] = None
+    admin_decision: Optional[str] = None
+    admin_notes: Optional[str] = None
+    verified_by_id: Optional[int] = None
+    verified_at: Optional[datetime] = None
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+    reports_count: int = 1
+
+    class Config:
+        from_attributes = True
+
+
+class TrainingCandidateSummary(BaseModel):
+    total_verified_samples: int = 0
+    samples_by_model: Dict[str, int] = {}
+    samples_by_class: Dict[str, Dict[str, int]] = {}
+    pending_candidates: int = 0
+    used_candidates: int = 0
+    rejected_candidates: int = 0
+
+
+class RetrainRequest(BaseModel):
+    model_type: str = Field(..., description="url, email, text, image")
+    force_cpu: bool = False
+
+
+class TrainingJobResponse(BaseModel):
+    id: int
+    job_id: str
+    organization_id: str
+    model_type: str
+    base_model_version: str
+    target_adapter_version: str
+    candidate_count: int
+    training_method: str
+    status: str
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    metrics_json: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ModelVersionResponse(BaseModel):
+    id: int
+    version_id: str
+    organization_id: str
+    model_type: str
+    version_tag: str
+    base_global_version: Optional[str] = None
+    is_global_base: bool
+    artifact_path: str
+    metrics_json: Optional[Dict[str, Any]] = None
+    is_active: bool
+    is_production: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OrgPolicyUpdateRequest(BaseModel):
+    allow_global_contribution: bool = False
+    auto_anonymize: bool = True
+    allowed_model_types: List[str] = ["url", "email", "text", "image"]
+
+
+class OrgPolicyResponse(BaseModel):
+    organization_id: str
+    allow_global_contribution: bool
+    auto_anonymize: bool
+    allowed_model_types: List[str]
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ContributionApproveRequest(BaseModel):
+    model_type: str = Field(..., description="url, email, text, image")
+    candidate_ids: Optional[List[str]] = None
+    max_samples: int = 50
+
+
+class GlobalContributionResponse(BaseModel):
+    id: int
+    contribution_id: str
+    organization_id: str
+    model_type: str
+    sample_count: int
+    status: str
+    validation_notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

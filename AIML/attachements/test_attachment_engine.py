@@ -3,6 +3,9 @@ import sys
 from attachment_orchestrator import AttachmentOrchestrator
 from attachment_ai_bridge import AttachmentUnifiedAI
 
+import pytest
+
+@pytest.mark.skip(reason="Standalone CLI test script requiring file_path argument")
 def test_unified_ai_engine(file_path):
     if not os.path.exists(file_path):
         print(f"❌ Error: File '{file_path}' not found.")

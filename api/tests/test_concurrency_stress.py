@@ -22,7 +22,10 @@ from api.services.scope_resolver import resolve_analytics_scope
 from api.services.analytics_rebuilder import rebuild_dashboard_statistics
 
 
-@pytest.fixture
+import pytest_asyncio
+
+
+@pytest_asyncio.fixture
 async def async_stress_db():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     async with engine.begin() as conn:
@@ -114,10 +117,11 @@ async def test_concurrency_3_rbac_scope_parity(async_stress_db):
 async def test_concurrency_4_rebuild_during_activity(async_stress_db):
     """Test 4: Aggregate rebuilder runs safely without corrupting metrics."""
     today = datetime.utcnow().date()
+    now_dt = datetime.utcnow()
     
     for i in range(5):
         async_stress_db.add(WebsiteScan(
-            scan_id=f"scan-act-{i}", organization_id="org_stress", url=f"https://act{i}.com", verdict="safe", decision="allow"
+            scan_id=f"scan-act-{i}", organization_id="org_stress", url=f"https://act{i}.com", verdict="safe", decision="allow", created_at=now_dt
         ))
     await increment_org_revision(async_stress_db, "org_stress")
     await async_stress_db.commit()

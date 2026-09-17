@@ -636,15 +636,46 @@ def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool 
 
     explanation = (f"AI flagged suspicious email indicators: {', '.join(xai_words)}"
                    if xai_words else "AI identified suspicious context structure")
+    
+    active_version = m.get("active_version", "email_base_v1")
+    
     return {
         "prediction": "phishing" if is_phish else "legitimate",
         "confidence": round(prob if is_phish else 1 - prob, 4),
         "phishing_probability": round(prob, 4),
         "model": "email",
+        "model_version": active_version,
         "xai_words": xai_words,
         "explanation": explanation,
         "scam_signals": scam_signals,
     }
+
+
+def apply_adapter_weights(model_type: str, adapter_path: str, version_tag: str) -> bool:
+    """
+    Dynamically loads and applies trained adapter weights into the in-memory AI model.
+    """
+    if model_type not in MODELS:
+        logger.warning(f"Cannot reload model adapter for {model_type}: model not loaded in memory")
+        return False
+
+    weights_file = os.path.join(adapter_path, "adapter_weights.pt")
+    if os.path.exists(weights_file):
+        try:
+            state_dict = torch.load(weights_file, map_location=DEVICE)
+            MODELS[model_type]["model"].load_state_dict(state_dict, strict=False)
+            MODELS[model_type]["active_version"] = version_tag
+            MODELS[model_type]["active_adapter_path"] = adapter_path
+            logger.info(f"✓ Dynamic hot-reload successful: {model_type} -> {version_tag}")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Dynamic hot-reload failed for {version_tag}: {e}")
+            return False
+    else:
+        MODELS[model_type]["active_version"] = version_tag
+        MODELS[model_type]["active_adapter_path"] = adapter_path
+        logger.info(f"✓ Active model version updated to: {version_tag}")
+        return True
 
 
 def _predict_text_sync(text: str, include_xai: bool = False) -> dict:

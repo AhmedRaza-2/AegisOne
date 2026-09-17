@@ -35,7 +35,10 @@ from api.config import (
 from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
 
-from api.routers import auth, scan, admin, health, compatibility, setup, public, xai, communication, email_analytics
+from api.routers import (
+    auth, scan, admin, health, compatibility, setup, public, xai,
+    communication, email_analytics, reports, incidents, training, global_learning
+)
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
@@ -99,7 +102,18 @@ async def lifespan(app: FastAPI):
             ("organizations", "smtp_port", "INTEGER DEFAULT 587"),
             ("organizations", "smtp_user", "VARCHAR(255)"),
             ("organizations", "smtp_pass", "VARCHAR(255)"),
-            ("website_scans",  "department_id", "VARCHAR(64)")
+            ("website_scans",  "department_id", "VARCHAR(64)"),
+            ("incidents", "incident_id", "VARCHAR(100)"),
+            ("incidents", "organization_id", "VARCHAR(64) DEFAULT 'org_default'"),
+            ("incidents", "report_type", "VARCHAR(50) DEFAULT 'false_positive'"),
+            ("incidents", "detection_event_ref", "VARCHAR(255)"),
+            ("incidents", "model_version", "VARCHAR(50)"),
+            ("incidents", "predicted_class", "VARCHAR(50)"),
+            ("incidents", "risk_score", "INTEGER"),
+            ("incidents", "admin_decision", "VARCHAR(50)"),
+            ("incidents", "admin_notes", "TEXT"),
+            ("incidents", "verified_by_id", "INTEGER"),
+            ("incidents", "verified_at", "TIMESTAMP"),
         ]:
             if dialect_name == "postgresql":
                 await conn.execute(text(f"""
@@ -261,6 +275,10 @@ app.include_router(setup.router)
 app.include_router(public.router)
 app.include_router(communication.router)
 app.include_router(email_analytics.router)
+app.include_router(reports.router)
+app.include_router(incidents.router)
+app.include_router(training.router)
+app.include_router(global_learning.router)
 
 
 @app.get("/")       

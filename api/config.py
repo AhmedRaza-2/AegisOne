@@ -59,7 +59,7 @@ DEFAULT_ADMIN_PASSWORD = "admin123"
 # ═══════════════════════════════════════════════════════════════
 
 API_HOST = "0.0.0.0"
-API_PORT = 9000
+API_PORT = 8000
 API_WORKERS = 4
 MAX_CONCURRENCY = 300
 

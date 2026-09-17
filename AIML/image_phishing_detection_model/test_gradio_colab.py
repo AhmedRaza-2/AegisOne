@@ -7,8 +7,12 @@
 # CELL 1: Install Gradio
 # !pip install -q gradio torch torchvision pillow
 
-# CELL 2: Run Testing UI
-import gradio as gr
+try:
+    import gradio as gr
+except ImportError:
+    import pytest
+    pytest.skip("Gradio not installed in environment", allow_module_level=True)
+
 import torch
 import torch.nn as nn
 import numpy as np
