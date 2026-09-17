@@ -115,8 +115,11 @@ const HeroSection = ({ onSelectPlan }) => {
                     transition={{ duration: 0.9, delay: 1.2 }}
                     className="mt-4 mb-6 w-full max-w-7xl relative"
                 >
-                    {/* Background Soft Ambient Glow */}
-                    <div className="absolute -inset-4 bg-gradient-to-r from-blue-400/15 via-indigo-400/15 to-blue-500/15 rounded-[2.5rem] blur-3xl opacity-70 pointer-events-none" />
+                    {/* Background Soft Ambient Glow (Optimized: No CSS Blur) */}
+                    <div 
+                        className="absolute -inset-20 rounded-[3rem] opacity-30 pointer-events-none" 
+                        style={{ background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.3) 0%, transparent 60%)' }} 
+                    />
 
                     <InteractiveProductDemo />
                 </motion.div>
