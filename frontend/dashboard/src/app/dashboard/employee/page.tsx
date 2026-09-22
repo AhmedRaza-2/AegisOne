@@ -74,7 +74,7 @@ export default function EmployeeDashboard() {
 
   const urlScans = filteredScans.filter((s: any) => s.scanType === 'url');
   const webScans = filteredScans.filter((s: any) => s.scanType === 'website' || s.scanType === 'navigation' || (!s.scanType && (s.inputPreview?.startsWith('http://') || s.inputPreview?.startsWith('https://') || s.domain)));
-  const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document');
+  const fileScans = filteredScans.filter((s: any) => s.scanType === 'attachment' || s.scanType === 'document' || s.scanType === 'download');
   const imageScans = filteredScans.filter((s: any) => s.scanType === 'image');
   const emailScans = filteredScans.filter((s: any) => 
     s.scanType === 'email' || 
@@ -439,7 +439,7 @@ export default function EmployeeDashboard() {
               filteredScans.map((scan: any, i: number) => {
                 const isBlock = scan.decision === 'block';
                 const isSafe = scan.decision === 'allow' || scan.decision === 'safe';
-                const isDownload = scan.scanType === 'attachment';
+                const isDownload = scan.scanType === 'attachment' || scan.scanType === 'download';
                 const timeStr = new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                 return (
@@ -450,7 +450,7 @@ export default function EmployeeDashboard() {
                     <div className={`w-full p-4 rounded-xl border ${isBlock ? 'border-red-500/20 bg-red-500/5' : 'border-surface-200 dark:border-white/[0.05] bg-surface-50 dark:bg-white/[0.02]'}`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-xs font-bold ${isBlock ? 'text-red-500' : isSafe ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {isBlock ? 'Threat Blocked' : scan.scanType === 'text' ? 'Text Scanned' : scan.scanType === 'image' ? 'Image Scanned' : scan.scanType === 'document' || scan.scanType === 'attachment' ? 'File Scanned' : 'URL Scanned'}
+                          {isBlock ? 'Threat Blocked' : scan.scanType === 'text' ? 'Text Scanned' : scan.scanType === 'image' ? 'Image Scanned' : scan.scanType === 'document' || scan.scanType === 'attachment' || scan.scanType === 'download' ? 'File Scanned' : 'URL Scanned'}
                         </span>
                         <span className="text-[10px] font-mono text-surface-400">{timeStr}</span>
                       </div>

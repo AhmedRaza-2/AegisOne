@@ -585,8 +585,7 @@ async def api_document(file: UploadFile = File(...)):
     }
 
 @router.post("/analyze/download_url")
-async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_db)):
-    validate_url_for_ssrf(url)
+async def api_download_url(url: str = Form(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     
     is_local = False
@@ -655,29 +654,36 @@ async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_
 
             file_bytes = b"".join(chunks)
         except Exception as e:
-            result = await asyncio.to_thread(predict_url, url)
-            result["latency_ms"] = round((time.time() - start) * 1000, 1)
-            result["note"] = f"Could not fetch file ({e}) — URL-only check"
-            return result
+            url_pred = await asyncio.to_thread(predict_url, url)
+            results = {
+                "source_url": url,
+                "file_type": "unknown",
+                "file_size_kb": 0.0,
+                "macros_found": False,
+                "heuristic_risk": url_pred.get("phishing_probability", 0.0) if hasattr(url_pred, "get") else 0.0,
+                "vba_analysis": None,
+                "sub_results": {},
+                "note": f"Could not fetch file ({e}) — URL-only check"
+            }
+        else:
+            fd, temp_path = tempfile.mkstemp(suffix=suffix)
+            try:
+                with os.fdopen(fd, "wb") as f:
+                    f.write(file_bytes)
+                extraction = await process_attachment(temp_path)
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
 
-        fd, temp_path = tempfile.mkstemp(suffix=suffix)
-        try:
-            with os.fdopen(fd, "wb") as f:
-                f.write(file_bytes)
-            extraction = await process_attachment(temp_path)
-        finally:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-
-        results = {
-            "source_url": url,
-            "file_type": extraction.get("file_type", "unknown"),
-            "file_size_kb": round(len(file_bytes) / 1024, 1),
-            "macros_found": extraction.get("macros_found", False),
-            "heuristic_risk": extraction.get("heuristic_risk", 0.0),
-            "vba_analysis": extraction.get("vba_analysis"),
-            "sub_results": extraction.get("sub_results", {}),
-        }
+            results = {
+                "source_url": url,
+                "file_type": extraction.get("file_type", "unknown"),
+                "file_size_kb": round(len(file_bytes) / 1024, 1),
+                "macros_found": extraction.get("macros_found", False),
+                "heuristic_risk": extraction.get("heuristic_risk", 0.0),
+                "vba_analysis": extraction.get("vba_analysis"),
+                "sub_results": extraction.get("sub_results", {}),
+            }
 
     sub_res = results.get("sub_results", {})
     text_pred = sub_res.get("text", {})
@@ -723,7 +729,8 @@ async def api_download_url(url: str = Form(...), db: AsyncSession = Depends(get_
         
         db.add(DownloadEvent(
             download_id=f"dl-{uuid.uuid4()}",
-            organization_id="org_default",
+            organization_id=current_user.organization_id if current_user.id else "org_default",
+            user_id=str(current_user.id) if current_user.id else None,
             filename=filename,
             extension=file_ext,
             file_size_kb=results.get("file_size_kb", 0.0),

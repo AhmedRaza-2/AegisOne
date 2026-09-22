@@ -270,7 +270,7 @@ export default function EmployeeEmailSecurityPage() {
                   }
 
                   const emailSender = scan.sender || "";
-                  const gmailLink = scan.thread_url || (scan.url.startsWith("http") ? scan.url : null);
+                  const gmailLink = scan.thread_url || (scan.url?.startsWith("http") ? scan.url : null);
 
                   return (
                     <tr key={scan.id || idx} className="hover:bg-surface-50 dark:hover:bg-slate-800/30 transition-colors">
@@ -502,7 +502,7 @@ export default function EmployeeEmailSecurityPage() {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-3 pt-2 relative z-10">
-                {(selectedScan.thread_url || selectedScan.url.startsWith("http")) && (
+                {(selectedScan.thread_url || selectedScan.url?.startsWith("http")) && (
                   <a
                     href={selectedScan.thread_url || selectedScan.url}
                     target="_blank"
