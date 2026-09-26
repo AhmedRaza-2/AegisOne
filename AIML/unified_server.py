@@ -7,7 +7,7 @@ One command starts everything:
 Loads ALL models internally:
   - Email AI    (DistilBERT + Bi-LSTM + Attention)
   - Text AI     (DistilBERT + Bi-LSTM, short-form optimized)
-  - URL AI      (DistilBERT + Feature MLP, 4-class)
+  - URL AI      (DistilBERT + Feature MLP, 3-class V7 Frozen)
   - Image AI    (EfficientNet-B3 + SE Blocks)
   - Attachment   (Orchestrator → delegates to above)
 
@@ -28,7 +28,8 @@ from pathlib import Path
 
 # ===== Setup Paths =====
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-URL_MODEL_PATH = str(Path(BASE_DIR) / "url" / "best_v7.pt" if os.path.exists(os.path.join(BASE_DIR, "url", "best_v7.pt")) else Path(BASE_DIR) / "url" / "best.pt")
+# V7 is the frozen production checkpoint — do NOT fall back to best.pt (older/different model)
+URL_MODEL_PATH = str(Path(BASE_DIR) / "url" / "best_v7.pt")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ===== Safe Module Loader =====

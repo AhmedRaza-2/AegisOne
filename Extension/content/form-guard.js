@@ -67,7 +67,7 @@ function _hexMatches(rgbStr, hexList) {
 
 export function checkBrandImpersonation() {
   const hostname = window.location.hostname.toLowerCase();
-  
+
   // Skip search engines
   if (hostname.includes("google.") || hostname.includes("bing.") || hostname.includes("duckduckgo.")) {
     return null;
@@ -83,7 +83,7 @@ export function checkBrandImpersonation() {
   if (loginForms.length === 0) return null;
 
   for (const brand of BRANDS) {
-    const isOfficial = brand.official.some(domain => 
+    const isOfficial = brand.official.some(domain =>
       hostname === domain || hostname.endsWith("." + domain)
     );
     if (isOfficial) continue;
@@ -99,7 +99,7 @@ export function checkBrandImpersonation() {
       ...loginForms.map(el => el.innerText || ""),
       ...[...document.querySelectorAll("h1, h2, h3, h4")].map(el => el.innerText || "")
     ].join(" ").toLowerCase();
-    
+
     hasText = brand.keywords.some(kw => relevantText.includes(kw));
 
     // Search logo element inside form or its parent container, excluding footer icons
@@ -135,7 +135,7 @@ export function checkBrandImpersonation() {
     });
 
     const matchesCount = (hasText ? 1 : 0) + (hasLogo ? 1 : 0) + (hasColors ? 1 : 0);
-    
+
     if (formSignals && matchesCount >= 2) {
       // Determine if there is an OAuth-like button for this brand in the forms
       const hasOauthBtn = loginForms.some(form => {
@@ -177,7 +177,7 @@ export function checkBrandImpersonation() {
  */
 export function initFormGuard(onFormDetected) {
   const features = _analyzePageForms();
-  
+
   // Store Brand Impersonation features to be sent to Risk Engine via PAGE_FEATURES
   const impersonation = checkBrandImpersonation();
   if (impersonation) {
@@ -293,7 +293,7 @@ function _setupSubmitInterceptors() {
     // Freeze typing on password focus
     passwordInput.addEventListener("focus", async (e) => {
       if (userAllowedTyping || _currentPageRisk < 50) return;
-      
+
       const stored = await chrome.storage.local.get("enableFormGuard");
       if (stored.enableFormGuard === false) return; // User disabled it
 
@@ -320,7 +320,7 @@ function _setupSubmitInterceptors() {
           const actionRoot = actionHost.split(".").slice(-2).join(".");
           const currentRoot = currentHost.split(".").slice(-2).join(".");
           actionDomainMismatch = actionRoot !== currentRoot;
-        } catch (_) {}
+        } catch (_) { }
       }
 
       // ── Warn on structural form issues ───────────────────────
@@ -348,7 +348,7 @@ function _setupSubmitInterceptors() {
             formAction: formAction
           });
         }
-      } catch (_) {}
+      } catch (_) { }
 
       if (res?.block) {
         _showCredentialWarning(form, res.score);
@@ -417,7 +417,7 @@ function _showCredentialWarning(form, score, extraReasons = []) {
   document.getElementById("aegis-toast-close")?.addEventListener("click", () => {
     toast.remove();
   });
-  
+
   // Auto-dismiss after 15 seconds
   setTimeout(() => {
     if (document.body.contains(toast)) toast.remove();
