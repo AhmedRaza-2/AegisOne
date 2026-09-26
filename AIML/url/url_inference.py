@@ -96,8 +96,11 @@ async def predict_url(req: URLRequest):
         )
     
     # 3. Model Semantic Score (expects original 10 features)
+    from phishing_model_url import structuralize_url
+    
+    struct_url = structuralize_url(url)
     encoding = TOKENIZER(
-        url, add_special_tokens=True, max_length=128,
+        struct_url, add_special_tokens=True, max_length=128,
         padding="max_length", truncation=True, return_tensors="pt"
     ).to(DEVICE)
     

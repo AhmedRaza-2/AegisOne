@@ -28,7 +28,7 @@ from pathlib import Path
 
 # ===== Setup Paths =====
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-URL_MODEL_PATH = str(Path(BASE_DIR) / "url" / "best (3).pt" if os.path.exists(os.path.join(BASE_DIR, "url", "best (3).pt")) else Path(BASE_DIR) / "url" / "best.pt")
+URL_MODEL_PATH = str(Path(BASE_DIR) / "url" / "best_v7.pt" if os.path.exists(os.path.join(BASE_DIR, "url", "best_v7.pt")) else Path(BASE_DIR) / "url" / "best.pt")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ===== Safe Module Loader =====
