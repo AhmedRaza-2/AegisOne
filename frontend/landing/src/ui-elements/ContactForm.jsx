@@ -14,11 +14,19 @@ const ContactForm = () => {
         setError('')
 
         try {
-            const apiHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
-            const res = await fetch(`http://${apiHost}:8000/public/contact`, {
+            const res = await fetch('https://formsubmit.co/ajax/araza2125-012.pgc@gmail.com', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    _subject: `New AegisOne Contact Form Message from ${formData.name}`,
+                    name: formData.name,
+                    email: formData.email,
+                    location: formData.location,
+                    message: formData.message
+                })
             })
 
             if (res.ok) {
@@ -26,10 +34,10 @@ const ContactForm = () => {
                 setFormData({ name: '', email: '', location: '', message: '' })
             } else {
                 const data = await res.json()
-                setError(data.detail || 'Failed to send message.')
+                setError(data.message || 'Failed to send message.')
             }
         } catch (err) {
-            setError('Could not connect to the server. Please try again.')
+            setError('Failed to send message. Please try again.')
         } finally {
             setLoading(false)
         }
