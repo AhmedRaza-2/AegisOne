@@ -109,7 +109,7 @@ export default function App() {
     setIsDemoSubmitting(true);
     try {
       // Send real email using FormSubmit API (fire and forget to not block UI)
-      await fetch('https://formsubmit.co/ajax/araza2125-012.pgc@gmail.com', {
+      await fetch('https://formsubmit.co/ajax/araza2125012.pgc@gmail.com', {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
@@ -348,7 +348,7 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Dispatched briefing copy to: <span className="text-white">araza2125-012.pgc@gmail.com</span>
+                        Dispatched briefing copy to: <span className="text-white">araza2125012.pgc@gmail.com</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -369,7 +369,7 @@ export default function App() {
                         <MessageSquare className="w-3.5 h-3.5" /> Chat via WhatsApp
                       </a>
                       <a 
-                        href={`mailto:araza2125-012.pgc@gmail.com?subject=Scheduled AegisOne Demo Support for ${demoName}`}
+                        href={`mailto:araza2125012.pgc@gmail.com?subject=Scheduled AegisOne Demo Support for ${demoName}`}
                         className="font-sans flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs py-2.5 rounded-lg transition-colors text-center"
                       >
                         <Mail className="w-3.5 h-3.5" /> Direct Support Email
@@ -437,7 +437,7 @@ export default function App() {
               </p>
 
               <p className="italic text-slate-500 pt-2 border-t border-slate-100">
-                For questions regarding security architecture, custom air-gapped systems, or isolated office networks, please write directly to our desk at araza2125-012.pgc@gmail.com
+                For questions regarding security architecture, custom air-gapped systems, or isolated office networks, please write directly to our desk at araza2125012.pgc@gmail.com
               </p>
             </div>
 
@@ -494,7 +494,7 @@ export default function App() {
 
               <h4 className="font-bold text-[#0F172A] uppercase">3. Support &amp; SLA</h4>
               <p>
-                Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125-012.pgc@gmail.com.
+                Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125012.pgc@gmail.com.
               </p>
 
               <h4 className="font-bold text-[#0F172A] uppercase">4. Limitations</h4>

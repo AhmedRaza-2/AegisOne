@@ -539,7 +539,7 @@ export default function RegisterPage() {
               </p>
               <h4 className="font-bold text-[#0F172A] uppercase">3. Support &amp; SLA</h4>
               <p>
-                Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125-012.pgc@gmail.com.
+                Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125012.pgc@gmail.com.
               </p>
             </div>
             <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">

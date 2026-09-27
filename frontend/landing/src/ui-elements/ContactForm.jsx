@@ -14,7 +14,7 @@ const ContactForm = () => {
         setError('')
 
         try {
-            const res = await fetch('https://formsubmit.co/ajax/araza2125-012.pgc@gmail.com', {
+            const res = await fetch('https://formsubmit.co/ajax/araza2125012.pgc@gmail.com', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
