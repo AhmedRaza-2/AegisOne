@@ -132,7 +132,19 @@ interface InputProps {
 function Field({ label, icon, error, children }: InputProps) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 upperc// ─── Country Selector Component ───────────────────────────────────────────────
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+        {icon} {label}
+      </label>
+      {children}
+      {error && <p className="text-xs text-red-400 font-medium">{error}</p>}
+    </div>
+  );
+}
+
+const inputCls = "w-full bg-[#F6FAFD] border border-[#E1EBF2] rounded-lg px-3.5 py-2 text-sm text-[#0A1931] placeholder-[#8CA3B8] focus:outline-none focus:border-[#4A7FA7] focus:ring-[3px] focus:ring-[#4A7FA7]/15 focus:bg-white transition-all";
+const selectCls = inputCls + " appearance-none cursor-pointer";
+
+// ─── Country Selector Component ───────────────────────────────────────────────
 function CountrySelector({
   value,
   onChange,
@@ -244,25 +256,6 @@ function CountrySelector({
                           }}
                           className={`w-full text-left px-3 py-1.5 rounded-md flex items-center justify-between text-xs font-medium transition-colors cursor-pointer ${
                             isSelected
-                              ? 'bg-blue-50 text-[#0A5ED6] font-bold'
-                              : 'text-slate-700 hover:bg-[#F6FAFD] hover:text-[#0A1931]'
-                          }`}
-                        >
-                          <span>{c}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#0A5ED6]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}cted
                               ? 'bg-blue-50 text-[#0A5ED6] font-bold'
                               : 'text-slate-700 hover:bg-[#F6FAFD] hover:text-[#0A1931]'
                           }`}
@@ -475,8 +468,8 @@ export default function RegisterPage() {
       return 'New registrations are temporarily paused. Please try again later or contact support.';
     if (r.includes('organization') && r.includes('already registered'))
       return raw; // This one is already user-friendly from org-service.ts
-    // Generic fallback — never expose raw db errors
-    return 'Registration failed. Please review your details and try again, or contact support.';
+    // Generic fallback — never expose raw db errors in production, but helpful for debugging
+    return `Registration failed. Please review your details and try again, or contact support. (Debug: ${raw})`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
