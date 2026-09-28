@@ -8,6 +8,7 @@ import {
   Search, ChevronDown
 } from 'lucide-react';
 import { registerOrganization } from '../lib/org-service';
+import { supabase } from '../lib/supabase';
 import { PRICING_PLANS, getPlanByEmployeeCount, getPlanById, isValidPlan } from '../config/pricingConfig';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -307,6 +308,17 @@ export default function RegisterPage() {
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
+  // Auto-redirect to portal if email is confirmed in another tab
+  useEffect(() => {
+    if (!registeredEmail) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        navigate('/portal', { replace: true });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [registeredEmail, navigate]);
+
   // Form state
   const [form, setForm] = useState({
     name: '',
@@ -406,12 +418,47 @@ export default function RegisterPage() {
       if (!emailRegex.test(email) || email.includes('..')) {
         return 'Please enter a valid business email address (e.g. name@company.com).';
       }
+      
+      // Block obvious fake domains or keyboard smashing (e.g., GMAILLL.COMMM)
+      const domainPart = email.split('@')[1].toLowerCase();
+      if (/([a-z])\1{2,}/.test(domainPart)) {
+        return 'Please enter a valid business email address. The domain format looks incorrect or contains too many repeating letters.';
+      }
+      // Block weird invalid TLDs commonly typed by accident like .comm, .con, .cm
+      const invalidTlds = ['comm', 'commm', 'con', 'cm', 'gmial', 'gmai', 'gmal'];
+      if (invalidTlds.some(invalid => domainPart.includes(invalid))) {
+         return 'Email domain appears to have a typo (e.g. .comm instead of .com). Please double check.';
+      }
 
       const phone = form.phone.trim();
       if (!phone) return 'Phone number is required.';
       const cleanDigits = phone.replace(/\D/g, '');
-      if (cleanDigits.length < 5 || cleanDigits.length > 15 || !/^\+?[0-9\s\-\(\)\.]{5,20}$/.test(phone)) {
-        return 'Please enter a valid phone number (e.g. 300 1234567).';
+      
+      // Dynamic Phone Length Check based on selected country
+      const countryLengths: Record<string, number> = {
+        'Pakistan': 10,       // e.g. 336 1234567
+        'United States': 10,  // e.g. 202 555 1234
+        'Canada': 10,
+        'India': 10,
+        'United Kingdom': 10, // Mobile without leading 0
+        'Australia': 9,       // Mobile without leading 0
+        'Saudi Arabia': 9,
+        'United Arab Emirates': 9,
+      };
+
+      if (form.country && countryLengths[form.country]) {
+        const expectedLen = countryLengths[form.country];
+        if (cleanDigits.length !== expectedLen) {
+          return `Invalid phone number length. Local numbers in ${form.country} must be exactly ${expectedLen} digits long. (Do not include the country dial code again).`;
+        }
+        if (form.country === 'Pakistan' && !cleanDigits.startsWith('3')) {
+          return 'Pakistani local numbers must start with 3 (e.g. 336 1234567).';
+        }
+      } else {
+        // Generic fallback for other countries
+        if (cleanDigits.length < 5 || cleanDigits.length > 15 || !/^\+?[0-9\s\-\(\)\.]{5,20}$/.test(phone)) {
+          return 'Please enter a valid phone number (between 5 and 15 digits).';
+        }
       }
     }
 
