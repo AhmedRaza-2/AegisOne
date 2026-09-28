@@ -375,7 +375,7 @@ export default function RegisterPage() {
   };
 
   // ── Validation per step ────────────────────────────────────────────────────
-  const validateStep = (s: number): string => {
+  const validateStep = async (s: number): Promise<string> => {
     if (s === 1) {
       const orgName = form.name.trim();
       if (!orgName) return 'Organization name is required.';
@@ -419,15 +419,19 @@ export default function RegisterPage() {
         return 'Please enter a valid business email address (e.g. name@company.com).';
       }
       
-      // Block obvious fake domains or keyboard smashing (e.g., GMAILLL.COMMM)
       const domainPart = email.split('@')[1].toLowerCase();
-      if (/([a-z])\1{2,}/.test(domainPart)) {
-        return 'Please enter a valid business email address. The domain format looks incorrect or contains too many repeating letters.';
-      }
-      // Block weird invalid TLDs commonly typed by accident like .comm, .con, .cm
-      const invalidTlds = ['comm', 'commm', 'con', 'cm', 'gmial', 'gmai', 'gmal'];
-      if (invalidTlds.some(invalid => domainPart.includes(invalid))) {
-         return 'Email domain appears to have a typo (e.g. .comm instead of .com). Please double check.';
+
+      // Real DNS MX Record Check
+      try {
+        const res = await fetch(`https://dns.google/resolve?name=${domainPart}&type=MX`);
+        const data = await res.json();
+        // Status 0 means NOERROR. Answer array must exist and have length > 0.
+        if (data.Status !== 0 || !data.Answer || data.Answer.length === 0) {
+          return 'The email domain does not have active mail servers. Please double check the email address.';
+        }
+      } catch (err) {
+        // Silently ignore network/fetch errors to avoid blocking legitimate signups if API is down
+        console.warn('DNS MX lookup failed', err);
       }
 
       const phone = form.phone.trim();
@@ -486,8 +490,10 @@ export default function RegisterPage() {
     return '';
   };
 
-  const handleNext = () => {
-    const err = validateStep(step);
+  const handleNext = async () => {
+    setLoading(true);
+    const err = await validateStep(step);
+    setLoading(false);
     if (err) { setError(err); return; }
     setStep(s => s + 1);
     setError('');
@@ -521,10 +527,10 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const err = validateStep(3);
-    if (err) { setError(err); return; }
-
     setLoading(true);
+    const err = await validateStep(3);
+    if (err) { setError(err); setLoading(false); return; }
+
     setError('');
     try {
       const finalIndustry = form.industry === 'Other' ? customIndustry.trim() : form.industry;
