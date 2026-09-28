@@ -36,34 +36,53 @@ export interface RegisterPayload {
 }
 
 export async function registerOrganization(payload: RegisterPayload): Promise<Organization> {
-  // 0+1. Run uniqueness check and auth user creation in parallel to cut latency
-  const [checkRes, signUpRes] = await Promise.all([
+  // Step 0: Check for duplicate org name AND email BEFORE calling auth.signUp
+  // This prevents wasting Supabase email rate limit quota on duplicate attempts.
+  const [nameCheckRes, emailCheckRes] = await Promise.all([
     supabase
       .from('organizations')
       .select('id')
       .ilike('name', payload.name)
       .maybeSingle(),
-    supabase.auth.signUp({
-      email: payload.admin_email,
-      password: payload.password,
-    }),
+    supabase
+      .from('organizations')
+      .select('id')
+      .ilike('admin_email', payload.admin_email)
+      .maybeSingle(),
   ]);
 
-  const existingOrg = checkRes.data;
-  if (checkRes.error) {
-    // Rollback the auth user we just created in parallel
-    if (signUpRes.data?.user?.id) await supabase.auth.admin.deleteUser(signUpRes.data.user.id).catch(() => {});
-    throw new Error('Failed to verify organization uniqueness.');
-  }
+  if (nameCheckRes.error) throw new Error('Failed to verify organization name. Please try again.');
+  if (emailCheckRes.error) throw new Error('Failed to verify email address. Please try again.');
 
-  if (existingOrg) {
-    // Name is taken — undo the parallel auth user creation
-    if (signUpRes.data?.user?.id) await supabase.auth.admin.deleteUser(signUpRes.data.user.id).catch(() => {});
+  if (nameCheckRes.data) {
     throw new Error(`An organization named "${payload.name}" is already registered. Please login or contact support.`);
   }
+  if (emailCheckRes.data) {
+    throw new Error(`An admin account for "${payload.admin_email}" already exists. Please sign in or use a different email.`);
+  }
 
-  if (signUpRes.error) throw new Error(signUpRes.error.message);
-  if (!signUpRes.data.user) throw new Error('Auth user creation failed.');
+  // Step 1: Both checks passed — now create the auth user with email confirmation
+  const confirmRedirectUrl = `${window.location.origin}/portal`;
+  const signUpRes = await supabase.auth.signUp({
+    email: payload.admin_email,
+    password: payload.password,
+    options: {
+      emailRedirectTo: confirmRedirectUrl,
+      data: {
+        org_name: payload.name,
+        admin_name: payload.admin_name,
+      },
+    },
+  });
+
+  if (signUpRes.error) {
+    const msg = signUpRes.error.message.toLowerCase();
+    if (msg.includes('rate limit') || msg.includes('too many')) {
+      throw new Error('email rate limit exceeded');
+    }
+    throw new Error(signUpRes.error.message);
+  }
+  if (!signUpRes.data.user) throw new Error('Auth user creation failed. Please try again.');
 
   const userId = signUpRes.data.user.id;
 

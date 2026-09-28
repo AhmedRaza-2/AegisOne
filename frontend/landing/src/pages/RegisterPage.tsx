@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
 import {
   Building2, User, Mail, Lock, Phone, Globe, Users, Briefcase,
-  ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff, X, Sparkles, Check
+  ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff, X, Sparkles, Check,
+  Search, ChevronDown
 } from 'lucide-react';
 import { registerOrganization } from '../lib/org-service';
 import { PRICING_PLANS, getPlanByEmployeeCount, getPlanById, isValidPlan } from '../config/pricingConfig';
@@ -16,9 +17,27 @@ const INDUSTRIES = [
   'Government', 'Telecommunications', 'Other',
 ];
 
-const COUNTRIES = [
-  'Pakistan', 'United Arab Emirates', 'Saudi Arabia', 'United Kingdom',
-  'United States', 'Canada', 'India', 'Germany', 'France', 'Other',
+const ALL_COUNTRIES = [
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
+  'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+  'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon',
+  'Canada', 'Cape Verde', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica',
+  'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'East Timor', 'Ecuador',
+  'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France',
+  'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau',
+  'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland',
+  'Israel', 'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait',
+  'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+  'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico',
+  'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru',
+  'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+  'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
+  'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino',
+  'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia',
+  'Solomon Islands', 'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden',
+  'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia',
+  'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan',
+  'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
 ];
 
 const EMP_RANGES = [
@@ -26,6 +45,61 @@ const EMP_RANGES = [
   { label: '101 – 1000 Employees', value: 500 },
   { label: '1000+ Employees', value: 1000 },
 ];
+
+// ─── Country Dial Codes ───────────────────────────────────────────────────────
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  'Afghanistan': '+93', 'Albania': '+355', 'Algeria': '+213', 'Andorra': '+376',
+  'Angola': '+244', 'Antigua and Barbuda': '+1-268', 'Argentina': '+54', 'Armenia': '+374',
+  'Australia': '+61', 'Austria': '+43', 'Azerbaijan': '+994', 'Bahamas': '+1-242',
+  'Bahrain': '+973', 'Bangladesh': '+880', 'Barbados': '+1-246', 'Belarus': '+375',
+  'Belgium': '+32', 'Belize': '+501', 'Benin': '+229', 'Bhutan': '+975',
+  'Bolivia': '+591', 'Bosnia and Herzegovina': '+387', 'Botswana': '+267', 'Brazil': '+55',
+  'Brunei': '+673', 'Bulgaria': '+359', 'Burkina Faso': '+226', 'Burundi': '+257',
+  'Cambodia': '+855', 'Cameroon': '+237', 'Canada': '+1', 'Cape Verde': '+238',
+  'Central African Republic': '+236', 'Chad': '+235', 'Chile': '+56', 'China': '+86',
+  'Colombia': '+57', 'Comoros': '+269', 'Congo': '+242', 'Costa Rica': '+506',
+  'Croatia': '+385', 'Cuba': '+53', 'Cyprus': '+357', 'Czech Republic': '+420',
+  'Denmark': '+45', 'Djibouti': '+253', 'Dominica': '+1-767', 'Dominican Republic': '+1-809',
+  'East Timor': '+670', 'Ecuador': '+593', 'Egypt': '+20', 'El Salvador': '+503',
+  'Equatorial Guinea': '+240', 'Eritrea': '+291', 'Estonia': '+372', 'Eswatini': '+268',
+  'Ethiopia': '+251', 'Fiji': '+679', 'Finland': '+358', 'France': '+33',
+  'Gabon': '+241', 'Gambia': '+220', 'Georgia': '+995', 'Germany': '+49',
+  'Ghana': '+233', 'Greece': '+30', 'Grenada': '+1-473', 'Guatemala': '+502',
+  'Guinea': '+224', 'Guinea-Bissau': '+245', 'Guyana': '+592', 'Haiti': '+509',
+  'Honduras': '+504', 'Hungary': '+36', 'Iceland': '+354', 'India': '+91',
+  'Indonesia': '+62', 'Iran': '+98', 'Iraq': '+964', 'Ireland': '+353',
+  'Israel': '+972', 'Italy': '+39', 'Ivory Coast': '+225', 'Jamaica': '+1-876',
+  'Japan': '+81', 'Jordan': '+962', 'Kazakhstan': '+7', 'Kenya': '+254',
+  'Kiribati': '+686', 'Kuwait': '+965', 'Kyrgyzstan': '+996', 'Laos': '+856',
+  'Latvia': '+371', 'Lebanon': '+961', 'Lesotho': '+266', 'Liberia': '+231',
+  'Libya': '+218', 'Liechtenstein': '+423', 'Lithuania': '+370', 'Luxembourg': '+352',
+  'Madagascar': '+261', 'Malawi': '+265', 'Malaysia': '+60', 'Maldives': '+960',
+  'Mali': '+223', 'Malta': '+356', 'Marshall Islands': '+692', 'Mauritania': '+222',
+  'Mauritius': '+230', 'Mexico': '+52', 'Micronesia': '+691', 'Moldova': '+373',
+  'Monaco': '+377', 'Mongolia': '+976', 'Montenegro': '+382', 'Morocco': '+212',
+  'Mozambique': '+258', 'Myanmar': '+95', 'Namibia': '+264', 'Nauru': '+674',
+  'Nepal': '+977', 'Netherlands': '+31', 'New Zealand': '+64', 'Nicaragua': '+505',
+  'Niger': '+227', 'Nigeria': '+234', 'North Korea': '+850', 'North Macedonia': '+389',
+  'Norway': '+47', 'Oman': '+968', 'Pakistan': '+92', 'Palau': '+680',
+  'Palestine': '+970', 'Panama': '+507', 'Papua New Guinea': '+675', 'Paraguay': '+595',
+  'Peru': '+51', 'Philippines': '+63', 'Poland': '+48', 'Portugal': '+351',
+  'Qatar': '+974', 'Romania': '+40', 'Russia': '+7', 'Rwanda': '+250',
+  'Saint Kitts and Nevis': '+1-869', 'Saint Lucia': '+1-758', 'Saint Vincent and the Grenadines': '+1-784',
+  'Samoa': '+685', 'San Marino': '+378', 'Sao Tome and Principe': '+239', 'Saudi Arabia': '+966',
+  'Senegal': '+221', 'Serbia': '+381', 'Seychelles': '+248', 'Sierra Leone': '+232',
+  'Singapore': '+65', 'Slovakia': '+421', 'Slovenia': '+386', 'Solomon Islands': '+677',
+  'Somalia': '+252', 'South Africa': '+27', 'South Korea': '+82', 'South Sudan': '+211',
+  'Spain': '+34', 'Sri Lanka': '+94', 'Sudan': '+249', 'Suriname': '+597',
+  'Sweden': '+46', 'Switzerland': '+41', 'Syria': '+963', 'Taiwan': '+886',
+  'Tajikistan': '+992', 'Tanzania': '+255', 'Thailand': '+66', 'Togo': '+228',
+  'Tonga': '+676', 'Trinidad and Tobago': '+1-868', 'Tunisia': '+216', 'Turkey': '+90',
+  'Turkmenistan': '+993', 'Tuvalu': '+688', 'Uganda': '+256', 'Ukraine': '+380',
+  'United Arab Emirates': '+971', 'United Kingdom': '+44', 'United States': '+1',
+  'Uruguay': '+598', 'Uzbekistan': '+998', 'Vanuatu': '+678', 'Vatican City': '+39',
+  'Venezuela': '+58', 'Vietnam': '+84', 'Yemen': '+967', 'Zambia': '+260', 'Zimbabwe': '+263',
+};
+
+const getDialCode = (country: string): string => COUNTRY_DIAL_CODES[country] ?? '';
 
 // ─── Step Indicator ──────────────────────────────────────────────────────────
 function StepIndicator({ current, total }: { current: number; total: number }) {
@@ -70,6 +144,193 @@ function Field({ label, icon, error, children }: InputProps) {
 const inputCls = "w-full bg-[#F6FAFD] border border-[#E1EBF2] rounded-lg px-3.5 py-2 text-sm text-[#0A1931] placeholder-[#8CA3B8] focus:outline-none focus:border-[#4A7FA7] focus:ring-[3px] focus:ring-[#4A7FA7]/15 focus:bg-white transition-all";
 const selectCls = inputCls + " appearance-none cursor-pointer";
 
+// ─── Country Selector Component ───────────────────────────────────────────────
+function CountrySelector({
+  value,
+  onChange,
+  error
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  error?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter countries by search query or active letter filter
+  const filteredCountries = useMemo(() => {
+    return ALL_COUNTRIES.filter(c => {
+      const matchesSearch = c.toLowerCase().includes(search.toLowerCase());
+      const matchesLetter = activeLetter ? c.toUpperCase().startsWith(activeLetter) : true;
+      return matchesSearch && matchesLetter;
+    });
+  }, [search, activeLetter]);
+
+  // Group filtered countries by initial letter
+  const groupedCountries = useMemo(() => {
+    const groups: { [key: string]: string[] } = {};
+    filteredCountries.forEach(country => {
+      const firstLetter = country[0].toUpperCase();
+      if (!groups[firstLetter]) groups[firstLetter] = [];
+      groups[firstLetter].push(country);
+    });
+    return groups;
+  }, [filteredCountries]);
+
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  const scrollToLetter = (letter: string) => {
+    if (activeLetter === letter) {
+      setActiveLetter(null);
+      return;
+    }
+    setActiveLetter(letter);
+    setSearch('');
+    setTimeout(() => {
+      const element = document.getElementById(`letter-group-${letter}`);
+      if (element && listRef.current) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        id="country-selector-btn"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`${selectCls} flex items-center justify-between text-left ${
+          !value ? 'text-[#8CA3B8]' : 'text-[#0A1931] font-medium'
+        } ${error ? 'border-red-400 ring-2 ring-red-400/20' : ''}`}
+      >
+        <span className="flex items-center gap-2 truncate">
+          {value && getDialCode(value) && (
+            <span className="shrink-0 text-[10px] font-bold text-[#0A5ED6] bg-blue-50 border border-blue-100 rounded px-1 py-0.5">
+              {getDialCode(value)}
+            </span>
+          )}
+          <span>{value || 'Select country...'}</span>
+        </span>
+        <ChevronDown className={`w-4 h-4 text-[#4A6D8C] transition-transform duration-200 shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-[#E1EBF2] rounded-xl shadow-xl p-3 text-xs space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8CA3B8]" />
+            <input
+              type="text"
+              placeholder="Search country..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (activeLetter) setActiveLetter(null);
+              }}
+              className="w-full bg-[#F6FAFD] border border-[#E1EBF2] rounded-lg pl-9 pr-8 py-1.5 text-xs text-[#0A1931] placeholder-[#8CA3B8] focus:outline-none focus:border-[#4A7FA7] focus:ring-2 focus:ring-[#4A7FA7]/15 transition-all"
+              autoFocus
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Alphabet Index Quick Jump Bar */}
+          <div className="flex flex-wrap gap-0.5 justify-between bg-[#F6FAFD] p-1.5 rounded-lg border border-[#E1EBF2]">
+            {letters.map((letter) => {
+              const hasCountries = ALL_COUNTRIES.some(c => c.toUpperCase().startsWith(letter));
+              const isSelected = activeLetter === letter;
+
+              return (
+                <button
+                  key={letter}
+                  type="button"
+                  disabled={!hasCountries}
+                  onClick={() => scrollToLetter(letter)}
+                  className={`w-5 h-5 rounded text-[10px] font-bold transition-all flex items-center justify-center ${
+                    isSelected
+                      ? 'bg-[#0A5ED6] text-white shadow-xs'
+                      : hasCountries
+                      ? 'text-[#4A6D8C] hover:bg-[#0A5ED6]/10 hover:text-[#0A5ED6] cursor-pointer'
+                      : 'text-slate-300 cursor-not-allowed'
+                  }`}
+                  title={hasCountries ? `Jump to ${letter}` : `No countries starting with ${letter}`}
+                >
+                  {letter}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Scrollable Countries List */}
+          <div
+            ref={listRef}
+            className="max-h-56 overflow-y-auto pr-1 space-y-2 custom-scrollbar divide-y divide-slate-100"
+          >
+            {Object.keys(groupedCountries).length === 0 ? (
+              <div className="py-6 text-center text-slate-400 font-medium text-xs">
+                No countries match "{search}"
+              </div>
+            ) : (
+              Object.entries(groupedCountries).map(([letter, countries]) => (
+                <div key={letter} id={`letter-group-${letter}`} className="pt-2 first:pt-0">
+                  <div className="sticky top-0 bg-white/95 backdrop-blur-xs py-0.5 px-2 text-[10px] font-extrabold text-[#0A5ED6] uppercase tracking-wider border-b border-slate-100">
+                    {letter}
+                  </div>
+                  <div className="mt-1 space-y-0.5">
+                    {countries.map((c) => {
+                      const isSelected = value === c;
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            onChange(c);
+                            setIsOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 rounded-md flex items-center justify-between text-xs font-medium transition-colors cursor-pointer ${
+                            isSelected
+                              ? 'bg-blue-50 text-[#0A5ED6] font-bold'
+                              : 'text-slate-700 hover:bg-[#F6FAFD] hover:text-[#0A1931]'
+                          }`}
+                        >
+                          <span>{c}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#0A5ED6]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -81,6 +342,25 @@ export default function RegisterPage() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [registeredEmail, setRegisteredEmail] = useState(''); // '' = not done, email = show success screen
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
+  // Countdown timer for rate-limit cooldown
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const t = setTimeout(() => setCooldownSeconds(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldownSeconds]);
+
+  // Countdown timer for resend email cooldown
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   // Form state
   const [form, setForm] = useState({
@@ -95,6 +375,7 @@ export default function RegisterPage() {
     confirm_password: '',
     agreed: false,
   });
+  const [customIndustry, setCustomIndustry] = useState('');
 
   // Parse URL query params on mount for plan & billing
   useEffect(() => {
@@ -117,30 +398,98 @@ export default function RegisterPage() {
     return getPlanByEmployeeCount(form.employee_count);
   }, [form.employee_count]);
 
+  // ── Emoji stripper ────────────────────────────────────────────────────────
+  const stripEmoji = (str: string): string =>
+    str.replace(
+      /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F1E0}-\u{1F1FF}\u{231A}-\u{231B}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{25AA}-\u{25AB}\u{25B6}\u{25C0}\u{25FB}-\u{25FE}\u{2614}-\u{2615}\u{2648}-\u{2653}\u{267F}\u{2693}\u{26A1}\u{26AA}-\u{26AB}\u{26BD}-\u{26BE}\u{26C4}-\u{26C5}\u{26CE}\u{26D4}\u{26EA}\u{26F2}-\u{26F3}\u{26F5}\u{26FA}\u{26FD}\u{2702}\u{2705}\u{2708}-\u{270D}\u{270F}\u{200D}\u{20E3}\u{FE4F}\u{FFF0}-\u{FFFF}]/gu,
+      ''
+    );
+
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setError('');
-    const val = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
+    let val: string | boolean;
+    if (e.target.type === 'checkbox') {
+      val = (e.target as HTMLInputElement).checked;
+    } else {
+      // Strip emojis from every text-type input
+      val = stripEmoji(e.target.value);
+    }
     setForm(prev => ({ ...prev, [key]: val }));
   };
 
   // ── Validation per step ────────────────────────────────────────────────────
   const validateStep = (s: number): string => {
     if (s === 1) {
-      if (!form.name.trim()) return 'Organization name is required.';
+      const orgName = form.name.trim();
+      if (!orgName) return 'Organization name is required.';
+      if (orgName.length < 2) return 'Organization name must be at least 2 characters.';
+      if (orgName.length > 100) return 'Organization name must not exceed 100 characters.';
+      if (!/^[a-zA-Z0-9\s\-\&\.\,\'\/\(\)]+$/.test(orgName)) {
+        return 'Organization name contains invalid special characters.';
+      }
+      if (!/[a-zA-Z0-9]/.test(orgName)) {
+        return 'Organization name must contain valid letters or numbers.';
+      }
+
       if (!form.industry) return 'Please select an industry.';
-      if (!form.country) return 'Please select a country.';
+      if (form.industry === 'Other') {
+        const custInd = customIndustry.trim();
+        if (!custInd) return 'Please enter your custom industry name.';
+        if (custInd.length < 2) return 'Custom industry name must be at least 2 characters.';
+        if (!/^[a-zA-Z0-9\s\-\&\/\,\.\(\)]+$/.test(custInd)) {
+          return 'Industry name contains invalid special characters.';
+        }
+      }
+
+      if (!form.country) return 'Please select a country / region.';
     }
+
     if (s === 2) {
-      if (!form.admin_name.trim()) return 'Admin full name is required.';
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.admin_email)) return 'Enter a valid business email.';
-      if (!/^\+?[0-9\s\-]{7,15}$/.test(form.phone)) return 'Enter a valid phone number.';
+      const adminName = form.admin_name.trim();
+      if (!adminName) return 'Admin full name is required.';
+      if (adminName.length < 2) return 'Admin full name must be at least 2 characters.';
+      // Name regex: strictly letters, spaces, hyphens, apostrophes, and dots (NO DIGITS or special chars like #$@!)
+      const nameRegex = /^[a-zA-Z\s\-\'\.\u00C0-\u024F]+$/;
+      if (!nameRegex.test(adminName)) {
+        return 'Admin full name can only contain letters, spaces, hyphens, and apostrophes (no numbers or special characters).';
+      }
+
+      const email = form.admin_email.trim();
+      if (!email) return 'Business email is required.';
+      // Strict RFC email validation with valid TLD (min 2 chars)
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(email) || email.includes('..')) {
+        return 'Please enter a valid business email address (e.g. name@company.com).';
+      }
+
+      const phone = form.phone.trim();
+      if (!phone) return 'Phone number is required.';
+      const cleanDigits = phone.replace(/\D/g, '');
+      if (cleanDigits.length < 7 || cleanDigits.length > 15 || !/^\+?[0-9\s\-\(\)\.]{7,20}$/.test(phone)) {
+        return 'Please enter a valid phone number (7 to 15 digits, e.g. +92 300 1234567).';
+      }
     }
+
     if (s === 3) {
-      if (form.password.length < 8) return 'Password must be at least 8 characters.';
-      if (!/[A-Z]/.test(form.password)) return 'Password must contain an uppercase letter.';
-      if (!/[0-9]/.test(form.password)) return 'Password must contain a number.';
-      if (form.password !== form.confirm_password) return 'Passwords do not match.';
-      if (!form.agreed) return 'You must agree to the Terms of Service.';
+      if (form.password.length < 8) return 'Password must be at least 8 characters long.';
+      if (form.password.length > 128) return 'Password must not exceed 128 characters.';
+      // Only allow standard printable ASCII — blocks SQL injection strings, quotes, dashes etc.
+      // Allowed: letters, digits, and safe specials: !@#$%^&*()_+-=[]{}|;:,.?/~`
+      const allowedPassChars = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{}|;:,.?/~`]+$/;
+      if (!allowedPassChars.test(form.password)) {
+        return "Password contains invalid characters. Use letters, numbers, and symbols like !@#$%^&*()_+-=[]{}|;:,.?";
+      }
+      // Block obvious injection / scripting patterns
+      const injectionPattern = /('\s*(OR|AND)\s*'[^']*'\s*=\s*'[^']*')|(--|;|\bOR\b\s+\d+=\d+|\bAND\b\s+\d+=\d+|<script|SELECT\s+\*|DROP\s+TABLE|INSERT\s+INTO|UNION\s+SELECT)/i;
+      if (injectionPattern.test(form.password)) {
+        return 'Password contains disallowed patterns. Please choose a different password.';
+      }
+      if (!/[A-Z]/.test(form.password)) return 'Password must contain at least one uppercase letter (A-Z).';
+      if (!/[a-z]/.test(form.password)) return 'Password must contain at least one lowercase letter (a-z).';
+      if (!/[0-9]/.test(form.password)) return 'Password must contain at least one number (0-9).';
+      if (!form.confirm_password) return 'Please confirm your password by re-entering it below.';
+      if (form.password !== form.confirm_password) return 'Passwords do not match. Please check and try again.';
+      if (!form.agreed) return 'You must agree to the Terms of Service and Privacy Policy.';
     }
     return '';
   };
@@ -152,6 +501,32 @@ export default function RegisterPage() {
     setError('');
   };
 
+  // ── Friendly error mapper ──────────────────────────────────────────────────
+  const sanitizeError = (raw: string): string => {
+    const r = raw.toLowerCase();
+    // Supabase RLS / DB errors
+    if (r.includes('row-level security') || r.includes('rls') || r.includes('policy for table'))
+      return 'Registration is temporarily restricted. Please contact support or try again later.';
+    if (r.includes('duplicate key') || r.includes('already registered') || r.includes('already exists'))
+      return 'This email address is already registered. Please sign in or use a different email.';
+    if (r.includes('email rate limit') || r.includes('rate limit') || r.includes('too many requests'))
+      return 'Too many sign-up attempts. Please wait a few minutes and try again.';
+    if (r.includes('invalid email') || r.includes('invalid_email'))
+      return 'The email address provided is not valid. Please check and try again.';
+    if (r.includes('weak password') || r.includes('password should be'))
+      return 'Your password is too weak. Please choose a stronger password (min. 8 characters, uppercase, number).';
+    if (r.includes('network') || r.includes('fetch') || r.includes('failed to fetch'))
+      return 'A network error occurred. Please check your connection and try again.';
+    if (r.includes('user already registered') || r.includes('user_already_exists'))
+      return 'An account with this email already exists. Please sign in instead.';
+    if (r.includes('signup disabled') || r.includes('signups not allowed'))
+      return 'New registrations are temporarily paused. Please try again later or contact support.';
+    if (r.includes('organization') && r.includes('already registered'))
+      return raw; // This one is already user-friendly from org-service.ts
+    // Generic fallback — never expose raw db errors
+    return 'Registration failed. Please review your details and try again, or contact support.';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validateStep(3);
@@ -160,14 +535,17 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
     try {
+      const finalIndustry = form.industry === 'Other' ? customIndustry.trim() : form.industry;
+
+      // Trigger org-service registration
       const org = await registerOrganization({
-        name: form.name,
-        industry: form.industry,
+        name: form.name.trim(),
+        industry: finalIndustry,
         employee_count: form.employee_count,
         country: form.country,
-        admin_name: form.admin_name,
-        admin_email: form.admin_email,
-        phone: form.phone,
+        admin_name: form.admin_name.trim(),
+        admin_email: form.admin_email.trim(),
+        phone: form.phone.trim(),
         password: form.password,
       });
 
@@ -191,15 +569,121 @@ export default function RegisterPage() {
       // Temporarily store the password in sessionStorage so PortalPage can pass it to the local setup wizard
       sessionStorage.setItem('tempAdminPassword', form.password);
 
-      navigate('/portal');
+      // Show email confirmation screen instead of navigating directly
+      setRegisteredEmail(form.admin_email.trim());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      const friendly = sanitizeError(rawMsg);
+      setError(friendly);
+      // If it's a rate limit error, start a 60-second cooldown
+      if (rawMsg.toLowerCase().includes('rate limit') || rawMsg.toLowerCase().includes('too many')) {
+        setCooldownSeconds(60);
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Resend confirmation email ───────────────────────────────────────────────
+  const handleResendEmail = async () => {
+    if (resendCooldown > 0 || resendLoading) return;
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      const { error } = await (await import('../lib/supabase')).supabase.auth.resend({
+        type: 'signup',
+        email: registeredEmail,
+        options: { emailRedirectTo: `${window.location.origin}/portal` },
+      });
+      if (error) throw error;
+      setResendSuccess(true);
+      setResendCooldown(60);
+    } catch {
+      // silently ignore — countdown still protects spam
+      setResendCooldown(30);
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  // ── Email confirmation success screen ──────────────────────────────────────
+  if (registeredEmail) {
+    return (
+      <div className="min-h-screen bg-[#F6FAFD] text-[#0A1931] flex flex-col font-sans">
+        <Header />
+        <div className="flex-1 flex items-center justify-center px-4 py-8 relative z-10">
+          <div className="absolute inset-0 pointer-events-none overflow-hidden flex justify-center items-center">
+            <div className="w-[600px] h-[600px] bg-[#4A7FA7]/5 rounded-full blur-[120px]" />
+          </div>
+          <div className="w-full max-w-md relative z-10 text-center space-y-6">
+            {/* Icon */}
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#0A5ED6] to-[#4A7FA7] flex items-center justify-center shadow-lg shadow-blue-200">
+                <Mail className="w-9 h-9 text-white" />
+              </div>
+            </div>
+
+            {/* Heading */}
+            <div>
+              <h1 className="text-2xl font-bold text-[#0A1931]">Check Your Inbox</h1>
+              <p className="text-sm text-[#4A6D8C] mt-2 leading-relaxed">
+                We've sent a confirmation email to
+              </p>
+              <p className="text-sm font-bold text-[#0A5ED6] mt-1 break-all">{registeredEmail}</p>
+            </div>
+
+            {/* Steps card */}
+            <div className="bg-white border border-[#E1EBF2] rounded-2xl p-5 shadow-sm text-left space-y-3">
+              {[
+                { n: '1', text: 'Open the email from AegisOne in your inbox (check Spam too).' },
+                { n: '2', text: 'Click the "Confirm my email" button inside the email.' },
+                { n: '3', text: 'You\'ll be redirected to your portal to complete setup.' },
+              ].map(({ n, text }) => (
+                <div key={n} className="flex items-start gap-3">
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-[#0A5ED6] text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                    {n}
+                  </div>
+                  <p className="text-xs text-[#4A6D8C] leading-relaxed">{text}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Resend */}
+            <div className="space-y-2">
+              {resendSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-xs text-emerald-700 font-medium flex items-center gap-2 justify-center">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Confirmation email resent successfully!
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleResendEmail}
+                disabled={resendCooldown > 0 || resendLoading}
+                className="w-full flex items-center justify-center gap-2 border border-[#E1EBF2] bg-white hover:bg-[#F6FAFD] disabled:opacity-60 disabled:cursor-not-allowed text-[#4A6D8C] font-semibold text-sm py-3 rounded-xl transition-all"
+              >
+                {resendLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
+                ) : resendCooldown > 0 ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Resend available in {resendCooldown}s</>
+                ) : (
+                  <><Mail className="w-4 h-4" /> Didn't receive it? Resend Email</>
+                )}
+              </button>
+              <p className="text-xs text-[#8CA3B8]">
+                Already confirmed?{' '}
+                <Link to="/login" className="text-[#4A7FA7] font-semibold hover:text-[#3D6C90]">
+                  Sign in to Portal
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F6FAFD] text-[#0A1931] flex flex-col font-sans">
       <Header />
@@ -251,15 +735,43 @@ export default function RegisterPage() {
                       <Field label="Industry" icon={<Briefcase className="w-3 h-3 text-[#4A6D8C]" />}>
                         <select id="industry" className={selectCls} value={form.industry} onChange={set('industry')}>
                           <option value="">Select industry...</option>
-                          {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
+                          {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
                         </select>
+
+                        {form.industry === 'Other' && (
+                          <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <input
+                              id="custom-industry"
+                              type="text"
+                              className={inputCls}
+                              placeholder="Specify your custom industry name..."
+                              value={customIndustry}
+                              onChange={(e) => {
+                                setError('');
+                                setCustomIndustry(stripEmoji(e.target.value));
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        )}
                       </Field>
 
                       <Field label="Country / Region" icon={<Globe className="w-3 h-3 text-[#4A6D8C]" />}>
-                        <select id="country" className={selectCls} value={form.country} onChange={set('country')}>
-                          <option value="">Select country...</option>
-                          {COUNTRIES.map(c => <option key={c}>{c}</option>)}
-                        </select>
+                        <CountrySelector
+                          value={form.country}
+                          onChange={(c) => {
+                            setError('');
+                            const dialCode = getDialCode(c);
+                            setForm(prev => ({
+                              ...prev,
+                              country: c,
+                              // Pre-fill phone only if empty or it still only contains a previous dial code
+                              phone: prev.phone === '' || Object.values(COUNTRY_DIAL_CODES).some(d => prev.phone.trim() === d)
+                                ? dialCode
+                                : prev.phone,
+                            }));
+                          }}
+                        />
                       </Field>
 
                       {/* Single Unified Protection Plan & Organization Size Selector */}
@@ -337,14 +849,39 @@ export default function RegisterPage() {
                   </Field>
 
                   <Field label="Phone Number" icon={<Phone className="w-3 h-3" />}>
-                    <input
-                      id="phone"
-                      type="tel"
-                      className={inputCls}
-                      placeholder="+92 300 1234567"
-                      value={form.phone}
-                      onChange={set('phone')}
-                    />
+                    <div className="relative flex items-stretch">
+                      {/* Dial code badge */}
+                      {form.country && getDialCode(form.country) && (
+                        <div className="shrink-0 flex items-center gap-1.5 bg-[#EBF4FC] border border-r-0 border-[#C7DAE8] rounded-l-lg px-2.5 text-xs font-bold text-[#0A5ED6] select-none">
+                          <Phone className="w-3 h-3 text-[#4A7FA7]" />
+                          {getDialCode(form.country)}
+                        </div>
+                      )}
+                      <input
+                        id="phone"
+                        type="tel"
+                        className={`${inputCls} ${
+                          form.country && getDialCode(form.country) ? 'rounded-l-none border-l-0 focus:ring-offset-0' : ''
+                        }`}
+                        placeholder={form.country && getDialCode(form.country) ? 'e.g. 300 1234567' : '+92 300 1234567'}
+                        value={form.phone}
+                        onChange={(e) => {
+                          setError('');
+                          const dialCode = getDialCode(form.country);
+                          let raw = stripEmoji(e.target.value);
+                          // Prevent user from deleting the pre-filled dial code prefix
+                          if (dialCode && !raw.startsWith(dialCode)) {
+                            raw = dialCode + raw.replace(/^[+0-9\-\s]*/,'').replace(/\D/g, '');
+                          }
+                          setForm(prev => ({ ...prev, phone: raw }));
+                        }}
+                      />
+                    </div>
+                    {form.country && getDialCode(form.country) && (
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Dial code for <span className="font-semibold text-[#4A6D8C]">{form.country}</span> pre-filled. Enter local number after it.
+                      </p>
+                    )}
                   </Field>
                 </>
               )}
@@ -415,9 +952,20 @@ export default function RegisterPage() {
 
               {/* Error */}
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-600 font-medium flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-600 shrink-0" />
+                <div className={`border rounded-xl px-4 py-3 text-xs font-medium flex items-center gap-2 ${
+                  cooldownSeconds > 0
+                    ? 'bg-amber-50 border-amber-200 text-amber-700'
+                    : 'bg-red-50 border-red-200 text-red-600'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    cooldownSeconds > 0 ? 'bg-amber-500' : 'bg-red-600'
+                  }`} />
                   {error}
+                  {cooldownSeconds > 0 && (
+                    <span className="ml-auto font-bold text-amber-600 tabular-nums shrink-0">
+                      {cooldownSeconds}s
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -426,7 +974,7 @@ export default function RegisterPage() {
                 {step > 1 && (
                   <button
                     type="button"
-                    onClick={() => { setStep(s => s - 1); setError(''); }}
+                    onClick={() => { setStep(s => s - 1); setError(''); setCooldownSeconds(0); }}
                     className="flex items-center gap-1.5 px-4 py-[11px] rounded-lg border border-[#E1EBF2] text-[#4A6D8C] text-sm font-semibold hover:border-[#C7DAE8] hover:bg-[#F6FAFD] transition-all"
                   >
                     <ChevronLeft className="w-4 h-4" /> Back
@@ -434,11 +982,13 @@ export default function RegisterPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#4A7FA7] hover:bg-[#3D6C90] disabled:bg-[#4A7FA7]/50 text-white font-semibold py-[11px] rounded-lg text-sm transition-all shadow-sm"
+                  disabled={loading || cooldownSeconds > 0}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#4A7FA7] hover:bg-[#3D6C90] disabled:bg-[#4A7FA7]/50 disabled:cursor-not-allowed text-white font-semibold py-[11px] rounded-lg text-sm transition-all shadow-sm"
                 >
                   {loading ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Creating Organization...</>
+                  ) : cooldownSeconds > 0 ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Please wait {cooldownSeconds}s...</>
                   ) : step < 3 ? (
                     <>Continue <ChevronRight className="w-4 h-4" /></>
                   ) : (
