@@ -39,10 +39,24 @@ export default function PortalPage() {
   const [loading, setLoading] = useState(true);
   const [osTab, setOsTab] = useState<'linux' | 'windows'>('linux');
   const [serverHost, setServerHost] = useState('localhost');
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
     (async () => {
+      // Detect Supabase email confirmation redirect (hash contains access_token)
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        // Supabase SDK automatically exchanges this hash for a session
+        // Give it a moment to process, then clean the URL
+        await new Promise(r => setTimeout(r, 300));
+        window.history.replaceState(null, '', window.location.pathname);
+        setEmailConfirmed(true);
+        // Hide the confirmed banner after 4 seconds
+        setTimeout(() => setEmailConfirmed(false), 4000);
+      }
+
       const data = await getMyOrganization();
       if (!data) { navigate('/login'); return; }
       setOrg(data);
@@ -57,7 +71,13 @@ export default function PortalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F6FAFD] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F6FAFD] flex flex-col items-center justify-center gap-4">
+        {emailConfirmed && (
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold px-5 py-3 rounded-xl shadow-sm animate-pulse">
+            <CheckCircle2 className="w-5 h-5" />
+            Email confirmed! Loading your portal...
+          </div>
+        )}
         <Loader2 className="w-8 h-8 text-[#4A7FA7] animate-spin" />
       </div>
     );

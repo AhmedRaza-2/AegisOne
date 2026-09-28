@@ -132,19 +132,7 @@ interface InputProps {
 function Field({ label, icon, error, children }: InputProps) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-        {icon} {label}
-      </label>
-      {children}
-      {error && <p className="text-xs text-red-400 font-medium">{error}</p>}
-    </div>
-  );
-}
-
-const inputCls = "w-full bg-[#F6FAFD] border border-[#E1EBF2] rounded-lg px-3.5 py-2 text-sm text-[#0A1931] placeholder-[#8CA3B8] focus:outline-none focus:border-[#4A7FA7] focus:ring-[3px] focus:ring-[#4A7FA7]/15 focus:bg-white transition-all";
-const selectCls = inputCls + " appearance-none cursor-pointer";
-
-// ─── Country Selector Component ───────────────────────────────────────────────
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 upperc// ─── Country Selector Component ───────────────────────────────────────────────
 function CountrySelector({
   value,
   onChange,
@@ -156,7 +144,6 @@ function CountrySelector({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [activeLetter, setActiveLetter] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -171,14 +158,12 @@ function CountrySelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter countries by search query or active letter filter
+  // Filter countries by search query
   const filteredCountries = useMemo(() => {
-    return ALL_COUNTRIES.filter(c => {
-      const matchesSearch = c.toLowerCase().includes(search.toLowerCase());
-      const matchesLetter = activeLetter ? c.toUpperCase().startsWith(activeLetter) : true;
-      return matchesSearch && matchesLetter;
-    });
-  }, [search, activeLetter]);
+    if (!search.trim()) return ALL_COUNTRIES;
+    const q = search.toLowerCase().trim();
+    return ALL_COUNTRIES.filter(c => c.toLowerCase().includes(q));
+  }, [search]);
 
   // Group filtered countries by initial letter
   const groupedCountries = useMemo(() => {
@@ -191,23 +176,6 @@ function CountrySelector({
     return groups;
   }, [filteredCountries]);
 
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-
-  const scrollToLetter = (letter: string) => {
-    if (activeLetter === letter) {
-      setActiveLetter(null);
-      return;
-    }
-    setActiveLetter(letter);
-    setSearch('');
-    setTimeout(() => {
-      const element = document.getElementById(`letter-group-${letter}`);
-      if (element && listRef.current) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 50);
-  };
-
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -218,14 +186,7 @@ function CountrySelector({
           !value ? 'text-[#8CA3B8]' : 'text-[#0A1931] font-medium'
         } ${error ? 'border-red-400 ring-2 ring-red-400/20' : ''}`}
       >
-        <span className="flex items-center gap-2 truncate">
-          {value && getDialCode(value) && (
-            <span className="shrink-0 text-[10px] font-bold text-[#0A5ED6] bg-blue-50 border border-blue-100 rounded px-1 py-0.5">
-              {getDialCode(value)}
-            </span>
-          )}
-          <span>{value || 'Select country...'}</span>
-        </span>
+        <span className="truncate">{value || 'Select country...'}</span>
         <ChevronDown className={`w-4 h-4 text-[#4A6D8C] transition-transform duration-200 shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -238,10 +199,7 @@ function CountrySelector({
               type="text"
               placeholder="Search country..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                if (activeLetter) setActiveLetter(null);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-[#F6FAFD] border border-[#E1EBF2] rounded-lg pl-9 pr-8 py-1.5 text-xs text-[#0A1931] placeholder-[#8CA3B8] focus:outline-none focus:border-[#4A7FA7] focus:ring-2 focus:ring-[#4A7FA7]/15 transition-all"
               autoFocus
             />
@@ -256,37 +214,12 @@ function CountrySelector({
             )}
           </div>
 
-          {/* Alphabet Index Quick Jump Bar */}
-          <div className="flex flex-wrap gap-0.5 justify-between bg-[#F6FAFD] p-1.5 rounded-lg border border-[#E1EBF2]">
-            {letters.map((letter) => {
-              const hasCountries = ALL_COUNTRIES.some(c => c.toUpperCase().startsWith(letter));
-              const isSelected = activeLetter === letter;
-
-              return (
-                <button
-                  key={letter}
-                  type="button"
-                  disabled={!hasCountries}
-                  onClick={() => scrollToLetter(letter)}
-                  className={`w-5 h-5 rounded text-[10px] font-bold transition-all flex items-center justify-center ${
-                    isSelected
-                      ? 'bg-[#0A5ED6] text-white shadow-xs'
-                      : hasCountries
-                      ? 'text-[#4A6D8C] hover:bg-[#0A5ED6]/10 hover:text-[#0A5ED6] cursor-pointer'
-                      : 'text-slate-300 cursor-not-allowed'
-                  }`}
-                  title={hasCountries ? `Jump to ${letter}` : `No countries starting with ${letter}`}
-                >
-                  {letter}
-                </button>
-              );
-            })}
-          </div>
-
           {/* Scrollable Countries List */}
           <div
             ref={listRef}
-            className="max-h-56 overflow-y-auto pr-1 space-y-2 custom-scrollbar divide-y divide-slate-100"
+            onWheel={(e) => e.stopPropagation()}
+            style={{ overscrollBehavior: 'contain' }}
+            className="max-h-64 overflow-y-auto pr-1 space-y-2 custom-scrollbar divide-y divide-slate-100 touch-pan-y"
           >
             {Object.keys(groupedCountries).length === 0 ? (
               <div className="py-6 text-center text-slate-400 font-medium text-xs">
@@ -294,8 +227,8 @@ function CountrySelector({
               </div>
             ) : (
               Object.entries(groupedCountries).map(([letter, countries]) => (
-                <div key={letter} id={`letter-group-${letter}`} className="pt-2 first:pt-0">
-                  <div className="sticky top-0 bg-white/95 backdrop-blur-xs py-0.5 px-2 text-[10px] font-extrabold text-[#0A5ED6] uppercase tracking-wider border-b border-slate-100">
+                <div key={letter} className="pt-2 first:pt-0">
+                  <div className="sticky top-0 bg-white/95 backdrop-blur-xs py-0.5 px-2 text-[10px] font-extrabold text-[#0A5ED6] uppercase tracking-wider border-b border-slate-100 z-10">
                     {letter}
                   </div>
                   <div className="mt-1 space-y-0.5">
@@ -311,6 +244,25 @@ function CountrySelector({
                           }}
                           className={`w-full text-left px-3 py-1.5 rounded-md flex items-center justify-between text-xs font-medium transition-colors cursor-pointer ${
                             isSelected
+                              ? 'bg-blue-50 text-[#0A5ED6] font-bold'
+                              : 'text-slate-700 hover:bg-[#F6FAFD] hover:text-[#0A1931]'
+                          }`}
+                        >
+                          <span>{c}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#0A5ED6]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}cted
                               ? 'bg-blue-50 text-[#0A5ED6] font-bold'
                               : 'text-slate-700 hover:bg-[#F6FAFD] hover:text-[#0A1931]'
                           }`}
@@ -465,8 +417,8 @@ export default function RegisterPage() {
       const phone = form.phone.trim();
       if (!phone) return 'Phone number is required.';
       const cleanDigits = phone.replace(/\D/g, '');
-      if (cleanDigits.length < 7 || cleanDigits.length > 15 || !/^\+?[0-9\s\-\(\)\.]{7,20}$/.test(phone)) {
-        return 'Please enter a valid phone number (7 to 15 digits, e.g. +92 300 1234567).';
+      if (cleanDigits.length < 5 || cleanDigits.length > 15 || !/^\+?[0-9\s\-\(\)\.]{5,20}$/.test(phone)) {
+        return 'Please enter a valid phone number (e.g. 300 1234567).';
       }
     }
 
@@ -538,6 +490,11 @@ export default function RegisterPage() {
       const finalIndustry = form.industry === 'Other' ? customIndustry.trim() : form.industry;
 
       // Trigger org-service registration
+      const dialCode = getDialCode(form.country);
+      const fullPhone = dialCode && !form.phone.trim().startsWith('+')
+        ? `${dialCode} ${form.phone.trim()}`
+        : form.phone.trim();
+
       const org = await registerOrganization({
         name: form.name.trim(),
         industry: finalIndustry,
@@ -545,7 +502,7 @@ export default function RegisterPage() {
         country: form.country,
         admin_name: form.admin_name.trim(),
         admin_email: form.admin_email.trim(),
-        phone: form.phone.trim(),
+        phone: fullPhone,
         password: form.password,
       });
 
@@ -761,14 +718,9 @@ export default function RegisterPage() {
                           value={form.country}
                           onChange={(c) => {
                             setError('');
-                            const dialCode = getDialCode(c);
                             setForm(prev => ({
                               ...prev,
                               country: c,
-                              // Pre-fill phone only if empty or it still only contains a previous dial code
-                              phone: prev.phone === '' || Object.values(COUNTRY_DIAL_CODES).some(d => prev.phone.trim() === d)
-                                ? dialCode
-                                : prev.phone,
                             }));
                           }}
                         />
@@ -863,15 +815,14 @@ export default function RegisterPage() {
                         className={`${inputCls} ${
                           form.country && getDialCode(form.country) ? 'rounded-l-none border-l-0 focus:ring-offset-0' : ''
                         }`}
-                        placeholder={form.country && getDialCode(form.country) ? 'e.g. 300 1234567' : '+92 300 1234567'}
+                        placeholder={form.country && getDialCode(form.country) ? 'e.g. 300 1234567' : '300 1234567'}
                         value={form.phone}
                         onChange={(e) => {
                           setError('');
-                          const dialCode = getDialCode(form.country);
                           let raw = stripEmoji(e.target.value);
-                          // Prevent user from deleting the pre-filled dial code prefix
-                          if (dialCode && !raw.startsWith(dialCode)) {
-                            raw = dialCode + raw.replace(/^[+0-9\-\s]*/,'').replace(/\D/g, '');
+                          const dialCode = getDialCode(form.country);
+                          if (dialCode && raw.startsWith(dialCode)) {
+                            raw = raw.slice(dialCode.length).trim();
                           }
                           setForm(prev => ({ ...prev, phone: raw }));
                         }}
@@ -879,7 +830,7 @@ export default function RegisterPage() {
                     </div>
                     {form.country && getDialCode(form.country) && (
                       <p className="text-[10px] text-slate-400 mt-1">
-                        Dial code for <span className="font-semibold text-[#4A6D8C]">{form.country}</span> pre-filled. Enter local number after it.
+                        Country code <span className="font-semibold text-[#4A6D8C]">{getDialCode(form.country)}</span> attached on left. Enter local number only.
                       </p>
                     )}
                   </Field>
