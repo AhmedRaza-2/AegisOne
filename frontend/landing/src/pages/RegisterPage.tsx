@@ -308,16 +308,27 @@ export default function RegisterPage() {
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
-  // Auto-redirect to portal if email is confirmed in another tab
+  // Handle URL hashes from email confirmation redirects
   useEffect(() => {
-    if (!registeredEmail) return;
+    const hash = window.location.hash;
+    if (hash.includes('error=')) {
+      const params = new URLSearchParams(hash.replace('#', '?'));
+      const errorDesc = params.get('error_description') || 'Email link is invalid or has expired.';
+      setError(`Email verification failed: ${errorDesc.replace(/\+/g, ' ')}`);
+      // Clean up the URL
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
+  // Auto-redirect to portal as soon as user is signed in (e.g., via email link or cross-tab login)
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
         navigate('/portal', { replace: true });
       }
     });
     return () => subscription.unsubscribe();
-  }, [registeredEmail, navigate]);
+  }, [navigate]);
 
   // Form state
   const [form, setForm] = useState({

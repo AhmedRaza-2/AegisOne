@@ -62,7 +62,7 @@ export async function registerOrganization(payload: RegisterPayload): Promise<Or
   }
 
   // Step 1: Both checks passed — now create the auth user with email confirmation
-  const confirmRedirectUrl = `${window.location.origin}/portal`;
+  const confirmRedirectUrl = `${window.location.origin}/register`;
   const signUpRes = await supabase.auth.signUp({
     email: payload.admin_email,
     password: payload.password,
