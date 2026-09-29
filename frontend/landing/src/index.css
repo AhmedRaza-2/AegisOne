@@ -109,6 +109,14 @@ html {
 
 .animate-blob {
   animation: blob 10s infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob,
+  .marquee-track {
+    animation: none;
+  }
 }
 
 .animation-delay-2000 {

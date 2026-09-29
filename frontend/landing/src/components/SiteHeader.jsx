@@ -20,7 +20,7 @@ export default function SiteHeader() {
         const handleScroll = () => {
             setIsScrolled(window.scrollY > 20);
         };
-        window.addEventListener("scroll", handleScroll);
+        window.addEventListener("scroll", handleScroll, { passive: true });
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
@@ -31,8 +31,8 @@ export default function SiteHeader() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className={`px-4 sm:px-6 py-3.5 fixed top-0 w-full left-0 right-0 z-50 transition-all duration-300 ${
                 isScrolled
-                    ? "bg-white/90 backdrop-blur-md shadow-xs border-b border-zinc-200/80"
-                    : "bg-white/60 backdrop-blur-xs border-b border-zinc-100"
+                    ? "bg-white/95 shadow-xs border-b border-zinc-200/80"
+                    : "bg-white/80 border-b border-zinc-100"
             }`}
         >
             <div className="relative max-w-7xl mx-auto">
