@@ -109,7 +109,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
       {Array.from({ length: total }, (_, i) => i + 1).map((step) => (
         <React.Fragment key={step}>
           <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all duration-300 ${step < current ? 'bg-emerald-500 text-white' :
-              step === current ? 'bg-[#0A5ED6] text-white ring-4 ring-[#0A5ED6]/30' :
+              step === current ? 'bg-[#4A7FA7] text-white ring-4 ring-[#4A7FA7]/30' :
                 'bg-slate-200 text-slate-500'
             }`}>
             {step < current ? <CheckCircle2 className="w-4 h-4" /> : step}
@@ -241,7 +241,7 @@ function CountrySelector({
             ) : (
               Object.entries(groupedCountries).map(([letter, countries]) => (
                 <div key={letter} className="pt-2 first:pt-0">
-                  <div className="sticky top-0 bg-white/95 backdrop-blur-xs py-0.5 px-2 text-[10px] font-extrabold text-[#0A5ED6] uppercase tracking-wider border-b border-slate-100 z-10">
+                  <div className="sticky top-0 bg-white/95 backdrop-blur-xs py-0.5 px-2 text-[10px] font-extrabold text-[#4A7FA7] uppercase tracking-wider border-b border-slate-100 z-10">
                     {letter}
                   </div>
                   <div className="mt-1 space-y-0.5">
@@ -257,12 +257,12 @@ function CountrySelector({
                           }}
                           className={`w-full text-left px-3 py-1.5 rounded-md flex items-center justify-between text-xs font-medium transition-colors cursor-pointer ${
                             isSelected
-                              ? 'bg-blue-50 text-[#0A5ED6] font-bold'
+                              ? 'bg-blue-50 text-[#4A7FA7] font-bold'
                               : 'text-slate-700 hover:bg-[#F6FAFD] hover:text-[#0A1931]'
                           }`}
                         >
                           <span>{c}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#0A5ED6]" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#4A7FA7]" />}
                         </button>
                       );
                     })}
@@ -634,7 +634,7 @@ export default function RegisterPage() {
           <div className="w-full max-w-md relative z-10 text-center space-y-6">
             {/* Icon */}
             <div className="flex justify-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#0A5ED6] to-[#4A7FA7] flex items-center justify-center shadow-lg shadow-blue-200">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#4A7FA7] to-[#4A7FA7] flex items-center justify-center shadow-lg shadow-blue-200">
                 <Mail className="w-9 h-9 text-white" />
               </div>
             </div>
@@ -645,7 +645,7 @@ export default function RegisterPage() {
               <p className="text-sm text-[#4A6D8C] mt-2 leading-relaxed">
                 We've sent a confirmation email to
               </p>
-              <p className="text-sm font-bold text-[#0A5ED6] mt-1 break-all">{registeredEmail}</p>
+              <p className="text-sm font-bold text-[#4A7FA7] mt-1 break-all">{registeredEmail}</p>
             </div>
 
             {/* Steps card */}
@@ -656,7 +656,7 @@ export default function RegisterPage() {
                 { n: '3', text: 'You\'ll be redirected to your portal to complete setup.' },
               ].map(({ n, text }) => (
                 <div key={n} className="flex items-start gap-3">
-                  <div className="shrink-0 w-6 h-6 rounded-full bg-[#0A5ED6] text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-[#4A7FA7] text-white text-xs font-bold flex items-center justify-center mt-0.5">
                     {n}
                   </div>
                   <p className="text-xs text-[#4A6D8C] leading-relaxed">{text}</p>
@@ -798,19 +798,19 @@ export default function RegisterPage() {
                                 onClick={() => setForm(p => ({ ...p, employee_count: r.value }))}
                                 className={`p-3.5 rounded-xl border transition-all text-left flex flex-col justify-between relative cursor-pointer ${
                                   isSelected
-                                    ? 'bg-gradient-to-b from-blue-50/80 to-white border-[#0A5ED6] ring-2 ring-[#0A5ED6]/20 shadow-sm'
-                                    : 'bg-[#F6FAFD] border-[#E1EBF2] hover:border-[#0A5ED6]/50 hover:bg-white text-slate-700'
+                                    ? 'bg-gradient-to-b from-blue-50/80 to-white border-[#4A7FA7] ring-2 ring-[#4A7FA7]/20 shadow-sm'
+                                    : 'bg-[#F6FAFD] border-[#E1EBF2] hover:border-[#4A7FA7]/50 hover:bg-white text-slate-700'
                                 }`}
                               >
                                 {isSelected && (
-                                  <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-[#0A5ED6] text-white flex items-center justify-center">
+                                  <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-[#4A7FA7] text-white flex items-center justify-center">
                                     <Check className="w-3 h-3" />
                                   </div>
                                 )}
 
                                 <div>
                                   <div className="flex items-center gap-1.5 mb-1">
-                                    <span className={`text-xs font-extrabold ${isSelected ? 'text-[#0A5ED6]' : 'text-[#0A1931]'}`}>
+                                    <span className={`text-xs font-extrabold ${isSelected ? 'text-[#4A7FA7]' : 'text-[#0A1931]'}`}>
                                       {plan.name}
                                     </span>
                                   </div>
@@ -861,7 +861,7 @@ export default function RegisterPage() {
                     <div className="relative flex items-stretch">
                       {/* Dial code badge */}
                       {form.country && getDialCode(form.country) && (
-                        <div className="shrink-0 flex items-center gap-1.5 bg-[#EBF4FC] border border-r-0 border-[#C7DAE8] rounded-l-lg px-2.5 text-xs font-bold text-[#0A5ED6] select-none">
+                        <div className="shrink-0 flex items-center gap-1.5 bg-[#EBF4FC] border border-r-0 border-[#C7DAE8] rounded-l-lg px-2.5 text-xs font-bold text-[#4A7FA7] select-none">
                           <Phone className="w-3 h-3 text-[#4A7FA7]" />
                           {getDialCode(form.country)}
                         </div>
@@ -908,7 +908,7 @@ export default function RegisterPage() {
                         onChange={set('password')}
                         autoFocus
                       />
-                      <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0A5ED6] transition-colors">
+                      <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#4A7FA7] transition-colors">
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -1034,7 +1034,7 @@ export default function RegisterPage() {
         <div className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden text-left">
             <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Privacy Commitment</span>
+              <span className="font-sans font-bold text-lg text-[#0A1931]">AegisOne Privacy Commitment</span>
               <button 
                 onClick={() => setShowPrivacyModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
@@ -1042,20 +1042,20 @@ export default function RegisterPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#45464D] leading-relaxed">
-              <p className="font-semibold text-[#0F172A] text-sm">Your Data Stays With You — Always.</p>
+            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#4A6D8C] leading-relaxed">
+              <p className="font-semibold text-[#0A1931] text-sm">Your Data Stays With You — Always.</p>
               <p>
                 At AegisOne, we design security tools around the fundamental right to data sovereignty. Unlike other link check and phishing services, our software functions directly inside your private hardware or corporate VPC. We do not inspect, upload, store, or transmit your URL checks, internal email activities, or employee credentials to our own external database servers.
               </p>
-              <h4 className="font-bold text-[#0F172A] uppercase">1. Zero Log Transmission</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">1. Zero Log Transmission</h4>
               <p>
                 All link inspection, scam diagnostics, and threat score calculations are completed entirely in memory on your private node. No log data or metadata containing user identity is sent back to AegisOne or any third-party analytics provider.
               </p>
-              <h4 className="font-bold text-[#0F172A] uppercase">2. Local Storage Control</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">2. Local Storage Control</h4>
               <p>
                 The audit trail, blocked scam URLs, and administrative threat reports generated by the software are saved directly onto your office local PostgreSQL database. You hold the unique decryption keys and maintain absolute control over security logs.
               </p>
-              <h4 className="font-bold text-[#0F172A] uppercase">3. Strict Compliance</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">3. Strict Compliance</h4>
               <p>
                 Because AegisOne does not act as a central data processor for your user traffic, using AegisOne greatly simplifies your GDPR, HIPAA, and SOC2 compliance profiles. No "cross-border data transfer" agreements are required for our core perimeter checks.
               </p>
@@ -1063,7 +1063,7 @@ export default function RegisterPage() {
             <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowPrivacyModal(false)}
-                className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#4A7FA7] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept &amp; Close
               </button>
@@ -1077,7 +1077,7 @@ export default function RegisterPage() {
         <div className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden text-left">
             <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Software Terms of Use</span>
+              <span className="font-sans font-bold text-lg text-[#0A1931]">AegisOne Software Terms of Use</span>
               <button 
                 onClick={() => setShowTermsModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
@@ -1085,17 +1085,17 @@ export default function RegisterPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#45464D] leading-relaxed">
-              <p className="font-semibold text-[#0F172A] text-sm">Simple, Direct License Agreements</p>
-              <h4 className="font-bold text-[#0F172A] uppercase">1. Sovereign Node Licensing</h4>
+            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#4A6D8C] leading-relaxed">
+              <p className="font-semibold text-[#0A1931] text-sm">Simple, Direct License Agreements</p>
+              <h4 className="font-bold text-[#0A1931] uppercase">1. Sovereign Node Licensing</h4>
               <p>
                 AegisOne grants you a non-exclusive, non-transferable license to execute our sovereign link filtering container on your own physical computer servers or cloud VPC subnets. You are solely responsible for setting up and keeping the Docker container active.
               </p>
-              <h4 className="font-bold text-[#0F172A] uppercase">2. No Malicious Misuse</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">2. No Malicious Misuse</h4>
               <p>
                 The provided AegisOne software is created solely to detect, block, and log phishing emails, scam portals, and credential stealing links targeting your staff. You may not reverse engineer, redistribute, or use our cognitive heuristics for malicious purposes.
               </p>
-              <h4 className="font-bold text-[#0F172A] uppercase">3. Support &amp; SLA</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">3. Support &amp; SLA</h4>
               <p>
                 Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125012.pgc@gmail.com.
               </p>
@@ -1103,7 +1103,7 @@ export default function RegisterPage() {
             <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowTermsModal(false)}
-                className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#4A7FA7] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept Terms
               </button>

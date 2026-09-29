@@ -29,18 +29,24 @@ export default function SiteHeader() {
             initial={{ y: -100 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`px-4 sm:px-6 py-3.5 fixed top-0 w-full left-0 right-0 z-50 transition-all duration-300 ${
+            className={`fixed top-0 w-full left-0 right-0 z-50 border-b transition-all duration-700 ease-in-out ${
                 isScrolled
-                    ? "bg-white/95 shadow-xs border-b border-zinc-200/80"
-                    : "bg-white/80 border-b border-zinc-100"
+                    ? "px-4 sm:px-6 pt-3 pb-0 bg-transparent border-transparent"
+                    : "px-4 sm:px-6 py-3.5 bg-white/80 border-zinc-100"
             }`}
         >
-            <div className="relative max-w-7xl mx-auto">
-                <div className="flex items-center justify-between">
+            <div
+                className={`relative mx-auto border transition-all duration-700 ease-in-out ${
+                    isScrolled
+                        ? "max-w-6xl rounded-full bg-gradient-to-r from-[#4A7FA7]/80 to-[#1A3D63]/80 backdrop-blur-xl shadow-xl shadow-[#1A3D63]/20 border-white/10 px-6 py-2.5"
+                        : "max-w-7xl rounded-none bg-transparent shadow-none border-transparent px-0 py-0"
+                }`}
+            >
+                <div className="flex items-center justify-between gap-2">
                     {/* Logo */}
                     <a
                         href="/"
-                        className="flex items-center gap-2.5 group transition-transform duration-200"
+                        className="flex items-center gap-2.5 group transition-transform duration-200 shrink-0"
                         id="brand-logo"
                     >
                         <img
@@ -49,19 +55,34 @@ export default function SiteHeader() {
                             className="h-8 sm:h-9 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform duration-200 drop-shadow-xs"
                         />
                         <div className="flex flex-col text-left">
-                            <span className="text-lg font-bold tracking-tight text-[#4A7FA7] leading-tight">
-                                Aegis<span className="text-[#1A3D63]">One</span>
+                            <span
+                                className={`text-lg font-bold tracking-tight leading-tight whitespace-nowrap transition-colors duration-500 ${
+                                    isScrolled ? "text-white" : "text-[#4A7FA7]"
+                                }`}
+                            >
+                                Aegis
+                                <span
+                                    className={`transition-colors duration-500 ${
+                                        isScrolled ? "text-blue-200" : "text-[#1A3D63]"
+                                    }`}
+                                >
+                                    One
+                                </span>
                             </span>
                         </div>
                     </a>
 
                     {/* Desktop Navigation */}
-                    <nav id="desktop-nav" className="hidden lg:flex items-center gap-1 xl:gap-2">
+                    <nav id="desktop-nav" className="hidden lg:flex items-center gap-0.5 xl:gap-1">
                         {navLinks.map((link, index) => (
                             <a
                                 key={index}
                                 href={link.href}
-                                className="px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/70 rounded-lg transition-colors"
+                                className={`px-2.5 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors duration-500 ${
+                                    isScrolled
+                                        ? "text-blue-100/80 hover:text-white hover:bg-white/10"
+                                        : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/70"
+                                }`}
                             >
                                 {link.label}
                             </a>
@@ -69,16 +90,24 @@ export default function SiteHeader() {
                     </nav>
 
                     {/* Desktop CTA actions */}
-                    <div className="hidden lg:flex items-center gap-3">
+                    <div className="hidden lg:flex items-center gap-3 shrink-0">
                         <a
                             href="/login"
-                            className="text-sm font-medium text-zinc-600 hover:text-zinc-950 px-3 py-2 rounded-lg transition-colors"
+                            className={`text-sm font-medium px-3 py-2 rounded-lg whitespace-nowrap transition-colors duration-500 ${
+                                isScrolled
+                                    ? "text-blue-100/80 hover:text-white"
+                                    : "text-zinc-600 hover:text-zinc-950"
+                            }`}
                         >
                             Sign In
                         </a>
                         <a
                             href="#contact"
-                            className="text-sm font-semibold bg-[#0A5ED6] hover:bg-[#0952be] text-white px-4 py-2 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+                            className={`text-sm font-semibold px-4 py-2 rounded-full shadow-xs whitespace-nowrap shrink-0 transition-colors duration-500 flex items-center gap-1.5 ${
+                                isScrolled
+                                    ? "bg-white text-[#1A3D63] hover:bg-blue-50"
+                                    : "bg-[#0A5ED6] hover:bg-[#0952be] text-white rounded-lg"
+                            }`}
                         >
                             <span>Book Demo</span>
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -89,12 +118,20 @@ export default function SiteHeader() {
                     <div className="flex items-center gap-2 lg:hidden">
                         <a
                             href="/login"
-                            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-zinc-100 text-zinc-800"
+                            className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors duration-500 ${
+                                isScrolled
+                                    ? "bg-white/10 text-white"
+                                    : "bg-zinc-100 text-zinc-800"
+                            }`}
                         >
                             Sign In
                         </a>
                         <button
-                            className="p-2 rounded-lg text-zinc-700 hover:bg-zinc-100 transition-colors"
+                            className={`p-2 rounded-lg transition-colors duration-500 ${
+                                isScrolled
+                                    ? "text-white hover:bg-white/10"
+                                    : "text-zinc-700 hover:bg-zinc-100"
+                            }`}
                             onClick={() => setIsOpen(!isOpen)}
                             aria-label="Toggle navigation menu"
                             id="mobile-nav-toggle"
