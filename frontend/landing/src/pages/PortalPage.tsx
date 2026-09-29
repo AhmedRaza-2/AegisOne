@@ -32,6 +32,67 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
   );
 }
 
+// ─── Server Readiness Polling ──────────────────────────────────────────────
+// Docker reporting "Up" only means the containers started; the API still needs
+// to init its DB and load models. We poll the API's /ready endpoint instead of
+// guessing with a fixed timer.
+type Readiness = 'checking' | 'ready' | 'slow' | 'timeout' | 'unknown';
+
+const READY_POLL_MS = 3000;
+const READY_SLOW_AFTER_MS = 120_000;
+const READY_TIMEOUT_MS = 300_000;
+
+function cleanHost(raw: string): string {
+  let host = raw.trim() || 'localhost';
+  host = host.replace(/^https?:\/\//, '');
+  host = host.split('/')[0];
+  return host.split(':')[0];
+}
+
+function useServerReadiness(serverHost: string) {
+  const [state, setState] = useState<Readiness>('checking');
+  const [attempt, setAttempt] = useState(0);
+  const host = cleanHost(serverHost);
+
+  useEffect(() => {
+    // An https page (Vercel) cannot fetch http://<remote-ip> (mixed content),
+    // so readiness can only be detected for localhost. Otherwise don't block the user.
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    if (window.location.protocol === 'https:' && !isLocal) {
+      setState('unknown');
+      return;
+    }
+
+    setState('checking');
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const startedAt = Date.now();
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`http://${host}:8000/ready`, {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(4000),
+        });
+        if (cancelled) return;
+        if (res.ok) { setState('ready'); return; }
+      } catch {
+        // API not reachable yet — still starting
+      }
+      if (cancelled) return;
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= READY_TIMEOUT_MS) { setState('timeout'); return; }
+      setState(elapsed >= READY_SLOW_AFTER_MS ? 'slow' : 'checking');
+      timer = setTimeout(poll, READY_POLL_MS);
+    };
+
+    poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [host, attempt]);
+
+  return { state, retry: () => setAttempt(a => a + 1) };
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────
 export default function PortalPage() {
   const navigate = useNavigate();
@@ -40,6 +101,7 @@ export default function PortalPage() {
   const [osTab, setOsTab] = useState<'linux' | 'windows'>('linux');
   const [serverHost, setServerHost] = useState('localhost');
   const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const { state: readiness, retry: retryReadiness } = useServerReadiness(serverHost);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -92,6 +154,8 @@ export default function PortalPage() {
       : 'text-red-700 bg-red-100 border-red-200';
 
   const isApproved = org.status === 'active';
+
+  const launchUrl = `http://${cleanHost(serverHost)}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org.name || '')}&industry=${encodeURIComponent(org.industry || '')}&adminEmail=${encodeURIComponent(org.admin_email || '')}&adminName=${encodeURIComponent(org.admin_name || org.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}&serverHost=${encodeURIComponent(cleanHost(serverHost))}`;
 
   // Do not use Vercel/public domain as the SERVER_HOST. 
   // Let PowerShell automatically detect the server's local network IP.
@@ -326,7 +390,7 @@ export default function PortalPage() {
                   </div>
 
                   <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                    Once containers finish booting, AegisOne Setup Engine will be live on <strong className="text-slate-800">port 3002</strong> of your server.
+                    AegisOne services are starting on your server (setup engine on <strong className="text-slate-800">port 3002</strong>). Running containers are not the same as a ready system, so we automatically detect when it is safe to continue.
                   </p>
 
                   {/* Server Host IP Config Box */}
@@ -346,22 +410,87 @@ export default function PortalPage() {
                     </p>
                   </div>
 
+                  {/* Readiness Status */}
+                  {readiness !== 'unknown' && (
+                    <div className={`mb-4 rounded-lg border p-3.5 text-left text-sm ${
+                      readiness === 'ready'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : readiness === 'timeout'
+                          ? 'bg-red-50 border-red-200 text-red-800'
+                          : 'bg-blue-50 border-blue-200 text-blue-800'
+                    }`}>
+                      {readiness === 'ready' && (
+                        <div className="flex items-center gap-2 font-semibold">
+                          <CheckCircle2 className="w-4 h-4" /> AegisOne is ready. You can start the setup engine.
+                        </div>
+                      )}
+                      {(readiness === 'checking' || readiness === 'slow') && (
+                        <div>
+                          <div className="flex items-center gap-2 font-semibold">
+                            <Loader2 className="w-4 h-4 animate-spin" /> AegisOne is starting up...
+                          </div>
+                          <p className="text-xs mt-1 opacity-90">
+                            {readiness === 'slow'
+                              ? 'Startup is taking longer than expected. First-time startup can take a few minutes while the database and AI models initialize.'
+                              : 'Your containers are running, but some services are still initializing. This usually takes 30-90 seconds.'}
+                          </p>
+                        </div>
+                      )}
+                      {readiness === 'timeout' && (
+                        <div>
+                          <div className="flex items-center gap-2 font-semibold">
+                            <AlertCircle className="w-4 h-4" /> Unable to confirm server readiness.
+                          </div>
+                          <p className="text-xs mt-1 opacity-90">
+                            Check that the server address above is correct and run <code className="bg-white/70 px-1 rounded">docker compose logs api</code> on your server.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={retryReadiness}
+                            className="mt-2 text-xs font-bold underline underline-offset-2"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {readiness === 'unknown' && (
+                    <p className="mb-4 text-xs text-slate-500 text-left">
+                      Readiness cannot be auto-detected for a remote server from this page. Wait until <code className="bg-slate-100 px-1 rounded">docker compose ps</code> shows all services healthy, then continue.
+                    </p>
+                  )}
+
                   {/* Launch Action Area */}
-                  <div className="flex justify-end pt-2 border-t border-slate-100">
-                    <a
-                      href={(() => {
-                        let host = serverHost.trim() || 'localhost';
-                        host = host.replace(/^https?:\/\//, '');
-                        host = host.split('/')[0];
-                        host = host.split(':')[0];
-                        return `http://${host}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.admin_name || org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}&serverHost=${encodeURIComponent(host)}`;
-                      })()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#0A1931] hover:bg-[#1E293B] text-white font-bold px-7 py-3 rounded-xl text-sm transition-all shadow-sm hover:shadow-md"
-                    >
-                      Start Setup Engine Now <ChevronRight className="w-4 h-4" />
-                    </a>
+                  <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 pt-2 border-t border-slate-100">
+                    {(readiness === 'checking' || readiness === 'slow' || readiness === 'timeout') && (
+                      <a
+                        href={launchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2 text-center"
+                      >
+                        Open anyway
+                      </a>
+                    )}
+                    {readiness === 'checking' || readiness === 'slow' ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-slate-300 text-slate-600 font-bold px-7 py-3 rounded-xl text-sm cursor-not-allowed"
+                      >
+                        <Loader2 className="w-4 h-4 animate-spin" /> Preparing AegisOne...
+                      </button>
+                    ) : readiness === 'timeout' ? null : (
+                      <a
+                        href={launchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#0A1931] hover:bg-[#1E293B] text-white font-bold px-7 py-3 rounded-xl text-sm transition-all shadow-sm hover:shadow-md"
+                      >
+                        Start Setup Engine Now <ChevronRight className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
 
                 </div>

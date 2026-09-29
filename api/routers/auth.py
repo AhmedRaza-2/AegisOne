@@ -147,6 +147,13 @@ async def register(
 
 @router.get("/me", response_model=UserInfo)
 async def get_me(current_user: User = Depends(get_current_user)):
+    # get_current_user returns an unsaved anonymous placeholder (id=None) for
+    # unauthenticated extension scans; that must not be serialized as a real user.
+    if current_user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
     return current_user
 
 def send_password_reset_email(email: str, new_password: str, request: Optional[Request] = None):

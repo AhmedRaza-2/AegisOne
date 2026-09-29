@@ -176,6 +176,7 @@ async def lifespan(app: FastAPI):
 
     load_all_models()
     
+    app.state.startup_complete = True
     logger.info("AegisOne API ready — accepting requests")
     yield
     # Shutdown
@@ -267,6 +268,7 @@ async def add_request_metadata(request: Request, call_next):
 # ROUTERS
 # ═══════════════════════════════════════════════════════════════
 app.include_router(health.router)
+app.include_router(health.ready_router)
 app.include_router(auth.router)
 app.include_router(scan.router)
 app.include_router(admin.router)
@@ -286,7 +288,8 @@ async def root():
     return {
         "message": "Welcome to AegisOne Unified API",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "ready": "/ready"
     }
 
 from fastapi import Depends
