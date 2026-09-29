@@ -46,6 +46,7 @@ class SetupExecuteRequest(BaseModel):
     smtpPass: Optional[str] = None
     smtpHost: Optional[str] = None
     smtpPort: Optional[int] = None
+    serverHost: Optional[str] = None  # IP/domain entered in the setup wizard (e.g. "192.168.1.50")
 
 
 class DepartmentItem(BaseModel):
@@ -203,13 +204,19 @@ def background_email_task(run_id: str, employees: List[Employee],
                           smtp_pass_override: Optional[str] = None,
                           smtp_host_override: Optional[str] = None,
                           smtp_port_override: Optional[int] = None,
-                          request: Optional[Request] = None):
+                          request: Optional[Request] = None,
+                          server_host: Optional[str] = None):
     # Credentials come from the setup page first, then fall back to environment.
     smtp_user = (smtp_user_override or os.getenv("SMTP_USER") or "").strip()
     smtp_pass = (smtp_pass_override or os.getenv("SMTP_PASS") or "").replace(" ", "")
     smtp_host = smtp_host_override or os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = smtp_port_override or int(os.getenv("SMTP_PORT", "587"))
-    dashboard_url = get_dynamic_dashboard_url(request)
+
+    # Priority: explicit serverHost from setup form > request host header > env vars > localhost
+    if server_host and server_host.strip() not in ["", "localhost", "127.0.0.1", "0.0.0.0"]:
+        dashboard_url = f"http://{server_host.strip()}:3002"
+    else:
+        dashboard_url = get_dynamic_dashboard_url(request)
 
     if not smtp_user or not smtp_pass:
         msg = "SMTP credentials (SMTP_USER, SMTP_PASS) are missing. Emails cannot be sent."
@@ -403,12 +410,15 @@ async def email_status(run_id: str):
     return {"run_id": run_id, "done": entry["done"], "results": entry["results"]}
 
 @router.post("/execute", dependencies=[Depends(verify_setup_key)])
-async def execute_setup(request: SetupExecuteRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+async def execute_setup(body: SetupExecuteRequest, http_request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """
     Executes the final setup steps:
     1. Saves employees to DB with hashed passwords.
     2. Dispatches Welcome Emails via background task.
     """
+
+    # Alias body to request for all existing references below
+    request = body
 
     # Save employees/admins to DB
     emails_to_send = []
@@ -518,6 +528,8 @@ async def execute_setup(request: SetupExecuteRequest, background_tasks: Backgrou
         request.smtpPass,
         request.smtpHost,
         request.smtpPort,
+        http_request,         # FastAPI Request object — for host-header fallback
+        request.serverHost,   # Explicit IP/domain from the setup wizard form
     )
     
     # Generate a fresh valid access token for the admin session to avoid 401 unauthorized errors on redirect

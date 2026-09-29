@@ -354,7 +354,7 @@ export default function PortalPage() {
                         host = host.replace(/^https?:\/\//, '');
                         host = host.split('/')[0];
                         host = host.split(':')[0];
-                        return `http://${host}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.admin_name || org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}`;
+                        return `http://${host}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org?.name || '')}&industry=${encodeURIComponent(org?.industry || '')}&adminEmail=${encodeURIComponent(org?.admin_email || '')}&adminName=${encodeURIComponent(org?.admin_name || org?.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}&serverHost=${encodeURIComponent(host)}`;
                       })()}
                       target="_blank"
                       rel="noopener noreferrer"

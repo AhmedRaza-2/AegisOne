@@ -97,6 +97,9 @@ export default function AdminSetupPage() {
   const [testingSmtp, setTestingSmtp] = useState(false);
   const [smtpTestStatus, setSmtpTestStatus] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Server host (IP or domain) from the portal page — used in email login links
+  const [serverHost, setServerHost] = useState('');
+
   const handleTestSmtp = async () => {
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
       showToast('Please enter all SMTP credentials before testing.', 'error');
@@ -258,7 +261,8 @@ export default function AdminSetupPage() {
           smtpUser,
           smtpPass,
           smtpHost,
-          smtpPort: parseInt(smtpPort, 10)
+          smtpPort: parseInt(smtpPort, 10),
+          serverHost: serverHost.trim() || undefined,
         })
       });
       if (res.ok) {
@@ -416,6 +420,8 @@ export default function AdminSetupPage() {
       const adminEmailParam = searchParams.get('adminEmail') || user?.email || '';
       const adminNameParam = searchParams.get('adminName') || user?.full_name || 'Administrator';
       const adminPasswordParam = searchParams.get('adminPassword');
+      const serverHostParam = searchParams.get('serverHost') || '';
+      if (serverHostParam) setServerHost(serverHostParam);
 
       const activeOrgName = orgNameParam || user?.organization_name || localStorage.getItem('aegis_org_name') || '';
       if (activeOrgName) setOrgName(activeOrgName);
