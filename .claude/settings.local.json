@@ -3,7 +3,8 @@
     "allow": [
       "Bash(awk -F= '/^[A-Z]/ {print $1\"=<\"length\\($2\\)\" chars>\"}' .env)",
       "Bash(git check-ignore *)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(git push *)"
     ]
   }
 }
