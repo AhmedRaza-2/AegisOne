@@ -118,7 +118,7 @@ const HeroSection = ({ onSelectPlan }) => {
                     {/* Background Soft Ambient Glow (Optimized: No CSS Blur) */}
                     <div 
                         className="absolute -inset-20 rounded-[3rem] opacity-30 pointer-events-none" 
-                        style={{ background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.3) 0%, transparent 60%)' }} 
+                        style={{ background: 'radial-gradient(ellipse at center, rgba(74, 127, 167, 0.3) 0%, transparent 60%)' }} 
                     />
 
                     <InteractiveProductDemo />

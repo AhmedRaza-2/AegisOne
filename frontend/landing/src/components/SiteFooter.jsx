@@ -24,9 +24,9 @@ export default function Footer() {
 
                     {/* Logo + tagline */}
                     <div className="flex flex-col gap-1.5">
-                        <a href="/" className="flex items-center gap-2 text-base font-bold text-zinc-900 tracking-tight group">
+                        <a href="/" className="flex items-center gap-2 text-base font-bold text-[#4A7FA7] tracking-tight group">
                             <img src="/logo.png" alt="AegisOne Logo" className="h-6 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform" />
-                            <span>Aegis<span className="text-[#0A5ED6]">One</span></span>
+                            <span>Aegis<span className="text-[#1A3D63]">One</span></span>
                         </a>
                         <p className="text-xs text-zinc-400">Sovereign phishing protection for local offices.</p>
                     </div>
