@@ -93,6 +93,7 @@ def send_welcome_email(employee: Employee, smtp_user: str, smtp_pass: str, smtp_
     """
     try:
         role_display = "Administrator" if employee.role.lower() == "admin" else employee.role.title()
+        dept_display = "IT" if employee.departmentCode == "Information Technology" else employee.departmentCode
         subject = "Welcome to AegisOne — Complete Your Account Setup"
 
         text_content = f"""Hello {employee.firstName},
@@ -102,6 +103,7 @@ Welcome to AegisOne Unified Threat Management!
 Your enterprise account has been provisioned. Below are your login credentials:
 
 Role: {role_display}
+Department: {dept_display}
 Email: {employee.email}
 Temporary Password: {employee.generatedPassword}
 
@@ -137,7 +139,7 @@ AegisOne Security Team
         <div class="logo">🛡️ AegisOne</div>
       </div>
       <h2 class="title">Welcome, {employee.firstName}!</h2>
-      <div class="badge">{role_display}</div>
+      <div class="badge">{role_display} | {dept_display}</div>
       <p style="font-size: 15px; color: #475569; line-height: 1.6;">
         Your enterprise account for <strong>AegisOne Unified Threat Management</strong> has been provisioned.
         Here are your login credentials:
