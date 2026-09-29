@@ -5,6 +5,19 @@
 @theme {
   --color-gradient-border: #4A7FA7;
   --font-headings: "Outfit", sans-serif;
+
+  /* AegisOne brand blue palette */
+  --color-blue-50: #F6FAFD;
+  --color-blue-100: #EBF4FC;
+  --color-blue-200: #C7DAE8;
+  --color-blue-300: #8CA3B8;
+  --color-blue-400: #4A7FA7;
+  --color-blue-500: #4A7FA7;
+  --color-blue-600: #3D6C90;
+  --color-blue-700: #1A3D63;
+  --color-blue-800: #163553;
+  --color-blue-900: #0A1931;
+  --color-blue-950: #071426;
 }
 
 @layer base {
@@ -140,7 +153,9 @@ html {
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #CBD5E1 transparent;
-  overscroll-behavior: contain;
+  /* Let wheel/touch scrolling continue on the page when a nested
+     dashboard scroller reaches either end. */
+  overscroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -162,4 +177,40 @@ html {
   background: #94A3B8;
 }
 
-
+/* Keep legacy bright-blue utility classes aligned with the original
+   AegisOne wordmark palette while components migrate to brand tokens. */
+[class~="text-[#0A5ED6]"] {
+  color: #4A7FA7;
+}
+
+[class~="bg-[#0A5ED6]"] {
+  background-color: #4A7FA7;
+}
+
+[class~="focus:border-[#0A5ED6]"]:focus {
+  border-color: #4A7FA7;
+}
+
+[class~="hover:text-[#0A5ED6]"]:hover,
+.group:hover [class~="group-hover:text-[#0A5ED6]"] {
+  color: #4A7FA7;
+}
+
+[class~="hover:border-[#0A5ED6]/30"]:hover {
+  border-color: rgb(74 127 167 / 0.3);
+}
+
+[class~="hover:border-[#0A5ED6]/50"]:hover {
+  border-color: rgb(74 127 167 / 0.5);
+}
+
+[class~="hover:bg-[#0B63E0]"]:hover,
+[class~="hover:bg-[#0952be]"]:hover {
+  background-color: #3D6C90;
+}
+
+[class~="shadow-[0_0_8px_#0A5ED6]"] {
+  box-shadow: 0 0 8px #4A7FA7;
+}
+
+

@@ -49,8 +49,8 @@ export default function SiteHeader() {
                             className="h-8 sm:h-9 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform duration-200 drop-shadow-xs"
                         />
                         <div className="flex flex-col text-left">
-                            <span className="text-lg font-bold tracking-tight text-zinc-900 leading-tight">
-                                Aegis<span className="text-[#0A5ED6]">One</span>
+                            <span className="text-lg font-bold tracking-tight text-[#4A7FA7] leading-tight">
+                                Aegis<span className="text-[#1A3D63]">One</span>
                             </span>
                         </div>
                     </a>
