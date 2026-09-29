@@ -38,7 +38,7 @@ const steps = [
 const SectionProcess = () => {
 
     return (
-        <section id="process" className="px-4">
+        <section id="process" className="px-4 cv-auto">
             <div className="max-w-7xl mx-auto py-14">
                 <SectionHeading heading="How AegisOne Works" content="Effortless protection from the first click to the final warning, running quietly in the background." />
 

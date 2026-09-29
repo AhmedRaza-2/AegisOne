@@ -18,7 +18,7 @@ const SectionTechStack = () => {
     ];
 
     return (
-        <section id="stack" className="py-14 px-4">
+        <section id="stack" className="py-14 px-4 cv-auto">
             <div className='max-w-7xl m-auto'>
                 <SectionHeading heading="Fast, Modern Technology" content="Built with lightweight, privacy-first tools engineered to protect your team in milliseconds" />
 

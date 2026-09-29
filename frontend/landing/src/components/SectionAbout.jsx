@@ -184,7 +184,7 @@ const SecurityIllustration = () => (
 
 const SectionGallery = () => {
     return (
-        <section id="about" className="px-4">
+        <section id="about" className="px-4 cv-auto">
             <div className="max-w-7xl mx-auto py-14">
 
                 <div className='grid gap-10 lg:grid-cols-2 items-center'>
