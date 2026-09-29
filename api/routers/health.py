@@ -45,8 +45,11 @@ async def readiness_check(request: Request):
         except Exception:
             database_ok = False
 
-    models_loaded = sum(1 for info in get_model_status().values() if info["loaded"])
-    models_ok = models_loaded > 0
+    models_status = get_model_status()
+    models_loaded = sum(1 for info in models_status.values() if info["loaded"])
+    # All 4 models must be loaded (email, text, url, image); 1 or 2 aren't enough.
+    # This prevents marking ready while HuggingFace downloads are still in progress.
+    models_ok = models_loaded >= 4
 
     is_ready = startup_complete and database_ok and models_ok
     body = {
