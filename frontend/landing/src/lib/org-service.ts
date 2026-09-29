@@ -1,4 +1,5 @@
 import { supabase, Organization } from './supabase';
+import { supabaseAdmin } from './supabaseAdmin';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -179,13 +180,16 @@ export async function getCurrentAuthUser() {
 }
 
 // ─── Admin Functions ─────────────────────────────────────────────────────────
+// These three run under the isolated supabaseAdmin session (see
+// lib/supabaseAdmin.ts) since they require the super-admin's own auth
+// state, kept separate from the public site's tenant session.
 
 export async function getOrganizations(): Promise<Organization[]> {
   // 1. Try fetching via RPC functions (which bypass RLS via SECURITY DEFINER)
   const rpcNames = ['get_all_organizations', 'list_organizations', 'get_organizations', 'get_organizations_admin'];
   for (const rpcName of rpcNames) {
     try {
-      const { data, error } = await supabase.rpc(rpcName);
+      const { data, error } = await supabaseAdmin.rpc(rpcName);
       if (!error && data) {
         console.log(`[org-service] Successfully fetched organizations using RPC: ${rpcName}`);
         return data as Organization[];
@@ -198,7 +202,7 @@ export async function getOrganizations(): Promise<Organization[]> {
   // 2. Fallback to direct table select (subject to RLS constraints)
   try {
     console.warn("[org-service] Falling back to direct table select (RLS restrictions apply)");
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('organizations')
       .select('*')
       .order('created_at', { ascending: false });
@@ -218,7 +222,7 @@ export async function getOrganizations(): Promise<Organization[]> {
 export async function updateOrganizationStatus(orgId: string, status: 'active' | 'pending' | 'suspended', reason?: string): Promise<void> {
   // 1. Try updating status via the security-definer RPC to bypass RLS
   try {
-    const { error } = await supabase.rpc('update_org_status', {
+    const { error } = await supabaseAdmin.rpc('update_org_status', {
       org_id_param: orgId,
       status_param: status,
       reason_param: reason || null
@@ -238,7 +242,7 @@ export async function updateOrganizationStatus(orgId: string, status: 'active' |
     updates.product_version = reason;
   }
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('organizations')
     .update(updates)
     .eq('id', orgId);
@@ -253,14 +257,14 @@ export async function deleteOrganization(orgId: string): Promise<void> {
   try {
     // We call a secure RPC function on Supabase to delete both the org and the auth user.
     // This bypasses the frontend restriction on deleting auth users.
-    const { error } = await supabase.rpc('delete_organization_and_user', {
+    const { error } = await supabaseAdmin.rpc('delete_organization_and_user', {
       org_id_param: orgId
     });
 
     if (error) {
       // Fallback to normal delete if RPC doesn't exist yet
       console.warn("[org-service] RPC failed (maybe not created yet), falling back to normal delete:", error);
-      const fallback = await supabase.from('organizations').delete().eq('id', orgId);
+      const fallback = await supabaseAdmin.from('organizations').delete().eq('id', orgId);
       if (fallback.error) throw new Error(`Supabase delete error: ${fallback.error.message}`);
     }
   } catch (e: any) {

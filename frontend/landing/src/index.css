@@ -109,6 +109,14 @@ html {
 
 .animate-blob {
   animation: blob 10s infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob,
+  .marquee-track {
+    animation: none;
+  }
 }
 
 .animation-delay-2000 {
@@ -117,6 +125,15 @@ html {
 
 .animation-delay-4000 {
   animation-delay: 4s;
+}
+
+/* ── Off-screen render skip: sections stop costing layout/paint work
+   until they scroll near the viewport. This is what actually causes
+   scroll jank on weaker laptops (many DOM nodes + motion + SVG filters
+   being kept "live" for the whole page at once). ─────────────────── */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 700px;
 }
 
 /* ── Custom Scrollbar Utility ───────────────────────────────────── */

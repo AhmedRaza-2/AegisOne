@@ -58,7 +58,7 @@ const track = [...reviews, ...reviews]
 
 const SectionReviews = () => {
     return (
-        <section id="reviews" className="py-14 overflow-hidden">
+        <section id="reviews" className="py-14 overflow-hidden cv-auto">
             <div className="max-w-7xl mx-auto px-4 mb-10">
                 <SectionHeading
                     heading="Trusted by Teams & Leaders"

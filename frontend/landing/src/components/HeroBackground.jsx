@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { motion, useMotionValue, useSpring, useMotionTemplate } from "motion/react";
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 
 export default function HeroBackground() {
   const containerRef = useRef(null);
@@ -11,6 +11,8 @@ export default function HeroBackground() {
   // Smooth spring for premium buttery feel
   const smoothMouseX = useSpring(mouseX, { stiffness: 40, damping: 20 });
   const smoothMouseY = useSpring(mouseY, { stiffness: 40, damping: 20 });
+  const spotX = useTransform(smoothMouseX, (v) => v - 600);
+  const spotY = useTransform(smoothMouseY, (v) => v - 600);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -73,11 +75,13 @@ export default function HeroBackground() {
         }}
       />
 
-      {/* ── 3. HARDWARE-ACCELERATED MOUSE SPOTLIGHT ── */}
+      {/* ── 3. MOUSE SPOTLIGHT (moved via transform so it never repaints) ── */}
       <motion.div
-        className="absolute inset-0 z-10"
+        className="absolute top-0 left-0 z-10 w-[1200px] h-[1200px] will-change-transform"
         style={{
-          background: useMotionTemplate`radial-gradient(600px circle at ${smoothMouseX}px ${smoothMouseY}px, rgba(59, 130, 246, 0.08), transparent 80%)`,
+          x: spotX,
+          y: spotY,
+          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 40%)',
         }}
       />
 

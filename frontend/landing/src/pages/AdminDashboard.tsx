@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shield, Check, X, Loader2, LogOut, Lock, Trash2, Search, AlertCircle, RefreshCw, Eye, EyeOff, Globe, Mail } from 'lucide-react';
-import { getOrganizations, updateOrganizationStatus, deleteOrganization, logoutOrganization } from '../lib/org-service';
+import { getOrganizations, updateOrganizationStatus, deleteOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -22,8 +22,8 @@ export default function AdminDashboard() {
   // Always require manual login when accessing /admin
   useEffect(() => {
     (async () => {
-      // Force sign out any existing session to start fresh and require login
-      await supabase.auth.signOut().catch(() => { });
+      // Force sign out any existing admin session to start fresh and require login
+      await supabaseAdmin.auth.signOut().catch(() => { });
       setLoading(false);
     })();
   }, []);
@@ -34,15 +34,33 @@ export default function AdminDashboard() {
     }
   }, [isAuthenticated]);
 
+  // Admin panel is treated as more sensitive than the rest of the site:
+  // switching away from this tab immediately signs the super-admin out,
+  // so coming back (or someone else at the machine) requires re-entering
+  // credentials rather than finding the dashboard still open.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        supabaseAdmin.auth.signOut().catch(() => {});
+        setIsAuthenticated(false);
+        setOrgs([]);
+        setAdminPassword('');
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isAuthenticated]);
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoggingIn(true);
     setAuthError('');
     try {
-      // 1. Sign out any current tenant session first to prevent conflicts
-      await supabase.auth.signOut().catch(() => {});
+      // 1. Sign out any current admin session first to prevent conflicts
+      await supabaseAdmin.auth.signOut().catch(() => {});
       // 2. Sign in as Super Admin
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
         email: adminEmail,
         password: adminPassword,
       });
@@ -61,7 +79,7 @@ export default function AdminDashboard() {
         roleInUser === 'super_admin';
 
       if (!isSuperAdmin) {
-        await supabase.auth.signOut();
+        await supabaseAdmin.auth.signOut();
         throw new Error("Access Denied: Email is not registered as a Super Administrator.");
       }
 
@@ -172,7 +190,7 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    await logoutOrganization();
+    await supabaseAdmin.auth.signOut().catch(() => {});
     navigate('/login');
   };
 

@@ -20,7 +20,7 @@ const contact = [
 
 const SectionContact = () => {
     return (
-        <section id="contact" className="px-4">
+        <section id="contact" className="px-4 cv-auto">
             <div className="max-w-7xl mx-auto py-20">
 
                 <SectionHeading heading="See AegisOne in Action" content="Have questions or want a quick walkthrough? We'd love to help you protect your team." />

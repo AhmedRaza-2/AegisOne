@@ -38,7 +38,7 @@ const services = [
 const SectionServices = () => {
 
     return (
-        <section id="services" className="px-4">
+        <section id="services" className="px-4 cv-auto">
             <div className="max-w-7xl m-auto py-14">
                 <SectionHeading heading="Simple, Complete Protection" content="Everything your team needs to browse safely without complicated setups or annoying interruptions." />
 
