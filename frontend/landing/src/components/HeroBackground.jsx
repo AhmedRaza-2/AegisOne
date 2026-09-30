@@ -1,49 +1,6 @@
-import React, { useEffect, useRef } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
-
 export default function HeroBackground() {
-  const containerRef = useRef(null);
-
-  // High-performance hardware-accelerated mouse tracking without React state re-renders
-  const mouseX = useMotionValue(-1000);
-  const mouseY = useMotionValue(-1000);
-  
-  // Smooth spring for premium buttery feel
-  const smoothMouseX = useSpring(mouseX, { stiffness: 40, damping: 20 });
-  const smoothMouseY = useSpring(mouseY, { stiffness: 40, damping: 20 });
-  const spotX = useTransform(smoothMouseX, (v) => v - 600);
-  const spotY = useTransform(smoothMouseY, (v) => v - 600);
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      mouseX.set(e.clientX - rect.left);
-      mouseY.set(e.clientY - rect.top);
-    };
-
-    const handleMouseLeave = () => {
-      mouseX.set(-1000);
-      mouseY.set(-1000);
-    };
-
-    const node = containerRef.current;
-    if (node) {
-      window.addEventListener("mousemove", handleMouseMove);
-      node.addEventListener("mouseleave", handleMouseLeave);
-    }
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      if (node) {
-        node.removeEventListener("mouseleave", handleMouseLeave);
-      }
-    };
-  }, [mouseX, mouseY]);
-
   return (
     <div
-      ref={containerRef}
       className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0 bg-[#F8FAFC] md:bg-[#FAFAFA]"
       aria-hidden="true"
     >
@@ -76,15 +33,6 @@ export default function HeroBackground() {
       />
 
       {/* ── 3. MOUSE SPOTLIGHT (moved via transform so it never repaints) ── */}
-      <motion.div
-        className="absolute top-0 left-0 z-10 w-[1200px] h-[1200px] will-change-transform hidden md:block"
-        style={{
-          x: spotX,
-          y: spotY,
-          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 40%)',
-        }}
-      />
-
       {/* ── 4. HORIZON FADE ── */}
       <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#F8FAFC] md:from-[#FAFAFA] to-transparent pointer-events-none" />
       <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/90 md:from-[#FAFAFA] md:via-[#FAFAFA]/80 to-transparent pointer-events-none" />
