@@ -232,10 +232,17 @@ export default function InteractiveProductDemo() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col ml-[260px] overflow-hidden bg-slate-50/80 min-w-0 min-h-0">
+      <div className="flex-1 flex flex-col ml-0 md:ml-[260px] overflow-hidden bg-slate-50/80 min-w-0 min-h-0">
         {/* Top Header */}
-        <header className="h-[72px] border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
+        <header className="h-[64px] md:h-[72px] border-b border-slate-200 bg-white flex items-center justify-between px-3 sm:px-6 shrink-0">
           <div className="flex-1 flex items-center">
+            <div className="flex md:hidden items-center gap-2 min-w-0">
+              <img src="/logo.png" alt="AegisOne" className="w-8 h-8 object-contain shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-[#0A5ED6] leading-tight">AegisOne</div>
+                <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 truncate">Interactive demo</div>
+              </div>
+            </div>
             <div className="relative w-full max-w-md hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -245,7 +252,7 @@ export default function InteractiveProductDemo() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3">
             <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-500 mr-2">
               System Status: <span className="flex items-center gap-1.5 text-slate-900"><span className="w-1.5 h-1.5 rounded-full bg-[#0A5ED6] animate-pulse shadow-[0_0_8px_#0A5ED6]"></span> Operational</span>
             </div>
@@ -269,7 +276,7 @@ export default function InteractiveProductDemo() {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 shadow-xl rounded-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-2rem))] bg-white border border-slate-200 shadow-xl rounded-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                   <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-900">Messages</span>
                     <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
@@ -314,7 +321,7 @@ export default function InteractiveProductDemo() {
               </button>
 
               {activityOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 shadow-lg rounded-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-[min(16rem,calc(100vw-2rem))] bg-white border border-slate-200 shadow-lg rounded-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                   <div className="px-4 py-3 border-b border-slate-100">
                     <span className="text-sm font-semibold text-slate-900">System Performance</span>
                   </div>
@@ -357,7 +364,7 @@ export default function InteractiveProductDemo() {
               </button>
 
               {settingsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 shadow-lg rounded-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-[min(16rem,calc(100vw-2rem))] bg-white border border-slate-200 shadow-lg rounded-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                   <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
                     <div className="text-sm font-bold text-slate-900 truncate">Demo User</div>
                     <div className="text-[10px] text-slate-500 truncate uppercase tracking-wider font-medium mt-0.5">Admin • IT</div>
@@ -386,12 +393,30 @@ export default function InteractiveProductDemo() {
           </div>
         </header>
 
+        {/* Compact navigation keeps every demo screen reachable without a desktop sidebar. */}
+        <nav className="md:hidden flex items-center gap-1.5 overflow-x-auto px-3 py-2 bg-white border-b border-slate-200 shrink-0 custom-scrollbar" aria-label="Demo sections">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id as SidebarTab)}
+              className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                activeTab === item.id
+                  ? 'bg-[#0A5ED6] text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <item.icon className="w-3.5 h-3.5" />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
         {/* Scrollable Area */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar relative min-h-0">
+        <main className="flex-1 p-3 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar relative min-h-0">
           
           {liveAlert && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
-              <div className="flex items-center gap-4">
+            <div className="mb-6 p-3 sm:p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
                 <div className="p-2.5 rounded-lg bg-rose-100 text-rose-600">
                   <ShieldAlert className="w-5 h-5" />
                 </div>
@@ -400,7 +425,7 @@ export default function InteractiveProductDemo() {
                     Threat Blocked in Real-Time 
                     <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px]">12ms response</span>
                   </div>
-                  <div className="text-slate-600 text-xs mt-0.5 max-w-xl truncate">
+                  <div className="text-slate-600 text-xs mt-0.5 max-w-xl break-words sm:truncate">
                     <span className="font-semibold">{liveAlert.type}</span> detected in {liveAlert.dept} ({liveAlert.url}) — Isolated safely.
                   </div>
                 </div>
@@ -420,8 +445,8 @@ export default function InteractiveProductDemo() {
                   <p className="text-sm text-slate-500 mt-1">Security policies, threat feeds, and enterprise employee directory</p>
                 </div>
                 
-                <div className="flex items-center gap-3 shrink-0 flex-wrap">
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 max-w-full overflow-x-auto">
                     {[
                       { label: "24h", value: "24h" },
                       { label: "7d", value: "7d" },
@@ -431,7 +456,7 @@ export default function InteractiveProductDemo() {
                       <button
                         key={item.value}
                         onClick={() => setTimeRange(item.value as TimeRange)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                           timeRange === item.value
                             ? "bg-[#0A5ED6] text-white shadow-sm"
                             : "text-slate-600 hover:text-slate-900 hover:bg-white"
@@ -453,7 +478,7 @@ export default function InteractiveProductDemo() {
               </div>
 
               {/* Top Stats */}
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
                 {[
                   { label: "Total Employees", value: metrics.employees, icon: Users, color: "text-blue-600" },
                   { label: "Active Devices", value: metrics.employees, icon: Activity, color: "text-emerald-600" },
@@ -461,7 +486,7 @@ export default function InteractiveProductDemo() {
                   { label: "Threats Blocked", value: metrics.threats, icon: Shield, color: "text-rose-600" },
                   { label: "Open Incidents", value: metrics.incidents, icon: AlertTriangle, color: "text-amber-500" },
                 ].map((s) => (
-                  <div key={s.label} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col">
+                  <div key={s.label} className="p-3 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col min-w-0">
                     <s.icon className={`w-5 h-5 ${s.color} mb-3`} />
                     <div className="text-2xl font-bold text-slate-900">{s.value}</div>
                     <div className="text-xs text-slate-500 mt-1 font-medium">{s.label}</div>
@@ -471,7 +496,7 @@ export default function InteractiveProductDemo() {
 
               {/* Department Analytics */}
               <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-900">
                       <Building2 className="w-4 h-4 text-[#0A5ED6]" /> Department Breakdown &amp; Threat Telemetry
@@ -485,8 +510,8 @@ export default function InteractiveProductDemo() {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {departments.map((dept) => (
-                    <div key={dept.id} className="p-4 rounded-xl bg-slate-50/50 border border-slate-200/80 hover:border-[#0A5ED6]/50 hover:shadow-md transition-all cursor-pointer block space-y-3 group">
-                      <div className="flex items-center justify-between">
+                    <div key={dept.id} className="p-4 rounded-xl bg-slate-50/50 border border-slate-200/80 hover:border-[#0A5ED6]/50 hover:shadow-md transition-all cursor-pointer block space-y-3 group min-w-0">
+                      <div className="flex items-start justify-between gap-2">
                         <span className="text-sm font-bold text-slate-900 group-hover:text-[#0A5ED6] transition-colors">{dept.name}</span>
                         <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 shrink-0 border border-blue-100">{dept.members} members</span>
                       </div>
@@ -917,9 +942,9 @@ export default function InteractiveProductDemo() {
 
           {/* VIEW: COMMUNICATION */}
           {activeTab === 'communication' && (
-            <div className="animate-in fade-in duration-300 h-[calc(100vh-12rem)] min-h-[600px] flex gap-6">
+            <div className="animate-in fade-in duration-300 min-h-[600px] lg:h-[calc(100vh-12rem)] flex flex-col lg:flex-row gap-4 lg:gap-6">
               {/* Sidebar */}
-              <div className="w-80 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden shrink-0">
+              <div className="w-full lg:w-80 max-h-72 lg:max-h-none flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden shrink-0">
                 <div className="p-4 border-b border-slate-100">
                   <h2 className="font-bold text-slate-900 flex items-center gap-2 mb-4">
                     <MessageSquare className="w-5 h-5 text-[#0A5ED6]" /> Secure Messages
@@ -957,7 +982,7 @@ export default function InteractiveProductDemo() {
               </div>
 
               {/* Chat Area */}
-              <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="flex-1 min-h-[520px] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-blue-100 text-[#0A5ED6] font-bold flex items-center justify-center">A</div>
@@ -975,7 +1000,7 @@ export default function InteractiveProductDemo() {
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-6 bg-slate-50/50">
                   <div className="flex flex-col items-center mb-6">
                     <span className="text-xs font-medium text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-100">Today</span>
                   </div>
@@ -1192,7 +1217,7 @@ export default function InteractiveProductDemo() {
           {/* VIEW: SETUP */}
           {activeTab === 'setup' && (
             <div className="space-y-6 animate-in fade-in duration-300 max-w-5xl mx-auto">
-              <div className="flex items-center justify-between gap-4 pb-2 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
                 <div>
                   <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                     <Settings className="w-6 h-6 text-[#0A5ED6]" /> Organization Setup
@@ -1272,8 +1297,8 @@ export default function InteractiveProductDemo() {
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                     <div>
                       <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                         <Building2 className="w-5 h-5 text-[#0A5ED6]" /> Company Identity Details
@@ -1303,7 +1328,7 @@ export default function InteractiveProductDemo() {
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Default Security Policy</label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs font-semibold text-slate-900">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col gap-2 sm:flex-row sm:items-center justify-between text-xs font-semibold text-slate-900">
                         <span className="text-emerald-600 flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Strict Real-time Scanning
                         </span>
@@ -1323,7 +1348,7 @@ export default function InteractiveProductDemo() {
   return (
     <div id="demo" className="w-full relative scroll-mt-24">
       {/* Top Banner & Display Mode Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 px-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 px-0 sm:px-2">
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm tracking-wide">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
@@ -1331,21 +1356,21 @@ export default function InteractiveProductDemo() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+        <div className="flex items-center gap-1.5 sm:gap-2 max-w-full">
+          <button aria-label="Open fullscreen demo" onClick={() => setIsModalOpen(true)} className="px-3 sm:px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
             <Monitor className="w-3.5 h-3.5 text-[#0A5ED6]" /> <span className="hidden sm:inline">Fullscreen Modal</span>
           </button>
-          <button onClick={handleSimulateAttack} className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95">
-            <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> <span>Trigger Alert</span>
+          <button onClick={handleSimulateAttack} className="px-3 sm:px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap">
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> <span className="hidden min-[390px]:inline">Trigger Alert</span><span className="min-[390px]:hidden">Alert</span>
           </button>
-          <a href="/login" className="px-4 py-2 rounded-xl bg-[#0A5ED6] hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5">
+          <a href="/login" className="px-3 sm:px-4 py-2 rounded-xl bg-[#0A5ED6] hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <span>Open App</span> <ArrowRight className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>
 
       <div className="relative w-full">
-        <div className="relative rounded-3xl border border-slate-200/90 bg-white shadow-[0_25px_70px_-15px_rgba(10,94,214,0.12)] overflow-hidden ring-4 ring-slate-100">
+        <div className="relative rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-[0_25px_70px_-15px_rgba(10,94,214,0.12)] overflow-hidden ring-2 sm:ring-4 ring-slate-100">
           {renderDashboardUI()}
         </div>
       </div>
@@ -1353,13 +1378,13 @@ export default function InteractiveProductDemo() {
       {isModalOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[999] bg-white flex flex-col animate-in fade-in duration-200 w-screen h-screen overflow-hidden">
           {/* Top Bar for Modal */}
-          <div className="px-6 py-3.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
+          <div className="px-3 sm:px-6 py-3.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <Shield className="w-5 h-5 text-[#0A5ED6]" />
-              <span className="font-bold text-sm text-white">AegisOne Unified Shield — Live Interactive Sandbox</span>
+              <span className="font-bold text-xs sm:text-sm text-white truncate">AegisOne Unified Shield — Live Interactive Sandbox</span>
             </div>
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-bold flex items-center gap-2">
-              <X className="w-4 h-4" /> Close Fullscreen
+            <button aria-label="Close fullscreen demo" onClick={() => setIsModalOpen(false)} className="px-2.5 sm:px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-bold flex items-center gap-2 shrink-0">
+              <X className="w-4 h-4" /> <span className="hidden sm:inline">Close Fullscreen</span>
             </button>
           </div>
           {/* Dashboard Container - stretches to fill remaining height */}

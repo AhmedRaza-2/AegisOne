@@ -51,7 +51,7 @@
   }
 
   h2.hero-counter {
-    @apply text-sm md:text-4xl font-semibold text-gradient bg-clip-text text-transparent mb-2;
+    @apply text-lg sm:text-2xl md:text-4xl font-semibold text-gradient bg-clip-text text-transparent mb-1 md:mb-2;
   }
 
   input,
