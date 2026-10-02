@@ -16,4 +16,4 @@ COPY . .
 RUN npm run build
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["npx", "next", "start", "-H", "0.0.0.0", "-p", "3000"]

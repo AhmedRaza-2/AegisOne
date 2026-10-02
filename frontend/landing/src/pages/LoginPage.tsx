@@ -118,7 +118,7 @@ export default function LoginPage() {
               boxShadow: '0 2px 4px rgba(10,25,49,0.04), 0 8px 24px rgba(10,25,49,0.08), 0 24px 56px rgba(10,25,49,0.06)',
             }}
           >
-            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <form onSubmit={handleSubmit} className="space-y-5">
 
               {/* Email */}
               <div>
@@ -136,6 +136,8 @@ export default function LoginPage() {
                     onChange={e => { setEmail(e.target.value); setError(''); }}
                     autoFocus
                     autoComplete="email"
+                    required
+                    maxLength={320}
                   />
                 </div>
               </div>
@@ -167,6 +169,8 @@ export default function LoginPage() {
                       value={password}
                       onChange={e => { setPassword(e.target.value); setError(''); }}
                       autoComplete="current-password"
+                      required
+                      maxLength={512}
                     />
                     <button
                       type="button"

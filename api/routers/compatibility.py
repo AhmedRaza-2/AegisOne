@@ -29,7 +29,11 @@ def is_private_ip(ip_str: str) -> bool:
     except ValueError:
         return False
 
-def validate_url_for_ssrf(url: str):
+def validate_url_for_ssrf(url: str, resolve: bool = False):
+    """Reject non-http(s) schemes and, when `resolve=True` (i.e. the caller is about to
+    make a live server-side request to this URL), reject hostnames that resolve to a
+    private/loopback/link-local address — blocks SSRF against internal services and cloud
+    metadata endpoints (169.254.169.254, localhost, Docker-internal hosts, etc.)."""
     if not url:
         raise HTTPException(status_code=400, detail="URL cannot be empty")
     url_lower = url.lower().strip()
@@ -46,6 +50,14 @@ def validate_url_for_ssrf(url: str):
     
     if not hostname:
         raise HTTPException(status_code=400, detail="Invalid URL hostname")
+
+    if resolve:
+        try:
+            addrs = {info[4][0] for info in socket.getaddrinfo(hostname, None)}
+        except socket.gaierror:
+            raise HTTPException(status_code=400, detail="Could not resolve URL hostname")
+        if any(is_private_ip(ip) for ip in addrs):
+            raise HTTPException(status_code=400, detail="URL resolves to a private or internal address and cannot be fetched")
 
 from api.database.models import (
     Device,
@@ -71,7 +83,7 @@ from api.services.model_orchestrator import (
     predict_url, predict_text, predict_email, predict_image, process_attachment
 )
 from api.services.content_router import route_image_input
-from api.services.xai_service import generate_explanation
+from api.services.xai_engine import generate_tier1_explanation, generate_tier2_deep_explanation, build_grounded_findings
 from api.services.revision_service import increment_org_revision, get_org_revision
 
 router = APIRouter(tags=["Compatibility & XAI"])
@@ -299,6 +311,12 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
                     "credential_lure_detected": result.get("credential_lure_detected", False),
                     "suspicious_tld": result.get("suspicious_tld", False),
                     "score": score,
+                    # Full model evidence (target brand name, specific lexical anomalies, model
+                    # explanation string) — previously discarded here and reduced to the three
+                    # booleans above, which is why XAI explanations downstream had nothing
+                    # specific to say. Kept alongside the summary booleans, not instead of them.
+                    "model_evidence": result.get("evidence", {}),
+                    "model_explanation": result.get("explanation", ""),
                 }]
             },
             "text": { "available": False, "risk": 0.0 },
@@ -319,6 +337,23 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
     contextual_result["prediction"] = "malicious" if decision == "BLOCK" else ("suspicious" if decision == "SUSPICIOUS" else "legitimate")
     contextual_result["category"] = result.get("category", "benign")
     contextual_result["top_words"] = result.get("top_words", [])
+    contextual_result["scan_id"] = target_scan_id
+    # Specific, grounded signals (target brand name, exact anomaly types, model's own
+    # explanation string) for the XAI engine to quote directly instead of generic text.
+    contextual_result["url_model_evidence"] = result.get("evidence", {})
+    contextual_result["url_model_explanation"] = result.get("explanation", "")
+    contextual_result["target_url"] = url
+    contextual_result["target_domain"] = url.split("/")[2] if "//" in url else url[:255]
+
+    # `category` from the URL model is a risk-severity label ("Safe"/"Suspicious"/"High Risk"),
+    # not a threat classification — storing it as threat_type broke downstream analytics
+    # bucketing and training-sample labels. Derive an actual threat_type from the decision instead.
+    if decision == "BLOCK":
+        threat_type = "credential_harvesting" if result.get("credential_lure_detected") else "phishing"
+    elif decision == "SUSPICIOUS":
+        threat_type = "phishing"
+    else:
+        threat_type = "benign"
 
     scan = WebsiteScan(
         scan_id=target_scan_id,
@@ -328,7 +363,7 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
         url=url[:2048],
         domain=url.split("/")[2] if "//" in url else url[:255],
         risk_score=final_risk,
-        threat_type=result.get("category", "benign"),
+        threat_type=threat_type,
         verdict=verdict_mapped,
         decision=decision.lower(),
         scan_duration_ms=contextual_result["latency_ms"],
@@ -345,6 +380,7 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
     contextual_result["prediction"] = "malicious" if decision == "BLOCK" else ("suspicious" if decision == "SUSPICIOUS" else "legitimate")
     contextual_result["category"] = result.get("category", "benign")
     contextual_result["top_words"] = result.get("top_words", [])
+    contextual_result["threat_type"] = threat_type
     
     print(f"\n[AEGIS AI ENGINE] 🔗 INCOMING URL SCAN REQUEST")
     print(f" ├─ User    : {current_user.email}")
@@ -587,103 +623,81 @@ async def api_document(file: UploadFile = File(...)):
 @router.post("/analyze/download_url")
 async def api_download_url(url: str = Form(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
-    
-    is_local = False
-    local_path = ""
-    if url.startswith("file://"):
-        is_local = True
-        local_path = url.replace("file:///", "")
-        if local_path.startswith("/") and len(local_path) > 2 and local_path[2] == ":":
-            local_path = local_path[1:]
-        import urllib.parse
-        local_path = urllib.parse.unquote(local_path)
-    elif os.path.exists(url):
-        is_local = True
-        local_path = url
 
-    if is_local:
-        if not os.path.exists(local_path):
-            result = await asyncio.to_thread(predict_url, url)
-            result["latency_ms"] = round((time.time() - start) * 1000, 1)
-            result["note"] = f"Local file not found: {local_path}"
-            return result
+    # This endpoint fetches `url` server-side and runs it through attachment analysis.
+    # It previously also treated any string that matched a path on the server's own
+    # filesystem (with or without a file:// prefix) as something to read and analyze
+    # directly — meaning any caller could submit e.g. "/app/.env" or "/etc/passwd" and
+    # get it processed. There is no legitimate caller that needs local-path support (the
+    # extension always sends a real http(s) download URL it intercepted), so that branch
+    # is removed outright rather than sandboxed. The remaining live-fetch path is guarded
+    # against SSRF (private/loopback/link-local targets) below.
+    validate_url_for_ssrf(url, resolve=True)
 
-        extraction = await process_attachment(local_path)
-        file_bytes_len = os.path.getsize(local_path)
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    path_part = parsed.path
+    suffix = os.path.splitext(path_part)[1] or ".bin"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            MAX_BYTES = 10 * 1024 * 1024
+            chunks = []
+            total = 0
+            async with client.stream("GET", url) as response:
+                response.raise_for_status()
+                ct = response.headers.get("content-type", "")
+                if suffix == ".bin":
+                    ct_map = {
+                        "application/pdf": ".pdf",
+                        "application/zip": ".zip",
+                        "text/html": ".html",
+                        "application/msword": ".doc",
+                        "application/vnd.openxmlformats": ".docx",
+                        "text/plain": ".txt",
+                    }
+                    for mime, ext in ct_map.items():
+                        if mime in ct:
+                            suffix = ext
+                            break
+                async for chunk in response.aiter_bytes(chunk_size=65536):
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total > MAX_BYTES:
+                        break
+
+        file_bytes = b"".join(chunks)
+    except Exception as e:
+        url_pred = await asyncio.to_thread(predict_url, url)
+        results = {
+            "source_url": url,
+            "file_type": "unknown",
+            "file_size_kb": 0.0,
+            "macros_found": False,
+            "heuristic_risk": url_pred.get("phishing_probability", 0.0) if hasattr(url_pred, "get") else 0.0,
+            "vba_analysis": None,
+            "sub_results": {},
+            "note": f"Could not fetch file ({e}) — URL-only check"
+        }
+    else:
+        fd, temp_path = tempfile.mkstemp(suffix=suffix)
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(file_bytes)
+            extraction = await process_attachment(temp_path)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
         results = {
             "source_url": url,
             "file_type": extraction.get("file_type", "unknown"),
-            "file_size_kb": round(file_bytes_len / 1024, 1),
+            "file_size_kb": round(len(file_bytes) / 1024, 1),
             "macros_found": extraction.get("macros_found", False),
             "heuristic_risk": extraction.get("heuristic_risk", 0.0),
             "vba_analysis": extraction.get("vba_analysis"),
             "sub_results": extraction.get("sub_results", {}),
         }
-    else:
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        path_part = parsed.path
-        suffix = os.path.splitext(path_part)[1] or ".bin"
-
-        try:
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                MAX_BYTES = 10 * 1024 * 1024
-                chunks = []
-                total = 0
-                async with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    ct = response.headers.get("content-type", "")
-                    if suffix == ".bin":
-                        ct_map = {
-                            "application/pdf": ".pdf",
-                            "application/zip": ".zip",
-                            "text/html": ".html",
-                            "application/msword": ".doc",
-                            "application/vnd.openxmlformats": ".docx",
-                            "text/plain": ".txt",
-                        }
-                        for mime, ext in ct_map.items():
-                            if mime in ct:
-                                suffix = ext
-                                break
-                    async for chunk in response.aiter_bytes(chunk_size=65536):
-                        chunks.append(chunk)
-                        total += len(chunk)
-                        if total > MAX_BYTES:
-                            break
-
-            file_bytes = b"".join(chunks)
-        except Exception as e:
-            url_pred = await asyncio.to_thread(predict_url, url)
-            results = {
-                "source_url": url,
-                "file_type": "unknown",
-                "file_size_kb": 0.0,
-                "macros_found": False,
-                "heuristic_risk": url_pred.get("phishing_probability", 0.0) if hasattr(url_pred, "get") else 0.0,
-                "vba_analysis": None,
-                "sub_results": {},
-                "note": f"Could not fetch file ({e}) — URL-only check"
-            }
-        else:
-            fd, temp_path = tempfile.mkstemp(suffix=suffix)
-            try:
-                with os.fdopen(fd, "wb") as f:
-                    f.write(file_bytes)
-                extraction = await process_attachment(temp_path)
-            finally:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-
-            results = {
-                "source_url": url,
-                "file_type": extraction.get("file_type", "unknown"),
-                "file_size_kb": round(len(file_bytes) / 1024, 1),
-                "macros_found": extraction.get("macros_found", False),
-                "heuristic_risk": extraction.get("heuristic_risk", 0.0),
-                "vba_analysis": extraction.get("vba_analysis"),
-                "sub_results": extraction.get("sub_results", {}),
-            }
 
     sub_res = results.get("sub_results", {})
     text_pred = sub_res.get("text", {})
@@ -747,18 +761,52 @@ async def api_download_url(url: str = Form(...), current_user: User = Depends(ge
 
 
 @router.post("/xai/explain")
-async def api_explain(evidence: Dict[str, Any] = Body(...)):
+async def api_explain(evidence: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
     start = time.time()
-    explanation = generate_explanation(evidence)
-    explanation["latency_ms"] = round((time.time() - start) * 1000, 1)
-    
+
+    # Look up the full server-stored evidence for this exact scan (target brand name,
+    # specific lexical tricks, model's own explanation string) rather than relying only
+    # on the thin payload the caller reconstructed client-side — this is the ground truth.
+    rich_evidence = None
+    scan_id = evidence.get("scan_id")
+    if scan_id:
+        scan_row = (await db.execute(select(WebsiteScan).where(WebsiteScan.scan_id == scan_id))).scalar_one_or_none()
+        if scan_row and scan_row.xai_explanation:
+            try:
+                rich_evidence = json.loads(scan_row.xai_explanation)
+            except Exception:
+                rich_evidence = None
+
+    tier1 = generate_tier1_explanation(evidence, rich_evidence=rich_evidence)
+
+    # Opportunistically ask the LLM to polish the wording within a tight timeout so this
+    # endpoint stays fast. On a cold Ollama instance the first call will time out here —
+    # that's fine, Tier 1 is already a real, grounded explanation — but the background
+    # task (shielded from cancellation) keeps running, so Ollama finishes loading and the
+    # NEXT request completes within the timeout and gets the polished version.
+    bg_task = asyncio.create_task(generate_tier2_deep_explanation(tier1))
+    try:
+        tier2 = await asyncio.wait_for(asyncio.shield(bg_task), timeout=2.5)
+        # Only adopt the Tier 2 result if an LLM actually polished it — its own final
+        # fallback stage just echoes the Tier 1 summary back with a less informative
+        # tier label, which would otherwise overwrite "tier1_fast" for no reason.
+        if tier2.get("deep_explanation") and tier2.get("source") != "fallback":
+            tier1["summary"] = tier2["deep_explanation"]
+            tier1["xai_tier"] = tier2["xai_tier"]
+            tier1["llm_model"] = tier2.get("model")
+    except (asyncio.TimeoutError, Exception):
+        pass  # bg_task keeps running in the background; Tier 1 summary stands for this call
+
+    tier1["latency_ms"] = round((time.time() - start) * 1000, 1)
+
     target = evidence.get("url") or evidence.get("target") or "Page/Email Evidence"
     print(f"\n[AEGIS XAI ENGINE] ✨ INCOMING AI EXPLANATION REQUEST")
     print(f" ├─ Target : {str(target)[:100]}")
-    print(f" ├─ Summary: {explanation.get('summary', '')[:100]}...")
-    print(f" └─ Latency: {explanation['latency_ms']}ms\n", flush=True)
+    print(f" ├─ Grounded: {tier1.get('grounded_in_scan_record')}")
+    print(f" ├─ Summary: {tier1.get('summary', '')[:140]}...")
+    print(f" └─ Latency: {tier1['latency_ms']}ms\n", flush=True)
 
-    return explanation
+    return tier1
 
 
 # --- Policy & Ingest Endpoints ---
@@ -1314,31 +1362,44 @@ async def get_user_recommendations(email: str = Query(None)):
 
 @router.get("/user/xai")
 async def get_user_xai(email: str = Query(None), db: AsyncSession = Depends(get_db)):
-    """Module 6: Explainable AI Center"""
-    q = await db.execute(
-        select(WebsiteScan)
-        .where(WebsiteScan.decision.in_(["warn", "block"]))
-        .order_by(WebsiteScan.created_at.desc())
-        .limit(20)
-    )
+    """Module 6: Explainable AI Center — strictly scoped to the requesting user.
+    Previously ignored `email` entirely and returned every user's flagged scans
+    (same bug class as the old /user/threats), and fabricated a "confidence" value
+    as risk_score + 5 rather than using the model's real evidence."""
+    user_id = None
+    if email:
+        user_row = (await db.execute(select(User).where(func.lower(User.email) == email.strip().lower()))).scalar_one_or_none()
+        if user_row:
+            user_id = user_row.id
+
+    scans_query = select(WebsiteScan).where(WebsiteScan.decision.in_(["warn", "block"]))
+    if user_id is not None:
+        scans_query = scans_query.where(WebsiteScan.user_id == user_id)
+    else:
+        scans_query = scans_query.where(WebsiteScan.id == -1)
+
+    q = await db.execute(scans_query.order_by(WebsiteScan.created_at.desc()).limit(20))
     scans = q.scalars().all()
-    
+
     results = []
     for s in scans:
-        factors_raw = s.top_factors or '["Suspicious keywords detected"]'
-        import json
-        try:
-            factors = json.loads(factors_raw) if isinstance(factors_raw, str) and factors_raw.startswith('[') else [factors_raw]
-        except:
-            factors = [factors_raw]
-            
+        rich_evidence = None
+        if s.xai_explanation:
+            try:
+                rich_evidence = json.loads(s.xai_explanation)
+            except Exception:
+                rich_evidence = None
+
+        grounded = build_grounded_findings({"risk_score": s.risk_score, "domain": s.domain, "url": s.url}, rich_evidence)
+        confidence = round((rich_evidence or {}).get("confidence", 0) * 100) if rich_evidence else None
+
         results.append({
             "id": s.scan_id,
             "target": s.url,
             "verdict": "Phishing" if s.decision == "block" else "Suspicious",
             "risk": s.risk_score,
-            "confidence": min(s.risk_score + 5, 99),  # Simulated high confidence
-            "reasons": factors,
+            "confidence": confidence,
+            "reasons": [f[0].upper() + f[1:] for f in grounded["findings"]],
             "recommendation": "Avoid entering credentials and close the tab immediately." if s.decision == "block" else "Proceed with extreme caution.",
             "timestamp": str(s.created_at)
         })
@@ -1511,16 +1572,26 @@ async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(
     """
     Returns data for Module 3: Threat Center.
     Categorizes all warnings and blocks into specific threat vectors.
+    Strictly scoped to the requesting user — this previously returned every
+    user's flagged scans regardless of the email param, leaking other
+    employees' browsing/report history across the whole org.
     """
     from sqlalchemy import func
-    
-    # We will approximate the categories based on scan_type and threat_type
-    q = await db.execute(
-        select(WebsiteScan)
-        .where(WebsiteScan.decision.in_(["warn", "block"]))
-        .order_by(WebsiteScan.created_at.desc())
-        .limit(100)
-    )
+
+    user_id = None
+    if email:
+        user_row = (await db.execute(select(User).where(func.lower(User.email) == email.strip().lower()))).scalar_one_or_none()
+        if user_row:
+            user_id = user_row.id
+
+    threats_query = select(WebsiteScan).where(WebsiteScan.decision.in_(["warn", "block"]))
+    if user_id is not None:
+        threats_query = threats_query.where(WebsiteScan.user_id == user_id)
+    else:
+        # No resolvable user — return nothing rather than every user's data.
+        threats_query = threats_query.where(WebsiteScan.id == -1)
+
+    q = await db.execute(threats_query.order_by(WebsiteScan.created_at.desc()).limit(100))
     threats = q.scalars().all()
     
     # Dynamic Categorization buckets based on actual scan types
@@ -1582,10 +1653,23 @@ async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(
     # Remove categories with 0 count to keep UI clean, but ensure at least 4 for grid layout
     cards = [{"title": k, "count": v} for k, v in categories.items()]
     cards.sort(key=lambda x: x["count"], reverse=True)
-    
+
+    # Critical/recent alerts for the sidebar — the frontend has always read this field,
+    # it just never existed in the response, so the widget showed "All Clear" no matter what.
+    active_alerts = []
+    for t in threats[:5]:
+        if t.decision == "block" or (t.risk_score or 0) >= 75:
+            active_alerts.append({
+                "icon": "shield" if t.decision == "block" else "warning",
+                "title": f"{t.decision.capitalize()}: {(t.threat_type or 'threat').replace('_', ' ').title()}",
+                "desc": (t.url or "")[:80],
+                "time": str(t.created_at),
+            })
+
     return {
         "cards": cards,
-        "recent": recent_threats[:25]
+        "recent": recent_threats[:25],
+        "activeAlerts": active_alerts,
     }
 
 @router.get("/user/url-intelligence")
@@ -2009,104 +2093,8 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
     }
 
 
-@router.get("/user/threats")
-async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
-    user_id = None
-    if email:
-        user_q = await db.execute(select(User).where(func.lower(User.email) == email.strip().lower()))
-        user = user_q.scalar()
-        if user:
-            user_id = user.id
-
-    def apply_user_filter(q_obj, model_cls=WebsiteScan):
-        if user_id is not None:
-            # Only return scans belonging to this specific user (strict ownership)
-            return q_obj.where(cast(model_cls.user_id, String) == str(user_id))
-        return q_obj
-
-    # Get recent blocked/warned website scans
-    web_q = await db.execute(
-        apply_user_filter(
-            select(WebsiteScan)
-            .where(WebsiteScan.decision.in_(["warn", "block"]))
-            .order_by(WebsiteScan.created_at.desc())
-            .limit(50)
-        )
-    )
-    web_threats = web_q.scalars().all()
-
-    # Get recent blocked/warned downloads
-    dl_q = await db.execute(
-        apply_user_filter(
-            select(DownloadEvent)
-            .where(DownloadEvent.decision.in_(["warn", "block"]))
-            .order_by(DownloadEvent.created_at.desc())
-            .limit(50),
-            DownloadEvent
-        )
-    )
-    dl_threats = dl_q.scalars().all()
-
-    combined = []
-    for w in web_threats:
-        cat = "Malicious Text/Email" if w.scan_type == "text" else "Phishing " + w.scan_type.capitalize() if w.scan_type else "Phishing Website"
-        combined.append({
-            "id": w.scan_id,
-            "category": cat,
-            "target": w.url,
-            "decision": "Blocked" if w.decision == "block" else "Proceeded at Risk",
-            "riskScore": w.risk_score,
-            "timestamp": str(w.created_at),
-            "iso_timestamp": str(w.created_at).replace(" ", "T") + "Z"
-        })
-    
-    for d in dl_threats:
-        combined.append({
-            "id": d.download_id,
-            "category": "Malicious Attachment",
-            "target": d.filename,
-            "decision": "Blocked" if d.decision == "block" else "Proceeded at Risk",
-            "riskScore": d.risk_score,
-            "timestamp": str(d.created_at),
-            "iso_timestamp": str(d.created_at).replace(" ", "T") + "Z"
-        })
-    
-    combined.sort(key=lambda x: str(x["timestamp"]), reverse=True)
-
-    # Remediated count (user-scoped blocks)
-    rem_web_q = await db.execute(apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.decision.in_(["block", "warn"]))))
-    rem_dl_q = await db.execute(apply_user_filter(select(func.count(DownloadEvent.id)).where(DownloadEvent.decision.in_(["block", "warn"])), DownloadEvent))
-    remediated = (rem_web_q.scalar() or 0) + (rem_dl_q.scalar() or 0)
-
-    # Calculate average threat score for active threats
-    avg_threat_score = 0.0
-    if combined:
-        avg_threat_score = round(sum(c["riskScore"] for c in combined[:10]) / len(combined[:10]), 1)
-
-    # Dynamic Active Alerts
-    active_alerts = []
-    if any("Website" in c["category"] or "URL" in c["category"] for c in combined[:5]):
-        active_alerts.append({
-            "title": "Phishing Spike Intercepted",
-            "desc": "Phishing links intercepted and isolated by AegisOne.",
-            "time": "Just now",
-            "icon": "shield"
-        })
-    if any("Attachment" in c["category"] or "Download" in c["category"] for c in combined[:5]):
-        active_alerts.append({
-            "title": "Malware Payload Intercepted",
-            "desc": "High-risk document or macro payload blocked.",
-            "time": "Recent",
-            "icon": "alert"
-        })
-
-    return {
-        "recent": combined[:50],
-        "remediated": remediated,
-        "remediatedCount": remediated,
-        "threatScore": avg_threat_score,
-        "activeAlerts": active_alerts
-    }
+# (duplicate /user/threats handler removed — FastAPI was dispatching only to the
+# version above; this one never ran. Deleted rather than left as dead code.)
 
 
 # ═══════════════════════════════════════════════════════════════

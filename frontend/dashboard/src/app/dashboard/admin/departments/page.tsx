@@ -623,6 +623,7 @@ export default function DepartmentsPage() {
                     onChange={(e) => setDeptName(e.target.value)}
                     className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
                     required
+                    maxLength={255}
                   />
                 </div>
                 <div>
@@ -683,6 +684,7 @@ export default function DepartmentsPage() {
                     onChange={(e) => setFullName(e.target.value)}
                     className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
                     required
+                    maxLength={255}
                   />
                 </div>
                 <div>
@@ -693,6 +695,7 @@ export default function DepartmentsPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
                     required
+                    maxLength={255}
                   />
                 </div>
                 <div>
@@ -703,6 +706,8 @@ export default function DepartmentsPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-3.5 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-xl text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
                     required
+                    minLength={8}
+                    title="Must be at least 8 characters"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">

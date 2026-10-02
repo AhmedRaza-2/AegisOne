@@ -17,10 +17,12 @@ RUN pip install --no-cache-dir torch torchvision --index-url https://download.py
 COPY requirements.txt .
 RUN pip install --no-cache-dir --extra-index-url https://pypi.org/simple -r requirements.txt
 
-# Copy the rest of the application code
-COPY api/ /app/api/
+# Copy the rest of the application code — AIML (1.5GB of model weights) and Extension
+# rarely change, so they're copied before api/ (which changes on nearly every rebuild)
+# to keep their layer cached across ordinary backend code edits.
 COPY AIML/ /app/AIML/
 COPY Extension/ /app/Extension/
+COPY api/ /app/api/
 
 # Set environment variables
 ENV PYTHONPATH=/app

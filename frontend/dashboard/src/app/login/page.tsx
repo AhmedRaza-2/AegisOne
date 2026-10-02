@@ -152,8 +152,8 @@ export default function LoginPage() {
       setError("Passwords do not match.");
       return;
     }
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
     setLoading(true);
@@ -317,6 +317,8 @@ export default function LoginPage() {
                     onChange={e => setNewPassword(e.target.value)}
                     placeholder="Enter your new password"
                     required
+                    minLength={8}
+                    maxLength={512}
                     className="input-premium pr-11"
                   />
                   <button type="button" onClick={() => setShowNewPassword(!showNewPassword)}
@@ -335,6 +337,8 @@ export default function LoginPage() {
                     onChange={e => setConfirmNewPassword(e.target.value)}
                     placeholder="Confirm new password"
                     required
+                    minLength={8}
+                    maxLength={512}
                     className="input-premium pr-11"
                   />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}

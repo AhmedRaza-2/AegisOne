@@ -269,6 +269,7 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
     url,
     domain: getRootDomain(url),
     score: urlModel.final_risk || 0,
+    scan_id: urlModel.scan_id || null,
     verdict: urlModel.decision === "BLOCK" ? VERDICT.MALICIOUS : (urlModel.decision === "SUSPICIOUS" ? VERDICT.SUSPICIOUS : VERDICT.SAFE),
     breakdown: urlModel.evidence_summary || {},
     top_factors: (urlModel.top_reasons || []).map(r => ({ label: `⚠️ ${r.signal.replace(/_/g, " ")}` })),
@@ -516,6 +517,23 @@ export async function scanEmail(sender, subject, body, signal = null, threadUrl 
  */
 export async function requestXAI(evidence) {
   return callAPI("/xai/explain", evidence, false);
+}
+
+/**
+ * Submit an employee report (false positive or create-incident) to /reports.
+ * Reuses callAPI() so auth (X-User-Email) and error/offline handling stay consistent
+ * with every other backend call instead of a one-off raw fetch().
+ */
+export async function submitReport({ reportType, targetRef, scanId, riskScore, predictedClass, notes }) {
+  return callAPI("/reports", {
+    report_type: reportType,
+    target_type: "url",
+    target_ref: targetRef,
+    scan_id: scanId || undefined,
+    risk_score: typeof riskScore === "number" ? riskScore : undefined,
+    predicted_class: predictedClass || undefined,
+    user_notes: notes || undefined,
+  }, false);
 }
 
 /**

@@ -22,7 +22,9 @@ export default function ModelsPage() {
   const [retrainingModel, setRetrainingModel] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const token = typeof window !== "undefined"
+    ? (localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token"))
+    : null;
   const headers = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {})

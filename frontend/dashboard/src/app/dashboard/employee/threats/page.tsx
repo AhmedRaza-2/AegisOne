@@ -2,9 +2,16 @@
 import { useAuth } from "@/lib/auth-context";
 import { getApiBaseUrl } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor, BrainCircuit, X } from "lucide-react";
+import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor, BrainCircuit, X, Flag, FileWarning, Check } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+
+function authHeaders() {
+  const t = typeof window !== "undefined"
+    ? (localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token"))
+    : null;
+  return { Authorization: `Bearer ${t || ""}`, "Content-Type": "application/json" };
+}
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -15,6 +22,39 @@ export default function ThreatCenterPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [selectedThreat, setSelectedThreat] = useState<any>(null);
+  const [reportState, setReportState] = useState<"idle" | "submitting" | "sent" | "error">("idle");
+  const [reportMsg, setReportMsg] = useState("");
+
+  const submitReport = async (reportType: "false_positive" | "phishing") => {
+    if (!selectedThreat) return;
+    setReportState("submitting");
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/reports`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          report_type: reportType,
+          target_type: "url",
+          target_ref: selectedThreat.target,
+          scan_id: selectedThreat.id,
+          predicted_class: selectedThreat.category,
+          risk_score: selectedThreat.riskScore,
+          user_notes: reportType === "false_positive"
+            ? "Employee flagged this detection as a false positive from the Threat Center."
+            : "Employee created an incident from the Threat Center for further review.",
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to submit.");
+      }
+      setReportState("sent");
+      setReportMsg(reportType === "false_positive" ? "Reported as false positive." : "Incident created — your manager has been notified.");
+    } catch (err: any) {
+      setReportState("error");
+      setReportMsg(err.message || "Something went wrong. Please try again.");
+    }
+  };
 
   useEffect(() => {
     if (user?.email) {
@@ -190,7 +230,7 @@ export default function ThreatCenterPage() {
 
                   <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
                     <button
-                      onClick={() => setSelectedThreat(threat)}
+                      onClick={() => { setSelectedThreat(threat); setReportState("idle"); setReportMsg(""); }}
                       className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-surface-100 dark:bg-white/[0.05] hover:bg-surface-200 dark:hover:bg-white/[0.08] text-surface-900 dark:text-white text-xs font-semibold transition-colors border border-transparent dark:border-white/[0.05] hover:border-surface-300 dark:hover:border-white/[0.1]">
                       View Full Details
                     </button>
@@ -347,14 +387,46 @@ export default function ThreatCenterPage() {
                   </div>
                 </div>
 
+                {/* Report feedback */}
+                {reportState === "sent" && (
+                  <div className="mt-6 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-medium">
+                    <Check className="w-4 h-4 shrink-0" /> {reportMsg}
+                  </div>
+                )}
+                {reportState === "error" && (
+                  <div className="mt-6 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" /> {reportMsg}
+                  </div>
+                )}
+
                 {/* Footer */}
-                <div className="mt-8 pt-6 border-t border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
-                  <p className="text-xs font-semibold tracking-wide text-surface-400 flex items-center gap-1.5 uppercase">
+                <div className="mt-8 pt-6 border-t border-surface-100 dark:border-white/[0.04] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <p className="text-xs font-semibold tracking-wide text-surface-400 flex items-center gap-1.5 uppercase shrink-0">
                     <ShieldCheck className="w-4 h-4" /> Protected by AegisOne
                   </p>
-                  <button onClick={() => setSelectedThreat(null)} className="px-8 py-2.5 bg-surface-900 dark:bg-white text-white dark:text-surface-900 hover:bg-surface-800 dark:hover:bg-surface-100 text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
-                    Acknowledge
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {reportState !== "sent" && (
+                      <>
+                        <button
+                          onClick={() => submitReport("false_positive")}
+                          disabled={reportState === "submitting"}
+                          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-surface-200 dark:border-white/[0.08] text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-white/[0.05] text-xs font-bold transition-all disabled:opacity-50"
+                        >
+                          <Flag className="w-3.5 h-3.5" /> Report False Positive
+                        </button>
+                        <button
+                          onClick={() => submitReport("phishing")}
+                          disabled={reportState === "submitting"}
+                          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 text-xs font-bold transition-all disabled:opacity-50"
+                        >
+                          <FileWarning className="w-3.5 h-3.5" /> Create Incident
+                        </button>
+                      </>
+                    )}
+                    <button onClick={() => setSelectedThreat(null)} className="px-8 py-2.5 bg-surface-900 dark:bg-white text-white dark:text-surface-900 hover:bg-surface-800 dark:hover:bg-surface-100 text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
+                      {reportState === "sent" ? "Close" : "Acknowledge"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>

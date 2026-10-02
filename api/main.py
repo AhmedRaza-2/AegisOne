@@ -20,8 +20,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 import uvicorn
 
@@ -30,14 +29,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from api.config import (
     API_HOST, API_PORT, API_WORKERS, MAX_CONCURRENCY,
-    RATE_LIMIT, GZIP_MIN_SIZE, LOG_LEVEL,
+    GZIP_MIN_SIZE, LOG_LEVEL,
 )
 from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
 
 from api.routers import (
-    auth, scan, admin, health, compatibility, setup, public, xai,
-    communication, email_analytics, reports, incidents, training, global_learning
+    auth, scan, admin, health, compatibility, setup, public,
+    communication, email_analytics, reports, incidents, manager_incidents, training, global_learning
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -57,8 +56,9 @@ logger = logging.getLogger("aegisone")
 # ═══════════════════════════════════════════════════════════════
 # RATE LIMITER
 # ═══════════════════════════════════════════════════════════════
-
-limiter = Limiter(key_func=get_remote_address, default_limits=[RATE_LIMIT])
+# Defined in api/rate_limiter.py (not here) so routers can import it for
+# per-route limits without a circular import.
+from api.rate_limiter import limiter
 
 # ═══════════════════════════════════════════════════════════════
 # APP LIFECYCLE
@@ -164,18 +164,28 @@ async def lifespan(app: FastAPI):
             db.add(OrganizationAnalyticsState(organization_id="org_default", revision=1))
             await db.flush()
 
-        # ── Clean up stale mock telemetry from previous runs (safe on empty tables too)
-        await db.execute(update(Department).values(manager_id=None))
-        await db.execute(delete(WebsiteScan))
-        await db.execute(delete(Device))
-        await db.execute(delete(AuditLog))
-        await db.execute(delete(Message))
-        await db.execute(delete(ThreatReport))
+        # Dev-only: wiping telemetry on every start destroys a customer's analytics, audit trail and chat,
+        # so it only runs when explicitly requested.
+        if os.getenv("AEGIS_RESET_TELEMETRY_ON_START", "false").lower() == "true":
+            await db.execute(update(Department).values(manager_id=None))
+            await db.execute(delete(WebsiteScan))
+            await db.execute(delete(Device))
+            await db.execute(delete(AuditLog))
+            await db.execute(delete(Message))
+            await db.execute(delete(ThreatReport))
+            logger.warning("AEGIS_RESET_TELEMETRY_ON_START=true: stale telemetry cleared.")
         await db.commit()
-        logger.info("Database startup: org_default ensured, SMTP columns verified, stale telemetry cleared.")
+        logger.info("Database startup: org_default ensured, SMTP columns verified.")
 
     load_all_models()
-    
+
+    # Fire-and-forget: checks/pulls the local Ollama XAI model and warms the HuggingFace
+    # fallback in the background. Does not block startup or readiness — if Ollama isn't
+    # running, this just logs and the XAI endpoint falls back to its fast, non-LLM tier.
+    import asyncio as _asyncio
+    from api.services.xai_engine import ensure_ollama_model_ready
+    _asyncio.create_task(ensure_ollama_model_ready())
+
     app.state.startup_complete = True
     logger.info("AegisOne API ready — accepting requests")
     yield
@@ -227,14 +237,12 @@ else:
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print("--- VALIDATION ERROR ---")
-    print(exc.errors())
-    print("--- REQUEST BODY ---")
-    try:
-        body = await request.body()
-        print(body.decode())
-    except Exception as e:
-        print("Could not read body:", e)
+    # Was re-reading the request body here for debug logging. Combined with the
+    # BaseHTTPMiddleware below, re-reading an already-consumed/malformed body stream
+    # could itself raise, which Starlette's BaseHTTPMiddleware then surfaces as a raw
+    # 500 instead of this handler's intended 422 — turning validation errors on certain
+    # malformed bodies into unhandled server errors. Logging exc.errors() is enough.
+    logger.debug(f"Validation error on {request.method} {request.url.path}: {exc.errors()}")
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors(), "body": str(exc.body)},
@@ -279,6 +287,7 @@ app.include_router(communication.router)
 app.include_router(email_analytics.router)
 app.include_router(reports.router)
 app.include_router(incidents.router)
+app.include_router(manager_incidents.router)
 app.include_router(training.router)
 app.include_router(global_learning.router)
 

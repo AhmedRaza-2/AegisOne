@@ -23,7 +23,7 @@ function safeSendMessage(msg) {
   }
 }
 
-export function showWarningModal({ score, verdict, threat_type, top_factors, url, onContinue }) {
+export function showWarningModal({ score, verdict, threat_type, top_factors, url, scan_id, onContinue }) {
   if (window.__AEGIS_WARNING_DISMISSED__) return;
   _removeModal("aegis-warning-overlay");
 
@@ -72,6 +72,10 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
       <div style="display:flex;gap:8px;padding:10px 14px;background:rgba(15,10,10,0.4);border-top:1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
         <button id="aegis-warn-explain" style="flex:1;min-width:45%;padding:7px 10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" ${isOffline ? "disabled style='opacity:0.5;cursor:not-allowed;'" : ""}>✨ Explain AI</button>
         <button id="aegis-warn-leave" style="flex:1;min-width:45%;padding:7px 10px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">← Close Scan</button>
+        ${!isOffline ? `
+        <button id="aegis-warn-falsepos" style="flex:1;min-width:45%;padding:7px 10px;background:rgba(255,255,255,0.06);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">🚩 False Positive</button>
+        <button id="aegis-warn-incident" style="flex:1;min-width:45%;padding:7px 10px;background:rgba(255,255,255,0.06);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">📢 Create Incident</button>
+        ` : ""}
       </div>
     </div>
   `, isBlocking);
@@ -96,12 +100,14 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     const btn = document.getElementById("aegis-warn-falsepos");
     if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; }
     await safeSendMessage({
-      type: "REPORT_FALSE_POSITIVE",
+      type: MSG.REPORT_FALSE_POSITIVE,
       url: window.location.href,
       score: score,
+      threat_type,
+      scanId: scan_id,
       note: "User reported False Positive"
     });
-    
+
     // Auto-allow after reporting false positive
     setTimeout(async () => {
       window.__AEGIS_WARNING_DISMISSED__ = true;
@@ -109,6 +115,21 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
       await safeSendMessage({ type: "ALLOW_URL_SESSION", url });
       if (onContinue) onContinue();
     }, 600);
+  });
+
+  document.getElementById("aegis-warn-incident")?.addEventListener("click", async () => {
+    const btn = document.getElementById("aegis-warn-incident");
+    if (btn) { btn.textContent = "✓ Incident Created"; btn.disabled = true; }
+    await safeSendMessage({
+      type: MSG.CREATE_INCIDENT,
+      url: window.location.href,
+      score: score,
+      threat_type,
+      scanId: scan_id,
+      note: "Employee created an incident from the warning banner."
+    });
+    // No auto-allow: creating an incident escalates for review, it does not
+    // vouch for the page like a false-positive report does — the warning stays up.
   });
 
   document.getElementById("aegis-warn-explain")?.addEventListener("click", async () => {
@@ -144,25 +165,9 @@ export function showXAIModal(xai, context = {}) {
   const headerIcon = isEmailTarget ? "📧" : "🛡️";
   const headerTitle = isEmailTarget ? "Email Security Report" : "Security Report";
 
-  // Normalize any score mismatch inside summary text
-  let summaryText = xai.summary || "";
-  if (summaryText) {
-    // Replace any score references (e.g. 100%, 82%) in the text with the exact rounded score s
-    summaryText = summaryText.replace(/composite risk score of \d+%/gi, `composite risk score of ${s}%`);
-    summaryText = summaryText.replace(/score of \d+%/gi, `score of ${s}%`);
-    
-    // If the visual score is safe (< 20%), ensure the text doesn't claim it was flagged as phishing
-    if (s < 20) {
-      if (!summaryText || summaryText.includes("flagged")) {
-        summaryText = `AegisOne security analysis completed for this target with a composite risk score of ${s}%. No malicious content, phishing indicators, or suspicious heuristics were detected.`;
-      }
-    }
-
-    if (isEmailTarget) {
-      summaryText = summaryText.replace(/flagged this website as potentially hazardous/gi, "flagged this email & attachment as potentially hazardous");
-      summaryText = summaryText.replace(/flagged this website/gi, "flagged this email & attachment");
-    }
-  }
+  // The backend now generates this text from the actual stored evidence for this exact
+  // scan, so it's already specific and internally consistent — no client-side patching needed.
+  const summaryText = xai.summary || "";
 
   const formatItem = (r) => {
     const rawText = typeof r === 'string' ? r : r.label || String(r);

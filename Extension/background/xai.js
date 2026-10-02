@@ -38,6 +38,10 @@ export async function explainWithAI(tabData, url, explicitScore) {
     url,
     domain: scanData.domain,
     risk_score: finalScore,
+    // Lets the backend look up the full, specific evidence it already computed and
+    // stored for this exact scan (which brand it matched, which exact URL trick fired)
+    // instead of only working from this thinner client-side reconstruction.
+    scan_id: scanData.scan_id || null,
     verdict: finalScore >= 80 ? "danger" : finalScore >= 50 ? "warning" : "safe",
     threat_type: scanData.threat_type,
 

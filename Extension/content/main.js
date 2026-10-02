@@ -226,6 +226,7 @@
                 threat_type: msg.threat_type,
                 top_factors: msg.top_factors,
                 url: window.location.href,
+                scan_id: msg.scanId,
               });
             }
             break;
@@ -239,6 +240,7 @@
                 threat_type: msg.threat_type,
                 top_factors: msg.top_factors,
                 url: window.location.href,
+                scan_id: msg.scanId,
               });
             }
             updateWidget(msg);

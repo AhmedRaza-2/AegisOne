@@ -13,22 +13,24 @@ from api.auth.jwt_handler import create_access_token, create_refresh_token, deco
 from api.auth.roles import require_role, Role
 from api.dependencies import get_current_user
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
+from api.rate_limiter import limiter
 import os
 import smtplib
 import random
 import string
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 import time
 
 class ForgotPasswordRequest(BaseModel):
-    email: str
+    # Not EmailStr — acts on an existing account, same reasoning as LoginRequest.
+    email: str = Field(..., min_length=1, max_length=320)
 
 class VerifyResetRequest(BaseModel):
-    email: str
-    otp: str
+    email: str = Field(..., min_length=1, max_length=320)
+    otp: str = Field(..., max_length=16)
 
 # In-memory store for OTPs: { email: { "otp": "123456", "expires_at": timestamp } }
 otp_store = {}
@@ -37,8 +39,11 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.get("/check-role")
-async def check_role(email: str = Query(...), db: AsyncSession = Depends(get_db)):
-    """Auto-detect assigned user role based on email."""
+@limiter.limit("10/minute")
+async def check_role(request: Request, email: str = Query(...), db: AsyncSession = Depends(get_db)):
+    """Auto-detect assigned user role based on email, for the login form's UI hint.
+    Unauthenticated and reveals account existence + exact role — rate-limited per IP
+    to make mass enumeration impractical rather than removing the UX feature outright."""
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     if not user:
@@ -47,7 +52,8 @@ async def check_role(email: str = Query(...), db: AsyncSession = Depends(get_db)
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, req: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == req.email))
     user = result.scalar_one_or_none()
     
@@ -113,8 +119,10 @@ async def refresh_tokens(req: RefreshRequest, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/register", response_model=UserInfo, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 async def register(
-    req: RegisterRequest, 
+    request: Request,
+    req: RegisterRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """Register a new user account."""
@@ -305,7 +313,8 @@ AegisOne Security Team
     send_unified_email(to_email=email, subject=subject, html_content=html, text_content=text, org_smtp=org_smtp)
 
 @router.post("/forgot-password")
-async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def forgot_password(request: Request, req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == req.email))
     user = result.scalar_one_or_none()
     
@@ -346,12 +355,13 @@ async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends
     return {"status": "ok", "message": "OTP sent"}
 
 class ResetWithNewPasswordRequest(BaseModel):
-    email: str
-    otp: str
-    new_password: str
+    email: str = Field(..., min_length=1, max_length=320)
+    otp: str = Field(..., max_length=16)
+    new_password: str = Field(..., min_length=8, max_length=512)
 
 @router.post("/verify-reset-otp")
-async def verify_reset_otp(req: VerifyResetRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def verify_reset_otp(request: Request, req: VerifyResetRequest, db: AsyncSession = Depends(get_db)):
     record = otp_store.get(req.email)
     if not record or record["otp"] != req.otp or time.time() > record["expires_at"]:
         raise HTTPException(status_code=400, detail="Invalid or expired 6-digit verification code.")
@@ -384,11 +394,11 @@ async def reset_password(req: ResetWithNewPasswordRequest, db: AsyncSession = De
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
+    current_password: str = Field(..., min_length=1, max_length=512)
+    new_password: str = Field(..., min_length=8, max_length=512)
 
 class UpdateProfileRequest(BaseModel):
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255)
 
 @router.post("/change-password")
 async def change_password(

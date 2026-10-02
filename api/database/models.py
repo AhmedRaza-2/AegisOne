@@ -536,6 +536,11 @@ class Incident(Base):
     verified_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     verified_at = Column(DateTime, nullable=True)
 
+    # Manager-tier triage (Incident & Feedback Service — department-level review, distinct from admin_decision)
+    escalated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    escalated_at = Column(DateTime, nullable=True)
+    manager_notes = Column(Text, nullable=True)
+
     scan = relationship("ScanLog", back_populates="incidents")
     reporter = relationship("User", foreign_keys=[reported_by_id], back_populates="reported_incidents")
     resolver = relationship("User", foreign_keys=[resolved_by_id], back_populates="resolved_incidents")
@@ -552,7 +557,8 @@ class IncidentReport(Base):
     incident_id = Column(Integer, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     organization_id = Column(String(64), nullable=False, default="org_default", index=True)
-    
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True)
+
     report_type = Column(String(50), nullable=False, default="false_positive") # false_positive, false_negative, phishing, benign, incorrect_detection
     target_type = Column(String(50), nullable=False, default="url") # url, email, text, image, file
     target_ref = Column(String(500), nullable=True) # URL, email subject, scan ID

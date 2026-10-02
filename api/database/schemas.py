@@ -2,7 +2,7 @@
 AegisOne API — Pydantic Schemas
 Request/response models for all endpoints.
 """
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, EmailStr, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -43,16 +43,20 @@ class ScanType(str, Enum):
 # ═══════════════════════════════════════════════════════════════
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    # Deliberately not EmailStr: this only needs to match an existing account, and
+    # EmailStr's reserved-TLD/deliverability checks would lock out any already-created
+    # account whose email trips a rule introduced after that account existed — format
+    # policy belongs at account-creation time (RegisterRequest/UserCreate), not login.
+    email: str = Field(..., min_length=1, max_length=320)
+    password: str = Field(..., min_length=1, max_length=512)
 
 
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: str
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=512)
+    full_name: str = Field(..., min_length=1, max_length=255)
     role: UserRole = UserRole.EMPLOYEE
-    department: str = "General"
+    department: str = Field("General", max_length=255)
     organization_id: Optional[str] = None
 
 
@@ -175,17 +179,17 @@ class ThreatReportResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 class URLScanRequest(BaseModel):
-    url: str
+    url: str = Field(..., min_length=1, max_length=2048)
 
 
 class TextScanRequest(BaseModel):
-    text: str
+    text: str = Field(..., min_length=1, max_length=50000)
 
 
 class EmailScanRequest(BaseModel):
-    sender: str = ""
-    subject: str = ""
-    body: str = ""
+    sender: str = Field("", max_length=320)
+    subject: str = Field("", max_length=998)
+    body: str = Field("", max_length=200000)
 
 
 class BatchItem(BaseModel):
@@ -313,15 +317,15 @@ class MessageOut(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 class EmployeeReportCreate(BaseModel):
-    report_type: str = Field(..., description="false_positive, false_negative, phishing, benign, incorrect_detection")
-    target_type: str = Field("url", description="url, email, text, image, file")
-    target_ref: Optional[str] = None
-    scan_id: Optional[str] = None
-    event_id: Optional[str] = None
-    model_version: Optional[str] = None
-    predicted_class: Optional[str] = None
-    risk_score: Optional[int] = None
-    user_notes: Optional[str] = None
+    report_type: str = Field(..., min_length=1, max_length=50, description="false_positive, false_negative, phishing, benign, incorrect_detection")
+    target_type: str = Field("url", max_length=50, description="url, email, text, image, file")
+    target_ref: Optional[str] = Field(None, max_length=500)
+    scan_id: Optional[str] = Field(None, max_length=100)
+    event_id: Optional[str] = Field(None, max_length=100)
+    model_version: Optional[str] = Field(None, max_length=50)
+    predicted_class: Optional[str] = Field(None, max_length=50)
+    risk_score: Optional[int] = Field(None, ge=0, le=100)
+    user_notes: Optional[str] = Field(None, max_length=10000)
 
 
 class IncidentReportResponse(BaseModel):
@@ -330,6 +334,7 @@ class IncidentReportResponse(BaseModel):
     incident_id: Optional[int] = None
     user_id: int
     organization_id: str
+    department_id: Optional[int] = None
     report_type: str
     target_type: str
     target_ref: Optional[str] = None
@@ -347,8 +352,8 @@ class IncidentReportResponse(BaseModel):
 
 
 class IncidentVerifyRequest(BaseModel):
-    decision: str = Field(..., description="FALSE_POSITIVE, FALSE_NEGATIVE, CONFIRMED_PHISHING, BENIGN, INVALID, NEEDS_INVESTIGATION")
-    admin_notes: Optional[str] = None
+    decision: str = Field(..., max_length=50, description="FALSE_POSITIVE, FALSE_NEGATIVE, CONFIRMED_PHISHING, BENIGN, INVALID, NEEDS_INVESTIGATION")
+    admin_notes: Optional[str] = Field(None, max_length=10000)
     create_training_candidate: bool = True
 
 
@@ -371,9 +376,17 @@ class IncidentResponse(BaseModel):
     created_at: datetime
     resolved_at: Optional[datetime] = None
     reports_count: int = 1
+    escalated_by_id: Optional[int] = None
+    escalated_at: Optional[datetime] = None
+    manager_notes: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class ManagerTriageRequest(BaseModel):
+    action: str = Field(..., max_length=20, description="resolve, escalate, or comment")
+    notes: Optional[str] = Field(None, max_length=10000)
 
 
 class TrainingCandidateSummary(BaseModel):

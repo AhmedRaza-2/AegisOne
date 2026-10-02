@@ -291,7 +291,7 @@ async def get_stats(
         db.scalar(_org_scope(dl_q, DownloadEvent, current_user))
     )
 
-    scans_today = (scans_count_res or 0) + (ev_today_res or 0)
+    scans_today = scans_count_res or 0  # SecurityEvent rows are a different signal; don't fold into scan counts
     threats_today = threats_today_res or 0
     total_users = total_users_res or 0
     total_scans = total_scans_res or 0
@@ -304,9 +304,9 @@ async def get_stats(
     # ── Threat Distribution & Severity Distribution ──────────────────────────
     from sqlalchemy import case
     threat_dist_q = select(
-        func.sum(case(((WebsiteScan.decision == "safe") | (WebsiteScan.decision == "allow"), 1), else_=0)).label("safe"),
-        func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type == "phishing"), 1), else_=0)).label("phishing"),
-        func.sum(case(((WebsiteScan.decision.in_(["warn", "block"])) & (WebsiteScan.threat_type.in_(["malware", "defacement", "malicious"])), 1), else_=0)).label("malware")
+        func.sum(case(((WebsiteScan.decision.in_(["safe", "allow"])), 1), else_=0)).label("safe"),
+        func.sum(case(((WebsiteScan.decision.in_(["warn", "block", "suspicious"])) & (~WebsiteScan.threat_type.in_(["malware", "defacement", "malicious"])), 1), else_=0)).label("phishing"),
+        func.sum(case(((WebsiteScan.decision.in_(["warn", "block", "suspicious"])) & (WebsiteScan.threat_type.in_(["malware", "defacement", "malicious"])), 1), else_=0)).label("malware")
     )
     sev_q = select(SecurityEvent.severity, func.count(SecurityEvent.id).label("cnt")).group_by(SecurityEvent.severity)
 
@@ -831,7 +831,7 @@ async def get_audit_logs(
 
 # ── User Approvals ────────────────────────────────────────────────────────────
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr
 from fastapi import HTTPException
 
 class StatusUpdateRequest(BaseModel):
@@ -951,14 +951,14 @@ async def update_user_status(
 from api.auth.password import hash_password
 
 class DepartmentCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=255)
     manager_id: int | None = None
 
 class UserCreate(BaseModel):
-    email: str
-    full_name: str
-    password: str
-    role: str
+    email: EmailStr
+    full_name: str = Field(..., min_length=1, max_length=255)
+    password: str = Field(..., min_length=8, max_length=512)
+    role: Role
     department_id: int | None = None
 
 @router.get("/departments")
@@ -1311,8 +1311,11 @@ async def create_user(
     if target_dept_id:
         dept_q = select(Department).where(Department.id == target_dept_id)
         dept = (await db.execute(dept_q)).scalar_one_or_none()
-        if dept:
-            target_dept_name = dept.name
+        if not dept:
+            # Previously fell through with target_dept_id still set to the bogus id,
+            # which failed the FK constraint on insert and surfaced as a raw 500.
+            raise HTTPException(status_code=400, detail=f"Department {target_dept_id} does not exist.")
+        target_dept_name = dept.name
 
     # Check duplicates
     q = select(User).where(User.email == req.email)

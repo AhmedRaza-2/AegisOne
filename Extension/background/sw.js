@@ -14,7 +14,7 @@
 
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE, getApiBaseUrl } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
-import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics } from "./scanner.js";
+import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics, submitReport } from "./scanner.js";
 import { getCachedResult, getTabCache, setTabCache, clearTabCache, clearAllCache } from "./cache.js";
 import { initDownloadGuard, handleDownloadDecision } from "./download-guard.js";
 import { explainWithAI, generateLocalExplanation } from "./xai.js";
@@ -162,6 +162,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         verdict: result.verdict,
         threat_type: result.threat_type,
         top_factors: result.top_factors,
+        scanId: result.scan_id,
       }).catch(() => { });
 
       if (result.score >= THRESHOLD.DANGER * 100) {
@@ -679,7 +680,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
 
         // ── False Positive Report ─────────────────────────
-        case "REPORT_FALSE_POSITIVE": {
+        case MSG.REPORT_FALSE_POSITIVE: {
           const domain = getRootDomain(msg.url || "");
           if (domain) {
             const stored = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
@@ -702,21 +703,42 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
           await flushNow();
 
-          try {
-            const { user_email } = await chrome.storage.local.get("user_email");
-            const baseUrl = await getApiBaseUrl();
-            await fetch(`${baseUrl}/policy/allowlist`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(user_email ? { "X-User-Email": user_email } : {}),
-              },
-              body: JSON.stringify({ domain }),
-              signal: AbortSignal.timeout(5000),
-            });
-          } catch (_) { }
+          const fpResult = await submitReport({
+            reportType: "false_positive",
+            targetRef: msg.url,
+            scanId: msg.scanId,
+            riskScore: msg.score,
+            predictedClass: msg.threat_type,
+            notes: msg.note || "User reported False Positive from the warning banner.",
+          });
 
-          sendResponse({ ok: true });
+          sendResponse({ ok: true, reported: !!fpResult });
+          break;
+        }
+
+        // ── Create Incident (escalate a detection for review) ──
+        case MSG.CREATE_INCIDENT: {
+          await storeEvent({
+            type: EVENT_TYPES.THREAT_REPORT,
+            url: msg.url,
+            domain: getRootDomain(msg.url || ""),
+            risk_score: msg.score || 0,
+            verdict: VERDICT.DANGER,
+            action: "incident_created",
+            user_note: msg.note || null,
+          });
+          await flushNow();
+
+          const incidentResult = await submitReport({
+            reportType: "phishing",
+            targetRef: msg.url,
+            scanId: msg.scanId,
+            riskScore: msg.score,
+            predictedClass: msg.threat_type,
+            notes: msg.note || "Employee created an incident from the warning banner.",
+          });
+
+          sendResponse({ ok: true, reported: !!incidentResult });
           break;
         }
 

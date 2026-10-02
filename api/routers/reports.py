@@ -13,7 +13,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, text
+import hashlib
 
 from api.database.db import get_db
 from api.database.models import User, Incident, IncidentReport, AuditLog
@@ -48,17 +49,21 @@ async def submit_report(
     # Correlation check: look for an existing OPEN or INVESTIGATING incident in the same org with matching reference
     existing_incident = None
     if target_ref and target_ref != "Unknown Target":
+        # Serialize concurrent reports on the same target so simultaneous submissions
+        # join one incident instead of each creating their own.
+        lock_key = int.from_bytes(hashlib.sha256(f"{org_id}|{target_ref}".encode()).digest()[:8], "big", signed=True)
+        await db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": lock_key})
         query = (
             select(Incident)
             .where(
                 Incident.organization_id == org_id,
-                Incident.status.in_(["open", "investigating"]),
+                Incident.status.in_(["open", "investigating", "escalated"]),
                 Incident.detection_event_ref == target_ref
             )
-            .order_by(Incident.created_at.desc())
+            .order_by(Incident.created_at.asc())
         )
         result = await db.execute(query)
-        existing_incident = result.scalar_one_or_none()
+        existing_incident = result.scalars().first()
 
     if not existing_incident:
         incident_id = f"INC-{uuid.uuid4().hex[:8].upper()}"
@@ -87,6 +92,7 @@ async def submit_report(
         incident_id=existing_incident.id,
         user_id=current_user.id,
         organization_id=org_id,
+        department_id=current_user.department_id,
         report_type=payload.report_type,
         target_type=payload.target_type,
         target_ref=target_ref,

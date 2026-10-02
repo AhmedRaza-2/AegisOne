@@ -25,7 +25,7 @@ services:
   # Backend API — FastAPI + AI Engine (Pre-built Docker Hub Image)
   # ──────────────────────────────────────────────────────────────────────────
   backend:
-    image: ahmedraza2006/aegisone-backend:latest
+    image: ahmedraza2006/aegisone-backend:incident-test
     container_name: aegisone-backend
     command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
     environment:
@@ -38,7 +38,7 @@ services:
       LICENSE_KEY: ${LICENSE_KEY:-}
       DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-} 
     ports:
       - "8000:8000"
     depends_on:
@@ -50,7 +50,7 @@ services:
   # Dashboard — Admin & Employee Portal (Pre-built Docker Hub Image)
   # ──────────────────────────────────────────────────────────────────────────
   dashboard:
-    image: ahmedraza2006/aegisone-dashboard:latest
+    image: ahmedraza2006/aegisone-dashboard:incident-test
     container_name: aegisone-dashboard
     ports:
       - "3002:3000"

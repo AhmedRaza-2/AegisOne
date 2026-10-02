@@ -86,8 +86,8 @@ export default function EmployeeSettingsPage() {
       showToast("New passwords do not match", "error");
       return;
     }
-    if (newPassword.length < 6) {
-      showToast("Password must be at least 6 characters", "error");
+    if (newPassword.length < 8) {
+      showToast("Password must be at least 8 characters", "error");
       return;
     }
     setChangingPassword(true);
@@ -182,6 +182,7 @@ export default function EmployeeSettingsPage() {
                       onChange={(e) => setFullName(e.target.value)}
                       className={inputCls}
                       required
+                      maxLength={255}
                     />
                   </div>
                   <div>
@@ -216,7 +217,7 @@ export default function EmployeeSettingsPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-surface-500 mb-1">New Password</label>
-                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputCls} required />
+                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputCls} required minLength={8} maxLength={512} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-surface-500 mb-1">Confirm New Password</label>

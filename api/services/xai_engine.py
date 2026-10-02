@@ -423,27 +423,36 @@ def generate_tier1_explanation(
     tokenizer: Optional[Any] = None,
     url_feature_tensor: Optional[torch.Tensor] = None,
     text_snippet: Optional[str] = None,
+    rich_evidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Tier 1 XAI Controller.
-    Merges token attributions, URL feature attributions, and rule evidence
-    into the canonical AEGIS XAI JSON structure.
+    Tier 1 XAI Controller. Fast, grounded, no LLM — this is what the user sees
+    immediately. Builds the plain-language summary from the SPECIFIC evidence for
+    this exact scan (brand name impersonated, exact URL trick used, which DOM
+    behavior fired) rather than a generic risk-band template, so two different
+    phishing pages get two different, accurate explanations instead of the same
+    canned paragraph.
 
-    Target latency: < 50 ms on CPU (n_steps=10, max_length=128).
+    Target latency: < 50 ms on CPU.
 
     Args:
-        evidence:            Evidence payload from browser extension / scan.
-        model:               Loaded PyTorch model (DistilBERT / URL model).
+        evidence:            Evidence payload sent by the caller (extension, right-click scan, etc.).
+        model:               Loaded PyTorch model, only used for text-token attribution (email/text scans).
         tokenizer:           Matching tokenizer for token attribution.
         url_feature_tensor:  Optional pre-extracted URL feature tensor (10 dims).
         text_snippet:        Override text for token attribution (email body, etc.).
+        rich_evidence:       Full server-stored evidence for this exact scan_id — the ground
+                              truth, looked up server-side. None for scan types without a
+                              stored record (falls back to `evidence` alone).
 
     Returns:
-        Canonical Tier 1 JSON with signals → text_tokens, url_features, rules.
+        Canonical Tier 1 JSON. `summary`/`main_reasons`/`recommendations` are the
+        plain-language fields the UI shows; `signals`/`mitre_mapping`/`ioc` are
+        kept as secondary technical detail for an admin/analyst view.
     """
     t0 = time.perf_counter()
 
-    risk_score = int(evidence.get("risk_score", 0))
+    risk_score = int((rich_evidence or {}).get("final_risk", evidence.get("risk_score", 0)) or 0)
     if risk_score >= 80:
         label = "High Risk"
     elif risk_score >= 50:
@@ -453,7 +462,7 @@ def generate_tier1_explanation(
     else:
         label = "Safe"
 
-    # ── Gather attributions ───────────────────────────────────────────────────
+    # ── Gather attributions (kept for the technical/admin view, not the plain summary) ──
     sample_text = text_snippet or evidence.get("text_summary") or evidence.get("url") or ""
     text_tokens = (
         explain_text_tokens(model, tokenizer, sample_text)
@@ -463,29 +472,34 @@ def generate_tier1_explanation(
     url_features = explain_url_features(evidence, url_feature_tensor, model)
     fired_rules = explain_rules(evidence)
 
-    # ── MITRE ATT&CK mapping ─────────────────────────────────────────────────
+    # ── Grounded plain-language findings — the core of this response ──────────
+    grounded = build_grounded_findings(evidence, rich_evidence)
+    findings = grounded["findings"]
+    brand = grounded["brand"]
+
+    if risk_score >= 20:
+        verb = "blocked" if risk_score >= 80 else "flagged"
+        summary = f"AegisOne {verb} this page ({risk_score}% risk) — {findings[0]}."
+        if len(findings) > 1:
+            summary += f" On top of that, {findings[1]}."
+    else:
+        summary = f"AegisOne checked this page ({risk_score}% risk) and found it safe. {findings[0].capitalize()}."
+
+    main_reasons = [f[0].upper() + f[1:] for f in findings]
+
+    # ── MITRE ATT&CK mapping — only signals genuinely tied to what fired, for the
+    #    technical/admin view. Not shown in the plain-language summary.
     mitre = []
+    if brand:
+        mitre.append("T1566.002 - Phishing: Spearphishing Link (Brand Impersonation)")
     if any(r["id"] == "RULE_LOGIN_FORM" for r in fired_rules):
         mitre.append("T1110 - Credential Access / Brute Force")
     if any(r["id"] == "RULE_HIDDEN_IFRAMES" for r in fired_rules):
         mitre.append("T1203 - Exploitation for Client Execution (Clickjacking)")
     if any(r["id"] == "RULE_EXCESSIVE_REDIRECTS" for r in fired_rules):
         mitre.append("T1566.002 - Phishing: Spearphishing Link (Redirect Chain)")
-    if not mitre or risk_score >= 50:
-        if "T1566.002" not in " ".join(mitre):
-            mitre.append("T1566.002 - Phishing: Spearphishing Link")
-    if risk_score >= 70:
-        mitre.append("T1584 - Compromise Infrastructure (Adversary Staged Domain)")
-
-    # ── Compact natural-language summary ─────────────────────────────────────
-    top_reasons = [r["reason"] for r in fired_rules[:2]]
-    if url_features:
-        top_reasons.append(url_features[0]["label"])
-    reasons_str = "; ".join(top_reasons[:3])
-    summary = (
-        f"AegisOne flagged this event with a composite risk score of {risk_score}% ({label}). "
-        f"Key attribution factors: {reasons_str}."
-    )
+    if risk_score >= 70 and not mitre:
+        mitre.append("T1566 - Phishing")
 
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
 
@@ -498,37 +512,211 @@ def generate_tier1_explanation(
             "url_features": url_features,
             "rules": fired_rules,
         },
-        "main_reasons": [r["reason"] for r in fired_rules],
-        "recommendations": _build_recommendations(risk_score, evidence),
+        "main_reasons": main_reasons,
+        "recommendations": _build_recommendations(risk_score, evidence, brand),
         "threat_likelihood": f"{'High' if risk_score >= 80 else 'Moderate' if risk_score >= 50 else 'Low'} Likelihood of {evidence.get('threat_type', 'Phishing').replace('_', ' ').title()}",
         "mitre_mapping": mitre,
         "ioc": {
-            "domain": evidence.get("domain", ""),
-            "url": evidence.get("url", ""),
+            "domain": (rich_evidence or {}).get("target_domain") or evidence.get("domain", ""),
+            "url": (rich_evidence or {}).get("target_url") or evidence.get("url", ""),
             "indicators": [
-                {"type": "domain", "value": evidence.get("domain", "")},
-                {"type": "url", "value": evidence.get("url", "")},
+                {"type": "domain", "value": (rich_evidence or {}).get("target_domain") or evidence.get("domain", "")},
+                {"type": "url", "value": (rich_evidence or {}).get("target_url") or evidence.get("url", "")},
             ],
         },
         "attribution_method": "Captum LayerIntegratedGradients" if CAPTUM_AVAILABLE else "Attention Weight Attribution",
         "xai_tier": "tier1_fast",
+        "grounded_in_scan_record": rich_evidence is not None,
         "latency_ms": latency_ms,
         "generated_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
 
-def _build_recommendations(risk_score: int, evidence: Dict[str, Any]) -> List[str]:
+# ═══════════════════════════════════════════════════════════════════════════════
+# GROUNDED PLAIN-LANGUAGE FINDINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+# Turns the model's *specific* evidence (which brand it's impersonating, which exact
+# lexical trick was used, which DOM behavior fired) into concrete, non-technical
+# sentences — instead of a generic "Key attribution factors: X; Y; Z" template that
+# reads the same regardless of what actually happened on the page.
+
+_LEXICAL_ANOMALY_PHRASES = {
+    "auth_spoofing_at_symbol": "the web address hides an '@' symbol trick that makes it look like one site while actually taking you somewhere else",
+    "double_slash_path_obfuscation": "the link uses an unusual slash pattern designed to disguise where it actually leads",
+    "suspicious_top_level_domain": "it uses an uncommon domain ending that scam sites use because it's cheap and easy to get anonymously",
+    "raw_ip_address_domain": "the address is a bare set of numbers instead of a real website name — legitimate companies don't send links like this",
+    "non_standard_port": "it connects over an unusual network port that real websites don't normally use",
+}
+
+
+def _lexical_anomaly_phrase(anomaly: str) -> Optional[str]:
+    if anomaly in _LEXICAL_ANOMALY_PHRASES:
+        return _LEXICAL_ANOMALY_PHRASES[anomaly]
+    if anomaly.startswith("contains_") and anomaly.endswith("_phishing_keywords"):
+        n = anomaly.split("_")[1]
+        return f"the page's web address or path contains {n} word(s) commonly used in scam links, like \"login\", \"verify\", or \"payment\""
+    return None
+
+
+# Default fast-path URL scanning (extract_url_features in model_orchestrator.py, live
+# unless AEGIS_FAST_SCAN_MODE=0) stores its evidence as a flat list of human-readable
+# strings rather than structured fields — parse those directly instead of needing a
+# second code path, since the strings already say exactly what fired.
+import re as _re
+
+_SIGNAL_STRING_PATTERNS = [
+    (_re.compile(r"^Brand token '([^']+)' found in (?:dehyphenated )?non-canonical domain"), "brand"),
+    (_re.compile(r"^Host is raw IP address"), lambda m: "the address is a bare set of numbers instead of a real website name — legitimate companies don't send links like this"),
+    (_re.compile(r"^Host uses IDN Punycode"), lambda m: "the web address uses hidden lookalike characters designed to trick your eyes into reading it as a trusted name"),
+    (_re.compile(r"^Domain uses high-risk TLD: (\S+)"), lambda m: f"it uses an uncommon web address ending ({m.group(1)}) that's cheap and anonymous, so scam sites use it a lot"),
+    (_re.compile(r"^Sensitive path keywords: (.+)$"), lambda m: f"its web address contains words scammers commonly use to look official, like {m.group(1)}"),
+    (_re.compile(r"^Unencrypted HTTP protocol"), lambda m: "it doesn't use a secure, encrypted connection — real login or payment pages almost always do"),
+    (_re.compile(r"^URL contains user-info @ symbol"), lambda m: "the web address hides an '@' symbol trick that can make it look like one site while actually taking you somewhere else"),
+    (_re.compile(r"^Excessive subdomain depth"), lambda m: "the web address is stacked with an unusual number of extra subdomains, often used to bury the real destination"),
+    (_re.compile(r"^Multiple hyphens in domain name"), lambda m: "the web address is stuffed with extra hyphens, a common trick to make a fake name look like a real company's"),
+]
+
+
+def _parse_signal_strings(signal_strings: List[str]) -> Dict[str, Any]:
+    """Parses the flat evidence-string list from the live fast-path URL scanner into
+    (brand, [plain-language phrases]), ordered the same way the strings were produced
+    (brand impersonation is generated first by the scanner, so it naturally leads)."""
+    brand = None
+    phrases: List[str] = []
+    for s in signal_strings:
+        matched = False
+        for pattern, handler in _SIGNAL_STRING_PATTERNS:
+            m = pattern.match(s)
+            if not m:
+                continue
+            matched = True
+            if handler == "brand":
+                brand = m.group(1).strip()
+                phrases.append(
+                    f"this web address is trying to look like {brand.title()}'s real site, but the actual domain isn't {brand.title()}'s"
+                )
+            else:
+                phrases.append(handler(m))
+            break
+        if not matched and s:
+            phrases.append(s[0].lower() + s[1:])
+    return {"brand": brand, "phrases": phrases}
+
+
+def build_grounded_findings(evidence: Dict[str, Any], rich_evidence: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Builds a list of concrete, plain-language findings ordered by how conclusive they
+    are, plus a target label for the summary sentence. Pulls from `rich_evidence` (the
+    full server-stored evidence for this exact scan, looked up by scan_id — the ground
+    truth) when available, falling back to whatever the caller sent directly in `evidence`
+    for scan types that don't have a stored record (e.g. ad-hoc text/image scans).
+
+    Returns: {"findings": [str, ...], "target_label": str, "brand": str|None}
+    """
+    findings: List[str] = []
+    brand: Optional[str] = None
+
+    target = (rich_evidence or {}).get("target_domain") or evidence.get("domain") or evidence.get("url") or "this page"
+
+    url_model_evidence = (rich_evidence or {}).get("url_model_evidence") or {}
+    brand_info = url_model_evidence.get("brand_impersonation") or {}
+
+    # 1. Primary path: the live fast-path URL scanner (default unless
+    #    AEGIS_FAST_SCAN_MODE=0) stores evidence as a flat list of specific,
+    #    human-readable strings — parse those directly, brand name included.
+    signal_strings = url_model_evidence.get("signals")
+    if isinstance(signal_strings, list) and signal_strings:
+        parsed = _parse_signal_strings([str(s) for s in signal_strings])
+        brand = parsed["brand"]
+        phrases = parsed["phrases"]
+        if brand:
+            # Brand impersonation is the single most concrete, convincing finding —
+            # lead with it regardless of where the scanner happened to emit it.
+            brand_phrase = next((p for p in phrases if p.startswith("this web address is trying to look like")), None)
+            if brand_phrase:
+                phrases = [brand_phrase] + [p for p in phrases if p != brand_phrase]
+        findings.extend(phrases[:4])
+
+    # 2. Secondary path: the deeper BERT+fusion scanner's structured evidence shape
+    #    (used when AEGIS_FAST_SCAN_MODE=0). Only consulted if step 1 found nothing.
+    if not findings:
+        if isinstance(brand_info, dict) and brand_info.get("matched") and brand_info.get("target_brand"):
+            brand = str(brand_info["target_brand"]).strip()
+            brand_title = brand.title()
+            confidence_pct = round((brand_info.get("similarity_score") or 0) * 100)
+            if confidence_pct >= 85:
+                findings.append(
+                    f"this web address is built to look like {brand_title}'s real site, but it isn't — the actual domain doesn't belong to {brand_title}"
+                )
+            else:
+                findings.append(
+                    f"this web address closely resembles {brand_title}'s real domain name, which is a common trick to fool you into thinking you're on the real site"
+                )
+        elif isinstance(evidence.get("threat_type"), str) and "brand" in evidence.get("threat_type", "").lower():
+            findings.append("this page's address is designed to resemble a well-known company's real website")
+
+        for anomaly in url_model_evidence.get("lexical_anomalies", [])[:3]:
+            phrase = _lexical_anomaly_phrase(str(anomaly))
+            if phrase and phrase not in findings:
+                findings.append(phrase)
+
+    # 3. DOM / page-behavior signals (sent live by the extension, not stored server-side).
+    if evidence.get("login_form_detected"):
+        findings.append("the page has a form asking you to type in a password or login details")
+    if evidence.get("suspicious_form_count", 0) and evidence.get("suspicious_form_count", 0) > 1:
+        findings.append("the page has multiple forms collecting personal information")
+    redirect_chain = evidence.get("redirect_chain") or []
+    if len(redirect_chain) > 2:
+        findings.append(f"the link bounced through {len(redirect_chain)} other pages before landing here — a common way to hide the real destination")
+    hidden_iframes = evidence.get("hidden_iframes") or []
+    if hidden_iframes:
+        findings.append("the page secretly loads hidden content from another site in the background")
+
+    # 4. Fall back to the contextual engine's fired signals if nothing concrete matched yet
+    #    (covers DOM-corroborated cases captured server-side rather than client-side).
+    if not findings and rich_evidence:
+        trace = rich_evidence.get("decision_trace") or {}
+        for sig in trace.get("positive_evidence", [])[:3]:
+            name = sig.get("signal", "")
+            if name == "password_input_detected":
+                findings.append("the page asks you to enter a password")
+            elif name == "credential_form_detected":
+                findings.append("the page has a login box collecting your username and password")
+            elif name == "hidden_iframes_detected":
+                findings.append("the page secretly loads hidden content from another site")
+            elif name == "external_form_submission":
+                findings.append("anything you type into this page gets sent to a completely different website, not the one you're looking at")
+            elif name == "high_phishing_language":
+                findings.append("the wording on the page uses urgent, pressuring language — like \"act now\" or \"your account will be suspended\" — that's commonly used in scams")
+            elif name == "suspicious_url":
+                findings.append("the web address is structured in a way real, trustworthy companies don't normally use")
+            elif name == "suspicious_visual_content":
+                findings.append("the page's visual design closely copies a real, trusted brand's look")
+
+    # 5. Genuinely clean verdict — say so concretely, not just "no threats detected."
+    risk_score = int((rich_evidence or {}).get("final_risk", evidence.get("risk_score", 0)) or 0)
+    if not findings and risk_score < 20:
+        findings.append("we checked the web address, the page's behavior, and its content, and none of them matched known scam patterns")
+
+    if not findings:
+        findings.append("our models flagged a combination of smaller signals that, together, matched known phishing patterns")
+
+    return {"findings": findings, "target_label": target, "brand": brand}
+
+
+def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Optional[str] = None) -> List[str]:
     recs: List[str] = []
     if evidence.get("login_form_detected"):
-        recs.append("Do NOT input passwords, emails, or personal details on this page.")
+        recs.append("Do not type your password or personal details into this page.")
     if risk_score >= 80:
-        recs.append("Close this browser window or navigate back immediately.")
-        recs.append("Notify your Security Operations Center (SOC) using the 'Report Threat' button.")
+        if brand:
+            recs.append(f"If you need to reach {brand.title()}, close this tab and type {brand.lower()}.com directly into your browser instead of using this link.")
+        recs.append("Close this tab now — do not interact with the page further.")
+        recs.append("Use the \"Report Threat\" button so your security team can warn others.")
     elif risk_score >= 50:
-        recs.append("Proceed with extreme caution. Verify the destination URL before interacting.")
+        recs.append("Double-check the web address in your browser's address bar before doing anything on this page.")
     else:
-        recs.append("Stay alert — some suspicious signals were detected but risk is low.")
-    recs.append("Ensure multi-factor authentication (MFA) is enabled for all organizational accounts.")
+        recs.append("No action needed — a few minor signals were present, but nothing matched a known scam pattern.")
     return recs
 
 
@@ -550,26 +738,47 @@ _CLOUD_MODEL = "gpt-oss:120b-cloud"
 _hf_pipeline = None
 _HF_MODEL_ID = "google/flan-t5-small"   # ~300 MB, CPU-friendly, permissive licence
 
+import threading as _threading
+# The startup warm-up task and a request's Tier 2 background task can both call
+# _get_hf_pipeline() around the same time with the cache still empty — without a lock,
+# both would start from_pretrained() concurrently and contend over the same HF Hub
+# download-lock file, which can stall both indefinitely instead of one succeeding fast.
+_hf_load_lock = _threading.Lock()
+
 
 def _get_hf_pipeline():
-    """Return the cached flan-t5-small pipeline, loading it on first call."""
+    """Return the cached (model, tokenizer) pair for flan-t5-small, loading on first call.
+    Uses the model/tokenizer classes directly rather than the `pipeline()` helper — the
+    high-level `text2text-generation` pipeline task was removed in transformers 5.x, but
+    AutoModelForSeq2SeqLM/.generate() is the stable, version-independent seq2seq API."""
     global _hf_pipeline
     if _hf_pipeline is not None:
         return _hf_pipeline
+    if not _hf_load_lock.acquire(timeout=30):
+        # Someone else is already loading it; give up for this call rather than piling
+        # on — the caller falls back to Tier 1, and the next request gets the warm cache.
+        return None
     try:
-        from transformers import pipeline as _hf_pipe_fn
+        if _hf_pipeline is not None:  # someone else finished while we waited for the lock
+            return _hf_pipeline
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
         logger.info(f"Loading HuggingFace model '{_HF_MODEL_ID}' into memory (first call)...")
-        _hf_pipeline = _hf_pipe_fn(
-            "text2text-generation",
-            model=_HF_MODEL_ID,
-            # Keep it light: fp32 on CPU is fine for a 60M-param model
-            device=-1,
-        )
+        tok = AutoTokenizer.from_pretrained(_HF_MODEL_ID)
+        # low_cpu_mem_usage defaults to True in newer transformers, which initializes
+        # weights on the "meta" device (no real data) and expects an explicit device_map
+        # to then stream real weights in. Without one, the module stays metadata-only and
+        # both .generate() and .to("cpu") fail ("cannot be called on meta tensors" /
+        # "Cannot copy out of meta tensor"). Disabling it loads real weights directly.
+        mdl = AutoModelForSeq2SeqLM.from_pretrained(_HF_MODEL_ID, low_cpu_mem_usage=False)
+        mdl.eval()
+        _hf_pipeline = (mdl, tok)
         logger.info(f"✓ HuggingFace '{_HF_MODEL_ID}' loaded and ready.")
         return _hf_pipeline
     except Exception as e:
         logger.warning(f"Could not load HuggingFace model ({e}). Tier 2.5 unavailable.")
         return None
+    finally:
+        _hf_load_lock.release()
 
 
 def _hf_generate_summary(tier1_json: Dict[str, Any]) -> str:
@@ -577,30 +786,28 @@ def _hf_generate_summary(tier1_json: Dict[str, Any]) -> str:
     Run flan-t5-small synchronously (it's a small model, <1 s on CPU after warm-up).
     Returns an empty string on any failure so callers can fall through gracefully.
     """
-    pipe = _get_hf_pipeline()
-    if pipe is None:
+    loaded = _get_hf_pipeline()
+    if loaded is None:
         return ""
+    mdl, tok = loaded
 
-    fired_rules  = [r["reason"] for r in tier1_json.get("signals", {}).get("rules", [])]
-    top_features = [f["label"] for f in tier1_json.get("signals", {}).get("url_features", [])[:3]]
-    top_tokens   = [t["token"] for t in tier1_json.get("signals", {}).get("text_tokens", [])[:5]]
+    findings     = tier1_json.get("main_reasons", [])
     risk_score   = tier1_json.get("risk_score", 0)
     label        = tier1_json.get("label", "Unknown")
 
     prompt = (
-        f"You are AegisOne, an expert cybersecurity AI assistant. "
-        f"Write 2 plain-English sentences summarising this security alert for an IT administrator. "
-        f"Do not add any facts not listed here.\n"
-        f"Risk score: {risk_score}% ({label}).\n"
-        f"Triggered rules: {', '.join(fired_rules) or 'none'}.\n"
-        f"Top URL signals: {', '.join(top_features) or 'none'}.\n"
-        f"Suspicious tokens: {', '.join(top_tokens) or 'none'}.\n"
-        f"Security summary:"
+        f"Explain this security warning to someone non-technical in 2 short plain sentences. "
+        f"Do not use words like 'domain', 'DOM', or 'heuristic'. Do not add facts not listed here.\n"
+        f"Risk: {label} ({risk_score}%).\n"
+        f"Findings: {', '.join(findings) or 'none'}.\n"
+        f"Plain-English explanation:"
     )
 
     try:
-        result = pipe(prompt, max_new_tokens=80, do_sample=False)
-        text = result[0]["generated_text"].strip()
+        inputs = tok(prompt, return_tensors="pt", truncation=True, max_length=512)
+        with torch.inference_mode():
+            output_ids = mdl.generate(**inputs, max_new_tokens=80, do_sample=False)
+        text = tok.decode(output_ids[0], skip_special_tokens=True).strip()
         return text if text else ""
     except Exception as e:
         logger.warning(f"HuggingFace inference failed ({e}).")
@@ -608,18 +815,18 @@ def _hf_generate_summary(tier1_json: Dict[str, Any]) -> str:
 
 
 def _build_xai_prompt(tier1_json: Dict[str, Any]) -> str:
-    fired_rule_reasons = [r["reason"] for r in tier1_json.get("signals", {}).get("rules", [])]
-    top_features = [f["label"] for f in tier1_json.get("signals", {}).get("url_features", [])[:3]]
-    top_tokens = [t["token"] for t in tier1_json.get("signals", {}).get("text_tokens", [])[:5]]
+    findings = tier1_json.get("main_reasons", [])
     return (
-        "You are AegisOne, an expert AI cybersecurity assistant.\n"
-        "Rephrase the following structured security findings into 2-3 plain-English sentences "
-        "for an IT administrator. Do NOT add facts, URLs, or threats not listed below.\n\n"
-        f"Risk Score: {tier1_json.get('risk_score')}% ({tier1_json.get('label')})\n"
-        f"Fired Rules: {fired_rule_reasons}\n"
-        f"Top URL/Feature Signals: {top_features}\n"
-        f"Suspicious Tokens Detected: {top_tokens}\n\n"
-        "Natural Language Report:"
+        "You are AegisOne, explaining a security warning to a non-technical employee — "
+        "someone who doesn't know what phishing, DNS, or a domain is.\n"
+        "Rewrite the findings below as 2 short, plain sentences. Use a concrete comparison "
+        "a non-technical person would recognize, e.g. \"this link looks like a fake payment "
+        "page\" or \"this is pretending to be a login page for your email.\" "
+        "Do NOT use technical words like 'domain', 'DOM', 'iframe', 'heuristic', or 'attribution'. "
+        "Do NOT add any fact, brand name, or detail that isn't in the findings below.\n\n"
+        f"Risk level: {tier1_json.get('label')} ({tier1_json.get('risk_score')}%)\n"
+        f"Findings: {findings}\n\n"
+        "Plain-English explanation:"
     )
 
 
@@ -666,7 +873,10 @@ async def generate_tier2_deep_explanation(
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.post(
                 _LOCAL_OLLAMA_URL,
-                json={"model": _LOCAL_MODEL, "prompt": prompt, "stream": False},
+                # keep_alive keeps the model resident in memory after this call instead of
+                # unloading it immediately, so the NEXT request doesn't pay the cold-load
+                # cost again — this is what makes "warm after first use" actually work.
+                json={"model": _LOCAL_MODEL, "prompt": prompt, "stream": False, "keep_alive": "30m"},
             )
             resp.raise_for_status()
             polished = resp.json().get("response", "").strip()
@@ -680,24 +890,16 @@ async def generate_tier2_deep_explanation(
                     "xai_tier": "tier2_deep",
                 }
     except Exception as local_exc:
-        logger.warning(f"Local Ollama unavailable ({local_exc}). Trying HuggingFace built-in model...")
+        logger.warning(f"Local Ollama unavailable ({local_exc}). Using Tier 1 grounded summary.")
 
-    # ── Stage 2.5: HuggingFace flan-t5-small (built-in, no Ollama needed) ────
-    import asyncio
-    loop = asyncio.get_event_loop()
-    # Run the synchronous HF inference in a thread so we don't block the event loop
-    hf_text = await loop.run_in_executor(None, _hf_generate_summary, tier1_json)
-    if hf_text:
-        logger.info("Tier 2.5 XAI: used built-in HuggingFace flan-t5-small.")
-        return {
-            "deep_explanation": hf_text,
-            "tier1_evidence": tier1_json,
-            "model": _HF_MODEL_ID,
-            "source": "huggingface_builtin",
-            "xai_tier": "tier2.5_hf",
-        }
+    # Stage 2.5 used to fall through to the built-in flan-t5-small HuggingFace model here.
+    # Measured in practice: at 60M parameters it's too weak to reliably follow the
+    # rephrasing instruction — it sometimes produces incoherent text (e.g. garbling a
+    # "this page is safe" finding into nonsense), which is worse than just keeping the
+    # already-concrete Tier 1 summary. Removed rather than risk shipping degraded output;
+    # Ollama (qwen2.5:1.5b, genuinely capable) remains the one quality-upgrade path.
 
-    # ── Stage 3: Tier 1 Captum Summary Fallback (last resort) ────────────────
+    # ── Stage 3: Tier 1 Grounded Summary (guaranteed good, no LLM) ────────────
     logger.warning("All LLM stages unavailable. Returning Tier 1 rule-based summary.")
     return {
         "deep_explanation": tier1_json.get("summary", "No explanation available."),
@@ -715,16 +917,10 @@ async def ensure_ollama_model_ready(
     """
     Background worker called on FastAPI startup.
     If OLLAMA_API_KEY is set → uses Cloud Ollama, no local check needed.
-    Otherwise, checks if local Ollama service is running and pulls model if missing.
-    Also warms the HuggingFace flan-t5-small model in the background so the
-    first real XAI request is instant.
+    Otherwise, checks if local Ollama service is running and pulls the model if missing,
+    so it's already warm by the time a real request needs Tier 2 polish.
     """
     import httpx
-    import asyncio
-
-    # ── Warm HuggingFace model in background thread (non-blocking) ────────────
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _get_hf_pipeline)
 
     if _OLLAMA_API_KEY:
         logger.info("✓ OLLAMA_API_KEY detected — Tier 2 XAI will use Ollama Cloud. No local pull needed.")

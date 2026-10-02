@@ -1,0 +1,26 @@
+# No .dockerignore existed before — every `docker compose build` was sending the
+# entire repo root (including .git history and DB backups) to the Docker daemon as
+# build context, regardless of which service's Dockerfile was building. Measured at
+# 1GB+ for a single backend build. None of this is needed by any Dockerfile here.
+
+.git
+.github
+
+# Backend only needs api/, AIML/, Extension/, requirements.txt (see Dockerfile.backend) —
+# everything below is for other services or isn't needed by any image build.
+frontend/*/node_modules
+frontend/*/.next
+frontend/*/dist
+frontend/*/build
+aegisone-backups
+
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+
+.claude
+.vscode
+.idea
+*.log

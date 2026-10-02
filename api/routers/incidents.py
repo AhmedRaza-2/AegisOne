@@ -8,7 +8,7 @@ import uuid
 import hashlib
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func, or_, and_
 
 from api.database.db import get_db
-from api.database.models import User, Incident, IncidentReport, TrainingCandidate, AuditLog
+from api.database.models import User, Incident, IncidentReport, TrainingCandidate, AuditLog, Department
 from api.database.schemas import (
     IncidentResponse,
     IncidentVerifyRequest,
@@ -24,6 +24,7 @@ from api.database.schemas import (
     TrainingCandidateSummary
 )
 from api.auth.roles import Role, require_role
+from api.services.incident_view import redact_incident, redact_incident_report
 
 logger = logging.getLogger("aegisone.incidents")
 
@@ -43,7 +44,7 @@ async def list_incidents(
     report_type: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    current_user: User = Depends(require_role(Role.OFFICE_ADMIN)),
+    current_user: User = Depends(require_role(Role.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -97,17 +98,89 @@ async def list_incidents(
             "verified_at": inc.verified_at,
             "created_at": inc.created_at,
             "resolved_at": inc.resolved_at,
-            "reports_count": rep_count
+            "reports_count": rep_count,
+            "escalated_by_id": inc.escalated_by_id,
+            "escalated_at": inc.escalated_at,
+            "manager_notes": inc.manager_notes,
         }
         response_items.append(IncidentResponse(**item_dict))
 
     return response_items
 
 
+@router.get("/stats", response_model=Dict[str, Any])
+async def incident_stats(
+    current_user: User = Depends(require_role(Role.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Org-wide incident counts for the admin analytics dashboard."""
+    org_id = current_user.organization_id or "org_default"
+    base = select(Incident)
+    if current_user.role not in ("super_admin", "global_admin"):
+        base = base.where(Incident.organization_id == org_id)
+
+    async def _count(*where):
+        q = base.with_only_columns(func.count(Incident.id))
+        for w in where:
+            q = q.where(w)
+        res = await db.execute(q)
+        return res.scalar_one_or_none() or 0
+
+    total = await _count()
+    open_count = await _count(Incident.status == "open")
+    investigating = await _count(Incident.status == "investigating")
+    escalated = await _count(Incident.status == "escalated")
+    resolved = await _count(Incident.status == "resolved")
+    false_positive = await _count(Incident.status == "false_positive")
+    confirmed = await _count(Incident.admin_decision.in_(["CONFIRMED_PHISHING", "FALSE_NEGATIVE"]))
+
+    dept_query = (
+        select(Department.name, func.count(func.distinct(Incident.id)))
+        .select_from(Incident)
+        .join(IncidentReport, IncidentReport.incident_id == Incident.id)
+        .join(Department, Department.id == IncidentReport.department_id)
+        .where(Incident.organization_id == org_id)
+        .group_by(Department.name)
+    )
+    dept_res = await db.execute(dept_query)
+    by_department = {name: count for name, count in dept_res.all()}
+
+    # Last 14 days, one point per day, so the admin dashboard can chart incident volume over time
+    trend_query = (
+        select(func.date(Incident.created_at), func.count(Incident.id))
+        .where(
+            Incident.organization_id == org_id,
+            Incident.created_at >= (datetime.utcnow() - timedelta(days=14)),
+        )
+        .group_by(func.date(Incident.created_at))
+        .order_by(func.date(Incident.created_at))
+    )
+    trend_res = await db.execute(trend_query)
+    daily_trend = [{"date": str(d), "count": c} for d, c in trend_res.all()]
+
+    # Which department reported the most incidents, for a plain-language callout on the dashboard
+    top_department = None
+    if by_department:
+        top_department = max(by_department.items(), key=lambda kv: kv[1])[0]
+
+    return {
+        "total": total,
+        "open": open_count,
+        "investigating": investigating,
+        "escalated": escalated,
+        "resolved": resolved,
+        "false_positive": false_positive,
+        "confirmed_threats": confirmed,
+        "by_department": by_department,
+        "daily_trend": daily_trend,
+        "top_department": top_department,
+    }
+
+
 @router.get("/{incident_id}", response_model=Dict[str, Any])
 async def get_incident_detail(
     incident_id: str,
-    current_user: User = Depends(require_role(Role.OFFICE_ADMIN)),
+    current_user: User = Depends(require_role(Role.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -132,30 +205,33 @@ async def get_incident_detail(
     reports_res = await db.execute(reports_query)
     reports = reports_res.scalars().all()
 
+    incident_response = redact_incident(IncidentResponse(
+        id=inc.id,
+        incident_id=inc.incident_id or f"INC-{inc.id}",
+        organization_id=inc.organization_id,
+        reported_by_id=inc.reported_by_id,
+        severity=inc.severity,
+        status=inc.status,
+        report_type=inc.report_type,
+        detection_event_ref=inc.detection_event_ref,
+        model_version=inc.model_version,
+        predicted_class=inc.predicted_class,
+        risk_score=inc.risk_score,
+        admin_decision=inc.admin_decision,
+        admin_notes=inc.admin_notes,
+        verified_by_id=inc.verified_by_id,
+        verified_at=inc.verified_at,
+        created_at=inc.created_at,
+        resolved_at=inc.resolved_at,
+        reports_count=len(reports) or 1,
+        escalated_by_id=inc.escalated_by_id,
+        escalated_at=inc.escalated_at,
+        manager_notes=inc.manager_notes,
+    ))
+
     return {
-        "incident": IncidentResponse(
-            id=inc.id,
-            incident_id=inc.incident_id or f"INC-{inc.id}",
-            organization_id=inc.organization_id,
-            reported_by_id=inc.reported_by_id,
-            severity=inc.severity,
-            status=inc.status,
-            report_type=inc.report_type,
-            detection_event_ref=inc.detection_event_ref,
-            model_version=inc.model_version,
-            predicted_class=inc.predicted_class,
-            risk_score=inc.risk_score,
-            admin_decision=inc.admin_decision,
-            admin_notes=inc.admin_notes,
-            verified_by_id=inc.verified_by_id,
-            verified_at=inc.verified_at,
-            created_at=inc.created_at,
-            resolved_at=inc.resolved_at,
-            reports_count=len(reports) or 1
-        ),
-        "reports": [
-            IncidentReportResponse.model_validate(r) for r in reports
-        ]
+        "incident": incident_response,
+        "reports": [redact_incident_report(r) for r in reports]
     }
 
 
@@ -163,7 +239,7 @@ async def get_incident_detail(
 async def verify_incident(
     incident_id: str,
     payload: IncidentVerifyRequest,
-    current_user: User = Depends(require_role(Role.OFFICE_ADMIN)),
+    current_user: User = Depends(require_role(Role.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -207,10 +283,24 @@ async def verify_incident(
     inc.resolved_by_id = current_user.id
 
     # Update status on all linked reports
-    report_status = "verified" if decision_upper in ("FALSE_POSITIVE", "FALSE_NEGATIVE", "CONFIRMED_PHISHING", "BENIGN") else "rejected"
+    # A report is "verified" only if the employee's claim matches the admin's ruling;
+    # a report that contradicts it (e.g. "false positive" on a confirmed phish) is "rejected".
+    says_threat = {"phishing", "false_negative"}
+    says_safe = {"false_positive", "benign"}
+    ruled_threat = decision_upper in ("CONFIRMED_PHISHING", "FALSE_NEGATIVE")
+    ruled_safe = decision_upper in ("FALSE_POSITIVE", "BENIGN")
     linked_reports_res = await db.execute(select(IncidentReport).where(IncidentReport.incident_id == inc.id))
     for rep in linked_reports_res.scalars().all():
-        rep.status = report_status
+        if decision_upper == "NEEDS_INVESTIGATION":
+            rep.status = "under_review"
+        elif decision_upper == "INVALID":
+            rep.status = "rejected"
+        elif ruled_threat and rep.report_type in says_safe:
+            rep.status = "rejected"
+        elif ruled_safe and rep.report_type in says_threat:
+            rep.status = "rejected"
+        else:
+            rep.status = "verified"
 
     candidate_created = False
     candidate_id = None
@@ -219,13 +309,14 @@ async def verify_incident(
     if payload.create_training_candidate and decision_upper in ("FALSE_POSITIVE", "FALSE_NEGATIVE", "CONFIRMED_PHISHING", "BENIGN"):
         # Determine model type (url, email, text, image)
         raw_ref = inc.detection_event_ref or "sample"
-        model_type = "url"
-        if "email" in raw_ref.lower() or inc.report_type == "email":
-            model_type = "email"
-        elif "image" in raw_ref.lower():
-            model_type = "image"
-        elif "text" in raw_ref.lower():
-            model_type = "text"
+        first_report_res = await db.execute(
+            select(IncidentReport.target_type)
+            .where(IncidentReport.incident_id == inc.id)
+            .order_by(IncidentReport.created_at.asc())
+            .limit(1)
+        )
+        target_type = (first_report_res.scalar_one_or_none() or "url").lower()
+        model_type = {"url": "url", "email": "email", "text": "text", "image": "image"}.get(target_type, "url")
 
         # Determine ground truth label
         if decision_upper in ("FALSE_POSITIVE", "BENIGN"):

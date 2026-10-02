@@ -46,3 +46,6 @@ oletools>=0.60.1
 slowapi>=0.1.9
 orjson>=3.9.0
 psutil>=5.9.0
+
+# URL phishing model feature extraction
+tldextract>=5.1.0

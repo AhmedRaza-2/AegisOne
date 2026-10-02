@@ -77,4 +77,10 @@ async def init_db():
             GlobalModelRelease,
         )
         await conn.run_sync(Base.metadata.create_all)
+
+        from api.database.migrations import run_additive_migrations
+        await run_additive_migrations(conn)
+
+        from api.database.migrations import run_additive_migrations
+        await run_additive_migrations(conn)
     logger.info("PostgreSQL Database initialized successfully.")

@@ -1,7 +1,7 @@
 "use client";
 import { Shield, Users, AlertTriangle, Activity, BarChart3, TrendingUp, Cpu, Clock, Globe, Mail, FileText, Image, Building2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -23,6 +23,7 @@ export default function AdminDashboard() {
 
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d" | "all_time">("7d");
   const [departments, setDepartments] = useState<any[]>([]);
+  const [incidentStats, setIncidentStats] = useState<any>(null);
 
   const fetchStatsData = async (isManual = false, overrideTimeRange?: string) => {
     if (!user) return;
@@ -34,12 +35,14 @@ export default function AdminDashboard() {
     try {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
       const headers = { Authorization: `Bearer ${token || ""}` };
-      const [data, dData] = await Promise.all([
+      const [data, dData, iData] = await Promise.all([
         fetchWithCache(`${getApiBaseUrl()}/admin/stats?time_range=${selectedRange}`, { headers }, isManual ? 0 : 15000),
-        fetchWithCache(`${getApiBaseUrl()}/admin/departments`, { headers }, isManual ? 0 : 15000)
+        fetchWithCache(`${getApiBaseUrl()}/admin/departments`, { headers }, isManual ? 0 : 15000),
+        fetchWithCache(`${getApiBaseUrl()}/admin/incidents/stats`, { headers }, isManual ? 0 : 15000)
       ]);
       if (data) setStats(data);
       if (dData) setDepartments(dData.departments || []);
+      if (iData) setIncidentStats(iData);
     } catch (e) {
       console.error("Failed to fetch stats", e);
     } finally {
@@ -134,7 +137,7 @@ export default function AdminDashboard() {
           { label: "Active Devices", value: stats?.active_devices || 0, icon: Activity, color: "text-emerald-650 dark:text-emerald-400" },
           { label: "Total Scans", value: stats?.total_scans?.toLocaleString() || "0", icon: BarChart3, color: "text-brand-600 dark:text-brand-400" },
           { label: "Threats Blocked", value: stats?.threats_detected || 0, icon: Shield, color: "text-red-650 dark:text-red-400" },
-          { label: "Open Incidents", value: stats?.threat_reports_pending || 0, icon: AlertTriangle, color: "text-amber-650 dark:text-amber-400" },
+          { label: "Open Incidents", value: (incidentStats?.open || 0) + (incidentStats?.escalated || 0), icon: AlertTriangle, color: "text-amber-650 dark:text-amber-400" },
         ].map((s) => (
           <motion.div key={s.label} variants={fadeUp} className="stat-card">
             <s.icon className={`w-5 h-5 ${s.color} mb-3`} />
@@ -143,6 +146,68 @@ export default function AdminDashboard() {
           </motion.div>
         ))}
       </div>
+
+      {/* Incident & Feedback overview */}
+      <motion.div variants={fadeUp} className="stat-card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2 text-surface-900 dark:text-white">
+            <AlertTriangle className="w-4 h-4 text-amber-500" /> Incident &amp; Feedback Overview
+          </h3>
+          <Link href="/dashboard/admin/incidents" className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors font-semibold">
+            View Queue →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { label: "Total", value: incidentStats?.total || 0 },
+            { label: "Open", value: incidentStats?.open || 0 },
+            { label: "Escalated", value: incidentStats?.escalated || 0 },
+            { label: "Confirmed", value: incidentStats?.confirmed_threats || 0 },
+            { label: "False Positives", value: incidentStats?.false_positive || 0 },
+            { label: "Resolved", value: incidentStats?.resolved || 0 },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl bg-surface-50 dark:bg-white/[0.03] border border-surface-100 dark:border-white/[0.05] p-3 text-center">
+              <div className="text-lg font-bold text-surface-900 dark:text-white">{loading ? "-" : s.value}</div>
+              <div className="text-[10px] text-surface-500 mt-0.5 uppercase tracking-wide">{s.label}</div>
+            </div>
+          ))}
+        </div>
+        {incidentStats?.top_department && incidentStats?.total > 0 && (
+          <p className="mt-4 text-xs text-surface-500 dark:text-surface-400">
+            <strong className="text-surface-900 dark:text-white">{incidentStats.top_department}</strong> has reported the most incidents so far
+            {incidentStats?.confirmed_threats > 0 && (
+              <> — <strong className="text-surface-900 dark:text-white">{incidentStats.confirmed_threats}</strong> confirmed threat{incidentStats.confirmed_threats === 1 ? "" : "s"} organization-wide.</>
+            )}
+          </p>
+        )}
+        {incidentStats?.by_department && Object.keys(incidentStats.by_department).length > 0 && (
+          <div className="mt-3 pt-4 border-t border-surface-100 dark:border-white/[0.05] flex flex-wrap gap-2">
+            {Object.entries(incidentStats.by_department).map(([dept, count]) => (
+              <span key={dept} className="text-xs px-3 py-1.5 rounded-full bg-surface-100 dark:bg-white/[0.04] text-surface-600 dark:text-surface-300">
+                {dept}: <strong className="text-surface-900 dark:text-white">{count as number}</strong>
+              </span>
+            ))}
+          </div>
+        )}
+        {incidentStats?.daily_trend && incidentStats.daily_trend.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-surface-100 dark:border-white/[0.05]">
+            <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Incidents — last 14 days</span>
+            <div className="h-24 mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={incidentStats.daily_trend}>
+                  <XAxis dataKey="date" hide />
+                  <YAxis hide allowDecimals={false} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(245,158,11,0.08)" }}
+                    contentStyle={{ background: theme === "dark" ? "#141A29" : "#fff", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 8, fontSize: 11 }}
+                  />
+                  <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </motion.div>
 
       {/* Department Wise Analytics & Threat Telemetry Row (Moved Above Threat Trends) */}
       <motion.div variants={fadeUp} className="stat-card space-y-4">
