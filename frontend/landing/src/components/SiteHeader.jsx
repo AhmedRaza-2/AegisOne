@@ -31,14 +31,14 @@ export default function SiteHeader() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className={`fixed top-0 w-full left-0 right-0 z-50 border-b transition-all duration-700 ease-in-out ${
                 isScrolled
-                    ? "px-3 sm:px-6 pt-2 lg:pt-3 pb-0 bg-[#F8FAFC]/95 lg:bg-transparent border-slate-200/70 lg:border-transparent backdrop-blur-lg lg:backdrop-blur-none"
-                    : "px-3 sm:px-6 py-3 bg-[#F8FAFC]/95 lg:bg-white/80 border-slate-200/70 lg:border-zinc-100 backdrop-blur-lg"
+                    ? "px-3 sm:px-6 pt-2 lg:pt-3 pb-0 bg-transparent border-transparent"
+                    : "px-3 sm:px-6 py-3 bg-white/80 border-zinc-100"
             }`}
         >
             <div
                 className={`relative mx-auto border transition-all duration-700 ease-in-out ${
                     isScrolled
-                        ? "max-w-6xl rounded-xl lg:rounded-full bg-white lg:bg-gradient-to-r lg:from-[#4A7FA7]/80 lg:to-[#1A3D63]/80 backdrop-blur-xl shadow-sm lg:shadow-xl lg:shadow-[#1A3D63]/20 border-slate-200 lg:border-white/10 px-3.5 lg:px-6 py-2.5"
+                        ? "max-w-6xl rounded-full bg-gradient-to-r from-[#4A7FA7]/80 to-[#1A3D63]/80 backdrop-blur-xl shadow-xl shadow-[#1A3D63]/20 border-white/10 px-3.5 lg:px-6 py-2.5"
                         : "max-w-7xl rounded-none bg-transparent shadow-none border-transparent px-0 py-0"
                 }`}
             >
@@ -57,13 +57,13 @@ export default function SiteHeader() {
                         <div className="flex flex-col text-left">
                             <span
                                 className={`text-lg font-bold tracking-tight leading-tight whitespace-nowrap transition-colors duration-500 ${
-                                    isScrolled ? "text-[#4A7FA7] lg:text-white" : "text-[#4A7FA7]"
+                                    isScrolled ? "text-white" : "text-[#4A7FA7]"
                                 }`}
                             >
                                 Aegis
                                 <span
                                     className={`transition-colors duration-500 ${
-                                        isScrolled ? "text-[#1A3D63] lg:text-blue-200" : "text-[#1A3D63]"
+                                        isScrolled ? "text-blue-200" : "text-[#1A3D63]"
                                     }`}
                                 >
                                     One
@@ -120,7 +120,7 @@ export default function SiteHeader() {
                             href="/login"
                             className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors duration-500 ${
                                 isScrolled
-                                    ? "bg-slate-100 text-slate-700 lg:bg-white/10 lg:text-white"
+                                    ? "bg-white/10 text-white"
                                     : "bg-zinc-100 text-zinc-800"
                             }`}
                         >
@@ -129,7 +129,7 @@ export default function SiteHeader() {
                         <button
                             className={`p-2 rounded-lg transition-colors duration-500 ${
                                 isScrolled
-                                    ? "text-slate-700 hover:bg-slate-100 lg:text-white lg:hover:bg-white/10"
+                                    ? "text-white hover:bg-white/10"
                                     : "text-zinc-700 hover:bg-zinc-100"
                             }`}
                             onClick={() => setIsOpen(!isOpen)}

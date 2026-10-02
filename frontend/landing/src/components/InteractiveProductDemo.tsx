@@ -146,7 +146,7 @@ export default function InteractiveProductDemo() {
   }, {});
 
   const renderDashboardUI = () => (
-    <div className={`flex bg-slate-50 w-full relative overflow-hidden font-sans text-left ${isModalOpen ? 'flex-1 min-h-0' : 'h-[750px] md:h-[800px]'}`}>
+    <div className={`flex bg-slate-50 w-full relative overflow-hidden font-sans text-left ${isModalOpen ? 'flex-1 min-h-0' : 'min-h-[750px] md:min-h-[800px]'}`}>
       {/* Sidebar */}
       <aside className="w-[260px] flex-col border-r border-slate-200 bg-white shrink-0 hidden md:flex h-full absolute left-0 top-0 bottom-0 z-20">
         <div className="h-[72px] flex flex-col justify-center px-6 shrink-0 border-b border-slate-200">
@@ -412,7 +412,7 @@ export default function InteractiveProductDemo() {
         </nav>
 
         {/* Scrollable Area */}
-        <main className="flex-1 p-3 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar relative min-h-0">
+        <main className={`p-3 sm:p-6 md:p-8 relative ${isModalOpen ? 'flex-1 min-h-0 overflow-y-auto custom-scrollbar' : 'flex-none overflow-visible'}`}>
           
           {liveAlert && (
             <div className="mb-6 p-3 sm:p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
