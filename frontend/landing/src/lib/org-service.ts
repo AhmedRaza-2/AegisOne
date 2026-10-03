@@ -87,35 +87,31 @@ export async function registerOrganization(payload: RegisterPayload): Promise<Or
 
   const userId = signUpRes.data.user.id;
 
-  // 2. Build the organization record
-  const orgRecord = {
-    auth_user_id: userId,
-    org_id: generateOrgId(),
-    name: payload.name,
-    industry: payload.industry,
-    employee_count: payload.employee_count,
-    country: payload.country,
-    admin_name: payload.admin_name,
-    admin_email: payload.admin_email,
-    phone: payload.phone,
-    status: 'pending' as const,
-    license_key: generateLicenseKey(),
-    deployment_token: generateDeploymentToken(),
-    allowed_users: payload.employee_count,
-    product_version: '1.0.0',
-  };
+  // 2. Create the organization record on the server.
+  // With email confirmation on, signUp returns no session, so a direct table INSERT would run as
+  // `anon` and be refused by Row Level Security. The register_organization() function
+  // (frontend/landing/supabase/register_organization.sql) performs the insert server-side and
+  // always stores the organization as 'pending'.
+  const { data, error } = await supabase.rpc('register_organization', {
+    p_auth_user_id: userId,
+    p_org_id: generateOrgId(),
+    p_name: payload.name,
+    p_industry: payload.industry,
+    p_employee_count: payload.employee_count,
+    p_country: payload.country,
+    p_admin_name: payload.admin_name,
+    p_admin_email: payload.admin_email,
+    p_phone: payload.phone,
+    p_license_key: generateLicenseKey(),
+    p_deployment_token: generateDeploymentToken(),
+    p_allowed_users: payload.employee_count,
+    p_product_version: '1.0.0',
+  });
 
-  const { data, error } = await supabase
-    .from('organizations')
-    .insert(orgRecord)
-    .select()
-    .single();
-
-  if (error) {
-    // Rollback: delete the auth user if DB insert fails
-    await supabase.auth.admin.deleteUser(userId).catch(() => {});
-    throw new Error(error.message);
-  }
+  // No rollback of the auth user here: deleting users needs the service-role key, which must never
+  // ship in the browser. An unconfirmed auth user left behind is harmless - signing up again with
+  // the same email reuses it, and the function above accepts that retry.
+  if (error) throw new Error(error.message);
 
   return data as Organization;
 }

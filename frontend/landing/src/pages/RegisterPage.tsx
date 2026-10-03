@@ -694,6 +694,8 @@ export default function RegisterPage() {
       setRegisteredEmail(form.admin_email.trim());
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : String(err);
+      // The friendly mapper hides the underlying cause; keep it in the console so it can be diagnosed.
+      console.error('[Register] registration failed:', rawMsg);
       const friendly = sanitizeError(rawMsg);
       setError(friendly);
       // If it's a rate limit error, start a 60-second cooldown
