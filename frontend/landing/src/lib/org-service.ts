@@ -166,6 +166,36 @@ export async function getMyOrganization(): Promise<Organization | null> {
   return getOrganizationForUser(user.id);
 }
 
+export type PortalAccess =
+  | { state: 'ok'; org: Organization }
+  | { state: 'signed_out' }          // no stored session: send to the login page
+  | { state: 'no_org' }              // signed in, but no organization row exists for this account
+  | { state: 'error' };              // temporary problem (network / service): do NOT sign anyone out
+
+const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Gate for the portal page. The session is read from local storage (shared by every tab of this
+ * browser) rather than re-validated over the network, and a failed lookup is retried, so opening
+ * the portal in a second tab - or a brief network hiccup - can no longer look like "logged out".
+ */
+export async function getPortalAccess(): Promise<PortalAccess> {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) return { state: 'error' };
+  if (!session) return { state: 'signed_out' };
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('auth_user_id', session.user.id)
+      .maybeSingle();
+    if (!error) return data ? { state: 'ok', org: data as Organization } : { state: 'no_org' };
+    await wait(600 * (attempt + 1));
+  }
+  return { state: 'error' };
+}
+
 export async function logoutOrganization(): Promise<void> {
   await supabase.auth.signOut();
 }

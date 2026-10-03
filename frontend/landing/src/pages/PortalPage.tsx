@@ -5,7 +5,7 @@ import {
   AlertCircle, Loader2, ArrowRight, X, ChevronRight, Download, ArrowDown,
   Server, Terminal, Globe, Info
 } from 'lucide-react';
-import { getMyOrganization, logoutOrganization } from '../lib/org-service';
+import { getPortalAccess, logoutOrganization } from '../lib/org-service';
 import type { Organization } from '../lib/supabase';
 
 const DASHBOARD_URL = `http://${window.location.hostname}:3002/login`;
@@ -101,6 +101,7 @@ export default function PortalPage() {
   const [osTab, setOsTab] = useState<'linux' | 'windows'>('linux');
   const [serverHost, setServerHost] = useState('localhost');
   const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const [problem, setProblem] = useState<'no_org' | 'error' | null>(null);
   const { state: readiness, retry: retryReadiness } = useServerReadiness(serverHost);
 
   useEffect(() => {
@@ -119,9 +120,10 @@ export default function PortalPage() {
         setTimeout(() => setEmailConfirmed(false), 4000);
       }
 
-      const data = await getMyOrganization();
-      if (!data) { navigate('/login'); return; }
-      setOrg(data);
+      const access = await getPortalAccess();
+      if (access.state === 'signed_out') { navigate('/login'); return; }
+      if (access.state === 'ok') setOrg(access.org);
+      else setProblem(access.state);
       setLoading(false);
     })();
   }, [navigate]);
@@ -145,7 +147,33 @@ export default function PortalPage() {
     );
   }
 
-  if (!org) return null;
+  if (!org) {
+    return (
+      <div className="min-h-screen bg-[#F6FAFD] flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white border border-[#E1EBF2] rounded-2xl shadow-sm p-8 text-center space-y-4">
+          <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+          <h1 className="text-lg font-bold text-[#0A1931]">
+            {problem === 'no_org' ? 'Your registration is incomplete' : "We couldn't load your portal"}
+          </h1>
+          <p className="text-sm text-[#4A6D8C]">
+            {problem === 'no_org'
+              ? 'You are signed in, but no organization is attached to this account yet. Please register again, or contact support.'
+              : 'This looks like a temporary connection problem. You are still signed in - please try again.'}
+          </p>
+          <div className="flex gap-3 justify-center pt-2">
+            {problem !== 'no_org' && (
+              <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-xl bg-[#4A7FA7] text-white text-sm font-semibold hover:bg-[#3D6C90]">
+                Try again
+              </button>
+            )}
+            <button onClick={handleLogout} className="px-4 py-2 rounded-xl border border-[#E1EBF2] text-sm font-semibold text-[#4A6D8C] hover:bg-[#F6FAFD]">
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const statusColor = org.status === 'active'
     ? 'text-emerald-700 bg-emerald-100 border-emerald-200'

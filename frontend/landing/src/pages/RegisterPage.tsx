@@ -624,6 +624,10 @@ export default function RegisterPage() {
       return 'Registration is temporarily restricted. Please contact support or try again later.';
     if (r.includes('duplicate key') || r.includes('already registered') || r.includes('already exists'))
       return 'This email address is already registered. Please sign in or use a different email.';
+    // Supabase's per-email throttle: "For security purposes, you can only request this after 20 seconds."
+    const throttle = r.match(/after (\d+) seconds?/);
+    if (throttle)
+      return `Please wait ${throttle[1]} seconds before trying again.`;
     if (r.includes('email rate limit') || r.includes('rate limit') || r.includes('too many requests'))
       return 'Too many sign-up attempts. Please wait a few minutes and try again.';
     if (r.includes('invalid email') || r.includes('invalid_email'))
@@ -698,8 +702,11 @@ export default function RegisterPage() {
       console.error('[Register] registration failed:', rawMsg);
       const friendly = sanitizeError(rawMsg);
       setError(friendly);
-      // If it's a rate limit error, start a 60-second cooldown
-      if (rawMsg.toLowerCase().includes('rate limit') || rawMsg.toLowerCase().includes('too many')) {
+      // Rate-limit errors start a cooldown: the exact wait Supabase asks for, else 60 seconds
+      const throttle = rawMsg.toLowerCase().match(/after (\d+) seconds?/);
+      if (throttle) {
+        setCooldownSeconds(Math.min(Number(throttle[1]) + 1, 120));
+      } else if (rawMsg.toLowerCase().includes('rate limit') || rawMsg.toLowerCase().includes('too many')) {
         setCooldownSeconds(60);
       }
     } finally {
