@@ -92,9 +92,20 @@ async def get_scan_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """For extension-facing scan routes that must also work before sign-in."""
-    user, _ = await _user_from_credentials(credentials, db)
-    return user if user is not None else _anonymous_user()
+    """For extension-facing scan routes that must also work before sign-in.
+
+    No token at all -> anonymous. A token that is present but expired/invalid -> 401, so the client
+    renews it; silently treating it as anonymous would make an expired session quietly stop being
+    attributed to the user."""
+    user, problem = await _user_from_credentials(credentials, db)
+    if user is not None:
+        return user
+    if problem == "invalid":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return _anonymous_user()
 
 
 async def get_optional_user(

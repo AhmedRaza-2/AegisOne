@@ -67,21 +67,41 @@ export async function refreshNow() {
   return _refresh();
 }
 
-/** fetch() that attaches the signed-in user's token and renews it once if it has expired. */
+function _expiryMs(token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch (_) { return null; }
+}
+
+/**
+ * fetch() that attaches the signed-in user's token.
+ *  - The access token is renewed BEFORE it expires (a service worker has no timers, so this is
+ *    checked on every call), so scans never silently lose their user.
+ *  - A 401 renews once and retries.
+ *  - If the credential has been revoked (account disabled / password changed / 30 days idle) the
+ *    request is repeated without it, so protection keeps working anonymously instead of failing.
+ *  - A server that is merely unreachable never clears the stored credential.
+ */
 export async function authFetch(url, opts = {}) {
-  // A freshly installed personalised bundle only has the refresh token: sign in first.
-  if (!(await getAccessToken()) && (await chrome.storage.local.get(REFRESH))[REFRESH]) {
+  const store = await chrome.storage.local.get([ACCESS, REFRESH]);
+  const hasRefresh = !!store[REFRESH];
+  const exp = store[ACCESS] ? _expiryMs(store[ACCESS]) : null;
+  if (hasRefresh && (!store[ACCESS] || (exp !== null && exp - Date.now() < 60_000))) {
     await _refresh();
   }
+
   const withToken = async () => {
     const headers = new Headers(opts.headers || {});
     const token = await getAccessToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
     return { ...opts, headers };
   };
+
   let res = await fetch(url, await withToken());
-  if (res.status === 401 && (await chrome.storage.local.get(REFRESH))[REFRESH]) {
+  if (res.status === 401 && hasRefresh) {
     if (await _refresh()) res = await fetch(url, await withToken());
+    else if (!(await getAccessToken())) res = await fetch(url, await withToken());   // revoked -> anonymous
   }
   return res;
 }

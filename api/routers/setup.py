@@ -539,13 +539,15 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
     admin_user = (await db.execute(select(User).where(User.organization_id == "org_default", User.role == "admin"))).scalars().first()
     admin_email = admin_user.email if admin_user else "admin@amdevwork.com"
     
-    from api.auth.jwt_handler import create_access_token
+    from api.auth.jwt_handler import create_access_token, create_refresh_token
     fresh_token = create_access_token(data={"sub": admin_email, "role": "admin"})
+    fresh_refresh = create_refresh_token(data={"sub": admin_email, "role": "admin"})
 
     return {
         "status": "success",
         "run_id": run_id,
         "access_token": fresh_token,
+        "refresh_token": fresh_refresh,
         "admin_email": admin_email,
         "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."
     }

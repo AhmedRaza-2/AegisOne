@@ -77,6 +77,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"Thread pool configured: 32 workers")
 
     await init_db()
+
+    # Make sure there is a stable token-signing secret before any request is served.
+    from api.services.secret_store import ensure_jwt_secret
+    await ensure_jwt_secret()
     
     import shutil
     try:

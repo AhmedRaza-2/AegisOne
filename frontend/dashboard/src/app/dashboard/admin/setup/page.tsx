@@ -270,8 +270,8 @@ export default function AdminSetupPage() {
         if (data && data.access_token) {
           const loggedUser = { email: data.admin_email || "admin@amdevwork.com", full_name: "Administrator", role: "admin", organization_id: "org_default" };
           localStorage.setItem("aegis_access_token", data.access_token);
+          if (data.refresh_token) localStorage.setItem("aegis_refresh_token", data.refresh_token);
           localStorage.setItem("user", JSON.stringify(loggedUser));
-          document.cookie = `aegis_access_token=${data.access_token}; path=/; SameSite=Lax`;
           document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
         }
 
@@ -503,8 +503,8 @@ export default function AdminSetupPage() {
                 if (data && data.access_token) {
                   const loggedUser = data.user || { email: adminEmailParam, full_name: adminNameParam, role: data.role || 'admin', organization_id: data.organization_id || 'org_default' };
                   localStorage.setItem('aegis_access_token', data.access_token);
+                  if (data.refresh_token) localStorage.setItem('aegis_refresh_token', data.refresh_token);
                   localStorage.setItem('user', JSON.stringify(loggedUser));
-                  document.cookie = `aegis_access_token=${encodeURIComponent(data.access_token)}; path=/; SameSite=Lax`;
                   document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
                   
                   // Notify auth-context so the layout's auth guard sees the user immediately

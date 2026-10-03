@@ -207,3 +207,14 @@ Verified: 32 automated checks (`sec_test.py`) plus a real-Chromium run (token ha
 - Tests: `api/tests/test_learning_lifecycle.py` (too few samples, one-sided data, acceptance, noise rejected, bounded + revocable). Live-verified on an isolated stack: held-out accuracy 50% -> 100% on seeded over-alarming data, survives restart, revoke returns the exact base score.
 
 **Extension**: never scans the AegisOne server/dashboard (server host on ports 3000/3001/3002/8000): page scans, text scans, link batches and downloads. Verified: 0 scans of the dashboard, external sites still scanned.
+
+## Run 11 - Seamless sessions
+
+Why people were being logged out: the 1-hour access token could only be renewed by sessions that held a refresh token (older sessions had none -> hard logout after an hour); the signing secret was a public placeholder that differs between folders (`.env` vs none), so recreating containers or running compose elsewhere invalidated every token; and the extension only renewed after a 401, which scan routes never returned for an expired token (scans silently went anonymous).
+
+Fixed:
+- Signing key: if `AEGIS_JWT_SECRET` is unset or still the placeholder, a random key is generated once and stored in the database (`app_secrets`); sessions survive restarts, `up --force-recreate`, and running compose from any folder. (Replaces a publicly known default, so tokens can no longer be forged from it. One-time re-login when upgrading a machine that used the placeholder.) `down -v` still starts fresh, by design.
+- Dashboard: renews the access token before it expires, on tab focus/reconnect and every minute; retries GETs through a restarting server; signs out ONLY when the refresh token is definitively rejected (revoked, disabled, 30 days idle). Setup auto-login now also stores a refresh token.
+- Scan routes: an expired/invalid token returns 401 (so clients renew it) instead of silently becoming anonymous; no token still scans anonymously.
+- Extension: renews ahead of expiry on every call, retries after 401, falls back to anonymous scanning if the credential is revoked, never clears credentials because the server was merely unreachable.
+Verified: recreated container keeps sessions (isolated stack); browser scenarios: idle>1h stays signed in, near-expiry renewed ahead, server unreachable does not log out, revoked/very old sessions go to login; 32/32 security checks.

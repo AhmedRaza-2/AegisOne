@@ -9,7 +9,8 @@ before a password change can be rejected.
 import time
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
-from api.config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRY_MINUTES
+from api import config
+from api.config import JWT_ALGORITHM, JWT_EXPIRY_MINUTES
 
 REFRESH_TOKEN_MINUTES = 60 * 24 * 30
 
@@ -28,12 +29,14 @@ def create_token(data: dict, expiry_minutes: int, token_type: str) -> str:
     to_encode["exp"] = expire
     to_encode["token_type"] = token_type
     to_encode["iss_ts"] = time.time()
-    return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return jwt.encode(to_encode, config.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 def _decode(token: str) -> dict | None:
+    if not config.JWT_SECRET_KEY:
+        return None
     try:
-        return jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return jwt.decode(token, config.JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
     except JWTError:
         return None
 

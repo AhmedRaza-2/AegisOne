@@ -76,6 +76,7 @@ async def init_db():
             GlobalContribution,
             GlobalModelRelease,
             PasswordResetChallenge,
+            AppSecret,
         )
         await conn.run_sync(Base.metadata.create_all)
 

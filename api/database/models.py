@@ -740,6 +740,15 @@ class Message(Base):
 # 16. SETUP SESSIONS
 # ══════════════════════════════════════════════════════════════════════════════
 
+class AppSecret(Base):
+    """Server-generated secrets that must survive restarts (e.g. the token signing key)."""
+    __tablename__ = "app_secrets"
+
+    key        = Column(String(64), primary_key=True)
+    value      = Column(String(255), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class PasswordResetChallenge(Base):
     """A pending password-reset code. Only a salted hash of the code is stored; it expires,
     is limited to a few guesses, and is deleted once used."""

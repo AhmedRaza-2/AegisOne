@@ -44,9 +44,15 @@ DATABASE_URL = os.environ.get(
 # AUTH
 # ═══════════════════════════════════════════════════════════════
 
-JWT_SECRET_KEY = os.environ.get("AEGIS_JWT_SECRET")
-if not JWT_SECRET_KEY:
-    raise RuntimeError("AEGIS_JWT_SECRET environment variable is not defined!")
+# The signing secret. If AEGIS_JWT_SECRET is set to a real value it is used as is. If it is missing or
+# still the well-known placeholder, a random secret is generated ONCE and kept in the database
+# (see api/services/secret_store.py), so sessions survive restarts, recreated containers and running
+# compose from different folders - and nobody can forge a token from a publicly known default.
+JWT_PLACEHOLDERS = {"", "change-me-in-production", "changeme", "secret"}
+JWT_SECRET_KEY = os.environ.get("AEGIS_JWT_SECRET", "")
+JWT_SECRET_FROM_ENV = JWT_SECRET_KEY.strip() not in JWT_PLACEHOLDERS
+if not JWT_SECRET_FROM_ENV:
+    JWT_SECRET_KEY = None   # filled in at startup, before the first request is served
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_MINUTES = 60  # 1 hour
 
