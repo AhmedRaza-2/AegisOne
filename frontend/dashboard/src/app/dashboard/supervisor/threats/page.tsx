@@ -4,6 +4,7 @@ import { ShieldAlert, Activity, Users, MessageSquare, AlertTriangle, BookOpen, S
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
+import { toast } from "@/components/ui/toast";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -66,8 +67,11 @@ export default function ThreatCenterPage() {
   const { user } = useAuth();
   const [escalatingEmployee, setEscalatingEmployee] = useState<any>(null);
   const [escalationReason, setEscalationReason] = useState("");
-  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [highRisk, setHighRisk] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
+  const [priority, setPriority] = useState("High");
+  const [submitting, setSubmitting] = useState(false);
+  const [trainingModule, setTrainingModule] = useState("phishing");
 
   useEffect(() => {
     if (!user) return;
@@ -75,15 +79,11 @@ export default function ThreatCenterPage() {
     const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
 
     const loadData = () => {
-      // Fetch Users
-      fetch(`${getApiBaseUrl()}/admin/users`, { headers })
-        .then(res => res.json())
-        .then(data => {
-          if (data.users) {
-            setDbUsers(data.users);
-          }
-        })
-        .catch(err => console.error("Users load error:", err));
+      // High-risk employees, each with the concrete events that put them on the list
+      fetch(`${getApiBaseUrl()}/manager/incidents/high-risk-employees`, { headers })
+        .then(res => res.ok ? res.json() : { employees: [] })
+        .then(data => setHighRisk(data.employees || []))
+        .catch(err => console.error("High-risk load error:", err));
 
       // Fetch Live Events
       fetch(`${getApiBaseUrl()}/admin/events?page=1&page_size=100`, { headers })
@@ -111,31 +111,75 @@ export default function ThreatCenterPage() {
   const router = require("next/navigation").useRouter();
   const [assigningTraining, setAssigningTraining] = useState<any>(null);
 
-  // Compute high-risk employees based on real database scores > 0
-  const highRiskEmployees = dbUsers
-    .filter(emp => (emp.risk_score || 0) > 0)
-    .map(emp => {
-      return {
-        id: emp.id,
-        name: emp.full_name || emp.fullName || "Unknown",
-        riskScore: emp.risk_score || 0,
-        reason: (emp.risk_score || 0) > 50 ? "Multiple suspicious threats blocked by extension." : "Recent credential warning.",
-      };
-    }).sort((a, b) => b.riskScore - a.riskScore).slice(0, 5);
+  const highRiskEmployees = highRisk.map(emp => ({
+    id: emp.id,
+    name: emp.name,
+    riskScore: emp.top_risk,
+    flagged: emp.flagged_count,
+    blocked: emp.blocked_count,
+    events: emp.events || [],
+    reason: emp.events?.[0]?.finding
+      ? `${emp.flagged_count} flagged event(s). Most recent: ${emp.events[0].finding}.`
+      : `${emp.flagged_count} flagged event(s).`,
+  }));
 
   if (!user) return null;
 
-  const handleEscalate = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert(`Incident escalated to Global Admin!\n\nEmployee: ${escalatingEmployee.name}\nReason: ${escalationReason}`);
-    setEscalatingEmployee(null);
-    setEscalationReason("");
+  const authHeaders = (): Record<string, string> => {
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    return { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
   };
 
-  const handleTraining = (e: React.FormEvent) => {
+  const handleEscalate = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Training module assigned successfully to ${assigningTraining.name}!`);
-    setAssigningTraining(null);
+    if (!escalatingEmployee) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/manager/incidents/escalate-employee`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ employee_id: escalatingEmployee.id, priority, notes: escalationReason }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Escalation failed");
+      const data = await res.json();
+      toast(`Escalated ${escalatingEmployee.name} to the admin queue as ${data.incident_id} (${data.priority} priority).`);
+      setEscalatingEmployee(null);
+      setEscalationReason("");
+    } catch (err: any) {
+      toast(err.message || "Could not escalate. Please try again.", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const TRAINING: Record<string, { title: string; body: string }> = {
+    phishing: { title: "Phishing Defense 101", body: "Please complete the Phishing Defense 101 refresher: how to spot look-alike links, fake login pages and urgent-payment scams." },
+    passwords: { title: "Credential Security", body: "Please complete the Credential Security refresher: password hygiene, MFA, and what to do when a site asks you to log in unexpectedly." },
+    data: { title: "Data Protection", body: "Please complete the Data Protection refresher: what company data can leave the organisation and how to share it safely." },
+  };
+
+  const handleTraining = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assigningTraining) return;
+    setSubmitting(true);
+    try {
+      const t = TRAINING[trainingModule];
+      const res = await fetch(`${getApiBaseUrl()}/communication/send`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          receiver_id: assigningTraining.id, msg_type: "direct", priority: "High",
+          title: `Training assigned: ${t.title}`, content: t.body,
+        }),
+      });
+      if (!res.ok) throw new Error("Could not send the training assignment");
+      toast(`"${t.title}" sent to ${assigningTraining.name}. They will see it in their inbox.`);
+      setAssigningTraining(null);
+    } catch (err: any) {
+      toast(err.message || "Could not assign training.", "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
 
@@ -208,15 +252,24 @@ export default function ThreatCenterPage() {
                       <h4 className="font-semibold text-surface-900 dark:text-white">{emp.name}</h4>
                       <div className="flex items-center gap-1.5 mt-1">
                         <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                          Risk Score: {emp.riskScore}
+                          Top risk {emp.riskScore}% • {emp.flagged} flagged • {emp.blocked} blocked
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-xs text-surface-600 dark:text-surface-400 mb-4 flex items-start gap-2">
-                    <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400" />
-                    <span>{emp.reason}</span>
+                  <div className="mb-4 space-y-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-surface-500">Where the risk came from</p>
+                    {emp.events.map((ev: any, i: number) => (
+                      <div key={i} className="text-xs text-surface-700 dark:text-surface-300 rounded-lg bg-white/70 dark:bg-white/[0.03] border border-red-100 dark:border-red-900/30 px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold uppercase text-[10px] text-red-600 dark:text-red-400">{ev.kind} • {ev.risk_score}%</span>
+                          <span className="text-[10px] text-surface-400">{ev.when ? formatEventTime(ev.when) : ""}</span>
+                        </div>
+                        <div className="truncate text-surface-500" title={ev.target}>{ev.target}</div>
+                        <div className="mt-0.5 first-letter:uppercase">{ev.finding}</div>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -254,17 +307,18 @@ export default function ThreatCenterPage() {
                   <button onClick={() => setEscalatingEmployee(null)} className="text-surface-400 hover:text-surface-600"><X className="w-4 h-4" /></button>
                 </div>
                 <p className="text-xs text-red-700/70 dark:text-red-400/70 mt-1">
-                  Escalating high-risk behavior for {escalatingEmployee.name} to Global Admin.
+                  Escalating {escalatingEmployee.name} to your organisation's admin team.
                 </p>
               </div>
               <form onSubmit={handleEscalate} className="p-6 space-y-4">
                 <div className="p-3 bg-surface-50 dark:bg-surface-950 rounded-lg border border-surface-200 dark:border-white/[0.05] text-sm text-surface-600 dark:text-surface-400">
-                  <span className="block font-semibold text-surface-900 dark:text-white mb-1">AI Threat Summary</span>
+                  <span className="block font-semibold text-surface-900 dark:text-white mb-1">Evidence attached to this escalation</span>
                   {escalatingEmployee.reason}
+                  <span className="block text-[11px] mt-1 text-surface-500">The flagged events listed on the card are included automatically.</span>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Priority Level</label>
-                  <select className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-red-500">
+                  <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-red-500">
                     <option value="High">High</option>
                     <option value="Critical">Critical</option>
                   </select>
@@ -275,8 +329,8 @@ export default function ThreatCenterPage() {
                 </div>
                 <div className="flex gap-3 justify-end pt-2">
                   <button type="button" onClick={() => setEscalatingEmployee(null)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
-                    <Send className="w-3.5 h-3.5" /> Submit Escalation
+                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
+                    <Send className="w-3.5 h-3.5" /> {submitting ? "Escalating..." : "Submit Escalation"}
                   </button>
                 </div>
               </form>
@@ -303,7 +357,7 @@ export default function ThreatCenterPage() {
               <form onSubmit={handleTraining} className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Training Module</label>
-                  <select className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
+                  <select value={trainingModule} onChange={e => setTrainingModule(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
                     <option value="phishing">Phishing Defense 101</option>
                     <option value="passwords">Credential Security</option>
                     <option value="data">Data Protection</option>
@@ -311,8 +365,8 @@ export default function ThreatCenterPage() {
                 </div>
                 <div className="flex gap-3 justify-end pt-2">
                   <button type="button" onClick={() => setAssigningTraining(null)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
-                    <Send className="w-3.5 h-3.5" /> Assign
+                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
+                    <Send className="w-3.5 h-3.5" /> {submitting ? "Sending..." : "Assign"}
                   </button>
                 </div>
               </form>

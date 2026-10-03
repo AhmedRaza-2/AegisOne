@@ -58,6 +58,21 @@ export default function SupervisorDashboard() {
     return () => clearInterval(interval);
   }, [user, timeRange]);
 
+  const [deptIncidentsList, setDeptIncidentsList] = useState<any[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    const load = () => {
+      const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+      fetch(`${getApiBaseUrl()}/manager/incidents?limit=5`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        .then(r => (r.ok ? r.json() : []))
+        .then(d => setDeptIncidentsList(Array.isArray(d) ? d : []))
+        .catch(() => { });
+    };
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, [user]);
+
   if (!user) return null;
 
   const isDark = theme === "dark";
@@ -77,14 +92,15 @@ export default function SupervisorDashboard() {
         ...emp,
         totalScans: emp.total_scans || 0,
         threats: emp.threats || 0,
-        riskScore: emp.risk_score || 0
+        riskScore: emp.risk_score || 0,
+        securityScore: emp.security_score ?? 50
       };
     }).sort((a, b) => b.riskScore - a.riskScore);
   }, [dbUsers]);
 
   const avgSecurityScore = useMemo(() => {
-    if (employeeRisk.length === 0) return 100;
-    const totalScore = employeeRisk.reduce((acc, emp) => acc + (100 - (emp.riskScore || 0)), 0);
+    if (employeeRisk.length === 0) return 50;
+    const totalScore = employeeRisk.reduce((acc, emp) => acc + (emp.securityScore ?? 50), 0);
     return Math.max(0, Math.round(totalScore / employeeRisk.length));
   }, [employeeRisk]);
 
@@ -145,7 +161,6 @@ export default function SupervisorDashboard() {
     ];
   }, [totalEmployees, protectedDevices, realStats, employeeRisk, avgSecurityScore, timeRange, combinedStats]);
 
-  const deptIncidentsList: any[] = [];
 
   const threatTrendsData = useMemo(() => {
     if (realStats?.daily_trend && Array.isArray(realStats.daily_trend) && realStats.daily_trend.length > 0) {
@@ -278,7 +293,7 @@ export default function SupervisorDashboard() {
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wider text-surface-500 font-bold">Avg Security Score</div>
-            <div className="text-lg font-bold text-brand-500 mt-0.5">{100 - combinedStats.avgRisk}%</div>
+            <div className="text-lg font-bold text-brand-500 mt-0.5">{avgSecurityScore}%</div>
           </div>
         </div>
 
@@ -295,7 +310,7 @@ export default function SupervisorDashboard() {
             </thead>
             <tbody>
               {employeeRisk.map(emp => {
-                const securityScore = 100 - (emp.riskScore || 0);
+                const securityScore = emp.securityScore ?? 50;
                 return (
                   <tr key={emp.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02]">
                     <td className="px-3 py-2.5">
@@ -339,15 +354,14 @@ export default function SupervisorDashboard() {
             <p className="text-sm text-surface-500 py-4 text-center">No incidents reported in your department.</p>
           ) : (
             deptIncidentsList.slice(0, 4).map(inc => {
-              const reporter = getUserById(inc.reportedBy);
               return (
                 <div key={inc.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-100/30 dark:bg-white/[0.02] hover:bg-surface-100/50 dark:hover:bg-white/[0.04] transition-colors">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${inc.severity === "critical" ? "bg-red-500" : inc.severity === "high" ? "bg-amber-500" : inc.severity === "medium" ? "bg-blue-500" : "bg-surface-400 dark:bg-surface-500"}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-surface-800 dark:text-surface-200 truncate">{inc.title}</p>
-                    <p className="text-[10px] text-surface-500">by {reporter?.fullName || "Unknown"}</p>
+                    <p className="text-sm text-surface-800 dark:text-surface-200 truncate">{inc.incident_id} · <span className="capitalize">{(inc.report_type || "").replace("_", " ")}</span></p>
+                    <p className="text-[10px] text-surface-500 truncate first-letter:uppercase">{inc.evidence?.findings?.[0] || inc.detection_event_ref || "No details recorded"}</p>
                   </div>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${inc.status === "open" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : inc.status === "investigating" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : inc.status === "resolved" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-surface-200 text-surface-700 dark:bg-surface-700 dark:text-surface-400"}`}>{inc.status}</span>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${inc.status === "open" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : inc.status === "investigating" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : inc.status === "resolved" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : inc.status === "escalated" ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" : "bg-surface-200 text-surface-700 dark:bg-surface-700 dark:text-surface-400"}`}>{inc.status.replace("_", " ")}</span>
                 </div>
               );
             })

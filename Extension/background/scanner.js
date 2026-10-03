@@ -316,10 +316,11 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
  * @param {AbortSignal} [signal]
  * @returns {Promise<object|null>}
  */
-export async function scanPageText(text, signal = null) {
+export async function scanPageText(text, signal = null, pageUrl = null) {
   if (!text || text.trim().length < 30) return null;
   const form = new FormData();
   form.append("text", text.slice(0, 3000));
+  if (pageUrl && /^https?:\/\//i.test(pageUrl)) form.append("source_url", pageUrl);
   return callAPI("/analyze/text", form, true, signal);
 }
 
@@ -337,7 +338,24 @@ export async function scanImage(imageUrl, signal = null) {
     const blob = await res.blob();
     const form = new FormData();
     form.append("file", blob, "image.png");
-    return callAPI("/analyze/image", form, true, signal);
+    if (/^https?:\/\//i.test(imageUrl)) form.append("source_url", imageUrl);
+    const result = await callAPI("/analyze/image", form, true, signal);
+    if (result && result.scan_id) {
+      // Cached by the image's own URL so "Explain AI" / "Report" on this image find the
+      // exact scan (and its stored evidence) instead of falling back to the host page's.
+      await setCachedResult(imageUrl, {
+        url: imageUrl,
+        domain: getRootDomain(imageUrl),
+        score: result.score ?? Math.round((result.phishing_probability || 0) * 100),
+        scan_id: result.scan_id,
+        scan_type: "image",
+        verdict: result.prediction === "phishing" ? VERDICT.MALICIOUS : VERDICT.SAFE,
+        threat_type: result.prediction === "phishing" ? "image_phishing" : "benign",
+        top_factors: (result.findings || []).slice(0, 4).map(f => ({ label: f })),
+        scanned_at: new Date().toISOString(),
+      });
+    }
+    return result;
   } catch (err) {
     if (DEBUG_MODE) console.warn("[AegisOne:Scanner] Image scan failed:", err.message);
     return null;
@@ -524,15 +542,18 @@ export async function requestXAI(evidence) {
  * Reuses callAPI() so auth (X-User-Email) and error/offline handling stay consistent
  * with every other backend call instead of a one-off raw fetch().
  */
-export async function submitReport({ reportType, targetRef, scanId, riskScore, predictedClass, notes }) {
+export async function submitReport({ reportType, targetRef, targetType, scanId, riskScore, predictedClass, notes, evidence }) {
   return callAPI("/reports", {
     report_type: reportType,
-    target_type: "url",
+    target_type: targetType || "url",
     target_ref: targetRef,
     scan_id: scanId || undefined,
     risk_score: typeof riskScore === "number" ? riskScore : undefined,
     predicted_class: predictedClass || undefined,
     user_notes: notes || undefined,
+    // What the employee was shown (findings, summary, page they were on) travels with the
+    // report; the server adds its own snapshot of the stored scan on top of this.
+    evidence: evidence || undefined,
   }, false);
 }
 

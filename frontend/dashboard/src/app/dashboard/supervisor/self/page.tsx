@@ -74,7 +74,7 @@ export default function SupervisorSelfDashboard() {
 
   const blockedScans = filteredScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length;
   // Use backend health score if available
-  const securityScore = data?.healthScore ?? Math.max(0, 100 - (blockedScans * 2));
+  const securityScore = data?.healthScore ?? 50;
   const isProtected = securityScore > 80;
 
   const urlScans = filteredScans.filter((s: any) => s.scanType === 'url');

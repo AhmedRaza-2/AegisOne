@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/components/ui/toast";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { CheckCircle2, XCircle, ShieldAlert, Shield, Users, Search } from "lucide-react";
@@ -47,11 +48,11 @@ export default function ApprovalsPage() {
       if (res.ok) {
         setPendingUsers(prev => prev.filter(u => u.id !== userId));
       } else {
-        alert("Action failed. Please try again.");
+        toast("Action failed. Please try again.", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Network error.");
+      toast("Network error. Please try again.", "error");
     } finally {
       setActionLoading(null);
     }

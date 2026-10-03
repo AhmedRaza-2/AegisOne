@@ -12,6 +12,7 @@ import { requestXAI } from "./scanner.js";
 import { storeEvent } from "./event-store.js";
 import { EVENT_TYPES } from "../utils/constants.js";
 import { getCachedResult } from "./cache.js";
+import { getRootDomain } from "../utils/trusted-domains.js";
 
 /**
  * Request AI explanation for a scan result.
@@ -20,13 +21,13 @@ import { getCachedResult } from "./cache.js";
  * @param {string} url
  * @returns {Promise<XAIResult>}
  */
-export async function explainWithAI(tabData, url, explicitScore) {
+export async function explainWithAI(tabData, url, explicitScore, clientFactors = []) {
   let scanData = tabData;
   if (url && url !== tabData?.url) {
+    // A different target than the tab's page (an image, a hovered link...). Never reuse the
+    // page's scan for it — that is how an image's explanation ended up describing the page.
     const cached = await getCachedResult(url);
-    if (cached) {
-      scanData = cached;
-    }
+    scanData = cached || { url, domain: getRootDomain(url), score: explicitScore };
   }
 
   if (!scanData) return { error: "No scan data available for this page." };
@@ -53,6 +54,14 @@ export async function explainWithAI(tabData, url, explicitScore) {
             .map(([k, v]) => [k, { score: v.score, label: v.label }])
         )
       : {},
+
+    // What the widget itself is showing the user right now (pop-up banners, in-page links,
+    // keywords). Lets the explanation account for score the stored scan doesn't include.
+    client_factors: (clientFactors || [])
+      .map(f => (typeof f === "string" ? f : f?.label || ""))
+      .filter(Boolean)
+      .slice(0, 8)
+      .map(s => String(s).slice(0, 200)),
 
     // Top risk factors
     top_factors: (scanData.top_factors || []).map(f => ({

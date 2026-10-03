@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, Clock, CheckCircle2, Ban, ShieldQuestion, X, Activity, ArrowUpCircle } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api";
+import { EvidencePanel } from "@/components/ui/EvidencePanel";
+import { toast } from "@/components/ui/toast";
 
 function authHeaders() {
   const t = typeof window !== "undefined"
@@ -77,8 +79,11 @@ export default function AdminIncidentsPage() {
         body: JSON.stringify({ decision, admin_notes: adminNotes, create_training_candidate: true }),
       });
       if (res.ok) {
+        toast(`Decision recorded for ${selected.incident_id}. Eligible decisions were added to the retraining samples.`);
         setSelected(null);
         fetchIncidents();
+      } else {
+        toast("Could not record the decision. Please try again.", "error");
       }
     } finally {
       setActing(false);
@@ -149,7 +154,11 @@ export default function AdminIncidentsPage() {
                   </div>
                   <p className="text-sm text-surface-600 dark:text-surface-300 capitalize">
                     {(inc.report_type || "").replace("_", " ")} · Risk {inc.risk_score ?? "—"}
+                    {inc.evidence?.scan_kind && <span className="ml-2 text-[11px] normal-case text-surface-400">source: {inc.evidence.scan_kind}</span>}
                   </p>
+                  {inc.evidence?.findings?.[0] && (
+                    <p className="mt-1 text-xs text-surface-500 line-clamp-2 first-letter:uppercase">{inc.evidence.findings[0]}</p>
+                  )}
                   <div className="mt-3.5 pt-3.5 border-t border-surface-150 dark:border-white/[0.04] flex flex-wrap gap-4 text-xs text-surface-500">
                     <span>{inc.reports_count} report{inc.reports_count === 1 ? "" : "s"}</span>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(inc.created_at).toLocaleString()}</span>
@@ -191,6 +200,11 @@ export default function AdminIncidentsPage() {
                     <p className="text-sm text-surface-800 dark:text-surface-300 font-mono break-all mt-1.5">
                       {detail.incident?.detection_event_ref || "—"}
                     </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Evidence</span>
+                    <div className="mt-2"><EvidencePanel evidence={detail.incident?.evidence || detail.reports?.[0]?.evidence} /></div>
                   </div>
 
                   <div>

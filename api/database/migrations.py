@@ -21,6 +21,8 @@ _ADDITIVE_COLUMNS = [
     ("incidents", "escalated_at", "TIMESTAMP"),
     ("incidents", "manager_notes", "TEXT"),
     ("incident_reports", "department_id", "INTEGER REFERENCES departments(id) ON DELETE SET NULL"),
+    ("incidents", "evidence", "JSON"),
+    ("incident_reports", "evidence", "JSON"),
 ]
 
 

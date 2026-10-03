@@ -94,7 +94,7 @@ export default function EmployeeDashboard() {
   // Count both warn and block as "threats" (consistent with admin/backend definition)
   const blockedScans = filteredScans.filter((s: any) => s.decision === 'block' || s.decision === 'warn').length;
   // Use backend health score if available, fallback to simple formula
-  const securityScore = data?.healthScore ?? Math.max(0, 100 - (blockedScans * 2));
+  const securityScore = data?.healthScore ?? 50;
 
   const stats = {
     urls: {
@@ -211,12 +211,12 @@ export default function EmployeeDashboard() {
 
         {/* System Status */}
         <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${securityScore >= 80 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${securityScore >= 80 ? 'bg-emerald-500/10 text-emerald-500' : securityScore >= 50 ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-500'}`}>
             {securityScore >= 80 ? <ShieldCheck className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-surface-500 mb-1">System Status</p>
-            <h3 className="text-xl font-bold text-surface-900 dark:text-white">{securityScore >= 80 ? "Protected" : "At Risk"}</h3>
+            <h3 className="text-xl font-bold text-surface-900 dark:text-white">{securityScore >= 80 ? "Protected" : (data?.totalScans ?? 0) === 0 ? "Building baseline" : securityScore >= 50 ? "Active Threats" : "At Risk"}</h3>
           </div>
         </motion.div>
 

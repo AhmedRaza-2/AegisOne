@@ -134,3 +134,22 @@ Analytics
 ## Test data left in the local database
 
 Users `qa.admin`, `qa.mgr.fin`, `qa.mgr.eng`, `qa.emp1` to `qa.emp6` (all `@example.test`, password `QaTest#2026`), departments QA Finance and QA Engineering, about 2,257 scans and several incidents. A full backup from before this run is in the session scratchpad (`aegisone_pre_qa_backup.sql`).
+
+## Run 6 - XAI for images/text, evidence on every report, dashboard overhaul
+
+**Root causes found**
+- Image and text scans (`/analyze/image`, `/analyze/text`) stored no evidence and returned no `scan_id`, so Explain AI had nothing to ground on and fell back to a generic sentence. The explanation also preferred the stored scan score over the score the user was looking at (13% vs 46% mismatch).
+- "Report Threat" in the extension only wrote a local event; it never reached `/reports`. False-positive / incident buttons reported `window.location.href` instead of the scanned target.
+- `/admin/stats` fell back to an UNSCOPED query when a manager's scope was empty: trend chart showed other departments' scans while totals showed 0 (cross-department leak + mismatch). Fallbacks removed.
+- `SELECT DISTINCT` over the new JSON `evidence` column failed in Postgres (manager incident list 500). Replaced by a subquery.
+- Download guard re-downloaded by URL only, so files came back renamed. It now captures Chrome's resolved filename before cancelling.
+- Deleting a user who had reported an incident returned 500 (`reported_by_id` NOT NULL). Incidents are reassigned to the deleting admin.
+- Security score started at 100; now neutral 50 with no history and earned upward with verified-clean scans (`api/services/security_score.py`).
+
+**Added**
+- Image/text evidence (visual model %, OCR lure phrases, embedded links, matched scam wording) stored per scan and used by XAI; explanations follow the visible score and fold in pop-up findings.
+- `evidence` JSON on `incidents` / `incident_reports` (+ additive migration), server-built snapshot (`api/services/evidence.py`), redacted for reviewers, copied into training samples.
+- Manager: real employee escalation (`POST /manager/incidents/escalate-employee`), high-risk employees with per-event sources, training assignment via direct message.
+- Dashboard: Reports, Report a Threat, My Reports, AI Models (job progress, samples with evidence, versions), Audit Logs, History, chat (UTC timestamps, polling, search, draft kept on failure), Manual Scan nav for manager/admin, toasts instead of alert().
+
+**Verified live**: image/text/page explanations, report -> incident -> manager/admin evidence, escalation, scoped stats, 19 dashboard pages across 3 roles with no console/API errors. Not tested: extension in a real browser (syntax-checked only).

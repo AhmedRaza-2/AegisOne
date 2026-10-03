@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException, R
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, cast, Date, or_, and_, case, String
 
+from api.services.security_score import compute_security_score
 from api.database.db import get_db
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 from api.database.models import (
@@ -243,6 +244,8 @@ async def get_stats(
         start_time = now - timedelta(days=7)
     elif time_range == "30d":
         start_time = now - timedelta(days=30)
+    elif time_range == "90d":
+        start_time = now - timedelta(days=90)
     else:
         start_time = None
 
@@ -344,10 +347,7 @@ async def get_stats(
         trend_q = _org_scope(trend_q, WebsiteScan, current_user)
         scans_list = (await db.execute(trend_q)).all()
 
-        # Fallback if strict scope/period returns no scans
-        if len(scans_list) == 0:
-            fallback_q = select(WebsiteScan.created_at, WebsiteScan.decision).where(WebsiteScan.created_at >= start_time)
-            scans_list = (await db.execute(fallback_q)).all()
+        # No unscoped fallback: an empty scope must show empty, never other departments/orgs.
 
         # Pre-populate 24 hourly buckets
         hourly_buckets = {}
@@ -385,15 +385,6 @@ async def get_stats(
         
         trend_q = _org_scope(trend_q, WebsiteScan, current_user)
         trend_rows = (await db.execute(trend_q)).all()
-
-        # Fallback if strict scope returns 0 rows
-        if len(trend_rows) == 0:
-            fb_q = select(
-                cast(WebsiteScan.created_at, Date).label("day"),
-                func.count(WebsiteScan.id).label("scans"),
-                func.sum(case((WebsiteScan.decision.in_(["warn", "block"]), 1), else_=0)).label("threats")
-            ).group_by(cast(WebsiteScan.created_at, Date))
-            trend_rows = (await db.execute(fb_q)).all()
 
         trend_map = {row.day: (row.scans, int(row.threats or 0)) for row in trend_rows}
 
@@ -1175,8 +1166,11 @@ async def get_users(
         today_warns = stats["today_warns"]
         today_creds = creds_map.get(r.id, 0)
         
-        health_score = max(0, 100 - (threats * 2))
-        risk_score = 100 - health_score
+        security_score = compute_security_score(
+            total_scans, max(0, total_scans - threats), critical_count, today_warns, today_creds
+        )
+        # Risk stays threat-driven (0 = no threats) so inactive users don't read as high-risk.
+        risk_score = min(100, threats * 2)
         
         users_response.append({
             "id": r.id, 
@@ -1188,7 +1182,8 @@ async def get_users(
             "account_status": r.account_status,
             "total_scans": total_scans,
             "threats": threats,
-            "risk_score": risk_score
+            "risk_score": risk_score,
+            "security_score": security_score,
         })
         
     return {"users": users_response}
@@ -1578,6 +1573,15 @@ async def delete_user(
         .values(manager_id=None)
     )
         
+    # Incidents this user reported must survive them (reported_by_id is NOT NULL, so the
+    # ORM's default "null it out" on delete raised a 500). Hand them to the deleting admin.
+    from api.database.models import Incident
+    await db.execute(
+        update(Incident).where(Incident.reported_by_id == user.id).values(reported_by_id=admin.id)
+    )
+    db.expire_all()
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one()
+
     await db.delete(user)
     await db.commit()
     return {"status": "success"}

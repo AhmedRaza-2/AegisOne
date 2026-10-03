@@ -540,6 +540,8 @@ class Incident(Base):
     escalated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     escalated_at = Column(DateTime, nullable=True)
     manager_notes = Column(Text, nullable=True)
+    # Snapshot of why the detection fired (findings, source, model) taken when first reported.
+    evidence = Column(JSON, nullable=True)
 
     scan = relationship("ScanLog", back_populates="incidents")
     reporter = relationship("User", foreign_keys=[reported_by_id], back_populates="reported_incidents")
@@ -571,6 +573,7 @@ class IncidentReport(Base):
     
     user_notes = Column(Text, nullable=True)
     status = Column(String(50), default="submitted") # submitted, under_review, verified, rejected
+    evidence = Column(JSON, nullable=True)  # what the reporter saw + server snapshot of the scan
     
     created_at = Column(DateTime, server_default=func.now())
     

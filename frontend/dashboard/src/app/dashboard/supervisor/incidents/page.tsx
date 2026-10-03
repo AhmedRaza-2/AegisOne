@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, Clock, ArrowUpCircle, CheckCircle2, MessageSquare, X, Activity, ShieldQuestion } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api";
+import { EvidencePanel } from "@/components/ui/EvidencePanel";
 
 function authHeaders() {
   const t = typeof window !== "undefined"
@@ -177,6 +178,11 @@ export default function IncidentsPage() {
                       {detail.incident?.detection_event_ref || "—"}
                     </p>
                     <p className="text-xs text-surface-500 mt-2">Sensitive details (emails, tokens) are automatically redacted before you see them.</p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Evidence</span>
+                    <div className="mt-2"><EvidencePanel evidence={detail.incident?.evidence || detail.reports?.[0]?.evidence} /></div>
                   </div>
 
                   <div>

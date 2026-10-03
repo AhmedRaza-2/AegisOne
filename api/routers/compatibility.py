@@ -82,8 +82,12 @@ from api.database.schemas import (
 from api.services.model_orchestrator import (
     predict_url, predict_text, predict_email, predict_image, process_attachment
 )
-from api.services.content_router import route_image_input
-from api.services.xai_engine import generate_tier1_explanation, generate_tier2_deep_explanation, build_grounded_findings
+from api.services.content_router import route_image_input_detailed
+from api.services.xai_engine import (
+    generate_tier1_explanation, generate_tier2_deep_explanation, build_grounded_findings, find_lure_phrases,
+)
+from api.services.redaction import redact_text
+from api.services.security_score import compute_security_score
 from api.services.revision_service import increment_org_revision, get_org_revision
 
 router = APIRouter(tags=["Compatibility & XAI"])
@@ -392,20 +396,61 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
 
 
 
+def _context_around(text: str, phrase: str, radius: int = 60) -> str:
+    """A short, redacted window of `text` around the first occurrence of `phrase`."""
+    idx = text.lower().find(phrase.lower())
+    if idx < 0:
+        return ""
+    snippet = text[max(0, idx - radius): idx + len(phrase) + radius]
+    return redact_text(" ".join(snippet.split()))
+
+
+def _safe_http_url(value: Optional[str]) -> Optional[str]:
+    """Accept only a plain http(s) URL for the 'where did this come from' field."""
+    if not value:
+        return None
+    value = value.strip()[:2048]
+    return value if value.lower().startswith(("http://", "https://")) else None
+
+
 @router.post("/analyze/text")
-async def api_text(request: Request, text: str = Form(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_text(request: Request, text: str = Form(...), source_url: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = await predict_text(text)
-    
+
     # Store the scan for dashboard analytics
     score = result.get("phishing_probability", 0) * 100
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
-    
+
     user_id = current_user.id
     org_id = current_user.organization_id or "org_default"
-    
+
+    # What the text model actually keyed on — kept so the explanation can quote it later.
+    # Only the matched scam phrases and a short redacted window around the first one are
+    # stored, never the full text.
+    lures = find_lure_phrases(text)
+    top_words = [str(w) for w in (result.get("xai_words") or [])][:6]
+    scan_id = f"scan_{uuid.uuid4().hex[:12]}"
+    page_url = _safe_http_url(source_url)
+    rich = {
+        "scan_kind": "text",
+        "final_risk": round(score, 1),
+        "decision": decision.upper(),
+        "source_model": "Text phishing model",
+        "target_url": page_url or "Selected text",
+        "target_domain": (page_url.split("/")[2] if page_url else "text_scan"),
+        "text_evidence": {
+            "probability": round(float(result.get("phishing_probability", 0) or 0), 3),
+            "lures": lures,
+            "top_words": top_words,
+            "context": _context_around(text, lures[0]) if lures else "",
+            "length": len(text),
+            "model_note": result.get("explanation", ""),
+        },
+    }
+
     scan = WebsiteScan(
-        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        scan_id=scan_id,
         organization_id=org_id,
         user_id=user_id,
         scan_type="text",
@@ -414,12 +459,17 @@ async def api_text(request: Request, text: str = Form(...), current_user: User =
         risk_score=score,
         threat_type=result.get("prediction", "benign"),
         decision=decision,
-        scan_duration_ms=round((time.time() - start) * 1000, 1)
+        scan_duration_ms=round((time.time() - start) * 1000, 1),
+        xai_explanation=json.dumps(rich),
     )
     db.add(scan)
     await db.commit()
-    
+
     result["latency_ms"] = scan.scan_duration_ms
+    result["scan_id"] = scan_id
+    # The extension reads `top_words` everywhere; the text model emits `xai_words`.
+    result.setdefault("top_words", top_words)
+    result["lures"] = lures
     print(f"\n[AEGIS AI ENGINE] INCOMING TEXT SCAN REQUEST")
     print(f" ├─ User   : {current_user.email}")
     print(f" ├─ Text   : {text[:100]}...")
@@ -536,37 +586,85 @@ async def api_email(
 
 
 @router.post("/analyze/image")
-async def api_image(request: Request, file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_image(request: Request, file: UploadFile = File(...), source_url: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     data = await file.read()
-    results = await route_image_input(data)
-    
+    detailed = await route_image_input_detailed(data)
+    results = detailed["results"]
+    ocr_text = detailed["ocr_text"]
+
     overall_prob = 0.0
     predictions = []
-    
+
     for r in results:
         overall_prob = max(overall_prob, r.get("phishing_probability", 0.0))
         predictions.append(r.get("prediction", "legitimate"))
-        
+
     is_phish = overall_prob >= 0.5
-    
+
     score = overall_prob * 100
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
-    
+
     user_id = current_user.id
     org_id = current_user.organization_id or "org_default"
-    
+
+    # Record exactly what each stage saw so the explanation can say *why* — the picture
+    # itself, the words written in it, or a link shown in it — instead of a bare score.
+    visual = next((r for r in results if r.get("model") == "image"), {})
+    ocr_text_results = [r for r in results if r.get("model") in ("text", "email")]
+    ocr_url_results = [r for r in results if r.get("model") in ("url", "url_feature_extractor")]
+    from api.services.model_orchestrator import extract_urls_from_text
+    ocr_urls = extract_urls_from_text(ocr_text) if ocr_text else []
+    embedded = []
+    for i, ur in enumerate(ocr_url_results[:5]):
+        embedded.append({
+            "url": (ocr_urls[i] if i < len(ocr_urls) else "a link in the image")[:200],
+            "risk": round(float(ur.get("phishing_probability", 0) or 0) * 100),
+            "signals": [str(s) for s in ((ur.get("evidence") or {}).get("signals") or [])][:3],
+        })
+    ocr_lures = find_lure_phrases(ocr_text)
+    ocr_text_prob = max((float(r.get("phishing_probability", 0) or 0) for r in ocr_text_results), default=0.0)
+    visual_prob = float(visual.get("phishing_probability", 0) or 0)
+    driver = max(
+        [("the image itself", visual_prob), ("the text written in it", ocr_text_prob)]
+        + [("a link shown in it", e["risk"] / 100.0) for e in embedded],
+        key=lambda x: x[1],
+    )[0]
+    page_url = _safe_http_url(source_url)
+    scan_id = f"scan_{uuid.uuid4().hex[:12]}"
+    image_evidence = {
+        "visual_probability": round(visual_prob, 3),
+        "visual_flagged": visual.get("prediction") == "phishing",
+        "ocr_excerpt": redact_text(" ".join(ocr_text.split())[:160]) if ocr_text else "",
+        "ocr_chars": len(ocr_text),
+        "ocr_lures": ocr_lures,
+        "ocr_text_probability": round(ocr_text_prob, 3),
+        "embedded_urls": embedded,
+        "driver": driver,
+    }
+    rich = {
+        "scan_kind": "image",
+        "final_risk": round(score, 1),
+        "decision": decision.upper(),
+        "source_model": "Image model + OCR text/link models",
+        "target_url": page_url or "Uploaded image",
+        "target_domain": (page_url.split("/")[2] if page_url else "image_scan"),
+        "image_evidence": image_evidence,
+    }
+    findings = build_grounded_findings({"scan_type": "image", "risk_score": round(score)}, rich)["findings"]
+
     scan = WebsiteScan(
-        scan_id=f"scan_{uuid.uuid4().hex[:12]}",
+        scan_id=scan_id,
         organization_id=org_id,
         user_id=user_id,
         scan_type="image",
-        url="Image Upload: " + (file.filename or "unknown")[:100],
-        domain="image_scan",
+        url=page_url or ("Image Upload: " + (file.filename or "unknown")[:100]),
+        domain=(page_url.split("/")[2] if page_url else "image_scan"),
         risk_score=score,
         threat_type="phishing" if is_phish else "benign",
         decision=decision,
-        scan_duration_ms=round((time.time() - start) * 1000, 1)
+        scan_duration_ms=round((time.time() - start) * 1000, 1),
+        xai_explanation=json.dumps(rich),
     )
     db.add(scan)
     await db.commit()
@@ -583,6 +681,10 @@ async def api_image(request: Request, file: UploadFile = File(...), current_user
         "phishing_probability": round(overall_prob, 4),
         "model": "image_ocr_composite",
         "sub_results": results,
+        "scan_id": scan_id,
+        "score": round(score),
+        "findings": findings,
+        "image_evidence": image_evidence,
         "latency_ms": scan.scan_duration_ms
     }
 
@@ -1567,6 +1669,15 @@ async def get_user_media(email: str = Query(None), db: AsyncSession = Depends(ge
 # PHASE 2: Threat Center (Module 3) & URL Intelligence (Module 7)
 # =============================================================================
 
+_SCAN_SOURCE_LABELS = {
+    "page": "Web page or link",
+    "image": "Image (the picture and the text inside it)",
+    "text": "Selected or on-page text",
+    "email": "Email message",
+    "download": "Downloaded file",
+}
+
+
 @router.get("/user/threats")
 async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
     """
@@ -1641,13 +1752,26 @@ async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(
             categories["Phishing Websites"] += 1
             assigned_cat = "Phishing Websites"
             
+        rich = None
+        if t.xai_explanation:
+            try:
+                rich = json.loads(t.xai_explanation)
+            except Exception:
+                rich = None
+        grounded = build_grounded_findings(
+            {"risk_score": t.risk_score, "domain": t.domain, "url": t.url, "scan_type": t.scan_type}, rich)
         recent_threats.append({
             "id": t.scan_id,
             "target": t.url,
             "category": assigned_cat,
             "riskScore": t.risk_score,
             "decision": "Blocked" if t.decision == "block" else "Warned",
-            "timestamp": str(t.created_at)
+            "timestamp": str(t.created_at),
+            # Where the risk came from and why — shown in the detail view and attached to reports.
+            "kind": grounded["kind"],
+            "source": _SCAN_SOURCE_LABELS.get(grounded["kind"], "Web page or link"),
+            "model": (rich or {}).get("source_model") or "URL model (heuristics + ML)",
+            "findings": grounded["findings"][:5],
         })
         
     # Remove categories with 0 count to keep UI clean, but ensure at least 4 for grid layout
@@ -1963,6 +2087,16 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
         # Skip legacy email rows from WebsiteScan (they are now in EmailSecurityEvent)
         if (s.scan_type or "").lower() in ("email", "mail") or (s.domain or "") == "email_scan":
             continue
+        # Flagged items carry the plain-language reason so History can answer "why?".
+        reason = None
+        if s.decision in ("warn", "block") and s.xai_explanation:
+            try:
+                rich = json.loads(s.xai_explanation)
+                reason = build_grounded_findings(
+                    {"risk_score": s.risk_score, "domain": s.domain, "url": s.url, "scan_type": s.scan_type}, rich
+                )["findings"][0]
+            except Exception:
+                reason = None
         combined_activity.append({
             "id": s.scan_id,
             "scanType": s.scan_type,
@@ -1971,6 +2105,7 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
             "riskScore": s.risk_score,
             "threatType": s.threat_type,
             "topFactors": s.top_factors,
+            "reason": reason,
             "decision": s.decision,
             "riskLevel": "danger" if s.decision == "block" else "suspicious" if s.decision == "warn" else "safe",
             "timestamp": s.created_at,
@@ -2031,12 +2166,11 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
         del out["iso_timestamp"]
         final_scans.append(out)
     
-    # Calculate Security Health Score (0-100)
-    health_score = 100
-    if critical_count > 0: health_score -= min(30, critical_count * 2)
-    if today_warns > 0: health_score -= min(15, today_warns * 1)
-    if today_creds > 0: health_score -= 10
-    if health_score < 0: health_score = 0
+    # Security Health Score (0-100). Starts at a neutral 50 — "nothing proven yet", not
+    # "perfect" — and earns its way up as verified-clean activity accumulates over time,
+    # dropping again with real threats, warnings and credential events.
+    safe_total = ((await db.execute(apply_user_filter(select(func.count(WebsiteScan.id)).where(WebsiteScan.decision == "allow")))).scalar() or 0)
+    health_score = compute_security_score(total_scans, safe_total, critical_count, today_warns, today_creds)
     
     # Calculate Component Scores based on real telemetry
     network_score = max(0, 100 - min(100, critical_count * 3 + today_warns * 1))

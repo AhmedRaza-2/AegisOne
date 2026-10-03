@@ -8,6 +8,8 @@ department level or escalate them to the org admin queue. Escalating/resolving
 here never touches `admin_decision` or the training-candidate pipeline — that
 remains exclusively the admin's `POST /admin/incidents/{id}/verify` call.
 """
+import json
+import uuid
 import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -18,14 +20,164 @@ from sqlalchemy.future import select
 from sqlalchemy import func, or_
 
 from api.database.db import get_db
-from api.database.models import User, Incident, IncidentReport, AuditLog
+from api.database.models import User, Incident, IncidentReport, AuditLog, WebsiteScan
 from api.database.schemas import IncidentResponse, ManagerTriageRequest
 from api.auth.roles import Role, require_role
 from api.services.incident_view import redact_incident, redact_incident_report
+from api.services.xai_engine import build_grounded_findings
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("aegisone.manager_incidents")
 
 router = APIRouter(prefix="/manager/incidents", tags=["Manager Incident Triage"])
+
+
+class EmployeeEscalationRequest(BaseModel):
+    employee_id: int
+    priority: str = Field("High", max_length=20)
+    notes: str = Field(..., min_length=1, max_length=5000)
+
+
+@router.post("/escalate-employee", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+async def escalate_employee(
+    payload: EmployeeEscalationRequest,
+    current_user: User = Depends(require_role(Role.MANAGER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manager escalates a high-risk employee in their department to the admin queue.
+    Creates a real, already-escalated incident carrying the employee's recent flagged
+    scans (with the reasons they were flagged) as evidence."""
+    if current_user.department_id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No department assigned to this account.")
+    org_id = current_user.organization_id or "org_default"
+    emp = (await db.execute(select(User).where(User.id == payload.employee_id))).scalar_one_or_none()
+    if (not emp or (emp.organization_id or "org_default") != org_id
+            or emp.department_id != current_user.department_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found in your department.")
+
+    scans = (await db.execute(
+        select(WebsiteScan)
+        .where(WebsiteScan.user_id == emp.id, WebsiteScan.decision.in_(["warn", "block"]))
+        .order_by(WebsiteScan.created_at.desc()).limit(5)
+    )).scalars().all()
+
+    flagged = []
+    for sc in scans:
+        rich = None
+        if sc.xai_explanation:
+            try:
+                rich = json.loads(sc.xai_explanation)
+            except Exception:
+                rich = None
+        g = build_grounded_findings(
+            {"risk_score": sc.risk_score, "domain": sc.domain, "url": sc.url, "scan_type": sc.scan_type}, rich)
+        flagged.append({
+            "scan_id": sc.scan_id, "kind": g["kind"], "target": sc.url, "risk_score": round(sc.risk_score or 0),
+            "decision": sc.decision, "when": sc.created_at.isoformat() if sc.created_at else None,
+            "findings": g["findings"][:3],
+        })
+
+    top_risk = max([f["risk_score"] for f in flagged], default=0)
+    priority = payload.priority.capitalize() if payload.priority.capitalize() in ("High", "Critical") else "High"
+    stamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    note = f"[{stamp}] {current_user.full_name or current_user.email}: {payload.notes}"
+    evidence = {
+        "scan_kind": "employee_escalation",
+        "source_model": "Manager escalation of repeated flagged activity",
+        "employee": {"id": emp.id, "name": emp.full_name},
+        "priority": priority,
+        "risk_score": top_risk,
+        "findings": [f"{emp.full_name or 'This employee'} had {len(flagged)} recent flagged event(s)"] +
+                    [f"{x['target'][:80]} ({x['risk_score']}% risk): {x['findings'][0]}" for x in flagged if x["findings"]][:4],
+        "flagged_events": flagged,
+        "captured_at": datetime.utcnow().isoformat() + "Z",
+    }
+    inc = Incident(
+        incident_id=f"INC-{uuid.uuid4().hex[:8].upper()}",
+        organization_id=org_id,
+        reported_by_id=current_user.id,
+        severity="critical" if priority == "Critical" else "high",
+        status="escalated",
+        report_type="manager_escalation",
+        detection_event_ref=f"Employee: {emp.full_name or emp.email}",
+        risk_score=top_risk or None,
+        notes=payload.notes,
+        manager_notes=note,
+        escalated_by_id=current_user.id,
+        escalated_at=datetime.utcnow(),
+        evidence=evidence,
+    )
+    db.add(inc)
+    await db.flush()
+    db.add(IncidentReport(
+        report_id=f"REP-{uuid.uuid4().hex[:8].upper()}", incident_id=inc.id, user_id=emp.id,
+        organization_id=org_id, department_id=emp.department_id, report_type="manager_escalation",
+        target_type="user", target_ref=f"Employee: {emp.full_name or emp.email}", risk_score=top_risk or None,
+        user_notes=payload.notes, status="submitted", evidence=evidence,
+    ))
+    db.add(AuditLog(
+        organization_id=org_id, actor_email=current_user.email, action="EMPLOYEE_ESCALATED",
+        module="manager_triage", target=f"Employee {emp.email} -> Incident {inc.incident_id}",
+        result="success", ip_address="127.0.0.1",
+    ))
+    await db.commit()
+    return {"status": "success", "incident_id": inc.incident_id, "priority": priority}
+
+
+@router.get("/high-risk-employees", response_model=Dict[str, Any])
+async def high_risk_employees(
+    current_user: User = Depends(require_role(Role.MANAGER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Employees in the manager's department with flagged activity, each with the concrete
+    events (what, where, why) that put them on the list — the source of the risk."""
+    if current_user.department_id is None:
+        return {"employees": []}
+    org_id = current_user.organization_id or "org_default"
+    rows = (await db.execute(
+        select(WebsiteScan)
+        .join(User, User.id == WebsiteScan.user_id)
+        .where(User.department_id == current_user.department_id, User.organization_id == org_id,
+               WebsiteScan.decision.in_(["warn", "block"]))
+        .order_by(WebsiteScan.created_at.desc()).limit(300)
+    )).scalars().all()
+
+    by_user: Dict[int, list] = {}
+    for sc in rows:
+        by_user.setdefault(sc.user_id, []).append(sc)
+
+    users = {}
+    if by_user:
+        ures = await db.execute(select(User).where(User.id.in_(list(by_user.keys()))))
+        users = {u.id: u for u in ures.scalars().all()}
+
+    out = []
+    for uid, scans in by_user.items():
+        u = users.get(uid)
+        if not u:
+            continue
+        events = []
+        for sc in scans[:3]:
+            rich = None
+            if sc.xai_explanation:
+                try:
+                    rich = json.loads(sc.xai_explanation)
+                except Exception:
+                    rich = None
+            g = build_grounded_findings(
+                {"risk_score": sc.risk_score, "domain": sc.domain, "url": sc.url, "scan_type": sc.scan_type}, rich)
+            events.append({
+                "kind": g["kind"], "target": (sc.url or "")[:120], "risk_score": round(sc.risk_score or 0),
+                "decision": sc.decision, "finding": g["findings"][0],
+                "when": sc.created_at.isoformat() if sc.created_at else None,
+            })
+        blocks = sum(1 for sc in scans if sc.decision == "block")
+        out.append({
+            "id": u.id, "name": u.full_name or u.email, "flagged_count": len(scans), "blocked_count": blocks,
+            "top_risk": max(e["risk_score"] for e in events), "events": events,
+        })
+    out.sort(key=lambda e: (e["blocked_count"], e["top_risk"], e["flagged_count"]), reverse=True)
+    return {"employees": out[:10]}
 
 
 async def _load_department_incident(incident_id: str, current_user: User, db: AsyncSession) -> Incident:
@@ -70,14 +222,13 @@ async def list_department_incidents(
         return []
 
     org_id = current_user.organization_id or "org_default"
-    query = (
-        select(Incident)
-        .join(IncidentReport, IncidentReport.incident_id == Incident.id)
-        .where(
-            Incident.organization_id == org_id,
-            IncidentReport.department_id == current_user.department_id,
-        )
-        .distinct()
+    # Subquery rather than JOIN + DISTINCT: Postgres cannot DISTINCT over the JSON evidence column.
+    dept_incident_ids = select(IncidentReport.incident_id).where(
+        IncidentReport.department_id == current_user.department_id
+    )
+    query = select(Incident).where(
+        Incident.organization_id == org_id,
+        Incident.id.in_(dept_incident_ids),
     )
 
     if status_filter:
@@ -125,6 +276,7 @@ async def list_department_incidents(
             escalated_by_id=inc.escalated_by_id,
             escalated_at=inc.escalated_at,
             manager_notes=inc.manager_notes,
+            evidence=inc.evidence,
         )))
 
     return response_items
@@ -168,6 +320,7 @@ async def get_department_incident_detail(
         escalated_by_id=inc.escalated_by_id,
         escalated_at=inc.escalated_at,
         manager_notes=inc.manager_notes,
+            evidence=inc.evidence,
     ))
 
     return {

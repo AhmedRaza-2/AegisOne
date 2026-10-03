@@ -74,9 +74,17 @@ async def route_text_input(text: str) -> list[dict]:
 
 
 async def route_image_input(image_bytes: bytes) -> list[dict]:
+    """Backwards-compatible wrapper: just the per-model results."""
+    return (await route_image_input_detailed(image_bytes))["results"]
+
+
+async def route_image_input_detailed(image_bytes: bytes) -> dict:
     """
     1. Runs Image Model and OCR in parallel
     2. Routes OCR text to Text/Email/URL models
+
+    Returns {"results": [model result dicts], "ocr_text": str} — the OCR text is kept so
+    callers can record *what* the image said, which is what an explanation needs.
     """
     results = []
 
@@ -101,4 +109,4 @@ async def route_image_input(image_bytes: bytes) -> list[dict]:
             r["explanation"] = "[From OCR] " + r.get("explanation", "")
             results.append(r)
 
-    return results
+    return {"results": results, "ocr_text": (ocr_text or "").strip()}

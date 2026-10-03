@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
+import { toast } from "@/components/ui/toast";
 
 interface NavItem {
   label: string;
@@ -39,6 +40,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Threat Center", href: "/dashboard/supervisor/threats", icon: ShieldAlert, group: "Security" },
     { label: "Incidents", href: "/dashboard/supervisor/incidents", icon: AlertTriangle, group: "Security" },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle, group: "Security" },
+    { label: "Manual Scan", href: "/dashboard/supervisor/scan", icon: Scan, group: "Tools" },
     { label: "Communication", href: "/dashboard/supervisor/communication", icon: MessageSquare, group: "General" },
     { label: "Reports", href: "/dashboard/supervisor/reports", icon: FileBarChart, group: "Analytics" },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3, group: "Analytics" },
@@ -51,6 +53,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Departments & Users", href: "/dashboard/admin/departments", icon: Building2, group: "Team" },
     { label: "Email Security", href: "/dashboard/admin/email", icon: Mail, group: "Protection" },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle, group: "Protection" },
+    { label: "Manual Scan", href: "/dashboard/admin/scan", icon: Scan, group: "Protection" },
     { label: "Incidents", href: "/dashboard/admin/incidents", icon: AlertTriangle, group: "Monitoring" },
     { label: "AI Models", href: "/dashboard/admin/models", icon: BrainCircuit, group: "Monitoring" },
     { label: "Audit Logs", href: "/dashboard/admin/audit", icon: ClipboardList, group: "Monitoring" },
@@ -64,6 +67,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: "Organization Setup", href: "/dashboard/admin/setup", icon: ShieldCheck, group: "Global" },
     { label: "Email Security", href: "/dashboard/admin/email", icon: Mail, group: "Security" },
     { label: "Browser Extension", href: "/dashboard/supervisor/extension", icon: Puzzle, group: "Security" },
+    { label: "Manual Scan", href: "/dashboard/admin/scan", icon: Scan, group: "Security" },
     { label: "My Analytics", href: "/dashboard/supervisor/self", icon: BarChart3, group: "Security" },
     { label: "AI Models", href: "/dashboard/admin/models", icon: Activity, group: "System" },
   ],
@@ -437,7 +441,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setVerifyMsg("A 6-digit verification code has been sent to your email.");
       setSettingsOpen(false);
     } catch (e) {
-      alert("Failed to send reset code.");
+      toast("Failed to send the reset code. Please try again.", "error");
     }
     setResetting(false);
   };

@@ -30,3 +30,16 @@ def redact_text(value: str | None) -> str | None:
     redacted = _HEX_TOKEN_RE.sub("[TOKEN REDACTED]", redacted)
     redacted = _LONG_DIGITS_RE.sub("[REDACTED]", redacted)
     return redacted
+
+
+def redact_obj(value, _depth: int = 0):
+    """Recursively redact every string inside a JSON-like structure (evidence snapshots)."""
+    if _depth > 6:
+        return value
+    if isinstance(value, str):
+        return redact_text(value)
+    if isinstance(value, list):
+        return [redact_obj(v, _depth + 1) for v in value]
+    if isinstance(value, dict):
+        return {k: redact_obj(v, _depth + 1) for k, v in value.items()}
+    return value

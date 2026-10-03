@@ -326,6 +326,7 @@ class EmployeeReportCreate(BaseModel):
     predicted_class: Optional[str] = Field(None, max_length=50)
     risk_score: Optional[int] = Field(None, ge=0, le=100)
     user_notes: Optional[str] = Field(None, max_length=10000)
+    evidence: Optional[Dict[str, Any]] = None
 
 
 class IncidentReportResponse(BaseModel):
@@ -346,6 +347,7 @@ class IncidentReportResponse(BaseModel):
     user_notes: Optional[str] = None
     status: str
     created_at: datetime
+    evidence: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
@@ -379,6 +381,7 @@ class IncidentResponse(BaseModel):
     escalated_by_id: Optional[int] = None
     escalated_at: Optional[datetime] = None
     manager_notes: Optional[str] = None
+    evidence: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

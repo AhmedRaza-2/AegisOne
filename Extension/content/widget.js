@@ -240,6 +240,7 @@ function _setupControls(widget) {
           type: MSG.XAI_REQUEST,
           url: window.location.href,
           score: activeScore,
+          top_factors: (d.top_factors || []).map(f => (typeof f === "string" ? f : f?.label)).filter(Boolean).slice(0, 8),
         }).catch(() => null);
       }
     } catch (_) {}

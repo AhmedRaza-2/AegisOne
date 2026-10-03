@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, RefreshCw, Activity, ExternalLink, MapPin, ShieldCheck, Lock, Monitor, BrainCircuit, X, Flag, FileWarning, Check } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/toast";
 
 function authHeaders() {
   const t = typeof window !== "undefined"
@@ -34,11 +35,20 @@ export default function ThreatCenterPage() {
         headers: authHeaders(),
         body: JSON.stringify({
           report_type: reportType,
-          target_type: "url",
+          target_type: selectedThreat.kind === "page" || !selectedThreat.kind ? "url" : selectedThreat.kind,
           target_ref: selectedThreat.target,
           scan_id: selectedThreat.id,
           predicted_class: selectedThreat.category,
           risk_score: selectedThreat.riskScore,
+          evidence: {
+            reported_from: "dashboard_threat_center",
+            target_url: selectedThreat.target,
+            risk_score: selectedThreat.riskScore,
+            threat_type: selectedThreat.category,
+            findings: selectedThreat.findings || [],
+            summary: `${selectedThreat.source || "Item"} flagged at ${selectedThreat.riskScore}% risk`,
+            captured_at: new Date().toISOString(),
+          },
           user_notes: reportType === "false_positive"
             ? "Employee flagged this detection as a false positive from the Threat Center."
             : "Employee created an incident from the Threat Center for further review.",
@@ -106,7 +116,7 @@ export default function ThreatCenterPage() {
   });
 
   const handleExport = () => {
-    if (!recent.length) return alert("No data to export");
+    if (!recent.length) return toast("There is no threat data to export yet.", "error");
     const headers = "ID,Category,Target,Risk Score,Decision,Timestamp\n";
     const csv = recent.map((t: any) => `${t.id},${t.category},"${t.target}",${t.riskScore},${t.decision},${t.timestamp}`).join("\n");
     const blob = new Blob([headers + csv], { type: 'text/csv' });
@@ -376,13 +386,27 @@ export default function ThreatCenterPage() {
                           <BrainCircuit className="w-4 h-4 text-white" />
                         </div>
                         <h4 className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-brand-600 dark:from-purple-400 dark:to-brand-400">
-                          Aegis AI Analysis
+                          Why this was flagged
                         </h4>
                       </div>
                       
-                      <p className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed relative z-10">
-                        Based on deep behavioral analysis, <span className="font-semibold text-surface-900 dark:text-white px-1 py-0.5 rounded bg-surface-100 dark:bg-white/[0.05] mx-0.5">{selectedThreat.target.substring(0, 35)}{selectedThreat.target.length > 35 ? '...' : ''}</span> was flagged because it exhibits classic indicators of a <strong className="text-surface-900 dark:text-white">{selectedThreat.category}</strong> attack. The domain reputation is extremely low and the content structure matches known malicious patterns. I automatically <strong className={`px-1.5 py-0.5 rounded ${ (selectedThreat.decision || '').toLowerCase().includes('block') ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' }`}>{(selectedThreat.decision || '').toLowerCase().includes('block') ? 'blocked' : 'warned about'}</strong> this connection to secure your environment.
-                      </p>
+                      <div className="relative z-10 space-y-3">
+                        <div className="flex flex-wrap gap-2 text-[11px]">
+                          <span className="px-2 py-1 rounded-md bg-surface-100 dark:bg-white/[0.06] text-surface-600 dark:text-surface-300"><b>Source:</b> {selectedThreat.source || "Web page or link"}</span>
+                          <span className="px-2 py-1 rounded-md bg-surface-100 dark:bg-white/[0.06] text-surface-600 dark:text-surface-300"><b>Detected by:</b> {selectedThreat.model || "AegisOne models"}</span>
+                        </div>
+                        <p className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed">
+                          AegisOne <strong className={`px-1.5 py-0.5 rounded ${ (selectedThreat.decision || '').toLowerCase().includes('block') ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' }`}>{(selectedThreat.decision || '').toLowerCase().includes('block') ? 'blocked' : 'warned you about'}</strong> this because:
+                        </p>
+                        <ul className="space-y-2">
+                          {(selectedThreat.findings?.length ? selectedThreat.findings : ["The models rated it risky overall, but no single giveaway was recorded."]).map((f: string, i: number) => (
+                            <li key={i} className="flex gap-2 text-sm text-surface-700 dark:text-surface-200 leading-relaxed">
+                              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+                              <span className="first-letter:uppercase">{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 </div>

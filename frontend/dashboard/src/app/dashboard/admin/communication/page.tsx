@@ -1,9 +1,10 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
-import { Users, Send, CheckCircle2, MessageSquare, Megaphone, XCircle, Search, Globe, Plus, AlertCircle } from "lucide-react";
+import { Users, CheckCircle2, MessageSquare, Megaphone, XCircle, Globe, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
+import { ChatView, ContactList, useChat, ts } from "@/components/chat/ChatComponents";
 
 const Toast = ({ toast }: { toast: any }) => toast ? (
   <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
@@ -13,107 +14,10 @@ const Toast = ({ toast }: { toast: any }) => toast ? (
   </motion.div>
 ) : null;
 
-const ts = (d: string) => {
-  const d2 = new Date(d);
-  return d2.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + d2.toLocaleDateString();
-};
-
-const ContactItem = ({ contact, isActive, onClick, accentColor = "brand" }: any) => {
-  const colorMap = {
-    brand: "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400 border-l-[3px] border-brand-500",
-    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border-l-[3px] border-emerald-500",
-    amber: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-l-[3px] border-amber-500"
-  };
-  const bgClass = isActive
-    ? colorMap[accentColor as keyof typeof colorMap]
-    : "hover:bg-surface-50 dark:hover:bg-white/[0.02] border-l-[3px] border-transparent text-surface-900 dark:text-white";
-
-  return (
-    <button onClick={onClick} className={`w-full flex items-start gap-3 p-3 transition-all text-left ${bgClass}`}>
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-white dark:bg-black/20' : 'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400'}`}>
-        <span className="text-xs font-bold uppercase">
-          {(contact.full_name || contact.email).split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
-        </span>
-      </div>
-      <div className="flex-1 min-w-0 overflow-hidden pt-0.5">
-        <div className="flex justify-between items-start mb-0.5">
-          <span className="text-sm font-semibold truncate">{contact.full_name}</span>
-          {contact.last_message_at && <span className="text-[10px] opacity-60 ml-1 shrink-0">{new Date(contact.last_message_at).toLocaleDateString()}</span>}
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] opacity-70 truncate">{contact.department || contact.role}</span>
-          {contact.unread_count > 0 && (
-            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${isActive ? 'bg-white text-black' : 'bg-brand-500 text-white'}`}>
-              {contact.unread_count}
-            </span>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-};
-
-const ChatView = ({ currentUserId, activeContact, thread, accentColor = "brand", onSend }: any) => {
-  const [text, setText] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [thread]);
-
-  const sendBtnColors = {
-    brand: "bg-brand-600 hover:bg-brand-500",
-    emerald: "bg-emerald-600 hover:bg-emerald-500",
-    amber: "bg-amber-600 hover:bg-amber-500"
-  };
-
-  return (
-    <div className="flex-1 flex flex-col min-w-0 h-full relative bg-surface-50/30 dark:bg-transparent">
-      <div className="p-4 border-b border-surface-200 dark:border-white/[0.06] flex justify-between items-center bg-white dark:bg-[#141A29]">
-        <div>
-          <h2 className="text-base font-semibold text-surface-900 dark:text-white">{activeContact.full_name}</h2>
-          <p className="text-xs text-surface-500">{activeContact.email}</p>
-        </div>
-        <span className="px-2 py-0.5 bg-surface-100 dark:bg-surface-800 text-[10px] font-bold text-surface-600 dark:text-surface-300 rounded uppercase tracking-wider">{activeContact.role}</span>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-        {thread.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-surface-400 text-sm">No messages yet. Say hi!</div>
-        ) : (
-          thread.map((m: any) => {
-            const isMine = m.sender_id === currentUserId;
-            return (
-              <div key={m.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${isMine ? sendBtnColors[accentColor as keyof typeof sendBtnColors] + " text-white rounded-br-sm" : "bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] text-surface-900 dark:text-white rounded-bl-sm"}`}>
-                  {m.content}
-                </div>
-                <span className="text-[9px] text-surface-400 mt-1 px-1">{ts(m.created_at)}</span>
-              </div>
-            );
-          })
-        )}
-        <div ref={endRef} />
-      </div>
-      <div className="p-4 bg-white dark:bg-[#141A29] border-t border-surface-200 dark:border-white/[0.06]">
-        <div className="relative">
-          <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (text.trim()) { onSend(text.trim()); setText(""); } } }}
-            placeholder="Type a message..." className="w-full bg-surface-100 dark:bg-surface-900 border-none rounded-xl pl-4 pr-12 py-3 text-sm text-surface-900 dark:text-white focus:ring-1 focus:ring-surface-300 dark:focus:ring-surface-700 outline-none" />
-          <button onClick={() => { if (text.trim()) { onSend(text.trim()); setText(""); } }} disabled={!text.trim()}
-            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-white transition-colors disabled:opacity-50 ${sendBtnColors[accentColor as keyof typeof sendBtnColors]}`}>
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export default function AdminCommunicationPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<"chat" | "announce">("chat");
-  const [contacts, setContacts] = useState<any[]>([]);
-  const [activeContact, setActiveContact] = useState<any>(null);
-  const [thread, setThread] = useState<any[]>([]);
+  const { contacts, active: activeContact, setActive: setActiveContact, thread, send: handleSend } = useChat(user?.id);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -133,38 +37,13 @@ export default function AdminCommunicationPage() {
   };
 
   useEffect(() => {
-    fetch(`${getApiBaseUrl()}/communication/contacts`, { headers: getHeaders() })
-      .then(r => r.json()).then(d => { if (Array.isArray(d)) setContacts(d); });
-    fetch(`${getApiBaseUrl()}/communication/announcements`, { headers: getHeaders() })
-      .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); });
+    const load = () =>
+      fetch(`${getApiBaseUrl()}/communication/announcements`, { headers: getHeaders() })
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
   }, []);
-
-  useEffect(() => {
-    if (!activeContact) { setThread([]); return; }
-    fetch(`${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
-      .then(r => r.json()).then(d => { 
-        if (Array.isArray(d)) {
-          setThread(d); 
-          setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
-        }
-      });
-  }, [activeContact]);
-
-  const handleSend = async (text: string) => {
-    if (!activeContact) return;
-    const res = await fetch(`${getApiBaseUrl()}/communication/send`, {
-      method: "POST", headers: getHeaders(),
-      body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: text })
-    });
-    if (res.ok) {
-      const data = await fetch(
-        `${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
-      ).then(r => r.json());
-      if (Array.isArray(data)) setThread(data);
-    } else {
-      const err = await res.json(); showToast(err.detail || "Failed to send", "error");
-    }
-  };
 
   const handleOrgBroadcast = async () => {
     if (!bContent.trim()) return;
@@ -244,29 +123,12 @@ export default function AdminCommunicationPage() {
       {tab === "chat" ? (
         <div className="flex flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#141A29] shadow-sm min-h-0">
           {/* Sidebar */}
-          <div className="w-64 shrink-0 border-r border-surface-200 dark:border-white/[0.06] flex flex-col overflow-y-auto custom-scrollbar">
-            {contacts.length > 0 ? (
-              <>
-                <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] sticky top-0 bg-white dark:bg-[#141A29] z-10 shadow-sm">
-                  <span className="text-[10px] font-bold text-[#F59E0B] uppercase tracking-widest">All Contacts</span>
-                </div>
-                {contacts.map(c => (
-                  <ContactItem 
-                    key={c.id} 
-                    contact={{...c, unread_count: activeContact?.id === c.id ? 0 : c.unread_count}} 
-                    isActive={activeContact?.id === c.id} 
-                    onClick={() => setActiveContact(c)} 
-                    accentColor="amber"
-                  />
-                ))}
-              </>
-            ) : (
-              <div className="text-center py-12 text-surface-400 text-sm px-4">No contacts found</div>
-            )}
+          <div className="w-72 shrink-0 border-r border-surface-200 dark:border-white/[0.06] min-h-0">
+            <ContactList contacts={contacts} activeId={activeContact?.id} onSelect={setActiveContact} />
           </div>
 
           {activeContact ? (
-            <ChatView currentUserId={user.id} activeContact={activeContact} thread={thread} accentColor="amber" onSend={handleSend} />
+            <ChatView currentUserId={user.id} activeContact={activeContact} thread={thread} accentColor="brand" onSend={handleSend} />
           ) : (
             <div className="flex-1 flex items-center justify-center text-surface-400">
               <div className="text-center"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p className="text-sm">Select a contact to start chatting</p></div>

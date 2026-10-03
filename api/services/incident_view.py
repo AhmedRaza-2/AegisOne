@@ -7,7 +7,7 @@ both `api/routers/incidents.py` (admin) and `api/routers/manager_incidents.py`
 so redaction can't be accidentally skipped by adding a new endpoint elsewhere.
 """
 from api.database.schemas import IncidentResponse, IncidentReportResponse
-from api.services.redaction import redact_text
+from api.services.redaction import redact_text, redact_obj
 
 
 def redact_incident_report(report) -> IncidentReportResponse:
@@ -15,6 +15,7 @@ def redact_incident_report(report) -> IncidentReportResponse:
     data = IncidentReportResponse.model_validate(report).model_dump()
     data["target_ref"] = redact_text(data.get("target_ref"))
     data["user_notes"] = redact_text(data.get("user_notes"))
+    data["evidence"] = redact_obj(data.get("evidence"))
     return IncidentReportResponse(**data)
 
 
@@ -24,4 +25,5 @@ def redact_incident(incident_response: IncidentResponse) -> IncidentResponse:
     data["detection_event_ref"] = redact_text(data.get("detection_event_ref"))
     data["admin_notes"] = redact_text(data.get("admin_notes"))
     data["manager_notes"] = redact_text(data.get("manager_notes"))
+    data["evidence"] = redact_obj(data.get("evidence"))
     return IncidentResponse(**data)

@@ -452,7 +452,10 @@ def generate_tier1_explanation(
     """
     t0 = time.perf_counter()
 
-    risk_score = int((rich_evidence or {}).get("final_risk", evidence.get("risk_score", 0)) or 0)
+    # Always explain the number the user is looking at. The stored scan can be lower than
+    # the live widget score when extra in-page findings (pop-ups, links) raised it.
+    _live = evidence.get("risk_score")
+    risk_score = int(_live if _live is not None else (rich_evidence or {}).get("final_risk", 0) or 0)
     if risk_score >= 80:
         label = "High Risk"
     elif risk_score >= 50:
@@ -476,14 +479,17 @@ def generate_tier1_explanation(
     grounded = build_grounded_findings(evidence, rich_evidence)
     findings = grounded["findings"]
     brand = grounded["brand"]
+    noun = grounded["noun"]
 
     if risk_score >= 20:
         verb = "blocked" if risk_score >= 80 else "flagged"
-        summary = f"AegisOne {verb} this page ({risk_score}% risk) — {findings[0]}."
+        summary = f"AegisOne {verb} this {noun} ({risk_score}% risk) — {findings[0]}."
         if len(findings) > 1:
             summary += f" On top of that, {findings[1]}."
     else:
-        summary = f"AegisOne checked this page ({risk_score}% risk) and found it safe. {findings[0].capitalize()}."
+        summary = f"AegisOne checked this {noun} ({risk_score}% risk) and found it safe. {findings[0][0].upper() + findings[0][1:]}."
+    if 20 <= risk_score < 50:
+        summary = summary.replace(f"flagged this {noun}", f"found minor warning signs on this {noun}", 1)
 
     main_reasons = [f[0].upper() + f[1:] for f in findings]
 
@@ -513,7 +519,8 @@ def generate_tier1_explanation(
             "rules": fired_rules,
         },
         "main_reasons": main_reasons,
-        "recommendations": _build_recommendations(risk_score, evidence, brand),
+        "scan_kind": grounded["kind"],
+        "recommendations": _build_recommendations(risk_score, evidence, brand, grounded["kind"]),
         "threat_likelihood": f"{'High' if risk_score >= 80 else 'Moderate' if risk_score >= 50 else 'Low'} Likelihood of {evidence.get('threat_type', 'Phishing').replace('_', ' ').title()}",
         "mitre_mapping": mitre,
         "ioc": {
@@ -603,20 +610,140 @@ def _parse_signal_strings(signal_strings: List[str]) -> Dict[str, Any]:
     return {"brand": brand, "phrases": phrases}
 
 
+# Wording scammers lean on to rush or scare people. Matched literally against text
+# found inside images / selected text / pages so the explanation can quote the exact
+# phrase that tripped the detector instead of saying "suspicious wording".
+_LURE_PHRASES = [
+    "verify your account", "verify your identity", "confirm your password", "enter your password",
+    "confirm your identity", "reset your password", "account suspended", "account has been suspended",
+    "account will be", "unusual activity", "suspicious activity", "security alert", "urgent action",
+    "action required", "act now", "limited time", "expires today", "final notice", "click here",
+    "gift card", "wire transfer", "update your payment", "update billing", "payment failed",
+    "claim your", "you have won", "sign in to continue", "log in to your account", "invoice attached",
+    "virus detected", "your device is infected", "winner", "cash prize",
+]
+
+_SCAN_KIND_ALIASES = {
+    "website": "page", "url": "page", "contextual": "page", "full_page": "page",
+    "hover": "page", "page": "page", "image": "image", "text": "text", "email": "email",
+    "download": "download", "file": "download",
+}
+_KIND_NOUN = {"page": "page", "image": "image", "text": "text", "email": "email", "download": "file"}
+
+
+def find_lure_phrases(text: str, limit: int = 6) -> List[str]:
+    """Return the scam-style phrases literally present in `text` (lower-cased, de-duplicated)."""
+    if not text:
+        return []
+    low = text.lower()
+    hits: List[str] = []
+    for phrase in _LURE_PHRASES:
+        if phrase in low and phrase not in hits:
+            hits.append(phrase)
+            if len(hits) >= limit:
+                break
+    return hits
+
+
+def _quote_join(items: List[str]) -> str:
+    quoted = [f"“{i}”" for i in items]
+    if len(quoted) <= 1:
+        return "".join(quoted)
+    return ", ".join(quoted[:-1]) + " and " + quoted[-1]
+
+
+def _image_findings(rich: Dict[str, Any]) -> List[str]:
+    ie = (rich or {}).get("image_evidence") or {}
+    out: List[str] = []
+    vis = float(ie.get("visual_probability") or 0)
+    if vis >= 0.5:
+        out.append(
+            f"the picture itself looks like a screenshot of a fake login or payment page — our image model "
+            f"rated it {round(vis * 100)}% similar to known phishing pages"
+        )
+    lures = ie.get("ocr_lures") or []
+    if lures:
+        out.append(
+            f"the text written inside the image contains {_quote_join(lures[:4])}, wording scammers use to rush people into acting"
+        )
+    elif float(ie.get("ocr_text_probability") or 0) >= 0.5:
+        out.append(
+            f"the words written inside the image read like a typical phishing message (our text model rated them "
+            f"{round(float(ie['ocr_text_probability']) * 100)}% likely)"
+        )
+    for emb in (ie.get("embedded_urls") or [])[:2]:
+        if (emb.get("risk") or 0) >= 50:
+            reason = (emb.get("signals") or [""])[0]
+            extra = f" ({reason[0].lower() + reason[1:]})" if reason else ""
+            out.append(f"the image shows a link to {emb.get('url', 'another site')} that our link scanner rated {round(emb['risk'])}% risky{extra}")
+    if out and ie.get("ocr_excerpt"):
+        out.append(f"the image text begins: “{str(ie['ocr_excerpt'])[:110].strip()}”")
+    return out
+
+
+def _text_findings(rich: Dict[str, Any]) -> List[str]:
+    te = (rich or {}).get("text_evidence") or {}
+    out: List[str] = []
+    lures = te.get("lures") or []
+    if lures:
+        out.append(f"it contains {_quote_join(lures[:4])}, wording scammers use to create panic or urgency")
+    words = [w for w in (te.get("top_words") or []) if w and w not in lures]
+    if words:
+        out.append(f"our model paid the most attention to the words {_quote_join(words[:4])}")
+    if te.get("context"):
+        out.append(f"the flagged passage reads: “{str(te['context'])[:140].strip()}”")
+    return out
+
+
+def _humanize_client_factor(label: str) -> str:
+    """Turn an extension-side factor label (emoji prefix, truncated URL) into a sentence fragment."""
+    s = _re.sub(r"^[^\w\"'(]+", "", str(label)).strip()
+    s = s.replace("…", "").strip()
+    if not s:
+        return ""
+    pct = _re.search(r"\((\d{1,3})% risk\)\s*$", s)
+    risk = f" ({pct.group(1)}% risk)" if pct else ""
+    s_no_pct = _re.sub(r"\s*\(\d{1,3}% risk\)\s*$", "", s)
+    known = [
+        (r"^Pop-up banner image flagged:\s*(\S+)", lambda m: f"a pop-up banner image shown on this page ({m.group(1)}) was flagged as risky{risk}"),
+        (r"^Pop-up redirect target flagged:\s*(\S+)", lambda m: f"a pop-up on this page tries to send you to {m.group(1)}, which was flagged as risky{risk}"),
+        (r"^Deceptive pop-up lure detected:\s*(.+)$", lambda m: f"a pop-up on this page uses scam wording like {m.group(1)}"),
+        (r"^In-page link flagged:\s*(\S+)", lambda m: f"a link on this page ({m.group(1)}) was flagged as risky"),
+        (r"^Malicious link:\s*(\S+)", lambda m: f"a link on this page ({m.group(1)}) looks malicious"),
+        (r"^Phishing keyword:\s*(.+)$", lambda m: f"the page text contains the scam-style word {m.group(1)}"),
+    ]
+    for pattern, build in known:
+        m = _re.match(pattern, s_no_pct)
+        if m:
+            return build(m)
+    return s[0].lower() + s[1:]
+
+
 def build_grounded_findings(evidence: Dict[str, Any], rich_evidence: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Builds a list of concrete, plain-language findings ordered by how conclusive they
     are, plus a target label for the summary sentence. Pulls from `rich_evidence` (the
     full server-stored evidence for this exact scan, looked up by scan_id — the ground
-    truth) when available, falling back to whatever the caller sent directly in `evidence`
-    for scan types that don't have a stored record (e.g. ad-hoc text/image scans).
+    truth) when available, falling back to whatever the caller sent directly in `evidence`.
 
-    Returns: {"findings": [str, ...], "target_label": str, "brand": str|None}
+    Returns: {"findings": [str, ...], "target_label": str, "brand": str|None,
+              "kind": "page|image|text|email|download", "noun": str}
     """
     findings: List[str] = []
     brand: Optional[str] = None
 
-    target = (rich_evidence or {}).get("target_domain") or evidence.get("domain") or evidence.get("url") or "this page"
+    raw_kind = (rich_evidence or {}).get("scan_kind") or evidence.get("scan_type") or ("image" if evidence.get("is_image") else "page")
+    kind = _SCAN_KIND_ALIASES.get(str(raw_kind).lower(), "page")
+    noun = _KIND_NOUN[kind]
+
+    target = (rich_evidence or {}).get("target_domain") or evidence.get("domain") or evidence.get("url") or f"this {noun}"
+
+    # 0. Image / text scans: the stored evidence says exactly what the vision model, the OCR
+    #    text and the scam-phrase matcher saw — lead with that.
+    if kind == "image":
+        findings.extend(_image_findings(rich_evidence or {}))
+    elif kind in ("text", "email"):
+        findings.extend(_text_findings(rich_evidence or {}))
 
     url_model_evidence = (rich_evidence or {}).get("url_model_evidence") or {}
     brand_info = url_model_evidence.get("brand_impersonation") or {}
@@ -693,22 +820,56 @@ def build_grounded_findings(evidence: Dict[str, Any], rich_evidence: Optional[Di
             elif name == "suspicious_visual_content":
                 findings.append("the page's visual design closely copies a real, trusted brand's look")
 
-    # 5. Genuinely clean verdict — say so concretely, not just "no threats detected."
-    risk_score = int((rich_evidence or {}).get("final_risk", evidence.get("risk_score", 0)) or 0)
+    # 5. Findings the browser extension saw first-hand and sent along (pop-up banners,
+    #    in-page links, keywords). Added when nothing stronger is stored, or when the page's
+    #    live score is higher than the stored scan — i.e. the extra risk came from these.
+    client_factors = [f for f in (evidence.get("client_factors") or []) if isinstance(f, str)]
+    stored_risk = int((rich_evidence or {}).get("final_risk", 0) or 0)
+    live_risk = int(evidence.get("risk_score", 0) or 0)
+    if client_factors and (not findings or live_risk > stored_risk + 10):
+        for f in client_factors[:3]:
+            phrase = _humanize_client_factor(f)
+            if phrase and phrase not in findings:
+                findings.append(phrase)
+
+    # 6. Genuinely clean verdict — say so concretely, not just "no threats detected."
+    risk_score = live_risk if evidence.get("risk_score") is not None else stored_risk
     if not findings and risk_score < 20:
-        findings.append("we checked the web address, the page's behavior, and its content, and none of them matched known scam patterns")
+        what = {
+            "page": "the web address, the page's behavior, and its content",
+            "image": "the picture and any text written inside it",
+            "text": "the wording of this text and any links in it",
+            "email": "the sender, the wording and any links in this message",
+            "download": "the file and where it came from",
+        }[kind]
+        findings.append(f"we checked {what}, and none of it matched known scam patterns")
 
+    # 7. Last resort. Be honest that no single giveaway was found rather than implying
+    #    there was a specific one.
     if not findings:
-        findings.append("our models flagged a combination of smaller signals that, together, matched known phishing patterns")
+        findings.append(
+            f"our models rated this {noun} {risk_score}% likely to be phishing from its overall look and wording, "
+            f"even though no single obvious giveaway stood out — treat it with care"
+        )
 
-    return {"findings": findings, "target_label": target, "brand": brand}
+    return {"findings": findings, "target_label": target, "brand": brand, "kind": kind, "noun": noun}
 
 
-def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Optional[str] = None) -> List[str]:
+def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Optional[str] = None, kind: str = "page") -> List[str]:
     recs: List[str] = []
     if evidence.get("login_form_detected"):
         recs.append("Do not type your password or personal details into this page.")
-    if risk_score >= 80:
+    if risk_score >= 50 and kind == "image":
+        recs.append("Don't trust any link, phone number or QR code shown inside this image, even if it looks official.")
+        recs.append("If it claims to be from a company you use, open that company's site yourself by typing its address.")
+        if risk_score >= 80:
+            recs.append("Use the \"Report Threat\" button so your security team can warn others about this image.")
+    elif risk_score >= 50 and kind in ("text", "email"):
+        recs.append("Don't reply, and don't click any link or open any attachment in it.")
+        recs.append("If it claims to be from someone you know, confirm with them through a different channel first.")
+        if risk_score >= 80:
+            recs.append("Use the \"Report Threat\" button so your security team can warn others.")
+    elif risk_score >= 80:
         if brand:
             recs.append(f"If you need to reach {brand.title()}, close this tab and type {brand.lower()}.com directly into your browser instead of using this link.")
         recs.append("Close this tab now — do not interact with the page further.")

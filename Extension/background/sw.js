@@ -356,7 +356,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const signal = _tabControllers.get(tabId)?.signal;
 
           const [textRes, urlsRes] = await Promise.allSettled([
-            pageText ? scanPageText(pageText, signal) : Promise.resolve(null),
+            pageText ? scanPageText(pageText, signal, pageUrl) : Promise.resolve(null),
             scanURLBatch(allLinks.slice(0, 30), 5, signal, pageUrl),
           ]);
 
@@ -542,7 +542,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const tabData = _mergeDeepScanData(getTabCache(tabId));
           const url = msg.url || tabData?.url;
 
-          let xaiResult = await explainWithAI(tabData, url, msg.score);
+          let xaiResult = await explainWithAI(tabData, url, msg.score, msg.top_factors || []);
 
           if (xaiResult?.error || !xaiResult?.summary) {
             const local = generateLocalExplanation(tabData, msg.score);
@@ -675,7 +675,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             user_note: msg.note || null,
           });
           await flushNow();
-          sendResponse({ ok: true });
+
+          // Also file it as a real report so it becomes an incident a manager/admin can
+          // review — with the evidence the employee was shown attached.
+          const threatResult = await submitReport({
+            reportType: "phishing",
+            targetRef: msg.url,
+            scanId: msg.scanId,
+            riskScore: msg.score,
+            predictedClass: msg.threat_type,
+            notes: msg.note || "Employee reported this from the AegisOne security report.",
+            evidence: msg.evidence,
+          });
+          sendResponse({ ok: true, reported: !!threatResult });
           break;
         }
 
@@ -710,6 +722,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             riskScore: msg.score,
             predictedClass: msg.threat_type,
             notes: msg.note || "User reported False Positive from the warning banner.",
+            evidence: msg.evidence,
           });
 
           sendResponse({ ok: true, reported: !!fpResult });
@@ -736,6 +749,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             riskScore: msg.score,
             predictedClass: msg.threat_type,
             notes: msg.note || "Employee created an incident from the warning banner.",
+            evidence: msg.evidence,
           });
 
           sendResponse({ ok: true, reported: !!incidentResult });

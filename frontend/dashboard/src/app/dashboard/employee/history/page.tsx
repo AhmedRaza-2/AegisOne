@@ -1,7 +1,7 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { getApiBaseUrl } from "@/lib/api";
-import { scanHistory } from "@/lib/mock-data";
+import { toast } from "@/components/ui/toast";
 import { History, CheckCircle, AlertTriangle, XCircle, Download, Calendar } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
@@ -40,7 +40,8 @@ export default function HistoryPage() {
   const [itemsPerPage, setItemsPerPage] = useState(30);
 
   useEffect(() => {
-    if (user?.email) {
+    if (!user?.email) return;
+    const load = () =>
       fetch(`${getApiBaseUrl()}/user/stats?email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(data => {
@@ -51,10 +52,10 @@ export default function HistoryPage() {
           console.error(err);
           setIsLoading(false);
         });
-    }
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
   }, [user]);
-
-  if (!user) return null;
 
   const filtered = useMemo(() => {
     let result = dbScans;
@@ -88,7 +89,7 @@ export default function HistoryPage() {
   }, [filtered, page, itemsPerPage]);
 
   const handleExport = () => {
-    if (!filtered.length) return alert("No data to export");
+    if (!filtered.length) return toast("There is no history to export for this filter.", "error");
     const headers = "ID,Type,Preview,Verdict,Risk Level,Action,Timestamp\n";
     const csv = filtered.map(s => {
       const preview = s.inputPreview ? s.inputPreview.replace(/[\n\r,]/g, ' ') : '';
@@ -104,6 +105,10 @@ export default function HistoryPage() {
 
   const isDateChanged = startDate !== defaultDates.start || endDate !== defaultDates.end;
 
+  if (!user) return null;
+
+  const threatCount = dbScans.filter(s => s.riskLevel !== "safe").length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -111,7 +116,7 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
             <History className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Scan History
           </h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{dbScans.length} total scans recorded</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{dbScans.length} scans recorded • {threatCount} flagged • updates live every 10 seconds</p>
         </div>
       </div>
 
@@ -165,9 +170,9 @@ export default function HistoryPage() {
             <thead>
               <tr className="border-b border-surface-200 dark:border-white/[0.06] bg-surface-50/50 dark:bg-white/[0.01]">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Type</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Content Preview</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">What was scanned &amp; why</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Risk</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Verdict</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Risk Level</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Action Taken</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Timestamp</th>
               </tr>
@@ -177,18 +182,22 @@ export default function HistoryPage() {
                 <tr key={s.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-3.5">
                     <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-700 dark:bg-white/[0.05] dark:text-surface-300">
-                      {s.scanType}
+                      {s.scanType === "website" ? "page" : s.scanType}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 max-w-[300px] min-w-[200px]">
-                    <p className="text-surface-850 dark:text-surface-200 truncate font-medium" title={s.inputPreview}>{s.inputPreview ? s.inputPreview.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : ''}</p>
-                    {s.threatType && <p className="text-[11px] text-surface-500 truncate mt-0.5">{s.threatType.replace(/_/g, " ")}</p>}
+                  <td className="px-4 py-3.5 max-w-[360px] min-w-[220px]">
+                    <p className="text-surface-850 dark:text-surface-200 truncate font-medium" title={s.inputPreview}>{s.inputPreview || ''}</p>
+                    {s.reason
+                      ? <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5 line-clamp-2 first-letter:uppercase">{s.reason}</p>
+                      : s.threatType && s.riskLevel !== "safe" && <p className="text-[11px] text-surface-500 truncate mt-0.5">{String(s.threatType).replace(/_/g, " ")}</p>}
                   </td>
-                  <td className="px-4 py-3.5">
-                    <span className={`text-xs font-semibold capitalize ${s.riskLevel === "safe" ? "text-emerald-650 dark:text-emerald-450" : "text-red-650 dark:text-red-400"
-                      }`}>
-                      {s.riskLevel}
-                    </span>
+                  <td className="px-4 py-3.5 w-28">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-surface-100 dark:bg-white/[0.06] overflow-hidden">
+                        <div className={`h-full rounded-full ${(s.riskScore || 0) >= 75 ? "bg-red-500" : (s.riskScore || 0) >= 50 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, Math.round(s.riskScore || 0))}%` }} />
+                      </div>
+                      <span className="text-xs font-semibold text-surface-700 dark:text-surface-300 w-8 text-right">{Math.round(s.riskScore || 0)}%</span>
+                    </div>
                   </td>
                   <td className="px-4 py-3.5"><RiskBadge level={s.riskLevel} /></td>
                   <td className="px-4 py-3.5">

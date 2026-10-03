@@ -102,8 +102,9 @@ async def list_incidents(
             "escalated_by_id": inc.escalated_by_id,
             "escalated_at": inc.escalated_at,
             "manager_notes": inc.manager_notes,
+            "evidence": inc.evidence,
         }
-        response_items.append(IncidentResponse(**item_dict))
+        response_items.append(redact_incident(IncidentResponse(**item_dict)))
 
     return response_items
 
@@ -227,6 +228,7 @@ async def get_incident_detail(
         escalated_by_id=inc.escalated_by_id,
         escalated_at=inc.escalated_at,
         manager_notes=inc.manager_notes,
+        evidence=inc.evidence,
     ))
 
     return {
@@ -350,7 +352,11 @@ async def verify_incident(
                     "predicted_class": inc.predicted_class,
                     "risk_score": inc.risk_score,
                     "verified_label": label,
-                    "admin_notes": payload.admin_notes
+                    "admin_notes": payload.admin_notes,
+                    "decision": decision_upper,
+                    # Why the original detection fired, so an admin reviewing training data
+                    # can see the exact evidence behind each sample.
+                    "evidence": inc.evidence,
                 },
                 verified_by_id=current_user.id,
                 status="pending"

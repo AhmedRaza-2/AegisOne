@@ -20,6 +20,7 @@ from api.database.db import get_db
 from api.database.models import User, Incident, IncidentReport, AuditLog
 from api.database.schemas import EmployeeReportCreate, IncidentReportResponse
 from api.dependencies import get_current_user
+from api.services.evidence import build_report_evidence
 
 logger = logging.getLogger("aegisone.reports")
 
@@ -45,6 +46,7 @@ async def submit_report(
     org_id = current_user.organization_id or "org_default"
     report_id = f"REP-{uuid.uuid4().hex[:8].upper()}"
     target_ref = payload.target_ref or payload.scan_id or payload.event_id or "Unknown Target"
+    evidence = await build_report_evidence(db, org_id, payload.scan_id, payload.evidence, target_ref, payload.risk_score)
 
     # Correlation check: look for an existing OPEN or INVESTIGATING incident in the same org with matching reference
     existing_incident = None
@@ -81,6 +83,7 @@ async def submit_report(
             predicted_class=payload.predicted_class,
             risk_score=payload.risk_score,
             notes=payload.user_notes,
+            evidence=evidence,
         )
         db.add(incident)
         await db.flush()  # get incident.id
@@ -102,7 +105,8 @@ async def submit_report(
         predicted_class=payload.predicted_class,
         risk_score=payload.risk_score,
         user_notes=payload.user_notes,
-        status="submitted"
+        status="submitted",
+        evidence=evidence,
     )
     db.add(report)
 

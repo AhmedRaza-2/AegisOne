@@ -23,6 +23,21 @@ function safeSendMessage(msg) {
   }
 }
 
+// Evidence that travels with every report so the reviewer sees what the employee saw.
+function _reportEvidence({ url, score, threat_type, findings, summary }) {
+  return {
+    reported_from: "browser_extension",
+    target_url: url || null,
+    page_url: window.location.href,
+    page_title: (document.title || "").slice(0, 200),
+    risk_score: score,
+    threat_type: threat_type || null,
+    findings: (findings || []).filter(Boolean).map(s => String(s).slice(0, 300)).slice(0, 10),
+    summary: summary ? String(summary).slice(0, 800) : null,
+    captured_at: new Date().toISOString(),
+  };
+}
+
 export function showWarningModal({ score, verdict, threat_type, top_factors, url, scan_id, onContinue }) {
   if (window.__AEGIS_WARNING_DISMISSED__) return;
   _removeModal("aegis-warning-overlay");
@@ -101,10 +116,11 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; }
     await safeSendMessage({
       type: MSG.REPORT_FALSE_POSITIVE,
-      url: window.location.href,
+      url,
       score: score,
       threat_type,
       scanId: scan_id,
+      evidence: _reportEvidence({ url, score, threat_type, findings: factorsList.map(f => (typeof f === "object" ? f.label : String(f))) }),
       note: "User reported False Positive"
     });
 
@@ -122,10 +138,11 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
     if (btn) { btn.textContent = "✓ Incident Created"; btn.disabled = true; }
     await safeSendMessage({
       type: MSG.CREATE_INCIDENT,
-      url: window.location.href,
+      url,
       score: score,
       threat_type,
       scanId: scan_id,
+      evidence: _reportEvidence({ url, score, threat_type, findings: factorsList.map(f => (typeof f === "object" ? f.label : String(f))) }),
       note: "Employee created an incident from the warning banner."
     });
     // No auto-allow: creating an incident escalates for review, it does not
@@ -142,10 +159,11 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
       type: MSG.XAI_REQUEST,
       url,
       score: score,
+      top_factors: factorsList.map(f => (typeof f === "object" ? f.label : String(f))).filter(Boolean).slice(0, 8),
     });
 
     document.getElementById("aegis-warning-overlay")?.remove();
-    if (res?.xai) showXAIModal(res.xai, { score, url, threat_type });
+    if (res?.xai) showXAIModal(res.xai, { score, url, threat_type, scan_id });
   });
 }
 
@@ -331,8 +349,17 @@ export function showXAIModal(xai, context = {}) {
   panel.querySelector("#aegis-xai-report")?.addEventListener("click", async () => {
     await safeSendMessage({
       type: MSG.REPORT_THREAT,
-      url: window.location.href,
+      url: url || window.location.href,
       score: s,
+      scanId: context.scan_id || null,
+      threat_type: context.threat_type || null,
+      evidence: _reportEvidence({
+        url: url || window.location.href,
+        score: s,
+        threat_type: context.threat_type,
+        findings: xai.main_reasons || xai.top_factors || [],
+        summary: xai.summary,
+      }),
     });
     const btn = panel.querySelector("#aegis-xai-report");
     if (btn) { btn.textContent = "✓ Reported!"; btn.disabled = true; btn.style.background = "#10b981"; }

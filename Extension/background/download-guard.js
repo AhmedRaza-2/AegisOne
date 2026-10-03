@@ -108,18 +108,22 @@ async function _onDownloadCreated(item) {
 
     console.log(`[AegisOne:DownloadGuard] Intercepting: ${filename}`);
 
+    // Hold the download and learn the name Chrome settled on (covers <a download="x.pdf">
+    // and Content-Disposition) BEFORE cancelling — otherwise the re-download is named from
+    // the URL and the user's file comes back renamed.
+    const keepName = await _resolveOriginalName(item);
     _cancelDownload(item.id);
 
-    _pending.set(item.id, { url, filename, scanResult: null });
+    _pending.set(item.id, { url, filename, keepName, scanResult: null });
     const scanResult = await scanDownload(url, filename);
-    _pending.set(item.id, { url, filename, scanResult });
+    _pending.set(item.id, { url, filename, keepName, scanResult });
 
     if (scanResult.verdict === VERDICT.DANGER || scanResult.verdict === VERDICT.WARNING) {
       await _promptUser(item.id, filename, scanResult);
     } else {
       _markProcessed(url);
       _allowOnce(url);
-      _reDownload(item.id, url);
+      _reDownload(item.id, url, keepName);
       console.log(`[AegisOne:DownloadGuard] Safe file re-downloading: ${filename}`);
     }
   } catch (err) {
@@ -140,7 +144,7 @@ export function handleDownloadDecision(downloadId, action) {
   if (action === "allow" && pending?.url) {
     _markProcessed(pending.url);
     _allowOnce(pending.url);
-    _reDownload(downloadId, pending.url);
+    _reDownload(downloadId, pending.url, pending.keepName);
     console.log(`[AegisOne:DownloadGuard] User allowed download: ${pending.filename}`);
   } else if (pending?.url) {
     _markProcessed(pending.url);
@@ -155,8 +159,29 @@ function _cancelDownload(id) {
   } catch (_) {}
 }
 
-function _reDownload(id, url) {
-  chrome.downloads.download({ url }, () => {
+function _baseName(path) {
+  const name = String(path || "").split("\\").join("/").split("/").pop() || "";
+  // Must be a plain relative file name for chrome.downloads.download()
+  const bad = [...name].some(c => c.charCodeAt(0) < 32 || '<>:"|?*'.includes(c));
+  return name && name !== "." && name !== ".." && !bad ? name : "";
+}
+
+async function _resolveOriginalName(item) {
+  let name = _baseName(item.filename);
+  if (name) return name;
+  try { chrome.downloads.pause(item.id, () => chrome.runtime.lastError); } catch (_) {}
+  for (let i = 0; i < 8 && !name; i++) {
+    await new Promise(r => setTimeout(r, 75));
+    const [cur] = await new Promise(res => chrome.downloads.search({ id: item.id }, res));
+    name = _baseName(cur?.filename);
+  }
+  return name;
+}
+
+function _reDownload(id, url, keepName) {
+  const opts = { url };
+  if (keepName) { opts.filename = keepName; opts.conflictAction = "uniquify"; }
+  chrome.downloads.download(opts, () => {
     if (chrome.runtime.lastError) {
       console.warn("[AegisOne:DownloadGuard] Re-download failed:", chrome.runtime.lastError.message);
     }

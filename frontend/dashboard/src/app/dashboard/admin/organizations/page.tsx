@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/components/ui/toast";
 import { organizations, users, getGlobalStats } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
 import { Globe, Plus, Trash2, Send, ShieldCheck, AlertCircle, Building2, ExternalLink } from "lucide-react";
@@ -67,7 +68,7 @@ export default function OrganizationsPage() {
       setOrgs(organizations.getAll());
       setBroadcastTarget(null);
       setBroadcastMessage("");
-      alert("Broadcast alert dispatched to the tenant administrators successfully.");
+      toast("Broadcast dispatched to the tenant administrators.");
     }
   };
 
