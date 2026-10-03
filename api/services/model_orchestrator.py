@@ -659,6 +659,15 @@ def apply_adapter_weights(model_type: str, adapter_path: str, version_tag: str) 
         logger.warning(f"Cannot reload model adapter for {model_type}: model not loaded in memory")
         return False
 
+    # Local learning adapters are a tiny correction applied AFTER the unmodified base model
+    # (api/services/calibration.py) - the base weights are never overwritten, so revoking an adapter
+    # simply removes the correction.
+    from api.services import calibration
+    if calibration.load_from_artifact(model_type, adapter_path, version_tag):
+        MODELS[model_type]["active_version"] = version_tag
+        MODELS[model_type]["active_adapter_path"] = adapter_path
+        return True
+
     weights_file = os.path.join(adapter_path, "adapter_weights.pt")
     if os.path.exists(weights_file):
         try:
@@ -917,25 +926,29 @@ def _process_attachment_sync(file_path: str) -> dict:
 async def predict_email(sender: str, subject: str, body: str) -> dict:
     """Async email inference — runs in thread pool with semaphore guard."""
     async with _get_semaphore():
-        return await asyncio.to_thread(_predict_email_sync, sender, subject, body)
+        from api.services.calibration import calibrate_result
+        return calibrate_result("email", await asyncio.to_thread(_predict_email_sync, sender, subject, body))
 
 
 async def predict_text(text: str) -> dict:
     """Async text inference — runs in thread pool with semaphore guard."""
     async with _get_semaphore():
-        return await asyncio.to_thread(_predict_text_sync, text)
+        from api.services.calibration import calibrate_result
+        return calibrate_result("text", await asyncio.to_thread(_predict_text_sync, text))
 
 
 async def predict_url(url: str, form_actions: list[str] = None) -> dict:
     """Async URL inference — runs in thread pool with semaphore guard."""
     async with _get_semaphore():
-        return await asyncio.to_thread(_predict_url_sync, url, False, form_actions)
+        from api.services.calibration import calibrate_result
+        return calibrate_result("url", await asyncio.to_thread(_predict_url_sync, url, False, form_actions))
 
 
 async def predict_image(img_bytes: bytes) -> dict:
     """Async image inference — runs in thread pool with semaphore guard."""
     async with _get_semaphore():
-        return await asyncio.to_thread(_predict_image_sync, img_bytes)
+        from api.services.calibration import calibrate_result
+        return calibrate_result("image", await asyncio.to_thread(_predict_image_sync, img_bytes))
 
 
 async def predict_image_pil(img: Image.Image) -> dict:

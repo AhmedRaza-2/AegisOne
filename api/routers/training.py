@@ -24,6 +24,7 @@ from api.database.schemas import (
 )
 from api.auth.roles import Role, require_role
 from api.services.local_trainer import run_background_retraining
+from api.services import calibration
 
 logger = logging.getLogger("aegisone.training_router")
 
@@ -73,7 +74,15 @@ async def get_training_candidates_summary(
         elif c.status == "rejected":
             rejected_count += 1
 
+    readiness = {}
+    for mt in ("url", "email", "text", "image"):
+        p_, y_, _skipped = calibration.extract_samples([c for c in candidates if c.model_type == mt and c.status in ("pending", "used")])
+        readiness[mt] = calibration.readiness(int((y_ == 1).sum()), int((y_ == 0).sum()))
+        readiness[mt]["pending"] = sum(1 for c in candidates if c.model_type == mt and c.status == "pending")
+
     return TrainingCandidateSummary(
+        readiness=readiness,
+        active_adapters={k: v["version"] for k, v in calibration.REGISTRY.items()},
         total_verified_samples=total_verified,
         samples_by_model=samples_by_model,
         samples_by_class=samples_by_class,
@@ -158,7 +167,23 @@ async def trigger_model_retraining(
     if pending_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No pending verified training candidates available for '{model_type}' model."
+            detail=f"No new verified examples for the '{model_type}' model since it last learned."
+        )
+
+    # Refuse to start unless there is enough verified evidence of BOTH kinds to learn safely.
+    all_res = await db.execute(select(TrainingCandidate).where(
+        TrainingCandidate.organization_id == org_id,
+        TrainingCandidate.model_type == model_type,
+        TrainingCandidate.status.in_(["pending", "used"]),
+    ))
+    _p, _y, _skipped = calibration.extract_samples(all_res.scalars().all())
+    rd = calibration.readiness(int((_y == 1).sum()), int((_y == 0).sum()))
+    if not rd["ready"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(f"Not enough verified examples to learn safely: {rd['usable']} usable "
+                    f"({rd['phishing']} phishing, {rd['benign']} safe). Need at least {rd['needed_total']} in total "
+                    f"with at least {rd['needed_each']} of each kind."),
         )
 
     job_id = f"JOB-{uuid.uuid4().hex[:8].upper()}"
@@ -254,6 +279,33 @@ async def list_model_versions(
     ).order_by(ModelVersion.created_at.desc())
     result = await db.execute(query)
     return result.scalars().all()
+
+
+@router.post("/models/{model_type}/revert-to-base", response_model=Dict[str, Any])
+async def revert_model_to_base(
+    model_type: str,
+    current_user: User = Depends(require_role(Role.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke everything this organisation has taught the given model. The base model was never
+    modified, so this simply switches the correction layer off - instantly and completely."""
+    org_id = current_user.organization_id or "org_default"
+    model_type = model_type.lower()
+    if model_type not in ("url", "email", "text", "image"):
+        raise HTTPException(status_code=400, detail="Invalid model_type.")
+    active = (await db.execute(select(ModelVersion).where(
+        ModelVersion.organization_id == org_id, ModelVersion.model_type == model_type,
+        ModelVersion.is_production == True))).scalars().all()  # noqa: E712
+    for mv in active:
+        mv.is_production = False
+        mv.is_active = False
+    calibration.clear_adapter(model_type)
+    db.add(AuditLog(
+        organization_id=org_id, actor_email=current_user.email, action="MODEL_REVERTED_TO_BASE",
+        module="local_learning", target=f"{model_type} model returned to base behaviour",
+        result="success", ip_address="127.0.0.1"))
+    await db.commit()
+    return {"status": "success", "message": f"The {model_type} model is back to its original base behaviour."}
 
 
 @router.post("/models/{version_id}/activate", response_model=Dict[str, Any])

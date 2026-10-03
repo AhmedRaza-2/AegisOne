@@ -176,6 +176,11 @@ async def lifespan(app: FastAPI):
 
     load_all_models()
 
+    # Re-apply each organisation's active local-learning adapter (a small correction layer on top
+    # of the unchanged base models) - previously these were lost on every restart.
+    from api.services.calibration import restore_active_calibrations
+    await restore_active_calibrations()
+
     # Fire-and-forget: checks/pulls the local Ollama XAI model and warms the HuggingFace
     # fallback in the background. Does not block startup or readiness — if Ollama isn't
     # running, this just logs and the XAI endpoint falls back to its fast, non-LLM tier.

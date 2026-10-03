@@ -19,7 +19,6 @@ from api.database.models import User, Incident, IncidentReport, TrainingCandidat
 from api.auth.roles import Role
 from api.auth.jwt_handler import create_access_token
 from api.routers.global_learning import _apply_privacy_filter
-from api.services.local_trainer import _evaluate_candidate_metrics
 
 
 @pytest.fixture
@@ -52,17 +51,55 @@ def test_privacy_filter_sanitization():
     assert sample["verified_label"] == "phishing"
 
 
-def test_candidate_evaluation_logic():
-    """Verify Phase 3 Requirement 15 & 16: Quality criteria accept good candidates and reject worse candidates."""
-    good_metrics = {"accuracy": 0.96, "precision": 0.96, "recall": 0.95, "f1": 0.955, "fpr": 0.02, "fnr": 0.04}
-    worse_metrics = {"accuracy": 0.85, "precision": 0.82, "recall": 0.80, "f1": 0.81, "fpr": 0.12, "fnr": 0.15}
+def _cands(rows):
+    from types import SimpleNamespace
+    return [SimpleNamespace(sample_data={"risk_score": r}, label=lbl) for r, lbl in rows]
 
-    passed, msg = _evaluate_candidate_metrics(good_metrics, "url")
-    assert passed is True
 
-    passed_bad, msg_bad = _evaluate_candidate_metrics(worse_metrics, "url")
-    assert passed_bad is False
-    assert "below minimum threshold" in msg_bad or "exceeds maximum threshold" in msg_bad
+def test_learning_refuses_too_few_samples():
+    from api.services import calibration
+    rep = calibration.train_and_validate(_cands([(90, "phishing"), (10, "benign"), (85, "phishing")]))
+    ok, msg = calibration.evaluate(rep)
+    assert ok is False and "Not enough verified examples" in msg
+
+
+def test_learning_refuses_one_sided_data():
+    from api.services import calibration
+    rep = calibration.train_and_validate(_cands([(90, "phishing")] * 30))
+    ok, msg = calibration.evaluate(rep)
+    assert ok is False and "of each kind" in msg
+
+
+def test_learning_accepts_only_when_it_beats_base_on_held_out_data():
+    from api.services import calibration
+    # Base model over-alarms: it scores real-safe sites 55-70, real phishing 80-95.
+    rows = [(55 + (i % 16), "benign") for i in range(30)] + [(80 + (i % 16), "phishing") for i in range(30)]
+    rep = calibration.train_and_validate(_cands(rows))
+    ok, msg = calibration.evaluate(rep)
+    assert rep["base_model_modified"] is False
+    assert rep["candidate"]["fpr"] <= rep["base"]["fpr"] + 0.02
+    assert ok is True, msg
+    assert rep["candidate"]["log_loss"] <= rep["base"]["log_loss"]
+
+
+def test_learning_rejects_noise():
+    import random
+    from api.services import calibration
+    random.seed(1)
+    rows = [(random.randint(5, 95), random.choice(["phishing", "benign"])) for _ in range(40)]
+    ok, _msg = calibration.evaluate(calibration.train_and_validate(_cands(rows)))
+    assert ok is False
+
+
+def test_adapter_shift_is_bounded_and_revocable():
+    import numpy as np
+    from api.services import calibration
+    calibration.set_adapter("url", 0.5, -1.5, "t1", 40)
+    out = calibration.calibrate_result("url", {"phishing_probability": 0.9, "prediction": "phishing"})
+    assert abs(out["phishing_probability"] - 0.9) <= calibration.MAX_SHIFT + 1e-6
+    calibration.clear_adapter("url")
+    same = calibration.calibrate_result("url", {"phishing_probability": 0.9, "prediction": "phishing"})
+    assert same["phishing_probability"] == 0.9 and "local_adapter" not in same
 
 
 def test_public_root_and_health(client):

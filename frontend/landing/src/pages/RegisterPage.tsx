@@ -1058,9 +1058,10 @@ export default function RegisterPage() {
                     <div className="relative">
                       <input
                         id="confirm-password"
+                        disabled={!pwRules.every(r => r.ok) || !pwSymbolsOk}
                         type={showConfirm ? 'text' : 'password'}
-                        className={inputCls + ' pr-11' + (form.confirm_password && form.password !== form.confirm_password ? ' !border-red-400 !ring-red-200' : '')}
-                        placeholder="Re-enter password"
+                        className={inputCls + ' pr-11 disabled:opacity-60 disabled:cursor-not-allowed' + (form.confirm_password && form.password !== form.confirm_password ? ' !border-red-400 !ring-red-200' : '')}
+                        placeholder={pwRules.every(r => r.ok) && pwSymbolsOk ? 'Re-enter password' : 'Finish the password above first'}
                         value={form.confirm_password}
                         onChange={set('confirm_password')}
                         onBlur={() => touch('confirm_password')}

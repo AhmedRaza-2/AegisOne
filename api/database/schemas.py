@@ -414,6 +414,9 @@ class TrainingCandidateSummary(BaseModel):
     pending_candidates: int = 0
     used_candidates: int = 0
     rejected_candidates: int = 0
+    # Per model type: how many usable verified examples exist vs. the minimum needed to learn safely.
+    readiness: Dict[str, Any] = {}
+    active_adapters: Dict[str, Any] = {}
 
 
 class RetrainRequest(BaseModel):

@@ -194,3 +194,16 @@ Verified: 32 automated checks (`sec_test.py`) plus a real-Chromium run (token ha
 - Dashboard: one minimal install card (shared `ExtensionInstall`) on the employee and manager/admin extension pages: download button + three short steps.
 - Extension: re-downloading as a different user switches identity; dashboard sign-out no longer strips a bundled extension; popup sign-in remains only as a fallback (expired credential / generic bundle).
 - Verified in real Chromium: download as a user, load unpacked, nothing typed -> signed in, scans attributed.
+
+## Run 10 - Local learning rebuilt as a safe, revocable layer; extension ignores its own server
+
+**What the old "retraining" really did**: only the email model had a trainer (and it trained on the incident's URL/reference text, not email content, and "validated" on its own training samples plus 4 hard-coded examples). For url/text/image it was a stub: it saved `{"stub": true}`, reported hard-coded 95% accuracy, marked the version "active", and changed nothing. Activation also overwrote live weights in place (no way back without a restart) and was forgotten on restart.
+
+**Now** (`api/services/calibration.py`, `local_trainer.py`):
+- Base models are never modified. Learning = two numbers (a, b) applied after the base score, regularised toward "no change", bounded, and clamped to +/-0.25 around the base score.
+- Refuses to run below 20 usable verified examples with >=5 of each kind (env: AEGIS_MIN_TRAIN_SAMPLES / AEGIS_MIN_TRAIN_PER_CLASS). API and UI show exactly what is missing.
+- Validated with stratified 5-fold cross-validation (every score predicted by an adapter that never saw it) and compared with the unmodified base model on the same samples; activates only if false alarms and misses do not rise, probabilities stay reliable, and verdicts improve by at least 3 samples / 5%. Otherwise "Not activated", nothing changes, examples stay pending.
+- Revocable: `POST /admin/models/{type}/revert-to-base` (UI: Revoke) restores exact base behaviour; "Switch to this layer" switches versions. Active layers are re-applied on startup; placeholder versions from the stub trainer are retired automatically.
+- Tests: `api/tests/test_learning_lifecycle.py` (too few samples, one-sided data, acceptance, noise rejected, bounded + revocable). Live-verified on an isolated stack: held-out accuracy 50% -> 100% on seeded over-alarming data, survives restart, revoke returns the exact base score.
+
+**Extension**: never scans the AegisOne server/dashboard (server host on ports 3000/3001/3002/8000): page scans, text scans, link batches and downloads. Verified: 0 scans of the dashboard, external sites still scanned.

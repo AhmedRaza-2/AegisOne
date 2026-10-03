@@ -17,7 +17,7 @@ import { isInternalURL, isDangerousFileURL, getRootDomain } from "../utils/trust
 import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
 import { storeEvent } from "./event-store.js";
-import { authFetch } from "../utils/auth.js";
+import { authFetch, isAegisServerUrl } from "../utils/auth.js";
 
 let _policyCache = null;
 let _policyCacheAt = 0;
@@ -179,6 +179,9 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
   if (url.startsWith("chrome:") || url.startsWith("chrome-extension:") || url.startsWith("about:") || url.startsWith("data:")) {
     return _skippedResult(url);
   }
+  if (await isAegisServerUrl(url)) {
+    return { ..._skippedResult(url), domain: getRootDomain(url), reason: "aegisone_server" };
+  }
 
   const domain = getRootDomain(url);
   const hasDOMFeatures = Object.keys(pageFeatures).length > 0;
@@ -316,6 +319,7 @@ export async function scanURL(url, pageFeatures = {}, { bypassCache = false, sig
  */
 export async function scanPageText(text, signal = null, pageUrl = null) {
   if (!text || text.trim().length < 30) return null;
+  if (pageUrl && (await isAegisServerUrl(pageUrl))) return null;
   const form = new FormData();
   form.append("text", text.slice(0, 3000));
   if (pageUrl && /^https?:\/\//i.test(pageUrl)) form.append("source_url", pageUrl);
@@ -367,6 +371,7 @@ export async function scanURLBatch(urls, batchSize = 5, signal = null, pageUrl =
   const preResolved = [];
   for (const url of urls) {
     if (!url || isInternalURL(url)) continue;
+    if (await isAegisServerUrl(url)) continue;
     const domain = getRootDomain(url);
     if (_matchesAny(domain, policy.allowlist)) {
       preResolved.push(_policySafeResult(url, "policy_allowlist"));
@@ -461,6 +466,9 @@ const _SKIP_CONTENT_SCAN = new Set([
 
 export async function scanDownload(url, filename, signal = null) {
   if (!url) return { risk_score: 0, verdict: VERDICT.UNKNOWN };
+  if (await isAegisServerUrl(url)) {
+    return { url, filename, risk_score: 0, verdict: VERDICT.SAFE, policy_override: "aegisone_server", signals: [] };
+  }
   const policy = await _getPolicySnapshot();
   const domain = getRootDomain(url);
   if (_matchesAny(domain, policy.allowlist)) {

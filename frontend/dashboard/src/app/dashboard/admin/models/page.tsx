@@ -34,10 +34,10 @@ function duration(job: any) {
 }
 
 const JOB_STATUS: Record<string, { label: string; cls: string; help: string }> = {
-  queued: { label: "Queued", cls: "bg-amber-500/10 text-amber-600 dark:text-amber-400", help: "Waiting for the training worker to pick it up." },
-  running: { label: "Training", cls: "bg-blue-500/10 text-blue-600 dark:text-blue-400", help: "Fine-tuning on your verified samples, then testing the result on held-out samples." },
-  completed: { label: "Activated", cls: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", help: "Passed evaluation and is now the active model for your organisation." },
-  rejected: { label: "Rejected", cls: "bg-red-500/10 text-red-600 dark:text-red-400", help: "Trained, but did not beat the quality bar, so the current model stays in place." },
+  queued: { label: "Queued", cls: "bg-amber-500/10 text-amber-600 dark:text-amber-400", help: "Waiting for the learning worker to pick it up." },
+  running: { label: "Learning", cls: "bg-blue-500/10 text-blue-600 dark:text-blue-400", help: "Fitting a small correction layer, then testing it on examples it has never seen." },
+  completed: { label: "Activated", cls: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", help: "Proved better than the base model on unseen examples. Active as a layer on top of the base model; you can revoke it any time." },
+  rejected: { label: "Not activated", cls: "bg-amber-500/10 text-amber-600 dark:text-amber-400", help: "Did not clearly beat the base model (or there was not enough evidence), so nothing changed." },
   failed: { label: "Failed", cls: "bg-red-500/10 text-red-600 dark:text-red-400", help: "Training could not finish. See the error below." },
 };
 
@@ -94,7 +94,7 @@ export default function ModelsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast(`Retraining started (${data.job_id}). Follow its progress under "Retraining jobs" below.`);
+        toast(`Learning started (${data.job_id}). Follow its progress under "Learning jobs" below.`);
         fetchData();
         document.getElementById("jobs-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
@@ -105,6 +105,12 @@ export default function ModelsPage() {
     } finally {
       setRetraining(null);
     }
+  };
+
+  const handleRevoke = async (modelType: string) => {
+    const res = await fetch(`${getApiBaseUrl()}/admin/models/${modelType}/revert-to-base`, { method: "POST", headers: authHeaders() });
+    if (res.ok) { toast(`The ${modelType} model is back to its original base behaviour.`); fetchData(); }
+    else toast("Could not revoke the learning layer.", "error");
   };
 
   const handleActivate = async (versionId: string) => {
@@ -153,8 +159,8 @@ export default function ModelsPage() {
           {[
             ["1. Employees report", "Someone flags a detection as wrong, or reports something suspicious, with the evidence attached."],
             ["2. You verify", "In Incidents you confirm it (phishing, false positive…). Only verified decisions become training samples."],
-            ["3. Retrain", "Press Retrain on a model. It fine-tunes a small adapter on your samples, locally. Nothing leaves your network."],
-            ["4. Safety check", "The new version is tested on held-out samples. It only goes live if it beats the quality bar; otherwise the current model stays."],
+            ["3. Learn", "Once there are enough examples of both kinds, press Learn. It fits a tiny correction layer; the base model is never modified. Nothing leaves your network."],
+            ["4. Safety check", "The layer is tested on examples it has never seen and compared with the base model. It only goes live if it is clearly better and causes no extra false alarms or misses. You can revoke it at any time."],
           ].map(([t, d]) => (
             <div key={t} className="p-3 rounded-xl bg-surface-50 dark:bg-white/[0.03] border border-surface-100 dark:border-white/[0.05]">
               <p className="font-semibold text-surface-900 dark:text-white mb-1">{t}</p>
@@ -185,10 +191,14 @@ export default function ModelsPage() {
       {/* Model cards */}
       <div className="grid md:grid-cols-2 gap-4">
         {MODELS.map(m => {
-          const pending = candidates.filter(c => c.model_type === m.id && c.status === "pending").length;
-          const classes = summary?.samples_by_class?.[m.id] || {};
-          const active = activeByType[m.id];
+          const rd = summary?.readiness?.[m.id] || { usable: 0, phishing: 0, benign: 0, needed_total: 20, needed_each: 5, ready: false, pending: 0 };
+          const pending = rd.pending || 0;
+          const adapter = summary?.active_adapters?.[m.id];
           const running = jobs.find(j => j.model_type === m.id && (j.status === "queued" || j.status === "running"));
+          const pct = Math.min(100, Math.round((rd.usable / rd.needed_total) * 100));
+          const reason = !rd.ready
+            ? `Needs ${Math.max(0, rd.needed_total - rd.usable)} more verified example${rd.needed_total - rd.usable === 1 ? "" : "s"}${rd.phishing < rd.needed_each ? ` (at least ${rd.needed_each - rd.phishing} more phishing)` : ""}${rd.benign < rd.needed_each ? ` (at least ${rd.needed_each - rd.benign} more safe)` : ""}`
+            : pending === 0 ? "No new examples since it last learned" : `Learn from ${rd.usable} verified examples`;
           return (
             <motion.div key={m.id} variants={fadeUp} className="stat-card">
               <div className="flex items-start justify-between gap-3">
@@ -199,23 +209,37 @@ export default function ModelsPage() {
                     <p className="text-xs text-surface-500">Learns from {m.learns}</p>
                   </div>
                 </div>
-                <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${active ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-surface-200/70 dark:bg-white/[0.06] text-surface-500"}`}>
-                  {active ? `Using ${active.version_tag}` : "Base model"}
+                <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${adapter ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-surface-200/70 dark:bg-white/[0.06] text-surface-500"}`}>
+                  {adapter ? "Learning layer ON" : "Base model only"}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2 mt-4 text-center text-xs">
-                <div className="p-2 rounded-lg bg-surface-50 dark:bg-white/[0.03]"><div className="text-lg font-bold text-amber-500">{pending}</div><div className="text-surface-500">to learn</div></div>
-                <div className="p-2 rounded-lg bg-surface-50 dark:bg-white/[0.03]"><div className="text-lg font-bold text-red-500">{classes.phishing || 0}</div><div className="text-surface-500">phishing</div></div>
-                <div className="p-2 rounded-lg bg-surface-50 dark:bg-white/[0.03]"><div className="text-lg font-bold text-emerald-500">{classes.benign || 0}</div><div className="text-surface-500">safe</div></div>
+
+              <div className="mt-4">
+                <div className="flex justify-between text-[11px] text-surface-500 mb-1">
+                  <span>{rd.usable} / {rd.needed_total} verified examples</span>
+                  <span>phishing {rd.phishing}/{rd.needed_each} • safe {rd.benign}/{rd.needed_each}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-surface-100 dark:bg-white/[0.06] overflow-hidden">
+                  <div className={`h-full rounded-full ${rd.ready ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${pct}%` }} />
+                </div>
               </div>
-              <button
-                onClick={() => handleRetrain(m.id)}
-                disabled={retraining === m.id || pending === 0 || !!running}
-                className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {retraining === m.id || running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                {running ? `Job ${running.status}…` : pending === 0 ? "No new samples to learn" : `Retrain on ${pending} sample${pending === 1 ? "" : "s"}`}
-              </button>
+
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => handleRetrain(m.id)}
+                  disabled={retraining === m.id || !rd.ready || pending === 0 || !!running}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {retraining === m.id || running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                  {running ? `Job ${running.status}…` : reason}
+                </button>
+                {adapter && (
+                  <button onClick={() => handleRevoke(m.id)} title="Switch the learning layer off and return to the original base model"
+                    className="px-3 py-2 text-xs font-semibold rounded-xl border border-red-300 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    Revoke
+                  </button>
+                )}
+              </div>
             </motion.div>
           );
         })}
@@ -228,7 +252,7 @@ export default function ModelsPage() {
           {hasActiveJob && <span className="text-[11px] text-blue-500 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> updating live</span>}
         </div>
         {jobs.length === 0 ? (
-          <p className="text-sm text-surface-500 py-6 text-center">No retraining has been run yet. Verify some incidents, then press Retrain on a model above.</p>
+          <p className="text-sm text-surface-500 py-6 text-center">No learning has been run yet. Verify incidents until a model has enough examples, then press Learn.</p>
         ) : (
           <div className="space-y-3">
             {jobs.slice(0, 8).map(j => {
@@ -255,19 +279,41 @@ export default function ModelsPage() {
                   </div>
                   <p className="text-xs text-surface-500">{st.help}</p>
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-surface-500">
-                    <span>{j.candidate_count} sample{j.candidate_count === 1 ? "" : "s"}</span>
+                    <span>{j.candidate_count} verified example{j.candidate_count === 1 ? "" : "s"}</span>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {duration(j)}</span>
                     <span>started {new Date(j.created_at).toLocaleString()}</span>
-                    <span>output: {j.target_adapter_version}</span>
+                    <span>layer: {j.target_adapter_version}</span>
                   </div>
-                  {Object.keys(metrics).length > 0 && (
+                  {metrics.base && metrics.candidate ? (
+                    <div className="rounded-lg border border-surface-200 dark:border-white/[0.06] overflow-hidden text-[11px]">
+                      <div className="px-3 py-1.5 bg-surface-50 dark:bg-white/[0.03] text-surface-500">
+                        Tested on {metrics.samples} verified examples the layer had not seen ({metrics.positives} phishing, {metrics.negatives} safe)
+                      </div>
+                      <table className="w-full text-left">
+                        <thead><tr className="text-surface-400"><th className="px-3 py-1 font-medium">Measure</th><th className="px-3 py-1 font-medium">Base model</th><th className="px-3 py-1 font-medium">With learning layer</th></tr></thead>
+                        <tbody>
+                          {[["Correct verdicts", "accuracy", false], ["F1 score", "f1", false], ["False alarms (safe flagged)", "fpr", true], ["Missed threats", "fnr", true]].map(([label, k, lowerBetter]: any) => {
+                            const b = Number(metrics.base[k]), c = Number(metrics.candidate[k]);
+                            const better = lowerBetter ? c < b : c > b, worse = lowerBetter ? c > b : c < b;
+                            return (
+                              <tr key={k} className="border-t border-surface-100 dark:border-white/[0.04]">
+                                <td className="px-3 py-1 text-surface-600 dark:text-surface-300">{label}</td>
+                                <td className="px-3 py-1 text-surface-700 dark:text-surface-200">{(b * 100).toFixed(1)}%</td>
+                                <td className={`px-3 py-1 font-semibold ${better ? "text-emerald-600 dark:text-emerald-400" : worse ? "text-red-600 dark:text-red-400" : "text-surface-700 dark:text-surface-200"}`}>{(c * 100).toFixed(1)}%</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : Object.keys(metrics).length > 0 && (
                     <div className="flex flex-wrap gap-2 text-[11px]">
                       {["accuracy", "precision", "recall", "f1", "fpr", "fnr"].filter(k => metrics[k] != null).map(k => (
                         <span key={k} className="px-2 py-1 rounded-md bg-surface-100 dark:bg-white/[0.06] text-surface-700 dark:text-surface-200"><b className="uppercase">{k}</b> {(Number(metrics[k]) * 100).toFixed(1)}%</span>
                       ))}
                     </div>
                   )}
-                  {j.error_message && <p className="text-xs text-red-600 dark:text-red-400 flex gap-1.5"><XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {j.error_message}</p>}
+                  {j.error_message && <p className={`text-xs flex gap-1.5 ${j.status === "failed" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}><XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {j.error_message}</p>}
                 </div>
               );
             })}
@@ -320,7 +366,7 @@ export default function ModelsPage() {
       <motion.div variants={fadeUp} className="stat-card">
         <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2 mb-4"><History className="w-4 h-4 text-brand-500" /> Model versions</h2>
         {versions.length === 0 ? (
-          <p className="text-sm text-surface-500 py-4 text-center">Only the built-in base models are in use. A version appears here after a successful retraining.</p>
+          <p className="text-sm text-surface-500 py-4 text-center">Only the original base models are in use. A learning layer appears here after one proves itself.</p>
         ) : (
           <div className="space-y-2">
             {versions.map(v => (
@@ -330,9 +376,9 @@ export default function ModelsPage() {
                   <p className="text-surface-500">created {new Date(v.created_at).toLocaleString()}{v.metrics_json?.f1 != null ? ` • F1 ${(v.metrics_json.f1 * 100).toFixed(1)}%` : ""}</p>
                 </div>
                 {v.is_production || v.is_active ? (
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold"><CheckCircle2 className="w-4 h-4" /> Active</span>
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold"><CheckCircle2 className="w-4 h-4" /> Active layer</span>
                 ) : !v.is_global_base ? (
-                  <button onClick={() => handleActivate(v.version_id)} className="px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-white/[0.06] hover:bg-surface-200 dark:hover:bg-white/[0.1] font-semibold text-surface-700 dark:text-surface-200">Make active</button>
+                  <button onClick={() => handleActivate(v.version_id)} className="px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-white/[0.06] hover:bg-surface-200 dark:hover:bg-white/[0.1] font-semibold text-surface-700 dark:text-surface-200">Switch to this layer</button>
                 ) : null}
               </div>
             ))}

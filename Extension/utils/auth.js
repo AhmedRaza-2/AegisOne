@@ -85,3 +85,22 @@ export async function authFetch(url, opts = {}) {
   }
   return res;
 }
+
+// ── The AegisOne server itself is never scanned ─────────────────────────────────────
+// The dashboard (:3002), landing (:3001/:3000) and API (:8000) live on the server's own address
+// (often a bare LAN IP over http, which looks "risky" to a URL model). Scanning them only adds
+// noise and inflates every user's scan counts, so they are skipped.
+const OWN_PORTS = new Set(["3000", "3001", "3002", "8000"]);
+
+export async function isAegisServerUrl(url) {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol)) return false;
+    const { server_url } = await chrome.storage.local.get("server_url");
+    if (server_url) {
+      const s = new URL(server_url);
+      if (u.hostname === s.hostname && (OWN_PORTS.has(u.port) || u.port === s.port)) return true;
+    }
+    return false;
+  } catch (_) { return false; }
+}
