@@ -18,16 +18,6 @@ export default function OrganizationsPage() {
   const [broadcastTarget, setBroadcastTarget] = useState<string | null>(null);
   const [broadcastMessage, setBroadcastMessage] = useState("");
 
-  if (!user || user.role !== "global_admin") {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-2" />
-        <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Access Denied</h3>
-        <p className="text-sm text-surface-500 max-w-xs mt-1">Only global platform administrators can manage tenant organizations.</p>
-      </div>
-    );
-  }
-
   // Pre-calculate user counts per organization
   const orgStats = useMemo(() => {
     const allUsers = users.getAll();
@@ -42,6 +32,17 @@ export default function OrganizationsPage() {
       return acc;
     }, {} as Record<string, { adminsCount: number; supervisorsCount: number; employeesCount: number; total: number }>);
   }, [orgs]);
+
+  if (!user || user.role !== "global_admin") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-2" />
+        <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Access Denied</h3>
+        <p className="text-sm text-surface-500 max-w-xs mt-1">Only global platform administrators can manage tenant organizations.</p>
+      </div>
+    );
+  }
+
 
   const handleAddOrg = (e: React.FormEvent) => {
     e.preventDefault();

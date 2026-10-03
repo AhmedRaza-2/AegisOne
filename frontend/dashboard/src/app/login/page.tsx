@@ -58,18 +58,9 @@ export default function LoginPage() {
 
   // Auto-detect assigned user role when email changes
   const handleEmailBlur = async () => {
-    if (!email || !email.includes("@")) return;
-    try {
-      const res = await fetch(`${API_BASE}/auth/check-role?email=${encodeURIComponent(email)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.exists && data.role) {
-          setDetectedRole(data.role.toLowerCase());
-        }
-      }
-    } catch (e) {
-      console.warn("[Login] Could not auto-detect role:", e);
-    }
+    // Intentionally empty: the page used to ask the server whether an address is registered
+    // and what role it has before sign-in, which let anyone enumerate accounts. The role now
+    // comes back only from a successful /auth/login.
   };
 
   const handleLogin = async (e: React.FormEvent) => {

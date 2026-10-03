@@ -30,7 +30,11 @@ services:
       dockerfile: Dockerfile.backend
     container_name: aegisone-backend
     command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+    volumes:
+      # Keeps the downloaded base-model files so restarts need no internet
+      - aegisone-hf-cache:/root/.cache/huggingface
     environment:
+      HF_HUB_ETAG_TIMEOUT: "5"
       AEGIS_PORT: "8000"
       AEGIS_WORKERS: "1"
       # PostgreSQL connection — backend auto-detects postgresql:// and enables connection pool
@@ -107,4 +111,5 @@ services:
       - db
 
 volumes:
+  aegisone-hf-cache:
   aegisone-pg-data: # PostgreSQL data — persists across restarts

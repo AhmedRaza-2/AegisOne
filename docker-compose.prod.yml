@@ -28,7 +28,11 @@ services:
     image: ahmedraza2006/aegisone-backend:2026-10-03-xai
     container_name: aegisone-backend
     command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+    volumes:
+      # Keeps the downloaded base-model files so restarts need no internet
+      - aegisone-hf-cache:/root/.cache/huggingface
     environment:
+      HF_HUB_ETAG_TIMEOUT: "5"
       AEGIS_PORT: "8000"
       AEGIS_WORKERS: "1"
       AEGIS_DATABASE_URL: "postgresql+asyncpg://aegis:${DB_PASSWORD:-aegisone_secret}@db:5432/aegisone"
@@ -80,4 +84,5 @@ services:
       - db
 
 volumes:
+  aegisone-hf-cache:
   aegisone-pg-data:

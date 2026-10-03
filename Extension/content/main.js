@@ -101,7 +101,12 @@
           const userObj = JSON.parse(rawUser);
           if (userObj && userObj.email) {
             chrome.storage.local.set({ user_email: userObj.email });
-            safeSendMessage({ type: "AUTH_UPDATED", email: userObj.email });
+            safeSendMessage({
+              type: "AUTH_UPDATED",
+              email: userObj.email,
+              access_token: localStorage.getItem("aegis_access_token") || undefined,
+              refresh_token: localStorage.getItem("aegis_refresh_token") || undefined,
+            });
           }
         }
       } catch (e) {}
@@ -112,7 +117,10 @@
           const email = e.detail?.email;
           if (email) {
             chrome.storage.local.set({ user_email: email });
-            safeSendMessage({ type: "AUTH_UPDATED", email });
+            safeSendMessage({
+              type: "AUTH_UPDATED", email,
+              access_token: e.detail?.access_token, refresh_token: e.detail?.refresh_token,
+            });
           }
         } catch (_) {}
       });

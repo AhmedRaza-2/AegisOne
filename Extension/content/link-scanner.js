@@ -12,6 +12,7 @@
 
 import { MSG, THRESHOLD, API_BASE, getApiBaseUrl } from "../../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../../utils/trusted-domains.js";
+import { authFetch } from "../../utils/auth.js";
 
 const _badged = new WeakSet();
 
@@ -190,9 +191,8 @@ async function _showImageHoverPreview(img, src, token) {
   if (score >= 20) {
     chrome.storage.local.get(["device_id", "user_email"]).then(async ({ device_id, user_email }) => {
       const headers = { "Content-Type": "application/json" };
-      if (user_email) headers["X-User-Email"] = user_email;
       const baseUrl = await getApiBaseUrl();
-      fetch(`${baseUrl}/telemetry/hover`, {
+      authFetch(`${baseUrl}/telemetry/hover`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -236,9 +236,8 @@ async function _showHoverPreview(anchor, url, token) {
   if (score >= 20) {
     chrome.storage.local.get(["device_id", "user_email"]).then(async ({ device_id, user_email }) => {
       const headers = { "Content-Type": "application/json" };
-      if (user_email) headers["X-User-Email"] = user_email;
       const baseUrl = await getApiBaseUrl();
-      fetch(`${baseUrl}/telemetry/hover`, {
+      authFetch(`${baseUrl}/telemetry/hover`, {
         method: "POST",
         headers,
         body: JSON.stringify({

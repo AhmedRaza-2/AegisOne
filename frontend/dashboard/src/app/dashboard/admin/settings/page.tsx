@@ -1,4 +1,5 @@
 "use client";
+import { storeTokens, apiErrorMessage } from "@/lib/session";
 import { useAuth } from "@/lib/auth-context";
 import { Settings, Shield, User, Lock, LogOut, CheckCircle2, XCircle, Globe, Sliders, Mail, Building2, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -151,13 +152,15 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
       });
       if (res.ok) {
+        const _d = await res.clone().json().catch(() => ({}));
+        storeTokens(_d.access_token, _d.refresh_token);
         showToast("Password updated successfully", "success");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
       } else {
         const err = await res.json();
-        showToast(err.detail || "Failed to change password", "error");
+        showToast(apiErrorMessage(err) || "Failed to change password", "error");
       }
     } catch {
       showToast("Network error", "error");

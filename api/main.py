@@ -46,11 +46,8 @@ from fastapi import Request
 # LOGGING
 # ═══════════════════════════════════════════════════════════════
 
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
-    format="%(asctime)s │ %(levelname)-7s │ %(name)s │ %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from api.logs import setup_logging
+setup_logging(LOG_LEVEL)
 logger = logging.getLogger("aegisone")
 
 # ═══════════════════════════════════════════════════════════════
@@ -242,11 +239,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     # could itself raise, which Starlette's BaseHTTPMiddleware then surfaces as a raw
     # 500 instead of this handler's intended 422 — turning validation errors on certain
     # malformed bodies into unhandled server errors. Logging exc.errors() is enough.
-    logger.debug(f"Validation error on {request.method} {request.url.path}: {exc.errors()}")
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors(), "body": str(exc.body)},
-    )
+    # Only loc/msg/type go back to the client. The raw `input` and request body are never
+    # echoed: for login/register/reset forms they contain the user's password. (`ctx` can hold
+    # exception objects that are not JSON serializable, which used to turn a 422 into a 500.)
+    errors = [
+        {"loc": e.get("loc", []), "msg": str(e.get("msg", "")).replace("Value error, ", ""), "type": e.get("type", "")}
+        for e in exc.errors()
+    ]
+    logger.debug("Validation error on %s %s: %s", request.method, request.url.path, errors)
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 # 4. Request ID + timing middleware + security headers

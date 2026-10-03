@@ -2,6 +2,10 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE } from "./api";
+import { installAuthFetch, storeTokens, clearTokens } from "./session";
+
+// Attach the signed-in token to every API call (and refresh it when it expires).
+installAuthFetch();
 
 export type Role = "employee" | "department_admin" | "manager" | "admin" | "super_admin" | "global_admin";
 
@@ -78,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 1. Restore Auth State from Cookies / LocalStorage
-    const token = getCookie("aegis_access_token") || localStorage.getItem("aegis_access_token");
+    const token = localStorage.getItem("aegis_access_token");
     const storedUserStr = getCookie("aegis_user") || localStorage.getItem("user");
 
     if (token && storedUserStr) {
@@ -88,7 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Guarantee synchronization across both storage mechanisms
         localStorage.setItem("aegis_access_token", token);
         localStorage.setItem("user", JSON.stringify(parsedUser));
-        setCookie("aegis_access_token", token);
         setCookie("aegis_user", JSON.stringify(parsedUser));
 
         // Background fetch to ensure we have the absolute latest user data (including ID)
@@ -141,6 +144,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('aegis-user-login', handleLoginEvent);
   }, []);
 
+  // The API no longer accepts our token (expired and could not be refreshed, password changed
+  // elsewhere, account disabled...): sign out cleanly instead of showing broken pages.
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null);
+      cacheRef.current.clear();
+      clearTokens();
+      eraseCookie("aegis_user");
+      try { window.dispatchEvent(new CustomEvent("aegis-user-logout")); } catch (_) { }
+      if (!window.location.pathname.startsWith("/login")) router.push("/login");
+    };
+    window.addEventListener("aegis-session-expired", onExpired);
+    return () => window.removeEventListener("aegis-session-expired", onExpired);
+  }, [router]);
+
   const toggleTheme = () => {
     setTheme(prev => {
       const next = prev === "dark" ? "light" : "dark";
@@ -178,14 +196,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         organization_id: data.organization_id || "org_default"
       };
       setUser(loggedUser);
-      localStorage.setItem("aegis_access_token", token);
+      storeTokens(token, data.refresh_token);
       localStorage.setItem("user", JSON.stringify(loggedUser));
-      setCookie("aegis_access_token", token);
       setCookie("aegis_user", JSON.stringify(loggedUser));
       // Notify the browser extension content script about the new login
       // so it can sync user_email to chrome.storage.local immediately
       try {
-        window.dispatchEvent(new CustomEvent("aegis-user-login", { detail: { email: loggedUser.email } }));
+        window.dispatchEvent(new CustomEvent("aegis-user-login", { detail: { email: loggedUser.email, access_token: token, refresh_token: data.refresh_token } }));
       } catch (_) {}
       return { success: true, role: userRole };
     } catch (e) {
@@ -196,13 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     cacheRef.current.clear();
-    // Clear LocalStorage
-    localStorage.removeItem("aegis_access_token");
-    localStorage.removeItem("aegis_token");
-    localStorage.removeItem("aegis_refresh_token");
-    localStorage.removeItem("user");
-    // Clear Cookies
-    eraseCookie("aegis_access_token");
+    clearTokens();
     eraseCookie("aegis_user");
     // Notify the browser extension to clear its cached user email
     try {

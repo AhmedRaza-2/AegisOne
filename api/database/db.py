@@ -75,11 +75,9 @@ async def init_db():
             OrgLearningPolicy,
             GlobalContribution,
             GlobalModelRelease,
+            PasswordResetChallenge,
         )
         await conn.run_sync(Base.metadata.create_all)
-
-        from api.database.migrations import run_additive_migrations
-        await run_additive_migrations(conn)
 
         from api.database.migrations import run_additive_migrations
         await run_additive_migrations(conn)

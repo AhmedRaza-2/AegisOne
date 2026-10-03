@@ -21,6 +21,7 @@ async function init() {
   await loadWidgetState();
   await loadControlToggles();
   await loadServerUrlSetting();
+  await setupAuth();
   await loadPopupStats();
   await loadCurrentPage();
   await loadRecentEvents();
@@ -30,6 +31,56 @@ async function init() {
 }
 
 
+
+// ── Sign in (same email + password as the dashboard) ────────
+async function setupAuth() {
+  const card = document.getElementById("authCard");
+  const status = document.getElementById("authStatus");
+  if (!card || !status) return;
+
+  const render = async () => {
+    const { auth_access_token, user_email } = await chrome.storage.local.get(["auth_access_token", "user_email"]);
+    const signedIn = !!auth_access_token;
+    card.style.display = signedIn ? "none" : "block";
+    status.style.display = signedIn ? "block" : "none";
+    document.getElementById("authWho").textContent = user_email || "your account";
+  };
+
+  document.getElementById("authSubmit")?.addEventListener("click", async () => {
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
+    const msg = document.getElementById("authMsg");
+    msg.textContent = "";
+    if (!email || !password) { msg.textContent = "Enter your email and password."; return; }
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { msg.textContent = (typeof data.detail === "string" ? data.detail : "Sign-in failed."); return; }
+      await chrome.storage.local.set({
+        auth_access_token: data.access_token, auth_refresh_token: data.refresh_token, user_email: email,
+      });
+      chrome.runtime.sendMessage({ type: "AUTH_UPDATED", email, access_token: data.access_token, refresh_token: data.refresh_token }).catch(() => { });
+      document.getElementById("authPassword").value = "";
+      await render();
+    } catch (e) {
+      msg.textContent = "Could not reach the AegisOne server. Check the server address below.";
+    }
+  });
+
+  document.getElementById("authSignOut")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await chrome.storage.local.remove(["auth_access_token", "auth_refresh_token", "user_email"]);
+    chrome.runtime.sendMessage({ type: "AUTH_CLEARED" }).catch(() => { });
+    await render();
+  });
+
+  await render();
+}
 
 async function loadServerUrlSetting() {
   const input = document.getElementById("inputServerUrl");
@@ -200,7 +251,8 @@ async function loadPopupStats() {
 
     for (const url of apiEndpoints) {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
+        const { auth_access_token: _t } = await chrome.storage.local.get("auth_access_token");
+        const res = await fetch(url, { signal: AbortSignal.timeout(1500), headers: _t ? { Authorization: `Bearer ${_t}` } : {} });
         if (res.ok) {
           const data = await res.json();
           const scanList = data.scans || data.recentScans || [];
@@ -442,7 +494,11 @@ async function loadRecentEvents() {
   else apiUrl = `${getApiBaseUrl()}/user/stats`;
 
   try {
-    const apiRes = await fetch(apiUrl, { signal: AbortSignal.timeout(1200) });
+    const { auth_access_token: _tok } = await chrome.storage.local.get("auth_access_token");
+    const apiRes = await fetch(apiUrl, {
+      signal: AbortSignal.timeout(1200),
+      headers: _tok ? { Authorization: `Bearer ${_tok}` } : {},
+    });
     if (apiRes.ok) {
       const apiData = await apiRes.json();
       if (Array.isArray(apiData.recentScans) && apiData.recentScans.length > 0) {

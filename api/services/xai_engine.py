@@ -486,6 +486,10 @@ def generate_tier1_explanation(
         summary = f"AegisOne {verb} this {noun} ({risk_score}% risk) — {findings[0]}."
         if len(findings) > 1:
             summary += f" On top of that, {findings[1]}."
+    elif grounded.get("concerning"):
+        # The model's score is low but the content still has warning signs: say both, not "safe".
+        summary = (f"AegisOne rated this {noun} low risk ({risk_score}%), but it still shows warning signs: "
+                   f"{findings[0]}. Treat it with caution.")
     else:
         summary = f"AegisOne checked this {noun} ({risk_score}% risk) and found it safe. {findings[0][0].upper() + findings[0][1:]}."
     if 20 <= risk_score < 50:
@@ -820,6 +824,10 @@ def build_grounded_findings(evidence: Dict[str, Any], rich_evidence: Optional[Di
             elif name == "suspicious_visual_content":
                 findings.append("the page's visual design closely copies a real, trusted brand's look")
 
+    # Anything found so far is a real warning sign (as opposed to the "all clear" / last-resort
+    # sentences added below), even when the model's own score is low.
+    concerning = bool(findings) and kind in ("image", "text", "email")
+
     # 5. Findings the browser extension saw first-hand and sent along (pop-up banners,
     #    in-page links, keywords). Added when nothing stronger is stored, or when the page's
     #    live score is higher than the stored scan — i.e. the extra risk came from these.
@@ -852,7 +860,7 @@ def build_grounded_findings(evidence: Dict[str, Any], rich_evidence: Optional[Di
             f"even though no single obvious giveaway stood out — treat it with care"
         )
 
-    return {"findings": findings, "target_label": target, "brand": brand, "kind": kind, "noun": noun}
+    return {"findings": findings, "target_label": target, "brand": brand, "kind": kind, "noun": noun, "concerning": concerning}
 
 
 def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Optional[str] = None, kind: str = "page") -> List[str]:

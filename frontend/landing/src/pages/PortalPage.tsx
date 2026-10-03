@@ -155,7 +155,9 @@ export default function PortalPage() {
 
   const isApproved = org.status === 'active';
 
-  const launchUrl = `http://${cleanHost(serverHost)}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org.name || '')}&industry=${encodeURIComponent(org.industry || '')}&adminEmail=${encodeURIComponent(org.admin_email || '')}&adminName=${encodeURIComponent(org.admin_name || org.contact_person || 'Administrator')}&adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}&serverHost=${encodeURIComponent(cleanHost(serverHost))}`;
+  // The password rides in the URL *fragment* (after #): browsers never send it to any server, it
+  // never appears in access logs or Referer headers, and the setup page erases it on arrival.
+  const launchUrl = `http://${cleanHost(serverHost)}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org.name || '')}&industry=${encodeURIComponent(org.industry || '')}&adminEmail=${encodeURIComponent(org.admin_email || '')}&adminName=${encodeURIComponent(org.admin_name || org.contact_person || 'Administrator')}&serverHost=${encodeURIComponent(cleanHost(serverHost))}${sessionStorage.getItem('tempAdminPassword') ? `#adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}` : ''}`;
 
   // Do not use Vercel/public domain as the SERVER_HOST. 
   // Let PowerShell automatically detect the server's local network IP.

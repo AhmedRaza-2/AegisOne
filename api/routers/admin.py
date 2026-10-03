@@ -4,6 +4,7 @@ AegisOne API — Admin Router
 Real-time and pre-aggregated statistics for the dashboard.
 Uses DashboardStatistic for fast today-view; falls back to live queries.
 """
+import logging as _logging
 import json
 from datetime import date, datetime, timezone
 import os
@@ -15,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, cast, Date, or_, and_, case, String
 
 from api.services.security_score import compute_security_score
+from api.auth.password import validate_password_strength
 from api.database.db import get_db
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 from api.database.models import (
@@ -61,8 +63,11 @@ def _org_scope(query, model, user):
             dept_str = getattr(user, "department", None)
             org_id = getattr(user, "organization_id", None) or "org_default"
             
-            # If the model has department directly (like User)
-            if hasattr(model, "department_id") or hasattr(model, "department"):
+            # Models that belong to a user (scans, events...) are scoped through that user's
+            # department further below. Only the User-like models, which carry the department
+            # themselves, use this branch - a scan's own department_id column is mostly empty,
+            # which used to make managers see zero scans, devices and events.
+            if (hasattr(model, "department_id") or hasattr(model, "department")) and not hasattr(model, "user_id"):
                 conditions = []
                 if hasattr(model, "department_id") and dept_id is not None:
                     conditions.append(cast(getattr(model, "department_id"), String) == str(dept_id))
@@ -822,7 +827,7 @@ async def get_audit_logs(
 
 # ── User Approvals ────────────────────────────────────────────────────────────
 
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from fastapi import HTTPException
 
 class StatusUpdateRequest(BaseModel):
@@ -941,6 +946,8 @@ async def update_user_status(
 
 from api.auth.password import hash_password
 
+_log = _logging.getLogger("aegisone.admin")
+
 class DepartmentCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     manager_id: int | None = None
@@ -951,6 +958,11 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8, max_length=512)
     role: Role
     department_id: int | None = None
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 @router.get("/departments")
 async def get_departments(
@@ -1476,10 +1488,15 @@ async def reset_user_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found or access denied")
         
+    try:
+        validate_password_strength(actual_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     user.password_hash = hash_password(actual_password)
+    user.password_changed_at = datetime.utcnow()   # signs the user out everywhere
     await db.commit()
 
-    print(f"[ADMIN LOG] 🔑 PASSWORD RESET SUCCESS: Admin {admin.email} (ID: {admin.id}) reset password for user {user.email} (ID: {user.id})", flush=True)
+    _log.info("ADMIN password reset for %s by %s", user.email, admin.email)
 
     # Dispatch email notification to the user in background
     from api.database.models import Organization
@@ -1528,9 +1545,9 @@ async def reset_user_password(
             server.login(smtp_user, smtp_pass.replace(" ", ""))
             server.sendmail(smtp_user, user.email, msg.as_string())
             server.quit()
-            print(f"[SMTP LOG] Sent password reset notification email to {user.email}", flush=True)
+            _log.info("MAIL  password-reset notice sent to %s", user.email)
         except Exception as e:
-            print(f"[SMTP ERROR] Failed to send password update email to {user.email}: {e}", flush=True)
+            _log.warning("MAIL  could not send password-reset notice to %s: %s", user.email, e)
 
     return {"status": "success"}
 

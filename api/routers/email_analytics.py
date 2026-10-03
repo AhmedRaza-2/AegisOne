@@ -36,12 +36,9 @@ async def fetch_email_analytics(
     - admin: Organization-wide threat metrics & trends (privacy-scrubbed)
     """
     try:
+        # Always the signed-in user. The old `email` parameter let anyone ask for another
+        # person's email history; it is accepted for older clients but ignored.
         target_user = current_user
-        if email:
-            u_res = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
-            found = u_res.scalar_one_or_none()
-            if found:
-                target_user = found
 
         data = await get_email_analytics(db, target_user, period=period, scope=scope)
         return {"status": "success", "data": data}

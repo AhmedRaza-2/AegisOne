@@ -12,6 +12,7 @@
  *  - No console.log in production (DEBUG_MODE guard)
  */
 
+import { setTokens, clearTokens, refreshNow } from "../utils/auth.js";
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE, getApiBaseUrl } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
 import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics, submitReport } from "./scanner.js";
@@ -29,32 +30,32 @@ const _sessionAllowedUrls = new Set();
 // Per-tab AbortController registry — cancel stale requests on navigation
 const _tabControllers = new Map(); // tabId → AbortController
 
+// A package downloaded from the dashboard while signed in carries config.json with that user's
+// identity and a renewable credential. On first start the extension adopts it and signs itself in -
+// nothing to type. Re-downloading as a different user switches the extension to that user.
 async function initConfigData() {
   try {
-    const { user_email, server_url } = await chrome.storage.local.get(["user_email", "server_url"]);
-    if (!user_email || !server_url) {
-      const configUrl = chrome.runtime.getURL("config.json");
-      const res = await fetch(configUrl);
-      if (res.ok) {
-        const config = await res.json();
-        const toSet = {};
-        if (config.email) {
-          toSet.user_email = config.email;
-          toSet.user_id = config.user_id;
-          toSet.organization_id = config.organization_id;
-        }
-        if (config.api_base) {
-          toSet.server_url = config.api_base;
-        }
-        
-        if (Object.keys(toSet).length > 0) {
-          await chrome.storage.local.set(toSet);
-          if (toSet.user_email) {
-            invalidateAuthCache();
-            if (DEBUG_MODE) console.log("[AegisOne] Initialized user configuration from config.json:", config.email);
-          }
-        }
-      }
+    const res = await fetch(chrome.runtime.getURL("config.json"));
+    if (!res.ok) return;
+    const config = await res.json();
+    const stored = await chrome.storage.local.get(["user_email", "server_url", "auth_refresh_token"]);
+
+    const toSet = {};
+    const newIdentity = !!config.email && config.email !== stored.user_email;
+    if (config.api_base && (newIdentity || !stored.server_url)) toSet.server_url = config.api_base;
+    if (newIdentity) {
+      toSet.user_email = config.email;
+      toSet.user_id = config.user_id;
+      toSet.organization_id = config.organization_id;
+    }
+    if (Object.keys(toSet).length > 0) await chrome.storage.local.set(toSet);
+
+    if (config.refresh_token && (newIdentity || !stored.auth_refresh_token)) {
+      await clearTokens();
+      await setTokens(null, config.refresh_token);
+      invalidateAuthCache();
+      const ok = await refreshNow();   // turns it into a working access token immediately
+      if (DEBUG_MODE) console.log("[AegisOne] Signed in from bundled config:", config.email, ok ? "ok" : "failed");
     }
   } catch (e) {
     // config.json not present or inaccessible
@@ -71,6 +72,7 @@ initConfigData();
 chrome.runtime.onInstalled.addListener(async () => {
   await initConfigData();
   await clearAllCache();
+  await initConfigData();   // clearAllCache wipes storage, including what was just set
   await ensureDeviceId();
   await fetchOrgPolicy();
   await restoreAnalytics();
@@ -253,6 +255,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // ── Auth Sync (always handled, regardless of shield state) ──
       if (msg.type === "AUTH_UPDATED") {
         invalidateAuthCache();
+        if (msg.access_token) await setTokens(msg.access_token, msg.refresh_token);
         if (msg.email) {
           await chrome.storage.local.set({ user_email: msg.email });
           await ensureDeviceId();
@@ -264,7 +267,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       if (msg.type === "AUTH_CLEARED") {
         invalidateAuthCache();
-        await chrome.storage.local.remove(["user_email"]);
+        // An extension installed from a personalised download belongs to that user: signing out
+        // of the dashboard in this browser should not strip its protection.
+        let bundled = false;
+        try {
+          const cfg = await (await fetch(chrome.runtime.getURL("config.json"))).json();
+          bundled = !!cfg.refresh_token;
+        } catch (_) { }
+        if (!bundled) {
+          await clearTokens();
+          await chrome.storage.local.remove(["user_email"]);
+        }
         sendResponse({ ok: true });
         return;
       }
@@ -440,7 +453,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // ── Email Scan ────────────────────────────────────
         case "EMAIL_DATA": {
-          const result = await scanEmail(msg.sender, msg.subject, msg.body, null, msg.thread_url || msg.url || "");
+          const result = await scanEmail(msg.sender, msg.subject, msg.body, null, msg.thread_url || msg.url || "", {
+            link_signals: msg.link_signals, attach_signals: msg.attach_signals,
+          });
           if (!result) {
             sendResponse({ ok: false, error: "backend_offline", result: null });
           } else {

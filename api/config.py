@@ -127,7 +127,8 @@ def get_tesseract_cmd():
     return "tesseract"  # final fallback
 
 TESSERACT_CMD = get_tesseract_cmd()
-print(f"[OCR] Tesseract path resolved: {TESSERACT_CMD}")
+import logging as _logging
+_logging.getLogger("aegisone.config").info("OCR   Tesseract: %s", TESSERACT_CMD)
 
 # ═══════════════════════════════════════════════════════════════
 # RISK SCORING
@@ -142,3 +143,16 @@ RISK_THRESHOLDS = {
 
 
 URL_CLASSES = ["benign", "defacement", "phishing", "malware"]
+
+
+# ── Offline-first model loading ──────────────────────────────────────────────
+# The base DistilBERT files are cached after the first download. Once they are, stop asking
+# Hugging Face on every start: a slow or missing connection used to stall startup for minutes
+# (and would break a demo on a network without internet). Must run before transformers imports.
+try:
+    from pathlib import Path as _Path
+    _hf_home = _Path(os.environ.get("HF_HOME") or (_Path.home() / ".cache" / "huggingface"))
+    if (_hf_home / "hub" / "models--distilbert-base-uncased" / "snapshots").exists():
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+except Exception:
+    pass

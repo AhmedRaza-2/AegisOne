@@ -419,7 +419,19 @@ export default function AdminSetupPage() {
       const industryParam = searchParams.get('industry');
       const adminEmailParam = searchParams.get('adminEmail') || user?.email || '';
       const adminNameParam = searchParams.get('adminName') || user?.full_name || 'Administrator';
-      const adminPasswordParam = searchParams.get('adminPassword');
+      // The landing page passes the password in the URL fragment (never sent to servers). Read it
+      // once, then erase it from the address bar / history so it cannot be copied or shoulder-surfed.
+      const hashParams = new URLSearchParams((typeof window !== 'undefined' ? window.location.hash : '').replace(/^#/, ''));
+      // Kept in memory only (not storage) so a re-run of this effect still has it.
+      const w = window as any;
+      w.__aegisSetupPw = hashParams.get('adminPassword') || searchParams.get('adminPassword') || w.__aegisSetupPw || null;
+      const adminPasswordParam: string | null = w.__aegisSetupPw;
+      if (typeof window !== 'undefined' && (window.location.hash || searchParams.get('adminPassword'))) {
+        const clean = new URL(window.location.href);
+        clean.hash = '';
+        clean.searchParams.delete('adminPassword');
+        window.history.replaceState(null, '', clean.pathname + clean.search);
+      }
       const serverHostParam = searchParams.get('serverHost') || '';
       if (serverHostParam) setServerHost(serverHostParam);
 
@@ -469,7 +481,7 @@ export default function AdminSetupPage() {
               if (!res.ok) {
                 await fetch(`${API_BASE}/auth/send-admin-credentials`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 'Content-Type': 'application/json', 'X-Setup-Key': 'aegis-setup-key-change-me' },
                   body: JSON.stringify({
                     email: adminEmailParam,
                     full_name: adminNameParam,

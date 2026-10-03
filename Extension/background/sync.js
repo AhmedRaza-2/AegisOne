@@ -11,6 +11,7 @@
  *  - Heartbeat updates setBackendOnline flag in scanner
  */
 
+import { authFetch } from "../utils/auth.js";
 import { API_BASE, getApiBaseUrl, EVENT_SYNC_INTERVAL_MS, STORE_KEYS, SYNC_BACKOFF_STEPS, DEBUG_MODE } from "../utils/constants.js";
 import { getUnsyncedEvents, markSynced } from "./event-store.js";
 import { setBackendOnline } from "./scanner.js";
@@ -75,10 +76,9 @@ async function _flush() {
     }));
 
     const headers = { "Content-Type": "application/json" };
-    if (user_email) headers["X-User-Email"] = user_email;
 
     const baseUrl = await getApiBaseUrl();
-    const res = await fetch(`${baseUrl}/events/ingest`, {
+    const res = await authFetch(`${baseUrl}/events/ingest`, {
       method: "POST",
       headers,
       body: JSON.stringify({ events: enriched }),
@@ -206,11 +206,10 @@ async function _registerOrHeartbeat(deviceId, register = false) {
   };
 
   const headers = { "Content-Type": "application/json" };
-  if (user_email) headers["X-User-Email"] = user_email;
 
   const endpoint = register ? "/devices/register" : "/devices/heartbeat";
   const baseUrl = await getApiBaseUrl();
-  const res = await fetch(`${baseUrl}${endpoint}`, {
+  const res = await authFetch(`${baseUrl}${endpoint}`, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),

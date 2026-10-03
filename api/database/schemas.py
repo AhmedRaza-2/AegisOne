@@ -2,7 +2,7 @@
 AegisOne API — Pydantic Schemas
 Request/response models for all endpoints.
 """
-from pydantic import BaseModel, Field, EmailStr, model_validator
+from pydantic import field_validator, BaseModel, Field, EmailStr, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -55,9 +55,24 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=512)
     full_name: str = Field(..., min_length=1, max_length=255)
+    # Accepted for older clients but ignored: self-registration always creates an employee.
     role: UserRole = UserRole.EMPLOYEE
     department: str = Field("General", max_length=255)
     organization_id: Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        from api.auth.password import validate_password_strength
+        return validate_password_strength(v)
+
+    @field_validator("full_name")
+    @classmethod
+    def _name_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank.")
+        return v
 
 
 class TokenResponse(BaseModel):

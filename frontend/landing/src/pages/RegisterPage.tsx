@@ -239,7 +239,7 @@ function CountrySelector({
                 No countries match "{search}"
               </div>
             ) : (
-              Object.entries(groupedCountries).map(([letter, countries]) => (
+              (Object.entries(groupedCountries) as [string, string[]][]).map(([letter, countries]) => (
                 <div key={letter} className="pt-2 first:pt-0">
                   <div className="sticky top-0 bg-white/95 backdrop-blur-xs py-0.5 px-2 text-[10px] font-extrabold text-[#4A7FA7] uppercase tracking-wider border-b border-slate-100 z-10">
                     {letter}
@@ -568,7 +568,7 @@ export default function RegisterPage() {
         const apiHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
         await fetch(`http://${apiHost}:8000/auth/send-admin-credentials`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Setup-Key": (import.meta as any).env?.VITE_SETUP_KEY || "aegis-setup-key-change-me" },
           body: JSON.stringify({
             email: form.admin_email,
             full_name: form.admin_name,

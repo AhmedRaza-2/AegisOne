@@ -1,3 +1,4 @@
+import logging as _logging
 import os
 import re
 import smtplib
@@ -7,6 +8,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from fastapi import Request
+
+_log = _logging.getLogger("aegisone.mail")
 
 logger = logging.getLogger("aegis.email_service")
 
@@ -70,7 +73,7 @@ def send_unified_email(
     if not smtp_user or not smtp_pass:
         errMsg = f"[SMTP WARNING] Cannot send email to {to_email}: SMTP credentials missing."
         logger.warning(errMsg)
-        print(errMsg, flush=True)
+        _log.warning("MAIL  %s", errMsg)
         return {"sent": False, "error": errMsg}
 
     smtp_user = smtp_user.strip()
@@ -112,10 +115,10 @@ def send_unified_email(
         server.quit()
 
         logger.info(f"Email successfully dispatched to {to_email} [Subject: '{subject}']")
-        print(f"Successfully dispatched email to {to_email}", flush=True)
+        _log.info("MAIL  sent to %s", to_email)
         return {"sent": True, "error": None}
     except Exception as e:
         errMsg = f"Failed to send email to {to_email}: {str(e)}"
         logger.error(errMsg)
-        print(errMsg, flush=True)
+        _log.warning("MAIL  %s", errMsg)
         return {"sent": False, "error": str(e)}

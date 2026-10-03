@@ -3,6 +3,7 @@ AegisOne API — Compatibility & XAI Router
 Exposes legacy /analyze/* and new /xai/* endpoints for full extension integration.
 Also implements dashboard sync and policy fetching endpoints.
 """
+import logging as _logging
 import time
 import tempfile
 import os
@@ -17,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from api.database.db import get_db
-from api.dependencies import get_current_user
+from api.dependencies import get_current_user, get_scan_user
 import socket
 import ipaddress
 from urllib.parse import urlparse
@@ -87,6 +88,9 @@ from api.services.xai_engine import (
     generate_tier1_explanation, generate_tier2_deep_explanation, build_grounded_findings, find_lure_phrases,
 )
 from api.services.redaction import redact_text
+from api.logs import scan_log, event_log, short_target
+import re as _re_mod
+_re_sig = _re_mod.compile(r"^[^\w\"'(]+")
 from api.services.security_score import compute_security_score
 from api.services.revision_service import increment_org_revision, get_org_revision
 
@@ -136,10 +140,12 @@ class ContextualEnvelopeRequest(BaseModel):
     evidence: Dict[str, Any] = {}
     
 from api.services.contextual_risk_engine import ContextualRiskEngine
+
+_log = _logging.getLogger("aegisone.compat")
 _contextual_engine = ContextualRiskEngine()
 
 @router.post("/analyze/contextual")
-async def api_contextual(request: ContextualEnvelopeRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_contextual(request: ContextualEnvelopeRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     
     # Run contextual fusion with pure envelope
@@ -170,17 +176,13 @@ async def api_contextual(request: ContextualEnvelopeRequest, current_user: User 
     
     contextual_result["latency_ms"] = scan.scan_duration_ms
     
-    print(f"\n[AEGIS CONTEXTUAL ENGINE] 🔍 INCOMING CONTEXTUAL SCAN")
-    print(f" ├─ Target   : {request.url[:100]}")
-    print(f" ├─ Complete : {contextual_result['scan_completeness']}")
-    print(f" ├─ Corrob.  : {contextual_result['contextual_analysis']['corroboration_level']}")
-    print(f" ├─ Final    : {final_risk:.1f}% Risk ({decision})")
-    print(f" └─ Latency  : {scan.scan_duration_ms}ms\n", flush=True)
+    scan_log("fusion", current_user.email, request.url, final_risk, decision, scan.scan_duration_ms,
+             f"corroboration={contextual_result['contextual_analysis']['corroboration_level']}")
     
     return contextual_result
 
 @router.post("/analyze/full_page")
-async def api_full_page(request: ContextualScanRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_full_page(request: ContextualScanRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     
     text_result = {"phishing_probability": 0}
@@ -252,16 +254,12 @@ async def api_full_page(request: ContextualScanRequest, current_user: User = Dep
     contextual_result["image_results"] = image_results
     contextual_result["text_result"] = text_result
     
-    print(f"\n[AEGIS CONTEXTUAL ENGINE] 🔍 INCOMING FULL PAGE SCAN")
-    print(f" ├─ Target   : {request.url[:100]}")
-    print(f" ├─ Raw Text : {text_risk:.1f}%")
-    print(f" ├─ Corrob.  : {contextual_result['contextual_analysis']['corroboration_level']}")
-    print(f" ├─ Final    : {final_risk:.1f}% Risk ({decision})")
-    print(f" └─ Latency  : {scan.scan_duration_ms}ms\n", flush=True)
+    scan_log("page", current_user.email, request.url, final_risk, decision, scan.scan_duration_ms,
+             f"text={text_risk:.0f}%, corroboration={contextual_result['contextual_analysis']['corroboration_level']}")
     
     return contextual_result
 @router.post("/analyze/url")
-async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), form_actions: str = Form(None), dom_signals: str = Form(None), scan_id: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_url(request: Request, url: str = Form(...), scan_type: str = Form("url"), form_actions: str = Form(None), dom_signals: str = Form(None), scan_id: str = Form(None), current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     validate_url_for_ssrf(url)
     start = time.time()
     
@@ -386,12 +384,8 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
     contextual_result["top_words"] = result.get("top_words", [])
     contextual_result["threat_type"] = threat_type
     
-    print(f"\n[AEGIS AI ENGINE] 🔗 INCOMING URL SCAN REQUEST")
-    print(f" ├─ User    : {current_user.email}")
-    print(f" ├─ Target  : {url[:100]}")
-    print(f" ├─ Category: {result.get('category', 'benign')}")
-    print(f" ├─ Score   : {final_risk:.1f}% Risk ({decision.upper()})")
-    print(f" └─ Latency : {scan.scan_duration_ms}ms\n", flush=True)
+    scan_log("url", current_user.email, url, final_risk, decision, scan.scan_duration_ms,
+             result.get('category', 'benign') if decision != 'ALLOW' else '')
     return contextual_result
 
 
@@ -414,7 +408,7 @@ def _safe_http_url(value: Optional[str]) -> Optional[str]:
 
 
 @router.post("/analyze/text")
-async def api_text(request: Request, text: str = Form(...), source_url: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_text(request: Request, text: str = Form(...), source_url: str = Form(None), current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     result = await predict_text(text)
 
@@ -470,11 +464,8 @@ async def api_text(request: Request, text: str = Form(...), source_url: str = Fo
     # The extension reads `top_words` everywhere; the text model emits `xai_words`.
     result.setdefault("top_words", top_words)
     result["lures"] = lures
-    print(f"\n[AEGIS AI ENGINE] INCOMING TEXT SCAN REQUEST")
-    print(f" ├─ User   : {current_user.email}")
-    print(f" ├─ Text   : {text[:100]}...")
-    print(f" ├─ Score  : {score:.1f}% Risk ({decision.upper()})")
-    print(f" └─ Latency: {scan.scan_duration_ms}ms\n", flush=True)
+    scan_log("text", current_user.email, page_url or f"text ({len(text)} chars)", score, decision, scan.scan_duration_ms,
+             ", ".join(lures[:2]))
     return result
 
 @router.post("/analyze/email")
@@ -485,7 +476,9 @@ async def api_email(
     body: str = Form(""),
     thread_url: str = Form(""),
     scan_id: str = Form(None),
-    current_user: User = Depends(get_current_user),
+    link_signals: str = Form(None),
+    attach_signals: str = Form(None),
+    current_user: User = Depends(get_scan_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -525,6 +518,9 @@ async def api_email(
 
     # ── ML Inference (body used here only, immediately discarded) ───────────
     result = await predict_email(sender, subject, body)
+    # Scam-style phrases are matched now, while the body is in memory, so the explanation can
+    # quote them. Only the matched phrases from a fixed list are kept - never the text itself.
+    email_lures = find_lure_phrases(f"{subject}\n{body}")
     # body is no longer referenced after this point
     del body
 
@@ -569,11 +565,33 @@ async def api_email(
     await db.commit()
 
     # ── Safe console log (NO body content) ─────────────────────────────────
-    print(f"\n[AEGIS AI ENGINE] 📧 EMAIL SCAN")
-    print(f" ├─ User    : {current_user.email}")
-    print(f" ├─ Score   : {score:.1f}% ({decision.upper()})")
-    print(f" ├─ Factors : {factor_codes[:5]}")
-    print(f" └─ Latency : {event.scan_duration_ms}ms\n", flush=True)
+    scan_log("email", current_user.email, subj_preview or "email", score, decision, event.scan_duration_ms,
+             ", ".join(str(c) for c in factor_codes[:3]))
+
+    # Grounded explanation for this exact email (built in memory; not persisted).
+    def _clean_list(raw):
+        try:
+            vals = json.loads(raw) if raw else []
+        except Exception:
+            vals = []
+        out = []
+        for v in vals[:8] if isinstance(vals, list) else []:
+            t = _re_sig.sub("", str(v)).strip()[:200]
+            if t:
+                out.append(t[0].lower() + t[1:])
+        return out
+
+    rich = {
+        "scan_kind": "email", "final_risk": round(score, 1), "source_model": "Email phishing model",
+        "text_evidence": {"lures": email_lures, "top_words": [str(w) for w in factor_codes[:6]], "context": ""},
+    }
+    xai = generate_tier1_explanation(
+        {"risk_score": round(score), "scan_type": "email", "url": subj_preview or "email", "domain": "email"},
+        rich_evidence=rich,
+    )
+    extra = _clean_list(link_signals) + _clean_list(attach_signals)
+    if extra and score >= 20:
+        xai["main_reasons"] = (xai["main_reasons"] + [e[0].upper() + e[1:] for e in extra])[:8]
 
     return {
         "phishing_probability": score / 100.0,
@@ -581,12 +599,19 @@ async def api_email(
         "verdict": verdict,
         "decision": decision,
         "top_words": factor_codes,
+        "lures": email_lures,
+        "xai": {
+            "summary": xai["summary"],
+            "main_reasons": xai["main_reasons"],
+            "recommendations": xai["recommendations"],
+            "scan_kind": "email",
+        },
         "latency_ms": event.scan_duration_ms,
     }
 
 
 @router.post("/analyze/image")
-async def api_image(request: Request, file: UploadFile = File(...), source_url: str = Form(None), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_image(request: Request, file: UploadFile = File(...), source_url: str = Form(None), current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
     data = await file.read()
     detailed = await route_image_input_detailed(data)
@@ -669,12 +694,8 @@ async def api_image(request: Request, file: UploadFile = File(...), source_url: 
     db.add(scan)
     await db.commit()
     
-    print(f"\n[AEGIS AI ENGINE] INCOMING IMAGE OCR SCAN REQUEST")
-    print(f" ├─ User    : {current_user.email}")
-    print(f" ├─ File    : {file.filename or 'upload.png'}")
-    print(f" ├─ Size    : {len(data)} bytes")
-    print(f" ├─ Score   : {score:.1f}% Phishing Probability ({decision.upper()})")
-    print(f" └─ Latency : {scan.scan_duration_ms}ms\n", flush=True)
+    scan_log("image", current_user.email, page_url or (file.filename or "upload"), score, decision, scan.scan_duration_ms,
+             f"driver={driver}")
     return {
         "prediction": "phishing" if is_phish else "legitimate",
         "confidence": round(overall_prob if is_phish else 1.0 - overall_prob, 4),
@@ -708,10 +729,7 @@ async def api_document(file: UploadFile = File(...)):
     prob = 0.95 if is_phish else 0.05
     dur = round((time.time() - start) * 1000, 1)
     
-    print(f"\n[AEGIS AI ENGINE] 📄 INCOMING DOCUMENT SCAN REQUEST")
-    print(f" ├─ File   : {file.filename or 'document'}")
-    print(f" ├─ Verdict: {'PHISHING' if is_phish else 'LEGITIMATE'} ({prob*100:.1f}%)")
-    print(f" └─ Latency: {dur}ms\n", flush=True)
+    scan_log("doc", "-", file.filename or "document", prob * 100, "BLOCK" if is_phish else "SAFE", dur)
 
     return {
         "prediction": "phishing" if is_phish else "legitimate",
@@ -723,7 +741,7 @@ async def api_document(file: UploadFile = File(...)):
     }
 
 @router.post("/analyze/download_url")
-async def api_download_url(url: str = Form(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def api_download_url(url: str = Form(...), current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
 
     # This endpoint fetches `url` server-side and runs it through attachment analysis.
@@ -857,7 +875,7 @@ async def api_download_url(url: str = Form(...), current_user: User = Depends(ge
         ))
         await db.commit()
     except Exception as e:
-        print(f"[AegisOne] Failed to log download event: {e}")
+        _log.warning("Could not store download event: %s", e)
     
     return results
 
@@ -902,11 +920,9 @@ async def api_explain(evidence: Dict[str, Any] = Body(...), db: AsyncSession = D
     tier1["latency_ms"] = round((time.time() - start) * 1000, 1)
 
     target = evidence.get("url") or evidence.get("target") or "Page/Email Evidence"
-    print(f"\n[AEGIS XAI ENGINE] ✨ INCOMING AI EXPLANATION REQUEST")
-    print(f" ├─ Target : {str(target)[:100]}")
-    print(f" ├─ Grounded: {tier1.get('grounded_in_scan_record')}")
-    print(f" ├─ Summary: {tier1.get('summary', '')[:140]}...")
-    print(f" └─ Latency: {tier1['latency_ms']}ms\n", flush=True)
+    event_log("XAI", f"{tier1.get('scan_kind', 'page'):<5} {tier1.get('xai_tier', '')} "
+                     f"{'grounded' if tier1.get('grounded_in_scan_record') else 'client-only'} "
+                     f"{tier1['latency_ms']:.0f}ms  {short_target(str(target), 60)}")
 
     return tier1
 
@@ -992,14 +1008,14 @@ async def add_policy_allowlist(payload: AllowlistRequest, current_user: User = D
 
 
 @router.post("/devices/register")
-async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_scan_user)):
     try:
-        from api.database.models import User
-        if payload.user_email:
-            user = await db.scalar(select(User).where(User.email == payload.user_email))
-            if user:
-                payload.user_id = user.id
-                payload.organization_id = getattr(user, "organization_id", None) or payload.organization_id
+        # Ownership comes from the signed-in token, never from an email the client claims.
+        if current_user.id is not None:
+            payload.user_id = current_user.id
+            payload.organization_id = current_user.organization_id or payload.organization_id
+        else:
+            payload.user_id = None
 
         # Try to find existing device
         device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
@@ -1075,13 +1091,16 @@ async def heartbeat_device(payload: DeviceHeartbeatRequest, db: AsyncSession = D
 
 
 @router.post("/events/ingest")
-async def ingest_security_events(payload: SecurityEventIngestRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def ingest_security_events(payload: SecurityEventIngestRequest, request: Request, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_scan_user)):
     """
     Ingests batch security events from the browser extension.
     Persists them to the database.
     """
     persisted = 0
-    hdr_email = request.headers.get("X-User-Email") or request.headers.get("x-user-email")
+    # Every event is attributed to the authenticated caller (or to nobody), regardless of
+    # the user_id / org_id / email values the client put inside the event.
+    auth_user_id = current_user.id
+    auth_org_id = current_user.organization_id if auth_user_id is not None else None
 
     for event in payload.events:
         event_id = event.id or str(uuid.uuid4())
@@ -1089,7 +1108,6 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
         # Deduplication check to prevent UNIQUE constraint failures
         existing = await db.execute(select(SecurityEvent).where(SecurityEvent.event_id == event_id))
         if existing.scalar_one_or_none():
-            print(f"[AegisOne:Ingest] Duplicate event bypassed: {event_id}")
             continue
             
         details = event.details or {}
@@ -1101,25 +1119,12 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
             safe_dump["details"].pop("username", None)
             safe_dump["details"].pop("email", None)
             
-        user_id_str = str(event.user_id) if event.user_id is not None else None
-        
-        try:
-            user_id_int = int(event.user_id) if event.user_id is not None else None
-        except ValueError:
-            user_id_int = None
-
-        # Resolve user_id if missing but user_email is present
-        evt_email = getattr(event, "user_email", None) or hdr_email
-        if (user_id_int is None or user_id_str is None) and evt_email:
-            u_res = await db.execute(select(User).where(func.lower(User.email) == evt_email.lower().strip()))
-            u_obj = u_res.scalar_one_or_none()
-            if u_obj:
-                user_id_int = u_obj.id
-                user_id_str = str(u_obj.id)
+        user_id_int = auth_user_id
+        user_id_str = str(auth_user_id) if auth_user_id is not None else None
 
         entry = SecurityEvent(
             event_id=event_id,
-            organization_id=event.org_id or DEFAULT_POLICY["org_id"],
+            organization_id=auth_org_id or DEFAULT_POLICY["org_id"],
             user_id=user_id_str,
             device_id=event.device_id,
             event_type=event.type,
@@ -1133,7 +1138,6 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
         persisted += 1
 
         # Print debug log to console
-        print(f"[AegisOne:Ingest] Ingesting event: ID={event_id}, Type={event.type}, User={event.user_id}, Org={event.org_id}, Risk={event.risk_score or 0}%")
 
         if event.type == "credential_warning":
             db.add(CredentialEvent(
@@ -1199,7 +1203,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
 
     if persisted > 0:
         await db.commit()
-        print(f"[AegisOne:Ingest] Successfully committed {persisted} security events to the database.")
+        event_log("INGEST", f"{persisted} extension event(s) stored for {current_user.email if current_user.id else 'anonymous'}")
     return {"status": "success", "count": persisted}
 
 
@@ -1353,7 +1357,8 @@ async def ingest_hover_scan(payload: HoverScanRequest, db: AsyncSession = Depend
 # =============================================================================
 
 @router.get("/user/alerts")
-async def get_user_alerts(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_alerts(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 13: Alerts Center (High severity items only)"""
     q = await db.execute(
         select(WebsiteScan)
@@ -1384,7 +1389,8 @@ async def get_user_alerts(email: str = Query(None), db: AsyncSession = Depends(g
     return {"alerts": results}
 
 @router.get("/user/timeline")
-async def get_user_timeline(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_timeline(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 14: Security Timeline (Story mode)"""
     q = await db.execute(
         select(WebsiteScan)
@@ -1405,7 +1411,8 @@ async def get_user_timeline(email: str = Query(None), db: AsyncSession = Depends
     return {"timeline": results}
 
 @router.get("/user/personal-stats")
-async def get_personal_stats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_personal_stats(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 15: Personal Statistics — real data from DB"""
     from datetime import datetime, timedelta
     
@@ -1446,7 +1453,8 @@ async def get_personal_stats(email: str = Query(None), db: AsyncSession = Depend
 
 
 @router.get("/user/recommendations")
-async def get_user_recommendations(email: str = Query(None)):
+async def get_user_recommendations(current_user: User = Depends(get_current_user)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 18: Security Recommendations"""
     return {
         "recommendations": [
@@ -1463,7 +1471,8 @@ async def get_user_recommendations(email: str = Query(None)):
 # =============================================================================
 
 @router.get("/user/xai")
-async def get_user_xai(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_xai(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 6: Explainable AI Center — strictly scoped to the requesting user.
     Previously ignored `email` entirely and returned every user's flagged scans
     (same bug class as the old /user/threats), and fabricated a "confidence" value
@@ -1508,7 +1517,8 @@ async def get_user_xai(email: str = Query(None), db: AsyncSession = Depends(get_
     return {"explanations": results}
 
 @router.get("/user/models")
-async def get_ai_models_status(email: str = Query(None)):
+async def get_ai_models_status(current_user: User = Depends(get_current_user)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 12: AI Models Status"""
     import random
     return {
@@ -1523,7 +1533,8 @@ async def get_ai_models_status(email: str = Query(None)):
     }
 
 @router.get("/user/browser")
-async def get_browser_status(email: str = Query(None)):
+async def get_browser_status(current_user: User = Depends(get_current_user)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 11: Browser Protection Status"""
     return {
         "status": {
@@ -1542,7 +1553,8 @@ async def get_browser_status(email: str = Query(None)):
 # =============================================================================
 
 @router.get("/user/downloads")
-async def get_user_downloads(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_downloads(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 8: Download Protection"""
     q = await db.execute(select(DownloadEvent).order_by(DownloadEvent.created_at.desc()).limit(50))
     downloads = q.scalars().all()
@@ -1573,7 +1585,8 @@ async def get_user_downloads(email: str = Query(None), db: AsyncSession = Depend
     return {"downloads": results}
 
 @router.get("/user/credentials")
-async def get_user_credentials(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_credentials(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 9: Credential Protection"""
     q = await db.execute(select(CredentialEvent).order_by(CredentialEvent.created_at.desc()).limit(50))
     creds = q.scalars().all()
@@ -1626,7 +1639,8 @@ async def get_user_credentials(email: str = Query(None), db: AsyncSession = Depe
     }
 
 @router.get("/user/media")
-async def get_user_media(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_media(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """Module 10: Image & QR Detection"""
     # Fetch all website scans where scan_type is image or threat_type contains QR
     q = await db.execute(
@@ -1679,7 +1693,8 @@ _SCAN_SOURCE_LABELS = {
 
 
 @router.get("/user/threats")
-async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_threats(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """
     Returns data for Module 3: Threat Center.
     Categorizes all warnings and blocks into specific threat vectors.
@@ -1797,7 +1812,8 @@ async def get_user_threats(email: str = Query(None), db: AsyncSession = Depends(
     }
 
 @router.get("/user/url-intelligence")
-async def get_user_url_intelligence(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_url_intelligence(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """
     Returns data for Module 7: URL Intelligence.
     Focuses exclusively on URL scans and infers SSL/Redirects for UI realism.
@@ -1888,7 +1904,8 @@ async def sync_extension_analytics(
 
 
 @router.get("/user/analytics")
-async def get_user_analytics(email: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_analytics(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """
     Returns data specifically formatted for the Recharts graphs in Module 4.
     """
@@ -1949,7 +1966,8 @@ async def get_user_analytics(email: str = Query(None), db: AsyncSession = Depend
 
 
 @router.get("/user/stats")
-async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def get_user_dashboard_stats(current_user: User = Depends(get_current_user), device_id: str = Query(None), db: AsyncSession = Depends(get_db)):
+    email = current_user.email  # identity comes from the token, never the query string
     """
     Returns advanced dashboard stats including Today's Activity,
     Security Health Score, and detailed history.
@@ -2237,8 +2255,7 @@ async def get_user_dashboard_stats(email: str = Query(None), device_id: str = Qu
 
 @router.get("/analytics/whatsapp")
 async def get_whatsapp_analytics(
-    email: Optional[str] = Query(None),
-    role: Optional[str] = Query("employee"),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -2247,17 +2264,17 @@ async def get_whatsapp_analytics(
     - Threat category breakdown
     - Recent WhatsApp threats feed with 100% preserved model XAI evidence
     """
-    user_id = None
-    if email:
-        user_q = await db.execute(select(User).where(User.email == email))
-        user = user_q.scalar()
-        if user:
-            user_id = user.id
-
-    # Base query for WhatsApp scans
-    q_base = select(WebsiteScan).where(WebsiteScan.scan_type == "whatsapp")
-    if role == "employee" and user_id:
-        q_base = q_base.where(WebsiteScan.user_id == user_id)
+    # Scope comes from who is signed in, not from `email` / `role` values the caller supplies:
+    # employees see only their own messages, managers their department, admins their org.
+    q_base = select(WebsiteScan).where(
+        WebsiteScan.scan_type == "whatsapp",
+        WebsiteScan.organization_id == (current_user.organization_id or "org_default"),
+    )
+    if current_user.role == "employee":
+        q_base = q_base.where(WebsiteScan.user_id == current_user.id)
+    elif current_user.role == "manager":
+        dept_user_ids = select(User.id).where(User.department_id == current_user.department_id)
+        q_base = q_base.where(WebsiteScan.user_id.in_(dept_user_ids))
 
     res = await db.execute(q_base.order_by(WebsiteScan.created_at.desc()).limit(300))
     scans = res.scalars().all()
@@ -2343,6 +2360,7 @@ class WhatsAppFeedbackRequest(BaseModel):
 async def record_whatsapp_feedback(
     scan_id: str,
     payload: WhatsAppFeedbackRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """

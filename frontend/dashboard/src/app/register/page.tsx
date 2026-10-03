@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from "@/lib/session";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -11,7 +12,6 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("employee");
   const [organization, setOrganization] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,6 @@ export default function RegisterPage() {
           email,
           password,
           full_name: fullName,
-          role,
           department: "General",
           organization_id: organization || "org_default"
         }),
@@ -37,7 +36,7 @@ export default function RegisterPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.detail || "Registration failed");
+        throw new Error(apiErrorMessage(data, "Registration failed"));
       }
 
       // Automatically redirect to login upon success
@@ -129,21 +128,9 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Role</label>
-              <div className="relative">
-                <select
-                  value={role}
-                  onChange={e => setRole(e.target.value)}
-                  className="w-full pl-3 pr-4 py-2.5 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
-                >
-                  <option value="employee">Employee</option>
-                  <option value="department_admin">Department Admin</option>
-                  <option value="super_admin">Super Admin</option>
-                  <option value="global_admin">Platform Head (Owner)</option>
-                </select>
-              </div>
-            </div>
+            <p className="text-xs text-surface-500 dark:text-surface-400">
+              New accounts are created as Employee and must be approved by your organization's administrator before you can sign in.
+            </p>
 
             {error && <p className="text-sm text-red-500 dark:text-red-400 text-center">{error}</p>}
 

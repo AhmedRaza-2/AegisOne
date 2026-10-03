@@ -153,3 +153,44 @@ Users `qa.admin`, `qa.mgr.fin`, `qa.mgr.eng`, `qa.emp1` to `qa.emp6` (all `@exam
 - Dashboard: Reports, Report a Threat, My Reports, AI Models (job progress, samples with evidence, versions), Audit Logs, History, chat (UTC timestamps, polling, search, draft kept on failure), Manual Scan nav for manager/admin, toasts instead of alert().
 
 **Verified live**: image/text/page explanations, report -> incident -> manager/admin evidence, escalation, scoped stats, 19 dashboard pages across 3 roles with no console/API errors. Not tested: extension in a real browser (syntax-checked only).
+
+## Run 7 - Authentication audit: verification and fixes
+
+Every finding in the 2026-10-03 audit was re-checked against the code first. Status after this run:
+
+| # | Finding | Was present | Now |
+|---|---|---|---|
+| 1 | Identity via X-User-Email / `user_email` / form field | yes | Removed. Identity is ONLY a signed access token. `get_current_user` is strict; `get_scan_user` (token or anonymous) serves extension scan routes. All `/user/*` endpoints and `/analytics/whatsapp` now require a token and ignore `email`/`role` params. Device/event ingestion attributes to the token user, never to client-supplied user_id/org_id. |
+| 2 | Public `send-admin-credentials` created approved admins | yes | Allowed only while the instance has no admin, or with the setup key; never modifies an existing account; no password in the email; same response either way; rate-limited. |
+| 3 | Pending users could sign in; refresh/login disagreed | yes | Login, refresh and every protected route use one rule (`approved`/`active`). Pending -> 403 "awaiting approval". Self-registration always employee; unknown organization rejected; role picker removed from UI. |
+| 4 | OTP in logs, in-memory, unlimited guesses, reusable, enumeration | yes | Hashed+salted codes in DB (`password_reset_challenges`), 10 min expiry, 5 guesses then destroyed, single use, 60s resend gap, identical response for unknown accounts, never logged (opt-in `AEGIS_DEV_PRINT_OTP=1`). Reset/change password revokes all earlier sessions (`users.password_changed_at`). |
+| 5 | Password in HTTP/email/URL | partly | Email no longer contains a password. Onboarding hand-off moved from `?adminPassword=` to the URL fragment, held in memory and erased from the address bar. Remaining: landing keeps the password in tab-scoped sessionStorage for the one-click launch, and API URLs are still http:// outside local use (needs a TLS origin setting). |
+| 6 | Refresh JWT usable as access JWT | yes | `token_type` enforced both ways. |
+| 7 | Password policy inconsistent; bcrypt 72-byte truncation | yes | One policy everywhere (8+ chars, letter+number, <=72 bytes); overlong passwords rejected rather than truncated. |
+| 8 | Token in JS-readable storage/cookie | yes | Token cookie removed; refresh token stored; silent refresh on 401; clean sign-out when the server rejects the session. Still localStorage (HttpOnly cookie sessions are a larger redesign). |
+| 9 | check-role enumeration | yes | Answers identically for every address; login page no longer calls it. |
+| 10 | Caller-chosen organization at signup | yes | Must exist; account stays pending. |
+| - | Demo localStorage auth (`setup-wizard/lib/firebase.ts`), Supabase vs FastAPI identity split | yes | Not changed - documented. |
+| - | Landing TS error; dashboard conditional hook | yes | Fixed. Remaining dashboard lint output is unescaped quote characters in text. |
+
+Also: validation errors no longer echo the request body/password (and no longer 500 on custom validators); setup key no longer printed to logs and compared in constant time; extension now authenticates with the dashboard session's token (`Extension/utils/auth.js`) and clears it on sign-out.
+
+Logging: one line per scan/event (`api/logs.py`), health polling and 2xx access lines hidden, query strings never logged, model-library noise silenced.
+
+Verified: 32 automated checks (`sec_test.py`) plus a real-Chromium run (token handed to the extension on login, scans attributed 1 -> 4, cleared on sign-out) and the 19-page dashboard sweep.
+
+## Run 8 - Email explanation, manager scoping, startup, sign-in
+
+- **Stale email explanation**: the widget's "Explain" read a global that was only refreshed on a FRESH scan, so re-opening an already-scanned email showed the previous email's text; emails also used a client-side template instead of the grounded engine. Fixed: `/analyze/email` now returns a grounded explanation (matched scam phrases + model keywords, built in memory - the body is still never stored), every open publishes that email's own explanation, sender shows the first participant only. A low model score with scam wording is now reported as "rated low risk, but still shows warning signs" instead of "safe".
+- **Manager totals were 0**: `_org_scope` treated scans like users because `WebsiteScan` has its own (mostly empty) `department_id` column. Managers now see their department's scans, trend, devices and events. (This was the real cause of the empty Reports page; the earlier unscoped trend fallback had hidden it.)
+- **Employee email analytics 500**: integer column compared with a string in Postgres. Fixed; the `email=` override that let any user request another user's email history is ignored.
+- **Extension sign-in**: popup has an email + password form (same account as the dashboard); the token is invisible to the user.
+- **Startup**: models no longer re-check Hugging Face on every start (cache volume + offline-first): restart 16 s instead of up to 6 min; works with no internet once cached.
+- Verified: `analytics_check.py` (admin/manager/employee numbers equal the database; trend sums equal totals; employee score equals what the manager list shows), 32/32 security checks, light-mode sweep of 29 pages across 3 roles.
+
+## Run 9 - Personalised extension download (no sign-in step)
+
+- `GET /public/download/extension` personalises the bundle ONLY from the caller's verified token (the dashboard button sends it). `config.json` then holds that user's email, org, server address and a renewable credential; the extension adopts it on first start and signs itself in. The old public `?email=` personalisation is ignored (anonymous download = generic bundle).
+- Dashboard: one minimal install card (shared `ExtensionInstall`) on the employee and manager/admin extension pages: download button + three short steps.
+- Extension: re-downloading as a different user switches identity; dashboard sign-out no longer strips a bundled extension; popup sign-in remains only as a fallback (expired credential / generic bundle).
+- Verified in real Chromium: download as a user, load unpacked, nothing typed -> signed in, scans attributed.

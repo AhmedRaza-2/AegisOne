@@ -83,6 +83,8 @@ class User(Base):
     last_login      = Column(DateTime,    nullable=True)
     last_active_at  = Column(DateTime,    nullable=True)
     created_at      = Column(DateTime,    server_default=func.now())
+    # Any token minted before this moment is rejected (set on password change / reset).
+    password_changed_at = Column(DateTime, nullable=True)
 
     # Relationships
     organization    = relationship("Organization", back_populates="users")
@@ -737,6 +739,20 @@ class Message(Base):
 # ══════════════════════════════════════════════════════════════════════════════
 # 16. SETUP SESSIONS
 # ══════════════════════════════════════════════════════════════════════════════
+
+class PasswordResetChallenge(Base):
+    """A pending password-reset code. Only a salted hash of the code is stored; it expires,
+    is limited to a few guesses, and is deleted once used."""
+    __tablename__ = "password_reset_challenges"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    email      = Column(String(255), nullable=False, unique=True, index=True)
+    code_hash  = Column(String(128), nullable=False)
+    salt       = Column(String(32), nullable=False)
+    attempts   = Column(Integer, nullable=False, default=0)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
 
 class SetupSession(Base):
     """Draft state for frontend setup wizard resume-ability."""

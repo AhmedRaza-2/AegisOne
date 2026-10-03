@@ -1,3 +1,4 @@
+import logging as _logging
 import os
 import smtplib
 import uuid
@@ -14,15 +15,17 @@ from api.database.models import User, Organization, Department, SetupSession
 from api.auth.password import hash_password
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 
+_log = _logging.getLogger("aegisone.setup")
+
 router = APIRouter(
     prefix="/setup",
     tags=["setup"]
 )
 
 async def verify_setup_key(x_setup_key: Optional[str] = Header(None, alias="X-Setup-Key")):
+    import hmac
     expected_key = os.environ.get("VITE_SETUP_KEY", "aegis-setup-key-change-me")
-    print(f"[DEBUG:SetupAuth] Got key: '{x_setup_key}', Expected key: '{expected_key}'")
-    if not expected_key or x_setup_key != expected_key:
+    if not expected_key or not x_setup_key or not hmac.compare_digest(x_setup_key, expected_key):
         raise HTTPException(status_code=403, detail="Invalid Setup Key")
 
 
@@ -196,7 +199,7 @@ AegisOne Security Team
         )
         return {"email": employee.email, "sent": res["sent"], "error": res["error"]}
     except Exception as e:
-        print(f"Failed to send email to {employee.email}: {str(e)}")
+        _log.warning("SETUP could not email %s: %s", employee.email, e)
         return {"email": employee.email, "sent": False, "error": str(e)}
 
 def background_email_task(run_id: str, employees: List[Employee],
@@ -220,14 +223,14 @@ def background_email_task(run_id: str, employees: List[Employee],
 
     if not smtp_user or not smtp_pass:
         msg = "SMTP credentials (SMTP_USER, SMTP_PASS) are missing. Emails cannot be sent."
-        print(f"CRITICAL: {msg}")
+        _log.error("SETUP %s", msg)
         _email_dispatch_results[run_id] = {
             "done": True,
             "results": [{"email": emp.email, "sent": False, "error": msg} for emp in employees],
         }
         return
 
-    print(f"Starting email batch dispatch for {len(employees)} employees/admins...")
+    _log.info("SETUP sending welcome emails to %d people", len(employees))
     results = []
     for emp in employees:
         results.append(send_welcome_email(emp, smtp_user, smtp_pass, smtp_host, smtp_port, dashboard_url))
@@ -514,7 +517,7 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
         raise
     except Exception as e:
         await db.rollback()
-        print(f"Error saving users to database: {str(e)}")
+        _log.error("SETUP could not save users: %s", e)
         raise HTTPException(status_code=500, detail="Database write failed")
     
     # 2. We schedule the email sending to happen in the background so the UI doesn't hang.
@@ -641,5 +644,5 @@ async def reset_organization(db: AsyncSession = Depends(get_db)):
         return {"status": "success", "message": "Hard reset completed. All non-admin users, departments, and telemetry records successfully erased."}
     except Exception as e:
         await db.rollback()
-        print(f"Error performing hard reset: {str(e)}")
+        _log.error("SETUP hard reset failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to reset organization: {str(e)}")

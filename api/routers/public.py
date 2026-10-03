@@ -1,6 +1,7 @@
 """
 AegisOne API — Public Router
 """
+import logging as _logging
 import os
 import logging
 from fastapi import APIRouter, HTTPException, Request
@@ -26,7 +27,7 @@ class ContactRequest(BaseModel):
 async def contact_form(req: ContactRequest):
     if aiosmtplib is None:
         logger.warning("aiosmtplib package not installed. Contact request logged to console.")
-        print(f"[ContactForm] Name: {req.name}, Email: {req.email}, Msg: {req.message}")
+        _log.info("CONTACT form received (%d chars)", len(req.message or ""))
         return {"status": "success", "message": "Contact request received"}
 
     smtp_user = os.getenv("SMTP_USER")
@@ -79,6 +80,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from api.database.db import get_db
 from api.database.models import User
+from api.dependencies import get_optional_user
+from api.auth.jwt_handler import create_refresh_token
+
+_log = _logging.getLogger("aegisone.public")
 
 # Import the base64 bundled extension zip
 try:
@@ -87,19 +92,25 @@ except ImportError:
     EXTENSION_ZIP_B64 = None
 
 @router.get("/download/extension")
-async def download_extension(request: Request, email: str = None, db: AsyncSession = Depends(get_db)):
-    # Fetch employee's mapping details if email parameter is supplied
+async def download_extension(request: Request, email: str = None, user: User | None = Depends(get_optional_user)):
+    """Extension package. When the caller is signed in (Authorization: Bearer ...), the bundle is
+    personalised: config.json carries that user's identity and a renewable credential, so the
+    extension signs itself in on first start - no typing, no separate sign-in.
+
+    Personalisation is never driven by an `email` query parameter (that was a public, unauthenticated
+    way to obtain a bundle "for" anyone); it comes only from the verified token. An anonymous
+    download is a generic bundle, and the extension then offers its own email + password sign-in."""
     config_data = {}
-    if email:
-        res = await db.execute(select(User).where(func.lower(User.email) == email.lower().strip()))
-        user = res.scalar_one_or_none()
-        if user:
-            config_data = {
-                "email": user.email,
-                "user_id": user.id,
-                "organization_id": user.organization_id or "org_default"
-            }
-            
+    if user is not None and user.id is not None:
+        config_data = {
+            "email": user.email,
+            "user_id": user.id,
+            "organization_id": user.organization_id or "org_default",
+            "full_name": user.full_name,
+            "refresh_token": create_refresh_token({"sub": user.email, "role": user.role}),
+        }
+        _log.info("EXT   personalised extension bundle issued to %s", user.email)
+
     config_data["api_base"] = str(request.base_url).rstrip('/')
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -133,6 +144,6 @@ async def download_extension(request: Request, email: str = None, db: AsyncSessi
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=aegisone-extension.zip"}
+        headers={"Content-Disposition": "attachment; filename=aegisone-extension.zip", "Cache-Control": "no-store"}
     )
 

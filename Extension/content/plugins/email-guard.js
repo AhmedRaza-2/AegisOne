@@ -608,6 +608,8 @@ export function initEmailGuard() {
         sender,
         subject,
         body,
+        link_signals: linkEval.signals,
+        attach_signals: attachSignals,
       });
 
       if (!scanRes || scanRes.ok !== true || !scanRes.result) {
@@ -637,18 +639,7 @@ export function initEmailGuard() {
         fullBodyScanned: true
       };
 
-      const emailXai = _buildEmailXAI(
-        sender,
-        subject,
-        record.score ?? 0,
-        record.modelResult?.xai_words || [],
-        record.modelResult?.explanation || "",
-        record.attachSignals,
-        record.linkSignals,
-        record.links,
-        record.images,
-        (record.score ?? 0) >= 50
-      );
+      const emailXai = _xaiFor(record, sender, subject);
       record.emailXai = emailXai;
 
       _scannedEmailsMap.set(emailKey, record);
@@ -688,7 +679,23 @@ export function initEmailGuard() {
       record.linkSignals   = [...new Set([...record.linkSignals, ...linkEval.signals])];
       record.links         = links;
       record.images        = images;
+      if (!record.emailXai) record.emailXai = _xaiFor(record, sender, subject);
       _scannedEmailsMap.set(emailKey, record);
+      // The widget's "Explain AI" reads this global. It used to be set only on a FRESH scan, so
+      // re-opening an already-scanned email showed whichever email had been scanned last.
+      try {
+        window.__AEGIS_ACTIVE_EMAIL_XAI__ = record.emailXai;
+        document.dispatchEvent(new CustomEvent("aegis:email-scanned", {
+          detail: {
+            score: record.score,
+            verdict: record.verdict,
+            threat_type: record.verdict === "phishing" ? "phishing_email" : "safe",
+            emailXai: record.emailXai,
+            subject,
+            sender,
+          },
+        }));
+      } catch (_) {}
     }
 
     // Inject AI Analyze Button ONLY in Opened Email Toolbar
@@ -697,18 +704,8 @@ export function initEmailGuard() {
         btn.innerHTML = `<span>⏳</span><span>Analyzing...</span>`;
         btn.disabled = true;
 
-        const emailXai = _buildEmailXAI(
-          sender,
-          subject,
-          record.score ?? 0,
-          record.modelResult?.xai_words || [],
-          record.modelResult?.explanation || "",
-          record.attachSignals,
-          record.linkSignals,
-          record.links,
-          record.images,
-          (record.score ?? 0) >= 50
-        );
+        const emailXai = record.emailXai || _xaiFor(record, sender, subject);
+        window.__AEGIS_ACTIVE_EMAIL_XAI__ = emailXai;
 
         btn.innerHTML = `<span>✨</span><span>Analyze Email with AI</span>`;
         btn.disabled = false;
@@ -815,8 +812,35 @@ export function initEmailGuard() {
   // SECTION 4: XAI EXPLANATION BUILDER
   // ─────────────────────────────────────────────────────────
 
+  // The explanation shown to the user: the backend's grounded one when we have it (it names the
+  // actual scam phrases and model keywords found in THIS email), the local template otherwise
+  // (backend offline / older cached scans).
+  function _xaiFor(record, sender, subject) {
+    const be = record.modelResult?.xai;
+    if (be && be.summary && Array.isArray(be.main_reasons)) {
+      const reasons = [...be.main_reasons];
+      if (record.images && record.images.length > 0) {
+        reasons.push(`Embedded images detected (${record.images.length} evaluated)`);
+      }
+      return {
+        summary: be.summary,
+        main_reasons: reasons,
+        recommendations: be.recommendations || [],
+        generated_locally: false,
+      };
+    }
+    return _buildEmailXAI(
+      sender, subject, record.score ?? 0,
+      record.modelResult?.xai_words || [], record.modelResult?.explanation || "",
+      record.attachSignals || [], record.linkSignals || [], record.links || [], record.images || [],
+      (record.score ?? 0) >= 50
+    );
+  }
+
   function _buildEmailXAI(sender, subject, score, modelWords, modelExpl, attachSignals, linkSignals, links, images, isPhishing) {
-    const senderDisplay = sender ? `"${sender}"` : "an unknown sender";
+    // Gmail threads can list every participant ("me, Mail, a@b.com, ..."); name the first sender only.
+    const firstSender = (sender || "").split(",")[0].trim();
+    const senderDisplay = firstSender ? `"${firstSender}"` : "an unknown sender";
     const subjectDisplay = subject ? `"${subject}"` : "No Subject";
 
     if (isPhishing) {

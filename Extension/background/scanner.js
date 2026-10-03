@@ -17,6 +17,7 @@ import { isInternalURL, isDangerousFileURL, getRootDomain } from "../utils/trust
 import { getCachedResult, setCachedResult } from "./cache.js";
 import { computeRisk } from "./risk-engine.js";
 import { storeEvent } from "./event-store.js";
+import { authFetch } from "../utils/auth.js";
 
 let _policyCache = null;
 let _policyCacheAt = 0;
@@ -99,8 +100,6 @@ export function isBackendOnline() {
  * @param {AbortSignal} [signal] - optional per-request cancellation signal
  */
 async function callAPI(endpoint, body, isFormData = false, signal = null) {
-  const user_email = await getAuthenticatedEmail();
-
   try {
     const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
     const combinedSignal = signal
@@ -110,26 +109,25 @@ async function callAPI(endpoint, body, isFormData = false, signal = null) {
     const opts = {
       method: "POST",
       signal: combinedSignal,
-      headers: { "X-User-Email": user_email }
+      headers: {}
     };
 
     const scanId = `scan_${crypto.randomUUID?.() || Date.now()}`;
     if (isFormData && body instanceof FormData) {
-      if (!body.has("user_email")) body.append("user_email", user_email);
       if (!body.has("scan_id")) body.append("scan_id", scanId);
       opts.body = body;
     } else {
       opts.headers["Content-Type"] = "application/json";
-      const payload = typeof body === "object" && body !== null ? { scan_id: scanId, ...body, user_email } : { scan_id: scanId, user_email };
+      const payload = typeof body === "object" && body !== null ? { scan_id: scanId, ...body } : { scan_id: scanId };
       opts.body = JSON.stringify(payload);
     }
 
     const baseUrl = await getApiBaseUrl();
-    const res = await fetch(`${baseUrl}${endpoint}`, opts);
-    if (res.status === 401) {
+    const res = await authFetch(`${baseUrl}${endpoint}`, opts);
+    if (res.status === 401 || res.status === 403) {
+      // Reachable, but this action needs a signed-in, approved account. Not an outage.
       invalidateAuthCache();
-      if (DEBUG_MODE) console.warn(`[AegisOne:Scanner] 401 on ${endpoint}`);
-      setBackendOnline(false);
+      if (DEBUG_MODE) console.warn(`[AegisOne:Scanner] ${res.status} on ${endpoint} (sign in to the dashboard)`);
       return null;
     }
     if (!res.ok) {
@@ -520,8 +518,10 @@ export async function scanDownload(url, filename, signal = null) {
 /**
  * Scan an email for phishing.
  */
-export async function scanEmail(sender, subject, body, signal = null, threadUrl = "") {
+export async function scanEmail(sender, subject, body, signal = null, threadUrl = "", extra = {}) {
   const form = new FormData();
+  if (extra.link_signals?.length) form.append("link_signals", JSON.stringify(extra.link_signals));
+  if (extra.attach_signals?.length) form.append("attach_signals", JSON.stringify(extra.attach_signals));
   form.append("sender", sender || "");
   form.append("subject", subject || "");
   form.append("body", body || "");

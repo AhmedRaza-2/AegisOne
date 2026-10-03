@@ -1,28 +1,37 @@
 """
 AegisOne API — Auth Router
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete, func
 
 from api.database.db import get_db
-from api.database.models import User, Department
+from api.database.models import User, Department, Organization, PasswordResetChallenge
 from api.database.schemas import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserInfo
-from api.auth.password import hash_password, verify_password
+from api.auth.password import hash_password, verify_password, validate_password_strength
+from api.dependencies import ACTIVE_STATUSES
 from api.auth.jwt_handler import create_access_token, create_refresh_token, decode_refresh_token
 from api.auth.roles import require_role, Role
 from api.dependencies import get_current_user
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 from api.rate_limiter import limiter
 import os
+import hmac
+import hashlib
+import secrets
+import logging
 import smtplib
-import random
-import string
+from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
-import time
+
+logger = logging.getLogger("aegisone.auth")
+
+OTP_TTL_MINUTES = 10
+OTP_MAX_ATTEMPTS = 5
+OTP_RESEND_SECONDS = 60
 
 class ForgotPasswordRequest(BaseModel):
     # Not EmailStr — acts on an existing account, same reasoning as LoginRequest.
@@ -32,23 +41,16 @@ class VerifyResetRequest(BaseModel):
     email: str = Field(..., min_length=1, max_length=320)
     otp: str = Field(..., max_length=16)
 
-# In-memory store for OTPs: { email: { "otp": "123456", "expires_at": timestamp } }
-otp_store = {}
-
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.get("/check-role")
 @limiter.limit("10/minute")
-async def check_role(request: Request, email: str = Query(...), db: AsyncSession = Depends(get_db)):
-    """Auto-detect assigned user role based on email, for the login form's UI hint.
-    Unauthenticated and reveals account existence + exact role — rate-limited per IP
-    to make mass enumeration impractical rather than removing the UX feature outright."""
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    if not user:
-        return {"exists": False, "role": "employee"}
-    return {"exists": True, "role": user.role}
+async def check_role(request: Request, email: str = Query(..., max_length=320)):
+    """Kept only so older clients don't break. It used to reveal whether an email is
+    registered and its exact role to anyone; it now answers identically for every address.
+    The real role is returned by /auth/login after a successful sign-in."""
+    return {"exists": True, "role": "employee"}
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -69,11 +71,20 @@ async def login(request: Request, req: LoginRequest, db: AsyncSession = Depends(
             detail="Account is deactivated",
         )
         
-    if user.account_status in ("rejected", "disabled", "suspended"):
+    if user.account_status == "pending":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is awaiting administrator approval.",
+        )
+
+    if user.account_status not in ACTIVE_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been disabled. Please contact your administrator.",
         )
+
+    user.last_login = datetime.utcnow()
+    await db.commit()
         
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
     refresh_token = create_refresh_token(data={"sub": user.email, "role": user.role})
@@ -101,7 +112,11 @@ async def refresh_tokens(req: RefreshRequest, db: AsyncSession = Depends(get_db)
     email = payload.get("sub")
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
-    if not user or not user.is_active or user.account_status != "approved":
+    if user and user.password_changed_at is not None:
+        # A refresh token minted before the last password change is dead.
+        if float(payload.get("iss_ts", 0)) < user.password_changed_at.replace(tzinfo=timezone.utc).timestamp():
+            user = None
+    if not user or not user.is_active or user.account_status not in ACTIVE_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found, deactivated, or not approved",
@@ -133,8 +148,12 @@ async def register(
             detail="Email already registered",
         )
         
-    # Determine organization_id. Default to org_default if none provided.
-    org_id = req.organization_id if req.organization_id else "org_default"
+    # A self-registration can only join an organization that actually exists; the account
+    # stays "pending" until that organization's admin approves it. The role is always
+    # employee — whatever role the form sent is ignored.
+    org_id = (req.organization_id or "org_default").strip()
+    if (await db.execute(select(Organization.id).where(Organization.id == org_id))).first() is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="That organization was not found.")
     
     new_user = User(
         organization_id=org_id,
@@ -199,21 +218,22 @@ AegisOne Security Team
     send_unified_email(to_email=email, subject=subject, html_content=html, text_content=text)
 
 
-def send_admin_credentials_email(email: str, full_name: str, password: str, org_name: str = "Enterprise", request: Optional[Request] = None):
+def send_admin_credentials_email(email: str, full_name: str, org_name: str = "Enterprise", request: Optional[Request] = None):
+    """Welcome email for a new organization administrator. It deliberately does NOT contain
+    a password: the admin signs in with the password they chose when registering, and can
+    use "Forgot password" if they forget it."""
     portal_url = get_dynamic_dashboard_url(request)
-    subject = f"AegisOne Admin Credentials — {org_name}"
-    
+    subject = f"Welcome to AegisOne - {org_name}"
+
     text = f"""Hello {full_name},
 
-Welcome Administrator! Your organization account ({org_name}) has been registered.
+Your AegisOne administrator account for {org_name} is ready.
 
-Administrator Account Credentials:
-- Login URL: {portal_url}/login
-- Admin Email: {email}
-- Temporary Password: {password}
-- Role: Administrator
+Sign in here: {portal_url}/login
+Account email: {email}
 
-Log in to access your security portal and manage your organization's endpoints.
+Use the password you chose when you registered. If you have forgotten it, choose
+"Forgot password" on the sign-in page.
 
 Best regards,
 AegisOne Unified Threat Management
@@ -224,22 +244,11 @@ AegisOne Unified Threat Management
   <head><meta charset="utf-8"></head>
   <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background-color: #f8fafc; color: #0f172a;">
     <div style="max-width: 550px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px;">
-      <h2 style="color: #0a5ed6; margin-top: 0;">Welcome Administrator</h2>
-      <p>Hello <strong>{full_name}</strong>,</p>
-      <p>Your organization account (<strong>{org_name}</strong>) has been registered. Below are your Administrator account credentials for the AegisOne Security Dashboard:</p>
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0A5ED6; padding: 18px; border-radius: 10px; font-family: monospace; margin: 20px 0;">
-        <p style="margin: 5px 0;"><strong>Login URL:</strong> <a href="{portal_url}/login" style="color: #0A5ED6;">{portal_url}/login</a></p>
-        <p style="margin: 5px 0;"><strong>Admin Email:</strong> {email}</p>
-        <p style="margin: 5px 0;"><strong>Role:</strong> Administrator</p>
-        <div style="margin-top: 10px; background: #ffffff; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Temporary Password</span>
-            <span style="font-size: 10px; color: #2563eb; font-weight: 600;">(Click text to select all)</span>
-          </div>
-          <span style="font-size: 15px; font-weight: bold; color: #1d4ed8; -webkit-user-select: all; user-select: all; display: block; background: #eff6ff; padding: 6px 10px; border-radius: 4px; border: 1px solid #bfdbfe;">{password}</span>
-        </div>
-      </div>
-      <p>Log in to access your security portal and manage your organization's endpoints.</p>
+      <h2 style="color: #0a5ed6; margin-top: 0;">Welcome, {full_name}</h2>
+      <p>Your AegisOne administrator account for <strong>{org_name}</strong> is ready.</p>
+      <p><strong>Sign in:</strong> <a href="{portal_url}/login" style="color: #0A5ED6;">{portal_url}/login</a><br/>
+         <strong>Account email:</strong> {email}</p>
+      <p>Use the password you chose when you registered. If you have forgotten it, choose <em>Forgot password</em> on the sign-in page.</p>
       <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
       <p style="font-size: 12px; color: #64748b;">AegisOne Unified Threat Management</p>
     </div>
@@ -250,31 +259,62 @@ AegisOne Unified Threat Management
 
 
 class AdminCredentialsNotifyRequest(BaseModel):
-    email: str
-    full_name: str
-    password: str
-    org_name: Optional[str] = "Enterprise"
+    email: str = Field(..., min_length=3, max_length=320)
+    full_name: str = Field(..., min_length=1, max_length=255)
+    password: str = Field(..., max_length=512)
+    org_name: Optional[str] = Field("Enterprise", max_length=255)
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+
+def _setup_key_ok(provided: Optional[str]) -> bool:
+    expected = os.environ.get("VITE_SETUP_KEY", "aegis-setup-key-change-me")
+    return bool(expected) and bool(provided) and hmac.compare_digest(provided, expected)
+
 
 @router.post("/send-admin-credentials")
-async def send_admin_credentials_notify(req: AdminCredentialsNotifyRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    """API endpoint to dispatch welcome/credentials email to organization admin upon registration or setup."""
-    stmt = select(User).where(User.email == req.email)
-    existing = (await db.execute(stmt)).scalars().first()
-    if not existing:
-        db_user = User(
-            email=req.email,
+@limiter.limit("5/minute")
+async def send_admin_credentials_notify(
+    request: Request,
+    req: AdminCredentialsNotifyRequest,
+    x_setup_key: Optional[str] = Header(None, alias="X-Setup-Key"),
+    db: AsyncSession = Depends(get_db),
+):
+    """First-administrator provisioning for a freshly deployed instance.
+
+    This used to let ANY unauthenticated caller create an approved administrator with a
+    password of their choosing. It is now allowed only (a) while the instance has no
+    administrator at all, or (b) with the deployment's setup key. An address that already
+    has an account is never modified, and no password is ever emailed."""
+    email = req.email.strip().lower()
+    existing = (await db.execute(select(User).where(func.lower(User.email) == email))).scalars().first()
+
+    admin_count = (await db.execute(
+        select(func.count(User.id)).where(User.role.in_(["admin", "super_admin", "global_admin"]))
+    )).scalar() or 0
+
+    if not _setup_key_ok(x_setup_key) and admin_count > 0:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator provisioning is not available.")
+
+    if existing is None:
+        db.add(User(
+            email=email,
             password_hash=hash_password(req.password),
-            full_name=req.full_name,
+            full_name=req.full_name.strip(),
             role="admin",
             department=None,
             account_status="approved",
-            organization_id="org_default"
-        )
-        db.add(db_user)
+            organization_id="org_default",
+        ))
         await db.commit()
-    
-    send_admin_credentials_email(req.email, req.full_name, req.password, req.org_name or "Enterprise", request=request)
-    return {"status": "ok", "message": f"Admin credentials email dispatched to {req.email}"}
+        logger.info("First administrator provisioned for %s", email)
+        send_admin_credentials_email(email, req.full_name.strip(), req.org_name or "Enterprise", request=request)
+
+    # Same answer whether or not the account already existed.
+    return {"status": "ok", "message": "If this is a new administrator, a welcome email has been sent."}
 
 def send_otp_email(email: str, otp: str, smtp_user: str = None, smtp_pass: str = None, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
     subject = "AegisOne — Password Reset Verification Code"
@@ -312,90 +352,124 @@ AegisOne Security Team
 
     send_unified_email(to_email=email, subject=subject, html_content=html, text_content=text, org_smtp=org_smtp)
 
+def _hash_code(code: str, salt: str) -> str:
+    return hashlib.sha256(f"{salt}:{code}".encode()).hexdigest()
+
+
+async def _consume_attempt(db: AsyncSession, email: str, code: str) -> PasswordResetChallenge:
+    """Check a reset code. Every wrong guess counts; after OTP_MAX_ATTEMPTS the code is
+    destroyed. Raises a deliberately uniform error for unknown/expired/wrong codes."""
+    bad = HTTPException(status_code=400, detail="Invalid or expired verification code.")
+    ch = (await db.execute(select(PasswordResetChallenge).where(PasswordResetChallenge.email == email))).scalar_one_or_none()
+    if ch is None or datetime.utcnow() > ch.expires_at:
+        if ch is not None:
+            await db.delete(ch)
+            await db.commit()
+        raise bad
+    if not hmac.compare_digest(ch.code_hash, _hash_code(code, ch.salt)):
+        ch.attempts += 1
+        if ch.attempts >= OTP_MAX_ATTEMPTS:
+            await db.delete(ch)
+        await db.commit()
+        raise bad
+    return ch
+
+
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
 async def forgot_password(request: Request, req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == req.email))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        return {"status": "ok"}
-        
-    otp = ''.join(random.choices(string.digits, k=6))
-    otp_store[user.email] = {
-        "otp": otp,
-        "expires_at": time.time() + 600 # 10 mins expiry
-    }
-    
-    print(f"\n==========================================")
-    print(f"[SECURITY OTP CODE] Email: {user.email} -> OTP Code: {otp}")
-    print(f"==========================================\n")
-    
-    # Retrieve user's organization SMTP settings, or fallback to any org SMTP / environment vars
-    from api.database.models import Organization
+    email = req.email.strip().lower()
+    generic = {"status": "ok", "message": "If that account exists, a verification code has been sent."}
+
+    user = (await db.execute(select(User).where(func.lower(User.email) == email))).scalar_one_or_none()
+    if not user or not user.is_active:
+        return generic
+
+    # Don't mail a new code more than once a minute for the same account.
+    prior = (await db.execute(select(PasswordResetChallenge).where(PasswordResetChallenge.email == user.email))).scalar_one_or_none()
+    if prior and prior.created_at and (datetime.utcnow() - prior.created_at).total_seconds() < OTP_RESEND_SECONDS:
+        return generic
+
+    code = f"{secrets.randbelow(10**6):06d}"
+    salt = secrets.token_hex(8)
+    await db.execute(delete(PasswordResetChallenge).where(PasswordResetChallenge.email == user.email))
+    db.add(PasswordResetChallenge(
+        email=user.email, code_hash=_hash_code(code, salt), salt=salt, attempts=0,
+        expires_at=datetime.utcnow() + timedelta(minutes=OTP_TTL_MINUTES),
+        created_at=datetime.utcnow(),
+    ))
+    await db.commit()
+
+    # The code is never written to the logs in normal operation. For a local demo without
+    # SMTP, opt in explicitly with AEGIS_DEV_PRINT_OTP=1.
+    if os.getenv("AEGIS_DEV_PRINT_OTP") == "1":
+        logger.warning("DEV ONLY - reset code for %s: %s", user.email, code)
+    else:
+        logger.info("Password reset code issued for %s", user.email)
+
+    # Retrieve user's organization SMTP settings, or fall back to any org SMTP / environment vars
     user_org_id = getattr(user, "organization_id", None) or "org_default"
-    org_res = await db.execute(select(Organization).where(Organization.id == user_org_id))
-    org = org_res.scalar_one_or_none()
-    
-    # If the user's explicit org does not have SMTP set, query for any org that has configured SMTP credentials
+    org = (await db.execute(select(Organization).where(Organization.id == user_org_id))).scalar_one_or_none()
     if not (org and org.smtp_user and org.smtp_pass):
-        any_org_res = await db.execute(
+        fallback_org = (await db.execute(
             select(Organization).where(Organization.smtp_user != None, Organization.smtp_user != "")
-        )
-        fallback_org = any_org_res.scalars().first()
+        )).scalars().first()
         if fallback_org:
             org = fallback_org
-    
+
     smtp_user = (org.smtp_user if org and org.smtp_user else os.getenv("SMTP_USER")) or ""
     smtp_pass = (org.smtp_pass if org and org.smtp_pass else os.getenv("SMTP_PASS")) or ""
     smtp_host = (org.smtp_host if org and org.smtp_host else os.getenv("SMTP_HOST")) or "smtp.gmail.com"
     smtp_port = (org.smtp_port if org and org.smtp_port else int(os.getenv("SMTP_PORT", "587")))
-    
-    send_otp_email(user.email, otp, smtp_user, smtp_pass, smtp_host, smtp_port)
-    return {"status": "ok", "message": "OTP sent"}
+
+    send_otp_email(user.email, code, smtp_user, smtp_pass, smtp_host, smtp_port)
+    return generic
+
 
 class ResetWithNewPasswordRequest(BaseModel):
     email: str = Field(..., min_length=1, max_length=320)
     otp: str = Field(..., max_length=16)
-    new_password: str = Field(..., min_length=8, max_length=512)
+    new_password: str = Field(..., max_length=512)
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return validate_password_strength(v)
+
 
 @router.post("/verify-reset-otp")
 @limiter.limit("10/minute")
 async def verify_reset_otp(request: Request, req: VerifyResetRequest, db: AsyncSession = Depends(get_db)):
-    record = otp_store.get(req.email)
-    if not record or record["otp"] != req.otp or time.time() > record["expires_at"]:
-        raise HTTPException(status_code=400, detail="Invalid or expired 6-digit verification code.")
-        
-    result = await db.execute(select(User).where(User.email == req.email))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-        
+    await _consume_attempt(db, req.email.strip().lower(), req.otp.strip())
     return {"status": "ok", "message": "Code verified. Please set your new password."}
 
-@router.post("/reset-password")
-async def reset_password(req: ResetWithNewPasswordRequest, db: AsyncSession = Depends(get_db)):
-    record = otp_store.get(req.email)
-    if not record or record["otp"] != req.otp or time.time() > record["expires_at"]:
-        raise HTTPException(status_code=400, detail="Invalid or expired session. Please request a new code.")
 
-    result = await db.execute(select(User).where(User.email == req.email))
-    user = result.scalar_one_or_none()
+@router.post("/reset-password")
+@limiter.limit("10/minute")
+async def reset_password(request: Request, req: ResetWithNewPasswordRequest, db: AsyncSession = Depends(get_db)):
+    email = req.email.strip().lower()
+    ch = await _consume_attempt(db, email, req.otp.strip())
+
+    user = (await db.execute(select(User).where(func.lower(User.email) == email))).scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
     user.password_hash = hash_password(req.new_password)
+    user.password_changed_at = datetime.utcnow()   # signs out every existing session
+    await db.delete(ch)                              # one-time use
     await db.commit()
-
-    if req.email in otp_store:
-        del otp_store[req.email]
-
+    logger.info("Password reset completed for %s", user.email)
     return {"status": "ok", "message": "Password updated successfully! You can now log in with your new password."}
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=1, max_length=512)
-    new_password: str = Field(..., min_length=8, max_length=512)
+    new_password: str = Field(..., max_length=512)
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 class UpdateProfileRequest(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -408,11 +482,17 @@ async def change_password(
 ):
     if not verify_password(req.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect current password")
-    if len(req.new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     current_user.password_hash = hash_password(req.new_password)
+    current_user.password_changed_at = datetime.utcnow()   # every other session is signed out
     await db.commit()
-    return {"status": "ok", "message": "Password changed successfully"}
+    # Hand back fresh tokens so THIS session carries on without a forced re-login.
+    claims = {"sub": current_user.email, "role": current_user.role}
+    return {
+        "status": "ok",
+        "message": "Password changed successfully",
+        "access_token": create_access_token(data=claims),
+        "refresh_token": create_refresh_token(data=claims),
+    }
 
 @router.put("/profile")
 async def update_profile(

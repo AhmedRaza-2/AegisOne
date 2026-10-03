@@ -94,12 +94,7 @@ async def get_email_analytics(
     # ══ EMPLOYEE SCOPE ════════════════════════════════════════════════════════
     if effective_scope == "employee":
         if user_id is not None:
-            base_conds.append(
-                or_(
-                    EmailSecurityEvent.user_id == user_id,
-                    EmailSecurityEvent.user_id == str(user_id),
-                )
-            )
+            base_conds.append(EmailSecurityEvent.user_id == user_id)
 
         q = (
             select(EmailSecurityEvent)

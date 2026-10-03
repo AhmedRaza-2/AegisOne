@@ -1,3 +1,4 @@
+import logging as _logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -9,6 +10,8 @@ from api.database.db import get_db
 from api.database.models import User, Department, Message
 from api.database.schemas import MessageCreate, MessageOut
 from api.dependencies import get_current_user
+
+_log = _logging.getLogger("aegisone.chat")
 
 router = APIRouter(prefix="/communication", tags=["Communication"])
 
@@ -166,7 +169,7 @@ async def send_message(
         if receiver.id == current_user.id:
             raise HTTPException(status_code=400, detail="Cannot message yourself")
         
-        print(f"[COMM LOG] 📩 DIRECT MESSAGE SENT: From {current_user.email} (ID: {current_user.id}) to {receiver.email} (ID: {receiver.id})", flush=True)
+        _log.info("CHAT  %s -> %s", current_user.email, receiver.email)
 
     elif msg.msg_type == "broadcast":
         # Manager → Department broadcast

@@ -329,6 +329,20 @@
       </button>
     </div>
 
+    <!-- Sign in with the same email + password as the dashboard -->
+    <div id="authCard" style="display:none;margin:10px 0 2px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);">
+      <div style="font-size:11px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">Sign in to link this browser to your AegisOne account</div>
+      <input id="authEmail" type="email" placeholder="Email" autocomplete="username"
+        style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:7px 9px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.25);color:#fff;font-size:12px;">
+      <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password"
+        style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:7px 9px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.25);color:#fff;font-size:12px;">
+      <button id="authSubmit" style="width:100%;padding:7px;border:none;border-radius:8px;background:#3b82f6;color:#fff;font-weight:700;font-size:12px;cursor:pointer;">Sign in</button>
+      <div id="authMsg" style="font-size:11px;margin-top:6px;min-height:14px;color:#fca5a5;"></div>
+    </div>
+    <div id="authStatus" style="display:none;font-size:11px;color:#cbd5e1;margin:8px 2px 0;">
+      Signed in as <b id="authWho"></b> &middot; <a href="#" id="authSignOut" style="color:#93c5fd;">Sign out</a>
+    </div>
+
     <div class="header-controls-strip">
       <!-- Floating Overlay Widget Toggle -->
       <div class="ctrl-pill" title="Show or Hide Floating Page Widget">
