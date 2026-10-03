@@ -137,7 +137,11 @@ function Field({ label, icon, error, children }: InputProps) {
         {icon} {label}
       </label>
       {children}
-      {error && <p className="text-xs text-red-400 font-medium">{error}</p>}
+      {error && (
+        <p className="text-[11px] text-red-600 font-medium flex items-start gap-1.5" role="alert">
+          <span className="w-1 h-1 rounded-full bg-red-500 mt-1.5 shrink-0" />{error}
+        </p>
+      )}
     </div>
   );
 }
@@ -385,6 +389,105 @@ export default function RegisterPage() {
     setForm(prev => ({ ...prev, [key]: val }));
   };
 
+  // ── Live (as-you-type) validation ───────────────────────────────────────────
+  // Errors show once a field has been left (blur) or Continue was pressed - never while the
+  // person is still typing their first characters. Password rules, however, tick off live.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [attempted, setAttempted] = useState(false);
+  const touch = (k: string) => setTouched(t => (t[k] ? t : { ...t, [k]: true }));
+  const [mx, setMx] = useState<{ domain: string; state: 'checking' | 'ok' | 'bad' } | null>(null);
+  const mxCache = useRef<Record<string, boolean>>({});
+
+  const PHONE_LEN: Record<string, number> = {
+    'Pakistan': 10, 'United States': 10, 'Canada': 10, 'India': 10,
+    'United Kingdom': 10, 'Australia': 9, 'Saudi Arabia': 9, 'United Arab Emirates': 9,
+  };
+
+  const pwRules = [
+    { ok: form.password.length >= 8, label: 'At least 8 characters' },
+    { ok: /[A-Z]/.test(form.password), label: 'An uppercase letter (A-Z)' },
+    { ok: /[a-z]/.test(form.password), label: 'A lowercase letter (a-z)' },
+    { ok: /[0-9]/.test(form.password), label: 'A number (0-9)' },
+  ];
+  const pwSymbolsOk = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{}|;:,.?/~`]*$/.test(form.password);
+
+  const issues: Record<string, string> = (() => {
+    const o: Record<string, string> = {};
+    const orgName = form.name.trim();
+    if (!orgName) o.name = 'Organization name is required.';
+    else if (orgName.length < 2) o.name = 'Use at least 2 characters.';
+    else if (orgName.length > 100) o.name = 'Keep it under 100 characters.';
+    else if (!/^[a-zA-Z0-9\s\-\&\.\,\'\/\(\)]+$/.test(orgName)) o.name = 'Only letters, numbers and - & . , \' / ( ) are allowed.';
+
+    if (!form.industry) o.industry = 'Please choose an industry.';
+    if (form.industry === 'Other') {
+      const c = customIndustry.trim();
+      if (!c) o.custom_industry = 'Please type your industry.';
+      else if (c.length < 2) o.custom_industry = 'Use at least 2 characters.';
+      else if (!/^[a-zA-Z0-9\s\-\&\/\,\.\(\)]+$/.test(c)) o.custom_industry = 'Contains characters that are not allowed.';
+    }
+    if (!form.country) o.country = 'Please choose a country / region.';
+
+    const an = form.admin_name.trim();
+    if (!an) o.admin_name = 'Full name is required.';
+    else if (an.length < 2) o.admin_name = 'Use at least 2 characters.';
+    else if (!/^[a-zA-Z\s\-\'\.\u00C0-\u024F]+$/.test(an)) o.admin_name = 'Letters, spaces, hyphens and apostrophes only - no numbers or symbols.';
+
+    const em = form.admin_email.trim();
+    if (!em) o.admin_email = 'Business email is required.';
+    else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(em) || em.includes('..')) o.admin_email = 'Enter a valid email, e.g. name@company.com.';
+    else if (mx && mx.state === 'bad' && mx.domain === em.split('@')[1].toLowerCase()) o.admin_email = 'That email domain has no mail servers - please check the spelling.';
+
+    const ph = form.phone.trim();
+    const digits = ph.replace(/\D/g, '');
+    if (!ph) o.phone = 'Phone number is required.';
+    else if (form.country && PHONE_LEN[form.country]) {
+      const want = PHONE_LEN[form.country];
+      if (digits.length !== want) o.phone = `${form.country} numbers have ${want} digits (you typed ${digits.length}). Don't repeat the country code.`;
+      else if (form.country === 'Pakistan' && !digits.startsWith('3')) o.phone = 'Pakistani mobile numbers start with 3, e.g. 336 1234567.';
+    } else if (digits.length < 5 || digits.length > 15 || !/^\+?[0-9\s\-\(\)\.]{5,20}$/.test(ph)) {
+      o.phone = 'Enter a valid phone number (5 to 15 digits).';
+    }
+
+    if (!form.password) o.password = 'Choose a password.';
+    else if (form.password.length > 128) o.password = 'Keep it under 128 characters.';
+    else if (!pwSymbolsOk) o.password = 'Use only letters, numbers and symbols like !@#$%^&*()_+-=[]{}|;:,.?';
+    else {
+      const missing = pwRules.find(r => !r.ok);
+      if (missing) o.password = `Still needed: ${missing.label.toLowerCase()}.`;
+    }
+
+    if (!form.confirm_password) o.confirm_password = 'Re-enter the password to confirm it.';
+    else if (form.password !== form.confirm_password) o.confirm_password = "Passwords don't match yet.";
+
+    if (!form.agreed) o.agreed = 'You need to accept the Terms of Service and Privacy Policy.';
+    return o;
+  })();
+
+  const shown = (k: string) => (touched[k] || attempted) && issues[k];
+
+  // Check the email domain has mail servers as soon as the address looks valid (debounced),
+  // instead of making the person wait for Continue.
+  useEffect(() => {
+    const em = form.admin_email.trim();
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(em) || em.includes('..')) { setMx(null); return; }
+    const domain = em.split('@')[1].toLowerCase();
+    if (domain in mxCache.current) { setMx({ domain, state: mxCache.current[domain] ? 'ok' : 'bad' }); return; }
+    setMx({ domain, state: 'checking' });
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://dns.google/resolve?name=${domain}&type=MX`);
+        const data = await res.json();
+        const good = data.Status === 0 && Array.isArray(data.Answer) && data.Answer.length > 0;
+        mxCache.current[domain] = good;
+        setMx({ domain, state: good ? 'ok' : 'bad' });
+      } catch {
+        setMx(null);   // lookup service unreachable: don't block the signup
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [form.admin_email]);
+
   // ── Validation per step ────────────────────────────────────────────────────
   const validateStep = async (s: number): Promise<string> => {
     if (s === 1) {
@@ -501,7 +604,10 @@ export default function RegisterPage() {
     return '';
   };
 
+  useEffect(() => { setAttempted(false); }, [step]);
+
   const handleNext = async () => {
+    setAttempted(true);
     setLoading(true);
     const err = await validateStep(step);
     setLoading(false);
@@ -539,6 +645,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setAttempted(true);
     const err = await validateStep(3);
     if (err) { setError(err); setLoading(false); return; }
 
@@ -734,11 +841,12 @@ export default function RegisterPage() {
                   {/* ── STEP 1: Organization ── */}
                   {step === 1 && (
                     <>
-                      <Field label="Organization Name" icon={<Building2 className="w-3 h-3 text-[#4A6D8C]" />}>
+                      <Field label="Organization Name" icon={<Building2 className="w-3 h-3 text-[#4A6D8C]" />} error={shown('name') || undefined}>
                         <input
                           id="org-name"
                           type="text"
-                          className={inputCls}
+                          onBlur={() => touch('name')}
+                          className={inputCls + (shown('name') ? ' !border-red-400 !ring-red-200' : '')}
                           placeholder="e.g. ABC Software House"
                           value={form.name}
                           onChange={set('name')}
@@ -746,8 +854,8 @@ export default function RegisterPage() {
                         />
                       </Field>
 
-                      <Field label="Industry" icon={<Briefcase className="w-3 h-3 text-[#4A6D8C]" />}>
-                        <select id="industry" className={selectCls} value={form.industry} onChange={set('industry')}>
+                      <Field label="Industry" icon={<Briefcase className="w-3 h-3 text-[#4A6D8C]" />} error={shown('industry') || shown('custom_industry') || undefined}>
+                        <select id="industry" onBlur={() => touch('industry')} className={selectCls + (shown('industry') ? ' !border-red-400 !ring-red-200' : '')} value={form.industry} onChange={set('industry')}>
                           <option value="">Select industry...</option>
                           {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
                         </select>
@@ -757,7 +865,8 @@ export default function RegisterPage() {
                             <input
                               id="custom-industry"
                               type="text"
-                              className={inputCls}
+                              onBlur={() => touch('custom_industry')}
+                              className={inputCls + (shown('custom_industry') ? ' !border-red-400 !ring-red-200' : '')}
                               placeholder="Specify your custom industry name..."
                               value={customIndustry}
                               onChange={(e) => {
@@ -770,7 +879,7 @@ export default function RegisterPage() {
                         )}
                       </Field>
 
-                      <Field label="Country / Region" icon={<Globe className="w-3 h-3 text-[#4A6D8C]" />}>
+                      <Field label="Country / Region" icon={<Globe className="w-3 h-3 text-[#4A6D8C]" />} error={shown('country') || undefined}>
                         <CountrySelector
                           value={form.country}
                           onChange={(c) => {
@@ -834,11 +943,12 @@ export default function RegisterPage() {
               {/* ── STEP 2: Admin ── */}
               {step === 2 && (
                 <>
-                  <Field label="Full Name" icon={<User className="w-3 h-3" />}>
+                  <Field label="Full Name" icon={<User className="w-3 h-3" />} error={shown('admin_name') || undefined}>
                     <input
                       id="admin-name"
                       type="text"
-                      className={inputCls}
+                      onBlur={() => touch('admin_name')}
+                      className={inputCls + (shown('admin_name') ? ' !border-red-400 !ring-red-200' : '')}
                       placeholder="Ahmed Raza"
                       value={form.admin_name}
                       onChange={set('admin_name')}
@@ -846,18 +956,25 @@ export default function RegisterPage() {
                     />
                   </Field>
 
-                  <Field label="Business Email" icon={<Mail className="w-3 h-3" />}>
+                  <Field label="Business Email" icon={<Mail className="w-3 h-3" />} error={shown('admin_email') || undefined}>
                     <input
                       id="admin-email"
                       type="email"
-                      className={inputCls}
+                      onBlur={() => touch('admin_email')}
+                      className={inputCls + (shown('admin_email') ? ' !border-red-400 !ring-red-200' : '')}
                       placeholder="admin@company.com"
                       value={form.admin_email}
                       onChange={set('admin_email')}
                     />
+                    {!issues.admin_email && mx && mx.state === 'checking' && (
+                      <p className="text-[11px] text-slate-400 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Checking the email domain…</p>
+                    )}
+                    {!issues.admin_email && mx && mx.state === 'ok' && (
+                      <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3" /> Email domain looks good</p>
+                    )}
                   </Field>
 
-                  <Field label="Phone Number" icon={<Phone className="w-3 h-3" />}>
+                  <Field label="Phone Number" icon={<Phone className="w-3 h-3" />} error={shown('phone') || undefined}>
                     <div className="relative flex items-stretch">
                       {/* Dial code badge */}
                       {form.country && getDialCode(form.country) && (
@@ -869,9 +986,10 @@ export default function RegisterPage() {
                       <input
                         id="phone"
                         type="tel"
+                        onBlur={() => touch('phone')}
                         className={`${inputCls} ${
                           form.country && getDialCode(form.country) ? 'rounded-l-none border-l-0 focus:ring-offset-0' : ''
-                        }`}
+                        }${shown('phone') ? ' !border-red-400 !ring-red-200' : ''}`}
                         placeholder={form.country && getDialCode(form.country) ? 'e.g. 300 1234567' : '300 1234567'}
                         value={form.phone}
                         onChange={(e) => {
@@ -903,24 +1021,37 @@ export default function RegisterPage() {
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         className={inputCls + ' pr-11'}
-                        placeholder="Min. 8 chars, 1 uppercase, 1 number"
+                        placeholder="Min. 8 chars, upper + lower case, 1 number"
                         value={form.password}
                         onChange={set('password')}
+                        onBlur={() => touch('password')}
                         autoFocus
                       />
                       <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#4A7FA7] transition-colors">
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    {/* Strength bar */}
-                    {form.password && (
-                      <div className="mt-1.5 h-1 bg-slate-200 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-300 ${form.password.length < 8 ? 'w-1/4 bg-red-500' :
-                            !/[A-Z]/.test(form.password) || !/[0-9]/.test(form.password) ? 'w-2/4 bg-amber-500' :
-                              'w-full bg-emerald-500'
-                          }`} />
-                      </div>
-                    )}
+                    {/* Live strength bar + checklist: updates on every keystroke */}
+                    {(() => {
+                      const met = pwRules.filter(r => r.ok).length;
+                      const bar = !form.password ? 'w-0' : met <= 1 ? 'w-1/4 bg-red-500' : met === 2 ? 'w-2/4 bg-amber-500' : met === 3 ? 'w-3/4 bg-yellow-500' : 'w-full bg-emerald-500';
+                      return (
+                        <>
+                          <div className="mt-1.5 h-1 bg-slate-200 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-300 ${bar}`} />
+                          </div>
+                          <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                            {pwRules.map(r => (
+                              <li key={r.label} className={`text-[11px] flex items-center gap-1.5 transition-colors ${!form.password ? 'text-slate-400' : r.ok ? 'text-emerald-600' : 'text-red-500'}`}>
+                                {r.ok ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <span className="w-3 h-3 shrink-0 rounded-full border border-current inline-block" />}
+                                {r.label}
+                              </li>
+                            ))}
+                          </ul>
+                          {!pwSymbolsOk && <p className="mt-1.5 text-[11px] text-red-600 font-medium">Use only letters, numbers and symbols like !@#$%^&amp;*()_+-=[]{}|;:,.?</p>}
+                        </>
+                      );
+                    })()}
                   </Field>
 
                   <Field label="Confirm Password" icon={<Lock className="w-3 h-3" />}>
@@ -928,15 +1059,20 @@ export default function RegisterPage() {
                       <input
                         id="confirm-password"
                         type={showConfirm ? 'text' : 'password'}
-                        className={inputCls + ' pr-11'}
+                        className={inputCls + ' pr-11' + (form.confirm_password && form.password !== form.confirm_password ? ' !border-red-400 !ring-red-200' : '')}
                         placeholder="Re-enter password"
                         value={form.confirm_password}
                         onChange={set('confirm_password')}
+                        onBlur={() => touch('confirm_password')}
                       />
                       <button type="button" onClick={() => setShowConfirm(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#4A7FA7] transition-colors">
                         {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    {form.confirm_password && (form.password === form.confirm_password
+                      ? <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3" /> Passwords match</p>
+                      : <p className="text-[11px] text-red-600 font-medium flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-red-500" /> Passwords don&apos;t match yet</p>)}
+                    {!form.confirm_password && shown('confirm_password') && <p className="text-[11px] text-red-600 font-medium">{issues.confirm_password}</p>}
                   </Field>
 
                   <label className="flex items-start gap-3 cursor-pointer group">
@@ -944,7 +1080,7 @@ export default function RegisterPage() {
                       id="terms"
                       type="checkbox"
                       checked={form.agreed}
-                      onChange={set('agreed')}
+                      onChange={(e) => { set('agreed')(e); touch('agreed'); }}
                       className="mt-0.5 w-4 h-4 rounded border-[#E1EBF2] bg-white accent-[#4A7FA7] cursor-pointer"
                     />
                     <span className="text-xs text-[#4A6D8C] leading-relaxed">
@@ -955,11 +1091,12 @@ export default function RegisterPage() {
                       I understand that organization data is stored only on my own server.
                     </span>
                   </label>
+                  {shown('agreed') && <p className="text-[11px] text-red-600 font-medium -mt-2">{issues.agreed}</p>}
                 </>
               )}
 
               {/* Error */}
-              {error && (
+              {error && !Object.values(issues).includes(error) && (
                 <div className={`border rounded-xl px-4 py-3 text-xs font-medium flex items-center gap-2 ${
                   cooldownSeconds > 0
                     ? 'bg-amber-50 border-amber-200 text-amber-700'

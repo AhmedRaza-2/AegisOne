@@ -25,7 +25,7 @@ services:
   # Backend API — FastAPI + AI Engine (Pre-built Docker Hub Image)
   # ──────────────────────────────────────────────────────────────────────────
   backend:
-    image: ahmedraza2006/aegisone-backend:2026-10-03-xai
+    image: ahmedraza2006/aegisone-backend:${AEGIS_TAG:-latest}
     container_name: aegisone-backend
     command: [ "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000" ]
     volumes:
@@ -54,7 +54,7 @@ services:
   # Dashboard — Admin & Employee Portal (Pre-built Docker Hub Image)
   # ──────────────────────────────────────────────────────────────────────────
   dashboard:
-    image: ahmedraza2006/aegisone-dashboard:2026-10-03-xai
+    image: ahmedraza2006/aegisone-dashboard:${AEGIS_TAG:-latest}
     container_name: aegisone-dashboard
     ports:
       - "3002:3000"
