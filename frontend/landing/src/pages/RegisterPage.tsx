@@ -7,7 +7,7 @@ import {
   ChevronRight, ChevronLeft, Shield, CheckCircle2, Loader2, Eye, EyeOff, X, Sparkles, Check,
   Search, ChevronDown
 } from 'lucide-react';
-import { registerOrganization } from '../lib/org-service';
+import { registerOrganization, isRegistrationInFlight } from '../lib/org-service';
 import { supabase } from '../lib/supabase';
 import { PRICING_PLANS, getPlanByEmployeeCount, getPlanById, isValidPlan } from '../config/pricingConfig';
 
@@ -327,7 +327,7 @@ export default function RegisterPage() {
   // Auto-redirect to portal as soon as user is signed in (e.g., via email link or cross-tab login)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') {
+      if (event === 'SIGNED_IN' && !isRegistrationInFlight()) {
         navigate('/portal', { replace: true });
       }
     });
@@ -628,6 +628,10 @@ export default function RegisterPage() {
     const throttle = r.match(/after (\d+) seconds?/);
     if (throttle)
       return `Please wait ${throttle[1]} seconds before trying again.`;
+    if (r.includes('could not be verified'))
+      return 'We could not finish creating your organization. If you registered this email before, use Sign in or Forgot password; otherwise please try again.';
+    if (r.includes('already has an aegisone login'))
+      return raw;   // already user-friendly
     if (r.includes('email rate limit') || r.includes('rate limit') || r.includes('too many requests'))
       return 'Too many sign-up attempts. Please wait a few minutes and try again.';
     if (r.includes('invalid email') || r.includes('invalid_email'))
@@ -694,7 +698,13 @@ export default function RegisterPage() {
       // Temporarily store the password in sessionStorage so PortalPage can pass it to the local setup wizard
       sessionStorage.setItem('tempAdminPassword', form.password);
 
-      // Show email confirmation screen instead of navigating directly
+      // An unfinished earlier registration is completed by signing in, so there is no email to confirm:
+      // go straight to the portal. Otherwise show the "check your email" screen.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/portal', { replace: true });
+        return;
+      }
       setRegisteredEmail(form.admin_email.trim());
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : String(err);

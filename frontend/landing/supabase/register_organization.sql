@@ -37,12 +37,14 @@ as $$
 declare
   v_row public.organizations;
 begin
-  -- The caller must be the person who just signed up: same user id, same email, recent account.
+  -- The caller must be the account's owner: the user id and email must match an existing login, and that
+  -- login must either still be unconfirmed (a sign-up that just happened, or a retry of one) or be the
+  -- signed-in caller itself (finishing an earlier registration whose email was already confirmed).
   if not exists (
     select 1 from auth.users u
     where u.id = p_auth_user_id
       and lower(u.email) = lower(p_admin_email)
-      and u.created_at > now() - interval '1 day'
+      and (u.email_confirmed_at is null or auth.uid() = p_auth_user_id)
   ) then
     raise exception 'Sign-up could not be verified. Please try again.';
   end if;

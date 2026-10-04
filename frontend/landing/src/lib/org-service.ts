@@ -36,7 +36,21 @@ export interface RegisterPayload {
   password: string;
 }
 
+// True while registerOrganization is running, so the register page does not jump to the portal
+// the moment an unfinished registration is completed by signing in.
+let registrationInFlight = false;
+export const isRegistrationInFlight = () => registrationInFlight;
+
 export async function registerOrganization(payload: RegisterPayload): Promise<Organization> {
+  registrationInFlight = true;
+  try {
+    return await registerOrganizationInner(payload);
+  } finally {
+    registrationInFlight = false;
+  }
+}
+
+async function registerOrganizationInner(payload: RegisterPayload): Promise<Organization> {
   // Step 0: Check for duplicate org name AND email BEFORE calling auth.signUp
   // This prevents wasting Supabase email rate limit quota on duplicate attempts.
   const [nameCheckRes, emailCheckRes] = await Promise.all([
@@ -85,7 +99,20 @@ export async function registerOrganization(payload: RegisterPayload): Promise<Or
   }
   if (!signUpRes.data.user) throw new Error('Auth user creation failed. Please try again.');
 
-  const userId = signUpRes.data.user.id;
+  let userId = signUpRes.data.user.id;
+
+  // Supabase hides whether an address is already registered: for an existing, confirmed login it
+  // returns a placeholder user with no identities (and sends no email). Since the checks above found
+  // no organization for this address, that login belongs to an unfinished earlier registration, so
+  // finish it by signing in with the same password instead of failing.
+  const alreadyInAuth = Array.isArray(signUpRes.data.user.identities) && signUpRes.data.user.identities.length === 0;
+  if (alreadyInAuth) {
+    const signIn = await supabase.auth.signInWithPassword({ email: payload.admin_email, password: payload.password });
+    if (signIn.error || !signIn.data.user) {
+      throw new Error('This email address already has an AegisOne login. Please sign in, or use Forgot password if you do not remember it.');
+    }
+    userId = signIn.data.user.id;
+  }
 
   // 2. Create the organization record on the server.
   // With email confirmation on, signUp returns no session, so a direct table INSERT would run as
