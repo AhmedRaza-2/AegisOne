@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>AegisOne Presentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: a fixed 1920x1080 stage scaled to any screen. White canvas, the project's navy and blue as the only
+   accents, and one red thread (the threat packet) that carries the story. A single light look, chosen for projectors. */
+:root{
+  --bg:#FFFFFF; --canvas:#F6FAFD; --tint:#E4EEF6; --line:#DCE8F1; --line2:#C7DAE8;
+  --ink:#0A1931; --ink2:#3F5F7F; --mute:#7C93A8; --navy:#1A3D63; --brand:#4A7FA7; --brand2:#2E5580; --sky:#B3CFE5;
+  --bad:#D9534A; --ok:#2FA97E; --warn:#D9A441;
+  --fd:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif; --fb:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --fm:"IBM Plex Mono",Consolas,monospace;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--fb);overflow:hidden;margin:0}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit}
+#vp{position:relative;width:100%;height:100%;overflow:hidden;background:var(--canvas)}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;background:#fff;box-shadow:0 0 0 1px var(--line)}
+.slide{position:absolute;inset:0;padding:80px 110px 70px;display:none;flex-direction:column;background:
+  radial-gradient(900px 500px at 100% 0%,#EAF3FA 0%,transparent 70%),#fff}
+.slide.active{display:flex;animation:slidein .5s cubic-bezier(.2,.7,.2,1)}
+@keyframes slidein{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.eyebrow{font:500 24px/1 var(--fm);letter-spacing:.16em;text-transform:uppercase;color:var(--brand)}
+h1{font:800 190px/.9 var(--fd);letter-spacing:-.03em;margin:26px 0 0;color:var(--navy)}
+h2{font:700 76px/1.06 var(--fd);letter-spacing:-.02em;text-wrap:balance;max-width:1600px;margin:20px 0 0;color:var(--navy)}
+h3{font:700 42px/1.15 var(--fd);margin:0 0 14px;color:var(--navy)}
+p,li{font-size:34px;line-height:1.42;margin:0;color:var(--ink2)}
+.body{flex:1;display:flex;gap:40px;margin-top:50px;min-height:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:34px 38px;box-shadow:0 10px 40px rgba(26,61,99,.07);min-width:0}
+.card.tint{background:var(--canvas)}
+.chip{display:inline-block;font:500 22px/1 var(--fm);padding:9px 15px;border-radius:999px;background:var(--tint);color:var(--brand2);letter-spacing:.04em}
+ul.dots{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:16px}
+ul.dots li{position:relative;padding-left:34px}
+ul.dots li::before{content:"";position:absolute;left:0;top:.62em;width:14px;height:14px;border-radius:4px;background:var(--brand)}
+[data-s]{opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s;pointer-events:none}
+[data-s].on{opacity:1;transform:none;pointer-events:auto}
+svg [data-s],svg [data-s].on{transform:none}
+.RM *,.RM{animation-duration:.001s!important;transition-duration:.001s!important}
+
+/* title */
+.hero{flex:1;display:flex;align-items:center;gap:40px}
+.hero-l{flex:1.55;min-width:0}
+.hero-r{flex:.8;display:flex;align-items:center;justify-content:center}
+.tag{font-size:42px;line-height:1.3;color:var(--ink2);max-width:1100px;margin-top:30px}
+.who{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:56px;max-width:1260px}
+.who h4{font:500 21px var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--brand);margin:0 0 10px}
+.who div{font-size:29px;line-height:1.4;color:var(--ink)}
+.who small{display:block;font-size:23px;color:var(--mute)}
+.radar{position:relative;width:560px;height:560px}
+.ring{position:absolute;inset:0;margin:auto;border-radius:50%;border:2px solid var(--sky)}
+.ring.r1{width:200px;height:200px;border-color:var(--brand);animation:pulse 3.2s ease-out infinite}
+.ring.r2{width:380px;height:380px;animation:pulse 3.2s ease-out .8s infinite}
+.ring.r3{width:540px;height:540px;border-style:dashed}
+@keyframes pulse{0%{opacity:.9;transform:scale(.92)}100%{opacity:0;transform:scale(1.12)}}
+.sweep{position:absolute;inset:20px;border-radius:50%;background:conic-gradient(from 0deg,rgba(74,127,167,0),rgba(74,127,167,.22) 60deg,rgba(74,127,167,0) 61deg);animation:spin 5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.shield{position:absolute;inset:0;margin:auto;width:170px;height:200px}
+.threat{position:absolute;left:50%;top:50%;font:500 22px var(--fm);padding:9px 14px;border-radius:10px;border:2px solid var(--warn);color:#9a6f14;background:#fff;white-space:nowrap;opacity:0;animation:catch 7.5s infinite;animation-delay:var(--dl)}
+@keyframes catch{0%{opacity:0;transform:translate(calc(var(--x) - 50%),calc(var(--y) - 50%))}12%{opacity:1}58%{opacity:1;transform:translate(calc(var(--x)*.38 - 50%),calc(var(--y)*.38 - 50%))}70%,86%{opacity:1;color:var(--bad);border-color:var(--bad);transform:translate(calc(var(--x)*.33 - 50%),calc(var(--y)*.33 - 50%))}100%{opacity:0;color:var(--bad);border-color:var(--bad);transform:translate(calc(var(--x)*.33 - 50%),calc(var(--y)*.33 - 50%)) scale(.9)}}
+
+/* problem / solution cards */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:30px;flex:1}
+.big{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.big .ic{width:84px;height:84px;border-radius:22px;background:var(--tint);display:flex;align-items:center;justify-content:center;margin-bottom:6px}
+.big .ic svg{width:46px;height:46px;stroke:var(--brand2);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.big h3{font-size:46px;margin:0}
+.big p{font-size:32px}
+
+/* gap table */
+table{border-collapse:collapse;width:100%}
+th{font:500 22px var(--fm);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);text-align:left;padding:0 26px 18px}
+th.us{color:var(--brand2)}
+td{padding:26px;border-top:1px solid var(--line);font-size:32px;line-height:1.3;color:var(--ink2);vertical-align:middle}
+td:first-child{font:600 32px var(--fd);color:var(--navy);width:30%}
+td.us{background:var(--canvas);color:var(--navy);font-weight:500}
+tr[data-s]{display:table-row}
+
+/* architecture */
+#iso{position:relative;width:1700px;height:700px;margin:6px auto 0}
+#iso svg{position:absolute;left:0;top:0;width:1700px;height:700px;overflow:visible}
+.lab{position:absolute;transform:translate(-50%,-100%);text-align:center;width:184px;background:#fff;border:1px solid var(--line2);border-radius:12px;padding:8px 10px;box-shadow:0 8px 24px rgba(26,61,99,.12)}
+.lab.below{transform:translate(-50%,0)}
+.lab::after{content:"";position:absolute;left:50%;bottom:-30px;width:2px;height:30px;background:var(--brand);opacity:.55}
+.lab.below::after{display:none}
+.lab b{display:block;font:700 25px/1.15 var(--fd);color:var(--navy)}
+.lab span{display:block;font-size:18px;line-height:1.25;color:var(--ink2);margin-top:3px}
+.cap{position:absolute;transform:translate(-50%,0);text-align:center;font:500 22px var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--brand2);white-space:nowrap}
+.cap em{display:block;font:400 20px var(--fb);letter-spacing:0;text-transform:none;color:var(--mute);font-style:normal;margin-top:3px}
+.flow{fill:none;stroke:var(--brand);stroke-width:3.5;stroke-dasharray:10 9;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-38}}
+.ftxt{font:500 22px var(--fm);fill:var(--brand2)}
+.legend{position:absolute;right:0;top:0;display:flex;gap:30px;font:500 21px var(--fm);color:var(--ink2)}
+.legend i{display:inline-block;width:16px;height:16px;border-radius:50%;margin-right:9px;vertical-align:-2px}
+
+/* AI models */
+.models{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:34px}
+.mc{background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px 24px 26px;box-shadow:0 10px 36px rgba(26,61,99,.07);display:flex;flex-direction:column;gap:14px;min-width:0}
+.mc .k{font:500 21px var(--fm);letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+.mc h3{margin:0;font-size:43px}
+.mc .l{font:500 19px var(--fm);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-bottom:3px}
+.mc p{font-size:26px;line-height:1.36;color:var(--ink)}
+.mc .res{margin-top:auto;background:var(--canvas);border-radius:12px;padding:14px 16px}
+.mc .res b{display:block;font:800 48px/1 var(--fd);color:var(--navy)}
+.mc .res span{font-size:22px;color:var(--ink2);line-height:1.3;display:block;margin-top:4px}
+.strip{margin-top:18px;font-size:30px;color:var(--ink2);text-align:center}
+.strip b{color:var(--navy)}
+
+/* features */
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;flex:1}
+.three .card{display:flex;flex-direction:column}
+.three .card h3{display:flex;align-items:center;gap:14px;font-size:54px}
+.three ul{margin-top:10px}
+.three li{font-size:34px;line-height:1.32}
+.flowrow{display:flex;align-items:stretch;gap:0;flex:1}
+.flowrow .card{flex:1}
+.arrow{width:80px;flex:none;display:flex;align-items:center;justify-content:center}
+.arrow svg{width:64px;height:40px}
+.flowrow li{font-size:33px;line-height:1.32}
+.flowrow h3{font-size:52px}
+
+/* demo */
+.demo{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.demo h1{font-size:230px;margin:0}
+.demo p{font-size:44px;margin-top:20px;color:var(--ink2)}
+.steps3{display:flex;gap:20px;margin-top:60px;align-items:center}
+.steps3 span{font:500 28px var(--fm);padding:16px 26px;border-radius:999px;background:var(--tint);color:var(--brand2)}
+.steps3 i{width:44px;height:3px;background:var(--sky);position:relative}
+.steps3 i::after{content:"";position:absolute;right:-2px;top:-6px;border:7px solid transparent;border-left:12px solid var(--sky)}
+.play{width:120px;height:120px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;margin-bottom:34px;animation:beat 1.8s ease-in-out infinite}
+.play::after{content:"";margin-left:10px;border:26px solid transparent;border-left:44px solid #fff}
+@keyframes beat{0%,100%{box-shadow:0 0 0 0 rgba(74,127,167,.45)}50%{box-shadow:0 0 0 30px rgba(74,127,167,0)}}
+
+/* chrome */
+#bar{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:center;gap:18px;padding:0 18px;background:#fff;border-top:1px solid var(--line);z-index:20}
+#segs{flex:1;display:flex;gap:5px;min-width:0}
+#segs i{flex:1;height:6px;border-radius:3px;background:var(--tint);cursor:pointer;transition:background .3s}
+#segs i.seen{background:var(--sky)}#segs i.cur{background:var(--brand2)}
+#ttl,#cnt{font:500 14px var(--fm);color:var(--ink2);white-space:nowrap}
+#ttl{max-width:30vw;overflow:hidden;text-overflow:ellipsis;color:var(--mute)}
+#bar button{background:#fff;border:1px solid var(--line2);border-radius:8px;padding:5px 11px;font:500 13px var(--fm);color:var(--brand2);cursor:pointer}
+#bar button:hover{background:var(--tint)}
+#bar button:focus-visible,#segs i:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+#notes{position:absolute;left:0;right:0;bottom:46px;max-height:34%;overflow:auto;padding:16px 28px 18px;background:#fff;border-top:1px solid var(--line2);font-size:16px;line-height:1.5;color:var(--ink2);z-index:19}
+#notes b{font:500 12px var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--brand);display:block;margin-bottom:6px}
+#hint{display:none;position:absolute;left:12px;right:12px;top:12px;z-index:25;padding:10px 14px;border-radius:10px;background:#FFF6E0;border:1px solid var(--warn);font-size:14px;color:#7a5a10}
+@media (max-width:700px){#hint{display:block}#ttl{display:none}#bar button.opt{display:none}}
+@media (prefers-reduced-motion:reduce){.slide.active{animation:none}[data-s]{transition:none}.flow,.sweep,.ring,.threat,.play{animation:none}}
+</style>
+
+<div id="vp">
+  <div id="hint">Best viewed in landscape. Rotate your phone or use a larger screen.</div>
+  <div id="stage">
+
+  <!-- 1 Title -->
+  <section class="slide" id="s1" data-title="AegisOne" data-notes="Introduce the project and the people. AegisOne is an in-house AI system that protects an organization from phishing and explains every decision.">
+    <div class="hero">
+      <div class="hero-l">
+        <div class="eyebrow">Final year project · Department of Computer Science · Air University Islamabad</div>
+        <h1>AegisOne</h1>
+        <p class="tag">In-house AI phishing prevention for the whole organization.</p>
+        <div class="who">
+          <div><h4>Project team</h4>Ahmed Raza<br>Muhammad Muhid<br>Ali Bin Mohsin Mazhar</div>
+          <div><h4>Supervisors</h4>Dr. Ashfaq Hussain Farooqi<small>Academic supervisor · H.O.D CS, Air University</small>
+            <div style="margin-top:10px">Muhammad Nadeem Ashraf<small>Head of Cyber Security, U Bank Limited</small></div>
+            <div style="margin-top:10px">Ms. Maryam Tauheed<small>Manager SE, INARA Technologies</small></div></div>
+        </div>
+      </div>
+      <div class="hero-r">
+        <div class="radar">
+          <div class="ring r3"></div><div class="ring r2"></div><div class="ring r1"></div><div class="sweep"></div>
+          <svg class="shield" viewBox="0 0 190 220" aria-hidden="true"><path d="M95 8 L176 40 V108 C176 160 140 196 95 212 C50 196 14 160 14 108 V40 Z" fill="#1A3D63"/><path d="M62 112 L87 138 L132 84" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="threat" style="--x:-240px;--y:-210px;--dl:0s">fake-login.xyz</div>
+          <div class="threat" style="--x:230px;--y:-130px;--dl:1.9s">invoice.zip</div>
+          <div class="threat" style="--x:-250px;--y:170px;--dl:3.8s">"verify now"</div>
+          <div class="threat" style="--x:220px;--y:210px;--dl:5.6s">bit.ly/gift</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 Problem -->
+  <section class="slide" id="s2" data-steps="4" data-title="The problem" data-notes="Phishing succeeds at the moment a person acts. Four things make it hard for organizations today.">
+    <div class="eyebrow">The problem</div>
+    <h2>Phishing works when a person acts, and defences have not kept up</h2>
+    <div class="body"><div class="grid2">
+      <div class="card big" data-s="1"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></div><h3>Attacks come from everywhere</h3><p>Fake login pages, fake websites, QR codes, malicious files and impersonation, not only email.</p></div>
+      <div class="card big" data-s="2"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div><h3>Most tools watch email only</h3><p>They cannot stop a password being typed into a fake page, or a file being opened.</p></div>
+      <div class="card big" data-s="3"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg></div><h3>Warnings do not explain</h3><p>Users see "blocked" with no reason, and admins cannot audit why.</p></div>
+      <div class="card big" data-s="4"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-6h6v6"/></svg></div><h3>Small companies are exposed</h3><p>Enterprise security is costly, and sending company data to a vendor's cloud is a risk.</p></div>
+    </div></div>
+  </section>
+
+  <!-- 3 Solution -->
+  <section class="slide" id="s3" data-steps="4" data-title="Our solution" data-notes="One AI system, installed on the company's own server, with a browser extension on every employee's computer.">
+    <div class="eyebrow">Our solution</div>
+    <h2>One AI system that protects people at the moment they act</h2>
+    <div class="body"><div class="grid2">
+      <div class="card big tint" data-s="1"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Detects across channels</h3><p>Links, pages, email, messages, images and files, all judged by one AI engine.</p></div>
+      <div class="card big tint" data-s="2"><div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><h3>Explains every decision</h3><p>A 0 to 100 risk score with reasons in plain words, plus what to do next.</p></div>
+      <div class="card big tint" data-s="3"><div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></div><h3>Stays in-house</h3><p>It runs on the company's own server. No client data goes to us or to anyone else.</p></div>
+      <div class="card big tint" data-s="4"><div class="ic"><svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/></svg></div><h3>Learns from the company</h3><p>Admin-verified feedback tunes the scores for that organization, safely and reversibly.</p></div>
+    </div></div>
+  </section>
+
+  <!-- 4 Gap -->
+  <section class="slide" id="s4" data-steps="5" data-title="The gap we fill" data-notes="From our literature review: strong research exists for one channel at a time, but no published system joins all channels with explanations, interception before credentials are sent, and an on-premises design.">
+    <div class="eyebrow">The gap</div>
+    <h2>What was missing, and what AegisOne adds</h2>
+    <div style="margin-top:50px">
+      <table>
+        <thead><tr><th></th><th>Existing tools</th><th class="us">AegisOne</th></tr></thead>
+        <tbody>
+          <tr data-s="1"><td>Channels</td><td>Email only, or one channel</td><td class="us">Email, links, pages, files, images, chat</td></tr>
+          <tr data-s="2"><td>When it acts</td><td>After a message arrives</td><td class="us">In the browser, before a password is sent</td></tr>
+          <tr data-s="3"><td>Explanation</td><td>Rarely explained</td><td class="us">Plain-language reasons for every decision</td></tr>
+          <tr data-s="4"><td>Your data</td><td>Often processed in a vendor's cloud</td><td class="us">Stays on the company's own server</td></tr>
+          <tr data-s="5"><td>Improves</td><td>Same for every customer</td><td class="us">Tuned by the company's verified feedback</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 5 Architecture (3D) -->
+  <section class="slide" id="s5" data-steps="4" data-title="Architecture" data-notes="Three parts. Left: a hosted portal where an organization registers and is approved. Middle: the company's own server, which holds the API, the AI engines, the dashboard and the database. Right: browsers, where the extension sends links and pages to the API and gets a verdict back. Press right to build it up. The moving dots are real traffic: the red dot is a scan request, the blue dot is the answer.">
+    <div class="eyebrow">Architecture</div>
+    <h2 style="font-size:64px">Everything that handles data runs on the company's server</h2>
+    <div id="iso"></div>
+  </section>
+
+  <!-- 6 AI models -->
+  <section class="slide" id="s6" data-title="The AI engines" data-notes="Four trained models and one rule-based file scanner. Results are measured on data the models did not train on. The URL benchmark is 400 URLs kept completely outside training. The screenshot model is the weakest, so it supports the other signals.">
+    <div class="eyebrow">The AI engines</div>
+    <h2 style="font-size:64px">Five engines, one decision</h2>
+    <div class="models">
+      <div class="mc"><div><div class="k">Links</div><h3>URL</h3></div>
+        <div><div class="l">Model</div><p>DistilBERT on the address, plus 64 address features and a brand-imitation check</p></div>
+        <div><div class="l">Data</div><p>137,217 URLs: Kaggle malicious URLs, Tranco, PhishTank, URLhaus. Split by domain.</p></div>
+        <div class="res"><b>97.2%</b><span>own test · 87.5% on 400 unseen URLs</span></div></div>
+      <div class="mc"><div><div class="k">Email</div><h3>Email</h3></div>
+        <div><div class="l">Model</div><p>DistilBERT + LoRA, Bi-LSTM, attention, 10 handcrafted signals. 69.9M parameters, 5% trained.</p></div>
+        <div><div class="l">Data</div><p>150,000 emails: 75,000 phishing and 75,000 legitimate from five corpora, including Enron and Nazario.</p></div>
+        <div class="res"><b>99.4%</b><span>accuracy · AUC 0.9991</span></div></div>
+      <div class="mc"><div><div class="k">Messages</div><h3>Text / SMS</h3></div>
+        <div><div class="l">Model</div><p>Same design, starting from the email model's weights, tuned for short messages</p></div>
+        <div><div class="l">Data</div><p>About 10,000 labelled messages: ham, spam and smishing</p></div>
+        <div class="res"><b>97.2%</b><span>F1 on validation data</span></div></div>
+      <div class="mc"><div><div class="k">Pages</div><h3>Screenshot</h3></div>
+        <div><div class="l">Model</div><p>EfficientNet-B3 fine-tuned in three phases. OCR sends page text to the other engines.</p></div>
+        <div><div class="l">Data</div><p>3,568 screenshots: 1,697 phishing (PhishTank) and 1,871 legitimate (Tranco)</p></div>
+        <div class="res"><b>83.5%</b><span>F1 · AUC 0.880 · supporting signal</span></div></div>
+      <div class="mc"><div><div class="k">Files</div><h3>Attachments</h3></div>
+        <div><div class="l">Method</div><p>Opens PDF, Office, HTML and ZIP; finds scripts, macros and password forms; sends text and links to the models</p></div>
+        <div><div class="l">Data</div><p>No training. Rules plus the text and URL models.</p></div>
+        <div class="res"><b>Risk ≥ 0.5</b><span>flags the file · macros always flag</span></div></div>
+    </div>
+    <p class="strip"><b>Fusion engine</b> combines all signals into one 0 to 100 risk, then a <b>learning layer</b> tunes it for each company.</p>
+  </section>
+
+  <!-- 7 Features: dashboards -->
+  <section class="slide" id="s7" data-steps="3" data-title="Features: dashboards" data-notes="Each role has its own dashboard. Everything is checked on the server, and managers only see their own department.">
+    <div class="eyebrow">Features · dashboards</div>
+    <h2 style="font-size:64px">A dashboard for every role</h2>
+    <div class="body" style="margin-top:40px"><div class="three">
+      <div class="card" data-s="1"><h3>Employee</h3><ul class="dots">
+        <li>Live risk score and warnings in the browser</li><li>"Why is this phishing?" in plain words</li><li>Threat center and history</li><li>Report a false positive or an incident</li><li>Manual scan of links, text, images, files</li><li>Personal security score</li></ul></div>
+      <div class="card" data-s="2"><h3>Manager</h3><ul class="dots">
+        <li>Department risk, by employee</li><li>Incident queue: resolve, escalate, comment</li><li>Assign awareness training</li><li>Reports and exports</li><li>Chat and announcements</li><li>Own department only</li></ul></div>
+      <div class="card" data-s="3"><h3>Admin</h3><ul class="dots">
+        <li>Whole-organization analytics</li><li>Approve accounts, manage users and departments</li><li>Rule on incidents</li><li>AI model status and learning layer</li><li>Audit log</li><li>Setup wizard with CSV import</li></ul></div>
+    </div></div>
+  </section>
+
+  <!-- 8 Features: flow -->
+  <section class="slide" id="s8" data-steps="3" data-title="Features: how it works" data-notes="Left to right: the extension watches the browser, every answer comes with reasons and actions, and admin rulings feed a learning layer that tunes scores for that company.">
+    <div class="eyebrow">Features · how it works</div>
+    <h2 style="font-size:64px">Protect, explain, learn</h2>
+    <div class="body" style="margin-top:40px"><div class="flowrow">
+      <div class="card" data-s="1"><span class="chip">1 · In the browser</span><h3 style="margin-top:18px">Protect</h3><ul class="dots">
+        <li>Every page and link scored 0 to 100</li><li>Forms stopped before a password is sent</li><li>Downloads held until scanned</li><li>Gmail, Outlook, WhatsApp Web, pop-ups</li><li>Right-click to scan anything</li></ul></div>
+      <div class="arrow" data-s="2"><svg viewBox="0 0 64 40"><path d="M4 20h50M42 8l14 12-14 12" fill="none" stroke="#4A7FA7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="card" data-s="2"><span class="chip">2 · On the screen</span><h3 style="margin-top:18px">Explain</h3><ul class="dots">
+        <li>Warning page in front of the danger</li><li>Reasons in plain language</li><li>Advice on what to do next</li><li>Report a false positive or open an incident</li></ul></div>
+      <div class="arrow" data-s="3"><svg viewBox="0 0 64 40"><path d="M4 20h50M42 8l14 12-14 12" fill="none" stroke="#4A7FA7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="card" data-s="3"><span class="chip">3 · In the dashboards</span><h3 style="margin-top:18px">Learn</h3><ul class="dots">
+        <li>Manager triages the report</li><li>Admin gives the official ruling</li><li>Verified rulings tune the scores, only if provably better</li><li>Removable at any time</li></ul></div>
+    </div></div>
+  </section>
+
+  <!-- 9 Demo -->
+  <section class="slide" id="s9" data-title="Demo time" data-notes="Start the live demo: open a fake sign-in address with the extension installed, show the warning and Why is this phishing, report it, then rule on it as admin and show the learning layer.">
+    <div class="demo">
+      <div class="play"></div>
+      <div class="eyebrow">Time for the</div>
+      <h1>Demo</h1>
+      <p>Now let us see it working.</p>
+      <div class="steps3"><span>Employee meets a fake page</span><i></i><span>Manager and admin review it</span><i></i><span>The system learns</span></div>
+    </div>
+  </section>
+
+  </div>
+
+  <div id="notes" hidden><b>Speaker notes</b><div id="notesText"></div></div>
+  <div id="bar">
+    <div id="segs" role="tablist" aria-label="Slide progress"></div>
+    <span id="ttl"></span><span id="cnt"></span>
+    <button id="bPrev" aria-label="Previous">‹</button><button id="bNext" aria-label="Next">›</button>
+    <button id="bNotes" class="opt">Notes</button><button id="bFs" class="opt">Full</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var RM=false; try{RM=window.matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){}
+if(RM) document.getElementById("vp").classList.add("RM");
+var vp=document.getElementById("vp"), stage=document.getElementById("stage"), bar=document.getElementById("bar");
+var slides=[].slice.call(document.querySelectorAll(".slide")), idx=0, step=0;
+
+/* ---------- 3D architecture ---------- */
+(function(){
+  var host=document.getElementById("iso"); if(!host) return;
+  var S=31, OX=24, OY=478, Z0=0.55, DEP=11;
+  function P(x,d,z){return [OX+(x+0.55*d)*S, OY-(z+0.90*d)*S]}
+  function pts(a){return a.map(function(p){return p[0].toFixed(1)+","+p[1].toFixed(1)}).join(" ")}
+  function poly(a,fill,stroke){return '<polygon points="'+pts(a)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.5" stroke-linejoin="round"/>'}
+  function box(x,d,z,w,dd,h,c){
+    var front=[P(x,d,z),P(x+w,d,z),P(x+w,d,z+h),P(x,d,z+h)];
+    var right=[P(x+w,d,z),P(x+w,d+dd,z),P(x+w,d+dd,z+h),P(x+w,d,z+h)];
+    var top=[P(x,d,z+h),P(x+w,d,z+h),P(x+w,d+dd,z+h),P(x,d+dd,z+h)];
+    return poly(front,c.l,c.s)+poly(right,c.r,c.s)+poly(top,c.t,c.s);
+  }
+  var PLAT={t:"#EAF3FA",l:"#D3E3F0",r:"#B3CFE5",s:"#9DBBD3"};
+  var BLUE={t:"#7FB0D6",l:"#4A7FA7",r:"#2E5580",s:"#2E5580"};
+  var NAVY={t:"#4F7BA8",l:"#2E5580",r:"#1A3D63",s:"#1A3D63"};
+  var GREEN={t:"#6FD0AE",l:"#2FA97E",r:"#1F7C5C",s:"#1F7C5C"};
+  var SKY={t:"#CFE3F3",l:"#8FB9D9",r:"#6A9BC2",s:"#6A9BC2"};
+  var PLATS=[{g:1,x:0,w:9,cap:"Hosted portal",sub:"public cloud"},{g:2,x:12,w:21,cap:"The company's own server",sub:"Docker, nothing leaves"},{g:3,x:36,w:11,cap:"Browsers",sub:"every employee and admin"}];
+  var blocks=[
+    {g:1,name:"Hosted portal",sub:"Sign-up, approval, license",x:2.3,d:3.6,w:4.4,dd:4,h:3,c:SKY,pos:"above"},
+    {g:2,name:"API",sub:"FastAPI: login, scans, incidents",x:20.5,d:1.2,w:4,dd:3.2,h:3.4,c:NAVY,pos:"below"},
+    {g:2,name:"PostgreSQL",sub:"Users, scans, audit log",x:14.5,d:7.2,w:4,dd:3,h:2,c:BLUE,pos:"above"},
+    {g:2,name:"AI engines",sub:"URL, email, text, image, files",x:20.2,d:7.2,w:4.6,dd:3,h:2.6,c:GREEN,pos:"above"},
+    {g:2,name:"Dashboard",sub:"Employee, manager, admin views",x:26.5,d:7.2,w:4,dd:3,h:2.4,c:BLUE,pos:"above"},
+    {g:3,name:"Employee browser",sub:"Chrome extension",x:38,d:1.2,w:4,dd:3.2,h:2.2,c:BLUE,pos:"below"},
+    {g:3,name:"Manager / admin browser",sub:"Dashboard",x:41.5,d:7.2,w:4,dd:3,h:2,c:SKY,pos:"above"}
+  ];
+  var by={}; blocks.forEach(function(b){by[b.name]=b});
+  function ctr(b,zf){return P(b.x+b.w/2,b.d+b.dd/2,Z0+b.h*zf)}
+  var svg='<svg viewBox="0 0 1700 700" aria-hidden="true">';
+  PLATS.forEach(function(pl){
+    svg+='<g data-s="'+pl.g+'">'+box(pl.x,0,0,pl.w,DEP,Z0,PLAT);
+    blocks.filter(function(b){return b.g===pl.g}).sort(function(a,b){return b.d-a.d}).forEach(function(b){svg+=box(b.x,b.d,Z0,b.w,b.dd,b.h,b.c)});
+    svg+='</g>';
+  });
+  function curve(a,b,lift){var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2-lift;return "M"+a[0].toFixed(1)+" "+a[1].toFixed(1)+" Q"+mx.toFixed(1)+" "+my.toFixed(1)+" "+b[0].toFixed(1)+" "+b[1].toFixed(1)}
+  var portal=ctr(by["Hosted portal"],.5), api=ctr(by["API"],.5), emp=ctr(by["Employee browser"],.5);
+  var pg=ctr(by["PostgreSQL"],.6), ai=ctr(by["AI engines"],.6), dash=ctr(by["Dashboard"],.6), adm=ctr(by["Manager / admin browser"],.6);
+  var apiTop=ctr(by["API"],.8);
+  var F=[
+    {d:curve(portal,api,70),col:"#4A7FA7",lbl:"install command",at:[(portal[0]+api[0])/2+90,(portal[1]+api[1])/2-62]},
+    {d:curve(emp,api,60),col:"#D9534A",lbl:"scan request",at:[(emp[0]+api[0])/2+70,(emp[1]+api[1])/2-62]},
+    {d:curve(api,emp,-50),col:"#2E5580",lbl:"verdict",at:[(emp[0]+api[0])/2+70,(emp[1]+api[1])/2+78]},
+    {d:curve(apiTop,pg,40),col:"#4A7FA7"},
+    {d:curve(apiTop,ai,30),col:"#4A7FA7"},
+    {d:curve(apiTop,dash,40),col:"#4A7FA7"},
+    {d:curve(adm,dash,30),col:"#4A7FA7"}
+  ];
+  svg+='<g data-s="4">';
+  F.forEach(function(f,i){
+    svg+='<path class="flow" d="'+f.d+'" stroke="'+f.col+'"/>';
+    svg+='<circle r="8" fill="'+f.col+'" stroke="#fff" stroke-width="2.5"><animateMotion dur="'+(2.6+i*0.3).toFixed(2)+'s" repeatCount="indefinite" path="'+f.d+'"/></circle>';
+    if(f.lbl) svg+='<text class="ftxt" x="'+f.at[0].toFixed(0)+'" y="'+f.at[1].toFixed(0)+'" text-anchor="middle">'+f.lbl+'</text>';
+  });
+  svg+='</g></svg>';
+  var html=svg;
+  blocks.forEach(function(b){
+    if(b.pos==="above"){ var p=P(b.x+b.w/2,b.d+b.dd/2,Z0+b.h); html+='<div class="lab" data-s="'+b.g+'" style="left:'+p[0].toFixed(0)+'px;top:'+(p[1]-40).toFixed(0)+'px"><b>'+b.name+'</b><span>'+b.sub+'</span></div>'; }
+    else { var q=P(b.x+b.w/2,b.d,Z0); html+='<div class="lab below" data-s="'+b.g+'" style="left:'+q[0].toFixed(0)+'px;top:'+(q[1]+12).toFixed(0)+'px"><b>'+b.name+'</b><span>'+b.sub+'</span></div>'; }
+  });
+  PLATS.forEach(function(pl){
+    var p=P(pl.x+pl.w/2,0,0);
+    html+='<div class="cap" data-s="'+pl.g+'" style="left:'+p[0].toFixed(0)+'px;top:'+(p[1]+88).toFixed(0)+'px">'+pl.cap+'<em>'+pl.sub+'</em></div>';
+  });
+  html+='<div class="legend" data-s="4"><span><i style="background:#D9534A"></i>scan request</span><span><i style="background:#2E5580"></i>verdict</span><span><i style="background:#4A7FA7"></i>data flow</span></div>';
+  host.innerHTML=html;
+})();
+
+/* ---------- deck engine ---------- */
+function fit(){
+  var w=vp.clientWidth, h=vp.clientHeight-bar.offsetHeight, s=Math.min(w/1920,h/1080);
+  stage.style.transform="scale("+s+")";
+  stage.style.left=Math.max(0,(w-1920*s)/2)+"px"; stage.style.top=Math.max(0,(h-1080*s)/2)+"px";
+}
+window.addEventListener("resize",fit);
+function stepEls(s){return [].slice.call(s.querySelectorAll("[data-s]"))}
+function maxStep(s){var m=+(s.dataset.steps||0); stepEls(s).forEach(function(e){m=Math.max(m,+e.dataset.s)}); return m}
+function applySteps(s,n){ s.dataset.step=n; stepEls(s).forEach(function(e){ e.classList.toggle("on",+e.dataset.s<=n) }); }
+var segs=document.getElementById("segs"), cnt=document.getElementById("cnt"), ttl=document.getElementById("ttl");
+slides.forEach(function(s,i){ var b=document.createElement("i"); b.setAttribute("role","tab"); b.tabIndex=0; b.title=s.dataset.title; b.addEventListener("click",function(){go(i)}); b.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();go(i)}}); segs.appendChild(b); });
+function chrome(){
+  var all=segs.children; for(var i=0;i<all.length;i++){ all[i].className=i<idx?"seen":(i===idx?"cur":""); all[i].setAttribute("aria-selected",i===idx?"true":"false"); }
+  cnt.textContent=(idx+1)+" / "+slides.length; ttl.textContent=slides[idx].dataset.title;
+  document.getElementById("notesText").textContent=slides[idx].dataset.notes||"";
+  try{ history.replaceState(null,"","#s"+(idx+1)); }catch(e){}
+}
+function render(back){
+  var s=slides[idx]; slides.forEach(function(x,i){x.classList.toggle("active",i===idx)});
+  step=back?maxStep(s):0; applySteps(s,step); chrome();
+}
+function next(){ var s=slides[idx]; if(step<maxStep(s)){step++;applySteps(s,step)} else if(idx<slides.length-1){idx++;render(false)} }
+function prev(){ if(step>0){step--;applySteps(slides[idx],step)} else if(idx>0){idx--;render(true)} }
+function go(i){ idx=Math.max(0,Math.min(slides.length-1,i)); render(false); }
+var notes=document.getElementById("notes");
+function toggleNotes(){ notes.hidden=!notes.hidden }
+function toggleFs(){ try{ if(document.fullscreenElement){document.exitFullscreen&&document.exitFullscreen()} else { var p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); if(p&&p.catch)p.catch(function(){}) } }catch(e){} }
+document.addEventListener("fullscreenchange",function(){setTimeout(fit,50)});
+document.getElementById("bNext").addEventListener("click",next);
+document.getElementById("bPrev").addEventListener("click",prev);
+document.getElementById("bNotes").addEventListener("click",toggleNotes);
+document.getElementById("bFs").addEventListener("click",toggleFs);
+document.addEventListener("keydown",function(e){
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  var k=e.key, tg=e.target;
+  if(tg&&(tg.tagName==="BUTTON"||(tg.getAttribute&&tg.getAttribute("role")==="tab"))&&(k===" "||k==="Enter")) return;
+  if(k==="ArrowRight"||k==="PageDown"||k===" "||k==="Enter"){e.preventDefault();next()}
+  else if(k==="ArrowLeft"||k==="PageUp"||k==="Backspace"){e.preventDefault();prev()}
+  else if(k==="Home"){e.preventDefault();go(0)} else if(k==="End"){e.preventDefault();go(slides.length-1)}
+  else if(k==="n"||k==="N"){toggleNotes()} else if(k==="f"||k==="F"){toggleFs()}
+});
+stage.addEventListener("click",function(e){ var r=stage.getBoundingClientRect(); if((e.clientX-r.left)/r.width<.28) prev(); else next(); });
+var tx=null; vp.addEventListener("touchstart",function(e){tx=e.touches[0].clientX},{passive:true});
+vp.addEventListener("touchend",function(e){ if(tx===null)return; var dx=e.changedTouches[0].clientX-tx; tx=null; if(Math.abs(dx)>50){ if(dx<0) next(); else prev(); } },{passive:true});
+fit();
+var m=/^#s(\d+)$/.exec(location.hash||""); idx=m?Math.max(0,Math.min(slides.length-1,+m[1]-1)):0;
+render(false);
+setTimeout(fit,300);
+})();
+</script>
+
+</body></html>
