@@ -355,6 +355,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
+        // ── Embedded Email Images ──────────────────────────
+        // Actually runs each extracted image through the vision model instead of just
+        // reporting how many were found. Capped at 3 per email to bound latency/cost — a
+        // phishing email only needs one bad logo/screenshot to be worth flagging.
+        case MSG.SCAN_EMAIL_IMAGES: {
+          const urls = (msg.urls || []).slice(0, 3);
+          const settled = await Promise.allSettled(urls.map(u => scanImage(u)));
+          const evaluated = [];
+          let maxScore = 0;
+          for (let i = 0; i < settled.length; i++) {
+            const r = settled[i].status === "fulfilled" ? settled[i].value : null;
+            if (!r) { evaluated.push({ url: urls[i], scanned: false }); continue; }
+            const score = r.score ?? Math.round((r.phishing_probability || 0) * 100);
+            evaluated.push({ url: urls[i], scanned: true, score, prediction: r.prediction });
+            if (score > maxScore) maxScore = score;
+          }
+          sendResponse({ ok: true, maxScore, evaluated });
+          break;
+        }
+
         // ── Search Result Batch Scan ──────────────────────
         case MSG.SEARCH_SCAN: {
           const results = await scanURLBatch(msg.urls || [], 5);

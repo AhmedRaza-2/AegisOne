@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os as _os
 import re
 import time
 from typing import Any, Dict, List, Optional
@@ -47,6 +48,75 @@ except ImportError:
         "Captum not installed — using attention-weight fallback for token XAI. "
         "Install with: pip install captum"
     )
+
+# ─── Sumy (optional soft-dependency) — extractive summarizer for Tier 1 prose ─
+# Deliberately extractive, not generative: it only reorders/trims sentences we already
+# built from real evidence, it never invents new words. (flan-t5-small was tried earlier
+# as a generative smoother and removed — see generate_tier2_deep_explanation — because a
+# 60M-param model sometimes garbled a finding into nonsense. Sumy structurally can't do
+# that: its output is always a subset of the input sentences, so a safe sentence stays safe.)
+#
+# We build sumy's sentence objects directly from our own sentence list instead of handing
+# it raw text through sumy's PlaintextParser — that parser's sentence-splitter needs NLTK's
+# punkt data downloaded at runtime, which an on-prem, possibly offline server may not have.
+# We already know our sentence boundaries (one per finding), so there's nothing to split;
+# only a plain word tokenizer is needed, which we provide ourselves with no network calls.
+try:
+    from sumy.models.dom import ObjectDocumentModel as _SumyDocument, Paragraph as _SumyParagraph, Sentence as _SumySentence
+    from sumy.summarizers.lex_rank import LexRankSummarizer
+    SUMY_AVAILABLE = True
+except ImportError:
+    SUMY_AVAILABLE = False
+    logger.info("sumy not installed — Tier 1 summary stays as the plain template. Install with: pip install sumy")
+
+_WORD_RE = re.compile(r"[A-Za-z0-9']+")
+
+
+class _SimpleWordTokenizer:
+    """Minimal stand-in for sumy's nltk-backed Tokenizer — only `to_words` is ever called
+    (LexRank scores sentences by their words; it doesn't need sentence-splitting from us)."""
+    @staticmethod
+    def to_words(text: str) -> List[str]:
+        return _WORD_RE.findall(text.lower())
+
+
+_XAI_SUMMARIZE_ENABLED = _os.environ.get("AEGIS_XAI_SUMMARIZE", "true").strip().lower() not in ("0", "false", "off")
+_XAI_SUMMARIZE_BUDGET_MS = 30.0  # abandon and fall back to the plain template past this
+
+
+def _smooth_summary(summary: str, main_reasons: List[str]) -> str:
+    """Re-flows the Tier 1 summary + its findings into a smoother 1-2 sentence paragraph
+    using extractive summarization (LexRank). Never adds a word that wasn't already in
+    `summary`/`main_reasons` — it only picks and reorders, so it can't misrepresent the
+    evidence. Falls back to the plain `summary` untouched on any failure or if it would be
+    slower than the budget allows, so this is purely additive and never blocks a scan."""
+    if not (SUMY_AVAILABLE and _XAI_SUMMARIZE_ENABLED) or not main_reasons:
+        return summary
+    t0 = time.perf_counter()
+    try:
+        tok = _SimpleWordTokenizer()
+        raw_sentences = [summary] + list(main_reasons)
+        sentences = [_SumySentence(s, tok) for s in raw_sentences if s and s.strip()]
+        if len(sentences) < 2:
+            return summary
+        document = _SumyDocument([_SumyParagraph(sentences)])
+        summarizer = LexRankSummarizer()
+        sentence_count = 2 if len(main_reasons) > 2 else 1
+        picked = summarizer(document, sentence_count)
+        if not picked:
+            return summary
+        # Keep original order (not LexRank's importance order) so the result still reads
+        # summary-first instead of jumping straight to a secondary finding.
+        picked_texts = [str(s) for s in picked]
+        smoothed = " ".join(s for s in raw_sentences if s in picked_texts).strip()
+        if (time.perf_counter() - t0) * 1000 > _XAI_SUMMARIZE_BUDGET_MS:
+            logger.info("Tier 1 summarizer exceeded its time budget; keeping the plain template.")
+            return summary
+        return smoothed if smoothed else summary
+    except Exception as e:
+        logger.info(f"Tier 1 summarizer skipped ({e}); keeping the plain template.")
+        return summary
+
 
 # ─── Tokens to exclude from attribution output ────────────────────────────────
 _SKIP_TOKENS = {
@@ -511,6 +581,8 @@ def generate_tier1_explanation(
     if risk_score >= 70 and not mitre:
         mitre.append("T1566 - Phishing")
 
+    summary = _smooth_summary(summary, main_reasons)
+
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
 
     return {
@@ -893,8 +965,6 @@ def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Opt
 # TIER 2 CONTROLLER: OLLAMA DEEP EXPLANATION (OPTIONAL)
 # 3-stage resolution: Cloud Ollama → Local Ollama → Tier 1 Fallback
 # ═══════════════════════════════════════════════════════════════════════════════
-
-import os as _os
 
 _OLLAMA_API_KEY = _os.environ.get("OLLAMA_API_KEY", "").strip()
 _LOCAL_OLLAMA_URL = "http://localhost:11434/api/generate"

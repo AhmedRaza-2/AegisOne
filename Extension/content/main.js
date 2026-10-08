@@ -76,6 +76,7 @@
         { initEmailGuard },
         { initWhatsappGuard },
         { initPopupGuard },
+        { initImageGuard },
       ] = await Promise.all([
         import(chrome.runtime.getURL("utils/constants.js")),  // imports API_BASE, DEBUG_MODE, etc.
         import(chrome.runtime.getURL("content/widget.js")),
@@ -87,6 +88,7 @@
         import(chrome.runtime.getURL("content/plugins/email-guard.js")),
         import(chrome.runtime.getURL("content/plugins/whatsapp-guard.js")),
         import(chrome.runtime.getURL("content/plugins/popup-guard.js")),
+        import(chrome.runtime.getURL("content/plugins/image-guard.js")),
       ]);
 
       const policy = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
@@ -616,7 +618,7 @@
       })();
 
       // ── Pluggable Platform Adapters (Email, WhatsApp, Pop-up & Ad Guard) ─────
-      const storedPlugins = await chrome.storage.local.get(["enableEmailGuard", "enableWhatsappGuard"]);
+      const storedPlugins = await chrome.storage.local.get(["enableEmailGuard", "enableWhatsappGuard", "enableImageGuard"]);
       if (storedPlugins.enableEmailGuard !== false) {
         initEmailGuard();
       }
@@ -624,6 +626,9 @@
         initWhatsappGuard();
       }
       initPopupGuard();
+      if (storedPlugins.enableImageGuard !== false) {
+        initImageGuard();
+      }
 
       // ── Clipboard Protection ────────────────────────
       _initClipboardProtection();

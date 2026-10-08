@@ -49,3 +49,9 @@ psutil>=5.9.0
 
 # URL phishing model feature extraction
 tldextract>=5.1.0
+
+# Lightweight extractive summarizer for XAI explanations (pure CPU, no model weights,
+# no network at runtime — we feed it our own pre-split sentences rather than its
+# nltk-backed sentence splitter, so there's no tokenizer data to download; see
+# api/services/xai_engine.py::_smooth_summary)
+sumy>=0.11.0

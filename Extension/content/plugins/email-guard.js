@@ -169,6 +169,26 @@ export function initEmailGuard() {
     return imgs.slice(0, 5);
   }
 
+  // Actually runs embedded images through the vision model (via the background worker)
+  // instead of just counting them. Returns {score, signals, evaluated} — evaluated is the
+  // raw per-image result so the XAI builder can name what was actually found.
+  async function _scoreImages(images) {
+    if (!images || images.length === 0) return { score: 0, signals: [], evaluated: [] };
+    try {
+      const res = await safeSendMessage({ type: "SCAN_EMAIL_IMAGES", urls: images });
+      if (!res || res.ok !== true) return { score: 0, signals: [], evaluated: [] };
+      const evaluated = res.evaluated || [];
+      const signals = [];
+      const flagged = evaluated.filter(e => e.scanned && e.score >= 50);
+      if (flagged.length > 0) {
+        signals.push(`🚨 ${flagged.length} embedded image(s) flagged as phishing (up to ${res.maxScore}% risk)`);
+      }
+      return { score: res.maxScore || 0, signals, evaluated };
+    } catch (_) {
+      return { score: 0, signals: [], evaluated: [] };
+    }
+  }
+
   // ── 4. Risk Level Classifier ──────────────────────────────
   function _getRiskLevel(score) {
     if (score === null || score === undefined) return "offline";
@@ -603,6 +623,10 @@ export function initEmailGuard() {
     let record = _scannedEmailsMap.get(emailKey);
 
     if (!record || !record.fullBodyScanned || record.score === -1 || record.verdict === "offline") {
+      // Only scanned on a fresh scan (not every re-open) — same "1 email = 1 scan ever" rule
+      // already applied to the text/link/attachment checks above.
+      const imageEval = await _scoreImages(images);
+
       const scanRes = await safeSendMessage({
         type: "EMAIL_DATA",
         sender,
@@ -624,7 +648,7 @@ export function initEmailGuard() {
       const modelProb   = modelResult.phishing_probability ?? 0;
       const baseScore   = Math.round(modelProb * 100);
 
-      const unifiedScore = Math.min(100, Math.max(baseScore, linkEval.score, maxAttachScore));
+      const unifiedScore = Math.min(100, Math.max(baseScore, linkEval.score, maxAttachScore, imageEval.score));
       const verdict = _getRiskLevel(unifiedScore);
 
       record = {
@@ -635,6 +659,7 @@ export function initEmailGuard() {
         linkSignals: linkEval.signals,
         links,
         images,
+        imageEval,
         attachmentNames,
         fullBodyScanned: true
       };
@@ -817,11 +842,9 @@ export function initEmailGuard() {
   // (backend offline / older cached scans).
   function _xaiFor(record, sender, subject) {
     const be = record.modelResult?.xai;
+    const imageEval = record.imageEval || { score: 0, signals: [], evaluated: [] };
     if (be && be.summary && Array.isArray(be.main_reasons)) {
-      const reasons = [...be.main_reasons];
-      if (record.images && record.images.length > 0) {
-        reasons.push(`Embedded images detected (${record.images.length} evaluated)`);
-      }
+      const reasons = [...be.main_reasons, ..._imageReasons(record.images, imageEval)];
       return {
         summary: be.summary,
         main_reasons: reasons,
@@ -832,12 +855,27 @@ export function initEmailGuard() {
     return _buildEmailXAI(
       sender, subject, record.score ?? 0,
       record.modelResult?.xai_words || [], record.modelResult?.explanation || "",
-      record.attachSignals || [], record.linkSignals || [], record.links || [], record.images || [],
+      record.attachSignals || [], record.linkSignals || [], record.links || [], record.images || [], imageEval,
       (record.score ?? 0) >= 50
     );
   }
 
-  function _buildEmailXAI(sender, subject, score, modelWords, modelExpl, attachSignals, linkSignals, links, images, isPhishing) {
+  // Real, per-image reasons built from what the vision model actually returned — not a
+  // blanket "evaluated/clean" claim. If scanning failed (offline, timeout) we say so instead
+  // of silently calling it clean.
+  function _imageReasons(images, imageEval) {
+    if (!images || images.length === 0) return [];
+    const scannedCount = (imageEval.evaluated || []).filter(e => e.scanned).length;
+    if (scannedCount === 0) {
+      return [`🖼️ ${images.length} embedded image(s) found but could not be scanned (offline or unreachable)`];
+    }
+    if (imageEval.signals && imageEval.signals.length > 0) {
+      return imageEval.signals;
+    }
+    return [`🖼️ ${scannedCount} embedded image(s) scanned by the vision model — no phishing indicators found`];
+  }
+
+  function _buildEmailXAI(sender, subject, score, modelWords, modelExpl, attachSignals, linkSignals, links, images, imageEval, isPhishing) {
     // Gmail threads can list every participant ("me, Mail, a@b.com, ..."); name the first sender only.
     const firstSender = (sender || "").split(",")[0].trim();
     const senderDisplay = firstSender ? `"${firstSender}"` : "an unknown sender";
@@ -855,10 +893,7 @@ export function initEmailGuard() {
 
       reasons.push(...linkSignals);
       reasons.push(...attachSignals);
-
-      if (images && images.length > 0) {
-        reasons.push(`🖼️ Embedded images detected (${images.length} images evaluated)`);
-      }
+      reasons.push(..._imageReasons(images, imageEval));
 
       const bodyLower = (modelExpl + " " + (subject || "")).toLowerCase();
       if (bodyLower.includes("inheritance") || bodyLower.includes("terminal"))
@@ -893,9 +928,7 @@ export function initEmailGuard() {
       if (links && links.length > 0) {
         reasons.push(`🔗 Links evaluated: ${links.length} link(s) checked and clean`);
       }
-      if (images && images.length > 0) {
-        reasons.push(`🖼️ Embedded images evaluated (${images.length} image(s) clean)`);
-      }
+      reasons.push(..._imageReasons(images, imageEval));
 
       return {
         summary: score > 0

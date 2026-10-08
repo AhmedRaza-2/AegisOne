@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, cast, Date, or_, and_, case, String
 
 from api.services.security_score import compute_security_score
+from api.services.redaction import redact_text
 from api.auth.password import validate_password_strength
 from api.database.db import get_db
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
@@ -816,7 +817,47 @@ async def get_audit_logs(
                 "actor":     r.actor_email,
                 "action":    r.action,
                 "module":    r.module,
-                "target":    r.target,
+                # Some action targets embed raw PII (e.g. "Employee a@b.com -> Incident INC-123"
+                # written by the manager-escalation flow) — redact before this is shown to anyone
+                # viewing another person's activity.
+                "target":    redact_text(r.target),
+                "result":    r.result,
+                "timestamp": str(r.timestamp),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/audit/trace")
+async def trace_audit_reference(
+    ref: str = Query(..., min_length=3, max_length=128),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(Role.MANAGER)),
+):
+    """Follow one reference (a scan_id, incident_id, report id, ...) through every audit
+    entry that mentions it, oldest first, so an action can be back-traced end-to-end —
+    e.g. a report being filed, correlated into an incident, escalated, then verified.
+    Every target is redacted the same way the main audit listing is: this is a lookup
+    tool, not a way to recover PII the listing already hides."""
+    org_id = getattr(current_user, "organization_id", None) or "org_default"
+
+    rows = (await db.execute(
+        select(AuditLog)
+        .where(AuditLog.organization_id == org_id, AuditLog.target.ilike(f"%{ref}%"))
+        .order_by(AuditLog.timestamp.asc())
+        .limit(200)
+    )).scalars().all()
+
+    return {
+        "ref": ref,
+        "count": len(rows),
+        "trail": [
+            {
+                "actor":     r.actor_email,
+                "action":    r.action,
+                "module":    r.module,
+                "target":    redact_text(r.target),
                 "result":    r.result,
                 "timestamp": str(r.timestamp),
             }
