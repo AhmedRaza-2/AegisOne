@@ -1,3 +1,4 @@
+import asyncio
 import logging as _logging
 import os
 import smtplib
@@ -13,6 +14,7 @@ from sqlalchemy import delete, update
 from api.database.db import get_db
 from api.database.models import User, Organization, Department, SetupSession
 from api.auth.password import hash_password
+from api.auth.roles import require_role, Role
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 
 _log = _logging.getLogger("aegisone.setup")
@@ -22,11 +24,14 @@ router = APIRouter(
     tags=["setup"]
 )
 
-async def verify_setup_key(x_setup_key: Optional[str] = Header(None, alias="X-Setup-Key")):
-    import hmac
-    expected_key = os.environ.get("VITE_SETUP_KEY", "aegis-setup-key-change-me")
-    if not expected_key or not x_setup_key or not hmac.compare_digest(x_setup_key, expected_key):
-        raise HTTPException(status_code=403, detail="Invalid Setup Key")
+# Every endpoint below manages an organization's structure/users/telemetry and is only ever
+# called from the admin dashboard, which already holds a real JWT by the time the wizard runs
+# (RegisterPage bootstraps the first admin via /auth/send-admin-credentials, logs them in, and
+# only THEN sends them into this wizard - see session.ts::installAuthFetch, which attaches
+# "Authorization: Bearer <token>" to every API call automatically). So these require an actual
+# authenticated admin instead of a shared setup-key header, which is both stronger (can't be
+# guessed/leaked as a static string) and removes the need to distribute a secret at all.
+_require_admin = require_role(Role.ADMIN)
 
 
 # In-memory store of per-email dispatch results, keyed by run_id.
@@ -258,7 +263,7 @@ def _dept_code_from_name(name: str) -> str:
     return "".join(token[0] for token in tokens[:4]).upper()
 
 
-@router.get("/structure/{org_id}", response_model=OrgStructureResponse)
+@router.get("/structure/{org_id}", response_model=OrgStructureResponse, dependencies=[Depends(_require_admin)])
 async def get_structure(org_id: str, db: AsyncSession = Depends(get_db)):
     org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalars().first()
     if not org:
@@ -296,7 +301,7 @@ async def get_structure(org_id: str, db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.post("/structure/save", dependencies=[Depends(verify_setup_key)])
+@router.post("/structure/save", dependencies=[Depends(_require_admin)])
 async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = Depends(get_db)):
     org = await _get_or_create_org(db, request.orgId, request.orgName)
 
@@ -324,9 +329,11 @@ async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = De
             dept_row = dept_map.get(emp.departmentCode.upper())
         user = users_by_email.get(emp.email.lower())
         if not user:
+            # hash_password is bcrypt (~200-300ms of CPU each); run in a worker thread so this
+            # loop doesn't freeze the whole server for the duration of every employee in a batch.
             user = User(
                 email=emp.email,
-                password_hash=hash_password(emp.generatedPassword or uuid.uuid4().hex),
+                password_hash=await asyncio.to_thread(hash_password, emp.generatedPassword or uuid.uuid4().hex),
                 full_name=f"{emp.firstName} {emp.lastName}",
                 role=emp.role.lower(),
                 department=dept_row.name if dept_row else "General",
@@ -354,7 +361,7 @@ async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = De
     await db.commit()
     return {"status": "success", "orgId": org.id}
 
-@router.post("/structure/bulk-reassign")
+@router.post("/structure/bulk-reassign", dependencies=[Depends(_require_admin)])
 async def bulk_reassign(request: BulkReassignRequest, db: AsyncSession = Depends(get_db)):
     """Bulk reassigns users to a new department."""
     target_code = request.targetDepartmentCode.upper()
@@ -375,7 +382,7 @@ async def bulk_reassign(request: BulkReassignRequest, db: AsyncSession = Depends
     await db.commit()
     return {"status": "success", "reassigned_count": len(request.employeeIds)}
 
-@router.post("/structure/merge", dependencies=[Depends(verify_setup_key)])
+@router.post("/structure/merge", dependencies=[Depends(_require_admin)])
 async def merge_departments(request: MergeDepartmentRequest, db: AsyncSession = Depends(get_db)):
     """Merges source department into target department, moving all users."""
     src_code = request.sourceDeptCode.upper()
@@ -412,7 +419,7 @@ async def email_status(run_id: str):
         return {"run_id": run_id, "done": False, "results": []}
     return {"run_id": run_id, "done": entry["done"], "results": entry["results"]}
 
-@router.post("/execute", dependencies=[Depends(verify_setup_key)])
+@router.post("/execute", dependencies=[Depends(_require_admin)])
 async def execute_setup(body: SetupExecuteRequest, http_request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """
     Executes the final setup steps:
@@ -441,7 +448,9 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
                 emp.generatedPassword = f"AegisPass{random_digits}!"
             
             pwd_raw = emp.generatedPassword
-            hashed_pwd = hash_password(pwd_raw)
+            # Same reasoning as the hash in save_structure() above: bcrypt is CPU-bound, run it
+            # off the event loop so a big employee batch doesn't freeze the whole server.
+            hashed_pwd = await asyncio.to_thread(hash_password, pwd_raw)
             
             if not existing:
                 db_user = User(
@@ -559,24 +568,34 @@ async def get_dispatch_status(run_id: str):
         return {"done": False, "results": [], "message": "Dispatch run_id pending or not found"}
     return _email_dispatch_results[run_id]
 
-@router.post("/smtp/test")
+def _test_smtp_sync(host: str, port: int, user: str, password: str) -> None:
+    if int(port) == 465:
+        server = smtplib.SMTP_SSL(host, port, timeout=10)
+    else:
+        server = smtplib.SMTP(host, port, timeout=10)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+    server.login(user, password)
+    server.quit()
+
+
+@router.post("/smtp/test", dependencies=[Depends(_require_admin)])
 async def test_smtp(request: SmtpTestRequest):
-    """Test SMTP connection without sending an email."""
+    """Test SMTP connection without sending an email.
+
+    Unlike the other SMTP call sites in this codebase, this one has to report success/failure
+    back in the response itself, so it can't just be handed to BackgroundTasks - it still needs
+    to block, just not the whole event loop while it does: asyncio.to_thread() runs the
+    synchronous smtplib work on a worker thread so other requests keep being served while this
+    one waits. (SMTP_SSL also had no timeout before - added one, matching the other branch.)"""
     try:
-        if int(request.smtpPort) == 465:
-            server = smtplib.SMTP_SSL(request.smtpHost, request.smtpPort)
-        else:
-            server = smtplib.SMTP(request.smtpHost, request.smtpPort, timeout=10)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-        server.login(request.smtpUser, request.smtpPass)
-        server.quit()
+        await asyncio.to_thread(_test_smtp_sync, request.smtpHost, request.smtpPort, request.smtpUser, request.smtpPass)
         return {"status": "success", "message": "SMTP connection successful."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"SMTP Error: {str(e)}")
 
-@router.post("/session", dependencies=[Depends(verify_setup_key)])
+@router.post("/session", dependencies=[Depends(_require_admin)])
 async def save_session(request: SetupSessionSaveRequest, db: AsyncSession = Depends(get_db)):
     """Saves the current setup wizard state as a draft."""
     session_id = request.sessionId
@@ -589,7 +608,7 @@ async def save_session(request: SetupSessionSaveRequest, db: AsyncSession = Depe
     await db.commit()
     return {"status": "success"}
 
-@router.get("/session/{session_id}")
+@router.get("/session/{session_id}", dependencies=[Depends(_require_admin)])
 async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     """Retrieves a saved setup wizard state."""
     session = (await db.execute(select(SetupSession).where(SetupSession.id == session_id))).scalars().first()
@@ -598,7 +617,7 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     return {"status": "success", "state": session.state_json}
 
 
-@router.post("/reset-organization")
+@router.post("/reset-organization", dependencies=[Depends(_require_admin)])
 async def reset_organization(db: AsyncSession = Depends(get_db)):
     """Performs a full hard reset of organization setup, purging all non-admin accounts, departments, and security telemetry."""
     try:

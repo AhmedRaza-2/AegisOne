@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from api.database.db import get_db
 from api.dependencies import get_current_user, get_scan_user
+from api.config import MAX_FILE_SIZE_BYTES
 import socket
 import ipaddress
 from urllib.parse import urlparse
@@ -97,6 +98,15 @@ from api.services.revision_service import increment_org_revision, get_org_revisi
 router = APIRouter(tags=["Compatibility & XAI"])
 
 
+def _scan_dept_id(user) -> str | None:
+    """WebsiteScan.department_id is a plain String(64) (not an FK, unlike User.department_id's
+    Integer), and the admin drilldown already compares against str(scope.department_id) - so the
+    int id has to be stringified the same way on write, or a stored int-as-string would never
+    match that comparison and department-scoped drilldowns would stay silently empty."""
+    dept_id = getattr(user, "department_id", None)
+    return str(dept_id) if dept_id is not None else None
+
+
 
 
 DEFAULT_POLICY = {
@@ -162,6 +172,7 @@ async def api_contextual(request: ContextualEnvelopeRequest, current_user: User 
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
         organization_id=org_id,
         user_id=user_id,
+        department_id=_scan_dept_id(current_user),
         scan_type="contextual",
         url=request.url[:2048] if request.url else "Page Content",
         domain=request.url.split("/")[2] if "//" in request.url else "page_scan",
@@ -237,6 +248,7 @@ async def api_full_page(request: ContextualScanRequest, current_user: User = Dep
         scan_id=f"scan_{uuid.uuid4().hex[:12]}",
         organization_id=org_id,
         user_id=user_id,
+        department_id=_scan_dept_id(current_user),
         scan_type="full_page",
         url=request.url[:2048] if request.url else "Page Content",
         domain=request.url.split("/")[2] if "//" in request.url else "page_scan",
@@ -361,6 +373,7 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
         scan_id=target_scan_id,
         organization_id=org_id,
         user_id=user_id,
+        department_id=_scan_dept_id(current_user),
         scan_type=scan_type,
         url=url[:2048],
         domain=url.split("/")[2] if "//" in url else url[:255],
@@ -447,6 +460,7 @@ async def api_text(request: Request, text: str = Form(...), source_url: str = Fo
         scan_id=scan_id,
         organization_id=org_id,
         user_id=user_id,
+        department_id=_scan_dept_id(current_user),
         scan_type="text",
         url="Text Snippet: " + text[:100],
         domain="text_scan",
@@ -682,6 +696,7 @@ async def api_image(request: Request, file: UploadFile = File(...), source_url: 
         scan_id=scan_id,
         organization_id=org_id,
         user_id=user_id,
+        department_id=_scan_dept_id(current_user),
         scan_type="image",
         url=page_url or ("Image Upload: " + (file.filename or "unknown")[:100]),
         domain=(page_url.split("/")[2] if page_url else "image_scan"),
@@ -711,13 +726,21 @@ async def api_image(request: Request, file: UploadFile = File(...), source_url: 
 
 
 @router.post("/analyze/document")
-async def api_document(file: UploadFile = File(...)):
+async def api_document(file: UploadFile = File(...), current_user: User = Depends(get_scan_user)):
     start = time.time()
     import tempfile
+    raw = await file.read()
+    if len(raw) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB",
+        )
+    # Size is checked before the temp file is even created - mkstemp()'s raw fd must be closed
+    # (os.fdopen below does that) before the file can be deleted at all on Windows, so rejecting
+    # early here means there's never an open, unclosed handle for the finally block to trip over.
     suffix = os.path.splitext(file.filename)[1] if file.filename else ""
     fd, temp_path = tempfile.mkstemp(suffix=suffix)
     try:
-        raw = await file.read()
         with os.fdopen(fd, "wb") as f:
             f.write(raw)
         raw_result = await process_attachment(temp_path)
@@ -725,10 +748,16 @@ async def api_document(file: UploadFile = File(...)):
         if os.path.exists(temp_path):
             os.remove(temp_path)
             
-    is_phish = raw_result.get("heuristic_risk") == "high" or "prediction" in raw_result.get("sub_results", {}).get("text", {}) and raw_result["sub_results"]["text"]["prediction"] == "phishing"
-    prob = 0.95 if is_phish else 0.05
+    # process_attachment() (model_orchestrator.py::_process_attachment_sync) already computes
+    # the real verdict from macros + heuristic score + text model + any embedded URLs, and
+    # returns it as raw_result["prediction"]/["phishing_probability"]. The check this replaced
+    # compared raw_result["heuristic_risk"] (always a 0.0-1.0 float) to the string "high", which
+    # can never be true, and then discarded the real computed probability for a hardcoded
+    # 0.95/0.05 - this now uses what was already correctly computed instead of redoing it worse.
+    is_phish = raw_result.get("prediction") == "phishing"
+    prob = float(raw_result.get("phishing_probability", 0.95 if is_phish else 0.05))
     dur = round((time.time() - start) * 1000, 1)
-    
+
     scan_log("doc", "-", file.filename or "document", prob * 100, "BLOCK" if is_phish else "SAFE", dur)
 
     return {
@@ -737,6 +766,7 @@ async def api_document(file: UploadFile = File(...)):
         "phishing_probability": prob,
         "model": "document_orchestrator",
         "sub_results": raw_result.get("sub_results", {}),
+        "findings": raw_result.get("phishing_signals", []),
         "latency_ms": round((time.time() - start) * 1000, 1)
     }
 
@@ -788,13 +818,17 @@ async def api_download_url(url: str = Form(...), current_user: User = Depends(ge
 
         file_bytes = b"".join(chunks)
     except Exception as e:
-        url_pred = await asyncio.to_thread(predict_url, url)
+        # predict_url is already an async function - wrapping it in asyncio.to_thread() would
+        # just run the (synchronous) act of creating a coroutine object in a thread and return
+        # that unawaited coroutine as url_pred, which has no .get() method, so this silently
+        # always produced a 0.0 risk no matter what the URL check actually found.
+        url_pred = await predict_url(url)
         results = {
             "source_url": url,
             "file_type": "unknown",
             "file_size_kb": 0.0,
             "macros_found": False,
-            "heuristic_risk": url_pred.get("phishing_probability", 0.0) if hasattr(url_pred, "get") else 0.0,
+            "heuristic_risk": url_pred.get("phishing_probability", 0.0) if isinstance(url_pred, dict) else 0.0,
             "vba_analysis": None,
             "sub_results": {},
             "note": f"Could not fetch file ({e}) — URL-only check"
@@ -881,7 +915,7 @@ async def api_download_url(url: str = Form(...), current_user: User = Depends(ge
 
 
 @router.post("/xai/explain")
-async def api_explain(evidence: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
+async def api_explain(evidence: Dict[str, Any] = Body(...), current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     start = time.time()
 
     # Look up the full server-stored evidence for this exact scan (target brand name,
@@ -1057,7 +1091,7 @@ async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Dep
 
 
 @router.post("/devices/heartbeat")
-async def heartbeat_device(payload: DeviceHeartbeatRequest, db: AsyncSession = Depends(get_db)):
+async def heartbeat_device(payload: DeviceHeartbeatRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     try:
         device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
         if not device:
@@ -1209,7 +1243,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
 
 
 @router.post("/reports/threat", response_model=ThreatReportResponse)
-async def report_threat(payload: ThreatReportRequest, db: AsyncSession = Depends(get_db)):
+async def report_threat(payload: ThreatReportRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     report_id = f"report-{uuid.uuid4().hex[:12]}"
     row = ThreatReport(
         report_id=report_id,
@@ -1243,7 +1277,7 @@ class ScriptTelemetryRequest(BaseModel):
 
 
 @router.post("/telemetry/scripts")
-async def ingest_script_telemetry(payload: ScriptTelemetryRequest, db: AsyncSession = Depends(get_db)):
+async def ingest_script_telemetry(payload: ScriptTelemetryRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     """
     Module 7 — JavaScript Analysis.
     Content script sends extracted script metadata; we persist features + fire
@@ -1292,7 +1326,7 @@ class CookieTelemetryRequest(BaseModel):
 
 
 @router.post("/telemetry/cookies")
-async def ingest_cookie_telemetry(payload: CookieTelemetryRequest, db: AsyncSession = Depends(get_db)):
+async def ingest_cookie_telemetry(payload: CookieTelemetryRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     """
     Module 8 — Cookie Metadata Analysis.
     Privacy rule: only metadata (counts, flags) is transmitted — no cookie values.
@@ -1334,7 +1368,7 @@ class HoverScanRequest(BaseModel):
 
 
 @router.post("/telemetry/hover")
-async def ingest_hover_scan(payload: HoverScanRequest, db: AsyncSession = Depends(get_db)):
+async def ingest_hover_scan(payload: HoverScanRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     """
     Module 11 — Link Hover Analysis.
     Persists hover scan records so the dashboard can show what links
@@ -2366,7 +2400,7 @@ async def record_whatsapp_feedback(
     """
     User false-positive / false-negative detection feedback reporting endpoint.
     """
-    logger.info(f"Feedback recorded for scan {scan_id}: {payload.user_feedback} - {payload.comments}")
+    _log.info(f"Feedback recorded for scan {scan_id}: {payload.user_feedback} - {payload.comments}")
     return {
         "ok": True,
         "scan_id": scan_id,

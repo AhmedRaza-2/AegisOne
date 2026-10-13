@@ -12,7 +12,7 @@
  *  - No console.log in production (DEBUG_MODE guard)
  */
 
-import { setTokens, clearTokens, refreshNow } from "../utils/auth.js";
+import { setTokens, clearTokens, refreshNow, isAegisServerUrl } from "../utils/auth.js";
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE, getApiBaseUrl } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
 import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics, submitReport } from "./scanner.js";
@@ -253,7 +253,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
 
       // ── Auth Sync (always handled, regardless of shield state) ──
+      // Defense-in-depth: content/main.js already only sends this from the AegisOne server's
+      // own origin, but that's enforced client-side. sender.tab.url is set by Chrome itself
+      // from the actual tab the message came from and can't be spoofed by page JS, so it's
+      // checked again here - any other code path that ever sends AUTH_UPDATED inherits the
+      // same guarantee instead of having to remember to add it.
       if (msg.type === "AUTH_UPDATED") {
+        if (!sender.tab?.url || !(await isAegisServerUrl(sender.tab.url))) {
+          sendResponse({ ok: false, reason: "untrusted_origin" });
+          return;
+        }
         invalidateAuthCache();
         if (msg.access_token) await setTokens(msg.access_token, msg.refresh_token);
         if (msg.email) {
@@ -471,6 +480,42 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
+        // ── WhatsApp Web Batch Scan ────────────────────────
+        // Scans a batch of WhatsApp message bubbles (text + any URLs they contain) and
+        // returns one verdict per message, keyed by the fingerprint the content script
+        // tagged each bubble with. Reuses the same scanPageText/scanURL primitives every
+        // other scan surface uses - no separate backend endpoint needed.
+        case "SCAN_WHATSAPP_BATCH": {
+          const items = msg.payload?.messages || [];
+          const results = await Promise.all(items.map(async (item) => {
+            const urls = (item.urls || []).slice(0, 3);
+            const [urlResults, textResult] = await Promise.all([
+              urls.length ? scanURLBatch(urls, 3) : Promise.resolve([]),
+              (item.text && item.text.trim().length >= 10) ? scanPageText(item.text).catch(() => null) : Promise.resolve(null),
+            ]);
+
+            const urlRisk = urlResults.reduce((max, u) => Math.max(max, u.score ?? Math.round((u.phishing_probability || 0) * 100)), 0);
+            const textRisk = Math.round((textResult?.phishing_probability ?? 0) * 100);
+            const riskScore = Math.max(urlRisk, textRisk);
+
+            if (riskScore === 0 && urlResults.length === 0 && !textResult) {
+              // Nothing could be scanned (backend offline, or text too short and no URLs) -
+              // report that honestly instead of a false "safe".
+              return { fingerprint: item.fingerprint, verdict: "scan_incomplete", risk_score: -1 };
+            }
+
+            const verdict = riskScore >= 76 ? "phishing" : riskScore >= 50 ? "suspicious" : "safe";
+            return {
+              fingerprint: item.fingerprint,
+              verdict,
+              risk_score: riskScore,
+              threat_category: urlRisk >= textRisk ? "malicious_link" : "phishing_text",
+            };
+          }));
+          sendResponse({ ok: true, results });
+          break;
+        }
+
         // ── Email Scan ────────────────────────────────────
         case "EMAIL_DATA": {
           const result = await scanEmail(msg.sender, msg.subject, msg.body, null, msg.thread_url || msg.url || "", {
@@ -601,7 +646,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           if (result && result.score >= 50) {
             safeNotify({
               title: "🚨 AegisOne Clipboard Warning",
-              message: `The copied link (${getRootDomain(msg.url)}) is flagged as ${result.verdict.toUpperCase()} (${result.score}% risk).`,
+              message: `The copied link (${getRootDomain(msg.url)}) is flagged as ${(result.verdict || "risky").toUpperCase()} (${result.score}% risk).`,
               iconUrl: "icons/icon128.png",
               priority: 2
             });
@@ -669,32 +714,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           }).catch(() => { });
 
           sendResponse({ ok: true });
-          break;
-        }
-
-        // ── Search Results Batch Scan ─────────────────────
-        case MSG.SEARCH_SCAN: {
-          if (!isBackendOnline()) {
-            sendResponse({ ok: false, error: "backend_offline", results: [] });
-            break;
-          }
-          const urls = Array.isArray(msg.urls) ? msg.urls : [];
-          const results = await Promise.all(
-            urls.map(async (url) => {
-              const res = await scanURL(url).catch(() => null);
-              if (!res || res.score === -1 || res.verdict === "offline") {
-                return { url, score: -1, verdict: "offline", error: "backend_offline" };
-              }
-              return {
-                url,
-                score: res.score ?? 0,
-                verdict: res.verdict || "safe",
-                threat_type: res.threat_type || "safe",
-                phishing_probability: (res.score || 0) / 100
-              };
-            })
-          );
-          sendResponse({ ok: true, results });
           break;
         }
 

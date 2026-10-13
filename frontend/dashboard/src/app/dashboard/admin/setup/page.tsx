@@ -252,10 +252,10 @@ export default function AdminSetupPage() {
     try {
       const res = await fetch(`${API_BASE}/setup/execute`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Setup-Key': 'aegis-setup-key-change-me'
-        },
+        // No X-Setup-Key needed: this call runs after the admin is already logged in, and the
+        // app's global fetch wrapper (session.ts::installAuthFetch) attaches their real
+        // "Authorization: Bearer <token>" automatically, which the backend now requires instead.
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           employees,
           smtpUser,
@@ -481,7 +481,10 @@ export default function AdminSetupPage() {
               if (!res.ok) {
                 await fetch(`${API_BASE}/auth/send-admin-credentials`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'X-Setup-Key': 'aegis-setup-key-change-me' },
+                  // Only the very first admin on a fresh instance can go through without a real
+                  // setup key (the backend allows that one case); there's no safe default to put
+                  // here for any call after that.
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     email: adminEmailParam,
                     full_name: adminNameParam,

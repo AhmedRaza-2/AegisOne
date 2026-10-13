@@ -16,6 +16,7 @@ import sys
 import contextlib
 import io
 import string
+import zlib
 import asyncio
 import threading
 import logging
@@ -618,7 +619,12 @@ def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool 
     # Dynamic probability scaling based on neural inference + scam signals
     if len(scam_signals) > 0:
         base_boost = 0.52 + (len(scam_signals) * 0.12)
-        variance = (abs(hash(combined_lower)) % 9) / 100.0  # Dynamic variance (0-8%)
+        # zlib.crc32 instead of Python's built-in hash(): string hashing is randomized per
+        # process (PYTHONHASHSEED, for hash-flood protection) by design, so the same email
+        # text used to get a different "variance" - and therefore a different risk score -
+        # on every server restart. crc32 is deterministic, so the same email always scores
+        # the same way regardless of when the server last restarted.
+        variance = (zlib.crc32(combined_lower.encode("utf-8")) % 9) / 100.0  # Dynamic variance (0-8%)
         prob = min(0.97, max(prob, base_boost + variance))
     else:
         # If no scam signals detected and raw model probability is in uncalibrated neutral band (0.40-0.60):
@@ -697,7 +703,10 @@ def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
             return fast
 
     m = MODELS["text"]
-    enc = TOKENIZER(text, add_special_tokens=True, max_length=96,
+    # Matches training (AIML/text_general/train_phishing_model_text.py max_len=128) - this used
+    # to truncate at 96, silently dropping roughly the last quarter of any longer message the
+    # model was never trained to expect being cut short.
+    enc = TOKENIZER(text, add_special_tokens=True, max_length=128,
                     padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
     feats = m["extract_features"](text).unsqueeze(0).to(DEVICE)
     with torch.inference_mode():

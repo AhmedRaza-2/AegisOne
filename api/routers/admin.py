@@ -18,7 +18,7 @@ from sqlalchemy import select, func, update, cast, Date, or_, and_, case, String
 from api.services.security_score import compute_security_score
 from api.services.redaction import redact_text
 from api.auth.password import validate_password_strength
-from api.database.db import get_db
+from api.database.db import get_db, get_background_db
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 from api.database.models import (
     Organization,
@@ -448,7 +448,6 @@ async def get_stats(
 @router.post("/stats/refresh")
 async def refresh_daily_stats(
     bg_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(Role.MANAGER)),
 ):
     """
@@ -456,7 +455,18 @@ async def refresh_daily_stats(
     Safe to call anytime — runs as a background task.
     """
     org_id = getattr(current_user, "organization_id", None) or "org_default"
-    bg_tasks.add_task(_compute_and_store_daily_stats, db, org_id, date.today())
+    # Passing the request-scoped `db` straight into a BackgroundTasks callback works today, but
+    # that session is tied to this request's lifecycle (newer FastAPI/Starlette close it before
+    # background tasks run) - opening a fresh one here, the same way local_trainer.py already
+    # does for its own background jobs, avoids depending on that timing.
+    async def _run_daily_stats():
+        bg_db = await get_background_db()
+        try:
+            await _compute_and_store_daily_stats(bg_db, org_id, date.today())
+        finally:
+            await bg_db.close()
+
+    bg_tasks.add_task(_run_daily_stats)
     return {"status": "refresh queued", "date": date.today().isoformat(), "org_id": org_id}
 
 
@@ -902,7 +912,7 @@ async def get_pending_users(
     }
 
 
-@router.get("/system/status")
+@router.get("/system/status", dependencies=[Depends(require_role(Role.MANAGER))])
 async def get_system_status(db: AsyncSession = Depends(get_db)):
     """Return system and container health metrics for dashboard."""
     # Check Postgres DB connection
@@ -1342,6 +1352,7 @@ AegisOne Security Team
 async def create_user(
     request: Request,
     req: UserCreate,
+    bg_tasks: BackgroundTasks,
     force_transfer: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(Role.MANAGER))
@@ -1416,10 +1427,16 @@ async def create_user(
         "smtp_pass": getattr(org_obj, "smtp_pass", None)
     } if org_obj else None
 
-    # Send email notifications
+    # Send email notifications — moved off the request path. send_welcome_email() is a plain
+    # (synchronous) function, so FastAPI's BackgroundTasks already runs it in a thread pool;
+    # calling it directly here blocked the whole event loop for the full SMTP round-trip
+    # (several seconds, longer if the SMTP server is slow) on every single user created.
     req_host = request.url.hostname
-    send_welcome_email(req.email, req.full_name, req.password, target_dept_name, req.role, org_smtp=org_smtp, request_host=req_host, request=request)
-    
+    bg_tasks.add_task(
+        send_welcome_email, req.email, req.full_name, req.password, target_dept_name, req.role,
+        org_smtp=org_smtp, request_host=req_host, request=request,
+    )
+
     return {"status": "success", "user_id": new_user.id}
 
 class UserDepartmentUpdate(BaseModel):
@@ -1497,6 +1514,7 @@ async def update_smtp_settings(
 @router.put("/users/{user_id}/password")
 async def reset_user_password(
     user_id: int,
+    bg_tasks: BackgroundTasks,
     req: ResetPasswordRequest = None,
     new_password: str = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -1550,45 +1568,52 @@ async def reset_user_password(
     smtp_port = (org.smtp_port if org else None) or os.getenv("SMTP_PORT") or 587
 
     if smtp_user and smtp_pass:
-        try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = "AegisOne — Your Password Has Been Updated"
-            msg["From"] = f"AegisOne Security <{smtp_user}>"
-            msg["To"] = user.email
-            
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-              <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b;">
-                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0;">
-                  <h2 style="color: #0A5ED6; margin-top: 0;">🛡️ AegisOne Security Update</h2>
-                  <p>Hello <strong>{user.full_name}</strong>,</p>
-                  <p>Your AegisOne enterprise login password has been updated by an administrator.</p>
-                  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 14px; margin: 20px 0; text-align: center;">
-                    <strong>Temporary Password:</strong> <span style="color: #0A5ED6; font-weight: bold; font-size: 16px;">{actual_password}</span>
-                  </div>
-                  <p style="color: #64748b; font-size: 13px;">For security reasons, please log in and change this temporary password immediately inside your account settings.</p>
-                  <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
-                  <p style="font-size: 11px; color: #94a3b8; text-align: center;">&copy; 2026 AegisOne. All rights reserved.</p>
-                </div>
-              </body>
-            </html>
-            """
-            msg.attach(MIMEText(html, "html"))
-            
-            if int(smtp_port) == 465:
-                server = smtplib.SMTP_SSL(smtp_host, int(smtp_port))
-            else:
-                server = smtplib.SMTP(smtp_host, int(smtp_port), timeout=10)
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-            server.login(smtp_user, smtp_pass.replace(" ", ""))
-            server.sendmail(smtp_user, user.email, msg.as_string())
-            server.quit()
-            _log.info("MAIL  password-reset notice sent to %s", user.email)
-        except Exception as e:
-            _log.warning("MAIL  could not send password-reset notice to %s: %s", user.email, e)
+        # This whole send used to run inline on the request - smtplib is synchronous, so the
+        # event loop (and every other in-flight request on this worker) blocked for the full
+        # connect+login+send round-trip, worse if the SMTP server was slow since SMTP_SSL had no
+        # timeout at all. Moved to a background task; added a timeout to the SSL branch too.
+        def _send_reset_notice():
+            try:
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = "AegisOne — Your Password Has Been Updated"
+                msg["From"] = f"AegisOne Security <{smtp_user}>"
+                msg["To"] = user.email
+
+                html = f"""
+                <!DOCTYPE html>
+                <html>
+                  <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b;">
+                    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0;">
+                      <h2 style="color: #0A5ED6; margin-top: 0;">🛡️ AegisOne Security Update</h2>
+                      <p>Hello <strong>{user.full_name}</strong>,</p>
+                      <p>Your AegisOne enterprise login password has been updated by an administrator.</p>
+                      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 14px; margin: 20px 0; text-align: center;">
+                        <strong>Temporary Password:</strong> <span style="color: #0A5ED6; font-weight: bold; font-size: 16px;">{actual_password}</span>
+                      </div>
+                      <p style="color: #64748b; font-size: 13px;">For security reasons, please log in and change this temporary password immediately inside your account settings.</p>
+                      <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+                      <p style="font-size: 11px; color: #94a3b8; text-align: center;">&copy; 2026 AegisOne. All rights reserved.</p>
+                    </div>
+                  </body>
+                </html>
+                """
+                msg.attach(MIMEText(html, "html"))
+
+                if int(smtp_port) == 465:
+                    server = smtplib.SMTP_SSL(smtp_host, int(smtp_port), timeout=10)
+                else:
+                    server = smtplib.SMTP(smtp_host, int(smtp_port), timeout=10)
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                server.login(smtp_user, smtp_pass.replace(" ", ""))
+                server.sendmail(smtp_user, user.email, msg.as_string())
+                server.quit()
+                _log.info("MAIL  password-reset notice sent to %s", user.email)
+            except Exception as e:
+                _log.warning("MAIL  could not send password-reset notice to %s: %s", user.email, e)
+
+        bg_tasks.add_task(_send_reset_notice)
 
     return {"status": "success"}
 
@@ -1859,40 +1884,9 @@ class SmtpUpdateReq(BaseModel):
     smtp_user: str
     smtp_pass: str
 
-@router.get("/smtp-settings")
-async def get_smtp_settings(
-    db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_role(Role.ADMIN))
-):
-    """Get SMTP settings for the admin's organization."""
-    res = await db.execute(select(Organization).where(Organization.id == admin.organization_id))
-    org = res.scalar_one_or_none()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-        
-    return {
-        "smtp_host": org.smtp_host,
-        "smtp_port": org.smtp_port,
-        "smtp_user": org.smtp_user,
-        "smtp_pass": org.smtp_pass
-    }
-
-@router.put("/smtp-settings")
-async def update_smtp_settings(
-    req: SmtpUpdateReq,
-    db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_role(Role.ADMIN))
-):
-    """Update SMTP settings for the admin's organization."""
-    res = await db.execute(select(Organization).where(Organization.id == admin.organization_id))
-    org = res.scalar_one_or_none()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-        
-    org.smtp_host = req.smtp_host
-    org.smtp_port = req.smtp_port
-    org.smtp_user = req.smtp_user
-    org.smtp_pass = req.smtp_pass
-    
-    await db.commit()
-    return {"status": "success"}
+#
+# NOTE: a second /smtp-settings GET+PUT pair used to be defined here, duplicating the one
+# near the top of this file. FastAPI only ever dispatches to the first route it matches, so
+# this second copy was permanently dead code - worse, the dead GET version returned the raw
+# unmasked smtp_pass (the live version correctly masks it as "********"). Removed rather than
+# risk a future edit landing in the unreachable copy.

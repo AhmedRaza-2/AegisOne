@@ -44,7 +44,12 @@ async def get_or_create_url_result(url: str, loader: Callable[[], Awaitable[dict
 
 def get_cached_text_result(text: str) -> list | dict | None:
     global _text_hits, _text_misses
-    key = hash(text)
+    # Was keyed by hash(text) - Python's built-in hash() is not collision-resistant, so two
+    # different texts could in principle land on the same key and silently return each other's
+    # cached verdict. TTLCache accepts an arbitrary hashable key just fine, so the text itself
+    # (already length-bounded by callers, e.g. scanPageText truncates to 3000 chars before this
+    # is ever reached) is used directly instead - same pattern the URL cache already uses.
+    key = text
     with _lock:
         result = _text_cache.get(key)
         if result is not None:
@@ -54,7 +59,7 @@ def get_cached_text_result(text: str) -> list | dict | None:
         return None
 
 def set_cached_text_result(text: str, result: list | dict):
-    key = hash(text)
+    key = text
     with _lock:
         _text_cache[key] = result
 

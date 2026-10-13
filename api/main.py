@@ -29,7 +29,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from api.config import (
     API_HOST, API_PORT, API_WORKERS, MAX_CONCURRENCY,
-    GZIP_MIN_SIZE, LOG_LEVEL,
+    GZIP_MIN_SIZE, LOG_LEVEL, PROJECT_ROOT,
 )
 from api.database.db import init_db
 from api.services.model_orchestrator import load_all_models
@@ -78,17 +78,33 @@ async def lifespan(app: FastAPI):
 
     await init_db()
 
+    # Postgres' own password is set once, at container creation (docker-compose), and can't be
+    # rotated by this app the way the generated secrets below can - just warn loudly so an
+    # operator who never set DB_PASSWORD notices before relying on the deployment, especially
+    # since the compose file also publishes 5432 on the host for psql/pgAdmin access.
+    from api.config import DATABASE_URL
+    if "aegisone_secret" in DATABASE_URL:
+        logger.warning("=" * 60)
+        logger.warning("DATABASE IS USING THE DEFAULT PASSWORD (aegisone_secret).")
+        logger.warning("Set DB_PASSWORD in your .env before exposing this deployment.")
+        logger.warning("=" * 60)
+
     # Make sure there is a stable token-signing secret before any request is served.
-    from api.services.secret_store import ensure_jwt_secret
+    from api.services.secret_store import ensure_jwt_secret, ensure_setup_key
     await ensure_jwt_secret()
-    
+    await ensure_setup_key()
+
     import shutil
-    try:
-        shutil.copy(r"d:\Coding Projects\AegisOne\frontend\logo.png", r"d:\Coding Projects\AegisOne\frontend\landing\public\logo.png")
-        shutil.copy(r"d:\Coding Projects\AegisOne\frontend\logo.png", r"d:\Coding Projects\AegisOne\frontend\dashboard\public\logo.png")
-        logger.info("Logo copied to landing and dashboard public folders successfully!")
-    except Exception as e:
-        logger.warning(f"Could not copy logo: {e}")
+    # Copies the logo into both frontends' public folders if a local source copy is present
+    # (a developer convenience on the machine that owns it) - harmless to skip elsewhere.
+    _logo_src = PROJECT_ROOT / "frontend" / "logo.png"
+    if _logo_src.exists():
+        try:
+            shutil.copy(_logo_src, PROJECT_ROOT / "frontend" / "landing" / "public" / "logo.png")
+            shutil.copy(_logo_src, PROJECT_ROOT / "frontend" / "dashboard" / "public" / "logo.png")
+            logger.info("Logo copied to landing and dashboard public folders successfully!")
+        except Exception as e:
+            logger.warning(f"Could not copy logo: {e}")
 
     from api.database.db import async_session, engine
     from api.database.models import Organization, Department, WebsiteScan, Device, AuditLog, Message, ThreatReport

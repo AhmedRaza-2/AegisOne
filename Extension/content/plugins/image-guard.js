@@ -11,12 +11,13 @@
  * icons/avatars/emoji and already-scanned images are skipped outright.
  *
  * Pages with their own specialized image handling (popups via popup-guard.js, email
- * bodies via email-guard.js, WhatsApp) are excluded here to avoid double-scanning the
- * same image through two different paths.
+ * bodies via email-guard.js) are excluded here to avoid double-scanning the same image
+ * through two different paths. WhatsApp is deliberately NOT excluded: its own plugin
+ * (whatsapp-guard.js) only scans message text/links, not images, so this is the one
+ * path that covers WhatsApp images.
  */
 
 const EXCLUDED_DOMAINS = [
-  "web.whatsapp.com",
   "mail.google.com",
   "outlook.office.com",
   "outlook.live.com",

@@ -7,7 +7,6 @@ import time
 import json
 import uuid
 import logging
-import asyncio
 import hashlib
 import tempfile
 import os
@@ -19,7 +18,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, File, UploadFile, Form, BackgroundTasks, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from api.database.db import get_db, get_background_db
+from api.database.db import get_db
 from api.database.models import User, WebsiteScan
 from api.services.revision_service import increment_org_revision
 from api.database.schemas import (
@@ -43,40 +42,13 @@ logger = logging.getLogger("aegisone.scan")
 
 router = APIRouter(prefix="/scan", tags=["Scanning"])
 
-# In-flight request trackers to prevent Cache Stampedes
-_in_flight_url = {}
-_in_flight_text = {}
-_db_queue = asyncio.Queue()
-
-
-async def db_log_worker():
-    """Background worker that pulls logs from the queue and bulk-inserts them into SQLite."""
-    while True:
-        try:
-            log = await _db_queue.get()
-            batch = [log]
-            
-            while len(batch) < 100 and not _db_queue.empty():
-                try:
-                    batch.append(_db_queue.get_nowait())
-                except asyncio.QueueEmpty:
-                    break
-                    
-            db = await get_background_db()
-            try:
-                db.add_all(batch)
-                await db.commit()
-            except Exception as e:
-                logger.error(f"Bulk insert failed: {e}")
-                await db.rollback()
-            finally:
-                await db.close()
-                
-            for _ in range(len(batch)):
-                _db_queue.task_done()
-        except Exception as e:
-            logger.error(f"DB log worker error: {e}")
-            await asyncio.sleep(1)
+# Note: this file used to also declare an _in_flight_url/_in_flight_text request-coalescing
+# dict and a db_log_worker() background queue-drain task. Neither was ever actually wired up
+# (db_log_worker was never started as a task and nothing ever called _db_queue.put(), so it
+# could never run; _in_flight_url was read from but never populated, so that branch could
+# never be true) - removed rather than left as dead code that reads as working infrastructure.
+# The real request-coalescing path is get_or_create_url_result()/get_or_create_text_result()
+# (cache_service.py), already in use below.
 
 
 async def log_website_scan(
@@ -223,9 +195,10 @@ async def scan_url(
     cached = get_cached_url_result(req.url)
     if cached:
         result = cached
-    elif req.url in _in_flight_url:
-        result = await _in_flight_url[req.url]
     else:
+        # get_or_create_url_result() (cache_service.py) is the actual request-coalescing
+        # mechanism in use - it tracks in-flight requests internally so concurrent callers for
+        # the same URL share one prediction instead of each triggering their own.
         async def _load_url():
             loaded = await predict_url(req.url)
             loaded["url"] = req.url

@@ -77,6 +77,7 @@
         { initWhatsappGuard },
         { initPopupGuard },
         { initImageGuard },
+        { isAegisServerUrl },
       ] = await Promise.all([
         import(chrome.runtime.getURL("utils/constants.js")),  // imports API_BASE, DEBUG_MODE, etc.
         import(chrome.runtime.getURL("content/widget.js")),
@@ -89,6 +90,7 @@
         import(chrome.runtime.getURL("content/plugins/whatsapp-guard.js")),
         import(chrome.runtime.getURL("content/plugins/popup-guard.js")),
         import(chrome.runtime.getURL("content/plugins/image-guard.js")),
+        import(chrome.runtime.getURL("utils/auth.js")),
       ]);
 
       const policy = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
@@ -96,43 +98,52 @@
       const isAllowlistedPage = _matchesDomainList(getRootDomain(location.href), allowlist);
 
       // ── Sync Dashboard Logged-In User ───────────────
-      // One-time sync at page load (catches full-page navigations & SPA logins on any host)
-      try {
-        const rawUser = localStorage.getItem("user");
-        if (rawUser) {
-          const userObj = JSON.parse(rawUser);
-          if (userObj && userObj.email) {
-            chrome.storage.local.set({ user_email: userObj.email });
-            safeSendMessage({
-              type: "AUTH_UPDATED",
-              email: userObj.email,
-              access_token: localStorage.getItem("aegis_access_token") || undefined,
-              refresh_token: localStorage.getItem("aegis_refresh_token") || undefined,
-            });
-          }
-        }
-      } catch (e) {}
-
-      // ── Live login/logout listeners (SPA client-side navigation) ──
-      window.addEventListener("aegis-user-login", (e) => {
+      // Only ever trust this on AegisOne's own dashboard/landing origin (isAegisServerUrl,
+      // the same check used elsewhere to recognize the server). This content script runs on
+      // EVERY website; without this check, any page's own JavaScript could set
+      // localStorage.user / localStorage.aegis_access_token - or dispatch a fake
+      // "aegis-user-login" event - to make the extension believe it's signed in as someone
+      // else, or hand it a stolen/forged token.
+      const _onOwnDashboard = await isAegisServerUrl(location.href);
+      if (_onOwnDashboard) {
+        // One-time sync at page load (catches full-page navigations & SPA logins on any host)
         try {
-          const email = e.detail?.email;
-          if (email) {
-            chrome.storage.local.set({ user_email: email });
-            safeSendMessage({
-              type: "AUTH_UPDATED", email,
-              access_token: e.detail?.access_token, refresh_token: e.detail?.refresh_token,
-            });
+          const rawUser = localStorage.getItem("user");
+          if (rawUser) {
+            const userObj = JSON.parse(rawUser);
+            if (userObj && userObj.email) {
+              chrome.storage.local.set({ user_email: userObj.email });
+              safeSendMessage({
+                type: "AUTH_UPDATED",
+                email: userObj.email,
+                access_token: localStorage.getItem("aegis_access_token") || undefined,
+                refresh_token: localStorage.getItem("aegis_refresh_token") || undefined,
+              });
+            }
           }
-        } catch (_) {}
-      });
+        } catch (e) {}
 
-      window.addEventListener("aegis-user-logout", () => {
-        try {
-          chrome.storage.local.remove(["user_email"]);
-          safeSendMessage({ type: "AUTH_CLEARED" });
-        } catch (_) {}
-      });
+        // ── Live login/logout listeners (SPA client-side navigation) ──
+        window.addEventListener("aegis-user-login", (e) => {
+          try {
+            const email = e.detail?.email;
+            if (email) {
+              chrome.storage.local.set({ user_email: email });
+              safeSendMessage({
+                type: "AUTH_UPDATED", email,
+                access_token: e.detail?.access_token, refresh_token: e.detail?.refresh_token,
+              });
+            }
+          } catch (_) {}
+        });
+
+        window.addEventListener("aegis-user-logout", () => {
+          try {
+            chrome.storage.local.remove(["user_email"]);
+            safeSendMessage({ type: "AUTH_CLEARED" });
+          } catch (_) {}
+        });
+      }
 
       // ── Widget ──────────────────────────────────────
       _widget = createWidget();

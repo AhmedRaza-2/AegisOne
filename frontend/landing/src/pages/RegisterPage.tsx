@@ -683,7 +683,10 @@ export default function RegisterPage() {
         const apiHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
         await fetch(`http://${apiHost}:8000/auth/send-admin-credentials`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-Setup-Key": (import.meta as any).env?.VITE_SETUP_KEY || "aegis-setup-key-change-me" },
+          // No key needed for the very first admin on a fresh instance (the backend allows that
+          // one case through); VITE_SETUP_KEY must be set to match the server's generated key
+          // for any call after that. There's no safe hardcoded default to fall back to here.
+          headers: { "Content-Type": "application/json", "X-Setup-Key": (import.meta as any).env?.VITE_SETUP_KEY || "" },
           body: JSON.stringify({
             email: form.admin_email,
             full_name: form.admin_name,

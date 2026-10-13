@@ -1,7 +1,7 @@
 """
 AegisOne API — Auth Router
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Header, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, func
 
@@ -271,7 +271,8 @@ class AdminCredentialsNotifyRequest(BaseModel):
 
 
 def _setup_key_ok(provided: Optional[str]) -> bool:
-    expected = os.environ.get("VITE_SETUP_KEY", "aegis-setup-key-change-me")
+    from api import config
+    expected = config.SETUP_KEY
     return bool(expected) and bool(provided) and hmac.compare_digest(provided, expected)
 
 
@@ -280,6 +281,7 @@ def _setup_key_ok(provided: Optional[str]) -> bool:
 async def send_admin_credentials_notify(
     request: Request,
     req: AdminCredentialsNotifyRequest,
+    bg_tasks: BackgroundTasks,
     x_setup_key: Optional[str] = Header(None, alias="X-Setup-Key"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -311,7 +313,9 @@ async def send_admin_credentials_notify(
         ))
         await db.commit()
         logger.info("First administrator provisioned for %s", email)
-        send_admin_credentials_email(email, req.full_name.strip(), req.org_name or "Enterprise", request=request)
+        # send_admin_credentials_email is synchronous smtplib - direct call here blocked the
+        # event loop for the SMTP round-trip; BackgroundTasks runs it in a thread pool instead.
+        bg_tasks.add_task(send_admin_credentials_email, email, req.full_name.strip(), req.org_name or "Enterprise", request=request)
 
     # Same answer whether or not the account already existed.
     return {"status": "ok", "message": "If this is a new administrator, a welcome email has been sent."}
@@ -377,7 +381,7 @@ async def _consume_attempt(db: AsyncSession, email: str, code: str) -> PasswordR
 
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
-async def forgot_password(request: Request, req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(request: Request, req: ForgotPasswordRequest, bg_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     email = req.email.strip().lower()
     generic = {"status": "ok", "message": "If that account exists, a verification code has been sent."}
 
@@ -422,7 +426,13 @@ async def forgot_password(request: Request, req: ForgotPasswordRequest, db: Asyn
     smtp_host = (org.smtp_host if org and org.smtp_host else os.getenv("SMTP_HOST")) or "smtp.gmail.com"
     smtp_port = (org.smtp_port if org and org.smtp_port else int(os.getenv("SMTP_PORT", "587")))
 
-    send_otp_email(user.email, code, smtp_user, smtp_pass, smtp_host, smtp_port)
+    # send_otp_email is synchronous smtplib - calling it directly blocked the event loop for the
+    # SMTP round-trip on every request. Moving it to a background task also closes a small
+    # timing side-channel this route's "same answer either way" design was trying to avoid: the
+    # response used to return later for a real account (after the SMTP send) than for a
+    # nonexistent one (the early `return generic` above), which let the response time alone
+    # reveal whether an email was registered.
+    bg_tasks.add_task(send_otp_email, user.email, code, smtp_user, smtp_pass, smtp_host, smtp_port)
     return generic
 
 

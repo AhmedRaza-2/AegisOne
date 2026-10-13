@@ -136,7 +136,10 @@ export default function AdminDashboard() {
           { label: "Total Employees", value: stats?.total_users || 0, icon: Users, color: "text-blue-600 dark:text-blue-400" },
           { label: "Active Devices", value: stats?.active_devices || 0, icon: Activity, color: "text-emerald-650 dark:text-emerald-400" },
           { label: "Total Scans", value: stats?.total_scans?.toLocaleString() || "0", icon: BarChart3, color: "text-brand-600 dark:text-brand-400" },
-          { label: "Threats Blocked", value: stats?.threats_detected || 0, icon: Shield, color: "text-red-650 dark:text-red-400" },
+          {/* stats.threats_detected counts both "warn" and "block" decisions, not block-only -
+              labeled "Threats Detected" to match (the drilldown's separate "threats_blocked"
+              metric is the actual block-only count, a different, smaller number on purpose). */}
+          { label: "Threats Detected", value: stats?.threats_detected || 0, icon: Shield, color: "text-red-650 dark:text-red-400" },
           { label: "Open Incidents", value: (incidentStats?.open || 0) + (incidentStats?.escalated || 0), icon: AlertTriangle, color: "text-amber-650 dark:text-amber-400" },
         ].map((s) => (
           <motion.div key={s.label} variants={fadeUp} className="stat-card">

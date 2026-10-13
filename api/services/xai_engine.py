@@ -607,7 +607,16 @@ def generate_tier1_explanation(
                 {"type": "url", "value": (rich_evidence or {}).get("target_url") or evidence.get("url", "")},
             ],
         },
-        "attribution_method": "Captum LayerIntegratedGradients" if CAPTUM_AVAILABLE else "Attention Weight Attribution",
+        # Report what actually ran for THIS response, not just which optional package happens to
+        # be installed: text_tokens is only non-empty when a caller passed model+tokenizer in
+        # (today, no caller on the real serving path does - the plain-language findings below
+        # are evidence-grounded, not gradient-attribution-based). Claiming "Captum
+        # LayerIntegratedGradients" whenever captum is merely importable, even on a response
+        # with zero token attributions, overstated what was actually computed.
+        "attribution_method": (
+            ("Captum LayerIntegratedGradients" if CAPTUM_AVAILABLE else "Attention Weight Attribution")
+            if text_tokens else "Evidence-grounded findings (no token-level attribution requested for this scan)"
+        ),
         "xai_tier": "tier1_fast",
         "grounded_in_scan_record": rich_evidence is not None,
         "latency_ms": latency_ms,
