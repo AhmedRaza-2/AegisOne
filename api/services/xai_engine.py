@@ -31,6 +31,7 @@ import logging
 import os as _os
 import re
 import time
+import zlib
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
@@ -487,6 +488,162 @@ def explain_rules(evidence: Dict[str, Any]) -> List[Dict[str, Any]]:
 # TIER 1 CONTROLLER: MERGE ALL SIGNALS INTO STRUCTURED JSON
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 1 "v2" — richer use of the evidence we already have + more varied wording.
+# Still template + evidence only (no LLM, no invented facts). Selected per call with
+# variant="v2" or globally with AEGIS_XAI_VARIANT=v2; "v2" is the default; "v1" restores the original.
+# ═══════════════════════════════════════════════════════════════════════════════
+_XAI_VARIANT = _os.environ.get("AEGIS_XAI_VARIANT", "v2").strip().lower()
+
+_BRAND_DISPLAY = {
+    "paypal": "PayPal", "ebay": "eBay", "linkedin": "LinkedIn", "youtube": "YouTube",
+    "whatsapp": "WhatsApp", "icloud": "iCloud", "github": "GitHub", "onedrive": "OneDrive",
+    "hsbc": "HSBC", "dhl": "DHL", "fedex": "FedEx",
+}
+
+
+def _polish(text: str) -> str:
+    """Fix brand-name casing (Paypal -> PayPal) in already-built sentences."""
+    for key, disp in _BRAND_DISPLAY.items():
+        text = re.sub(rf"\b{key.title()}\b", disp, text)
+    return text
+
+
+_SUSPICIOUS_TLDS = {"xyz", "top", "tk", "ml", "ga", "cf", "gq", "click", "icu", "buzz", "work", "zip", "mov", "support", "rest", "cyou"}
+_URL_KEYWORDS = ("login", "signin", "verify", "secure", "account", "update", "confirm", "wallet", "password", "billing", "suspend")
+_URGENT_PHRASES = (
+    "suspended", "verify your", "act now", "immediately", "within 24 hours", "urgent", "click here",
+    "confirm your", "unusual activity", "locked", "expire", "final notice", "password",
+)
+_TRACE_PHRASES = {
+    "password_input_detected": "the page asks you to enter a password",
+    "credential_form_detected": "the page has a login box collecting your username and password",
+    "hidden_iframes_detected": "the page secretly loads hidden content from another site",
+    "external_form_submission": "anything you type into this page gets sent to a completely different website, not the one you are looking at",
+    "high_phishing_language": "the wording uses urgent, pressuring language that is common in scams",
+    "suspicious_url": "the web address is structured in a way real, trustworthy companies do not normally use",
+    "suspicious_visual_content": "the page's visual design closely copies a real, trusted brand's look",
+}
+_LAST_RESORT_MARK = "no single obvious giveaway"
+
+
+def _url_heuristic_findings(url: str) -> List[str]:
+    """Plain-language observations read straight off the URL string itself."""
+    out: List[str] = []
+    if not url:
+        return out
+    try:
+        from urllib.parse import urlparse
+        u = urlparse(url if "://" in url else "http://" + url)
+    except Exception:
+        return out
+    host = (u.hostname or "").lower()
+    path = (u.path or "").lower()
+    if not host:
+        return out
+    labels = host.split(".")
+    tld = labels[-1]
+    if re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
+        out.append("the address is a bare set of numbers instead of a real website name")
+    if tld in _SUSPICIOUS_TLDS:
+        out.append(f"it ends in \".{tld}\", a cheap domain ending that scam sites use heavily")
+    name = labels[-2] if len(labels) > 1 else host
+    if re.search(r"[a-z][01][a-z]|[a-z]1$", name):
+        out.append("the site name swaps letters for look-alike digits (like 1 for l or 0 for o), a common spoofing trick")
+    if host.count("-") >= 2:
+        out.append("the domain name is stitched together with several hyphens, which real brands rarely do")
+    if len(labels) >= 5:
+        out.append(f"the address nests {len(labels)} levels of subdomains to disguise the real domain")
+    hits = [k for k in _URL_KEYWORDS if k in host or k in path]
+    if hits:
+        out.append("the address contains scam-typical words like " + ", ".join(f'"{h}"' for h in hits[:3]))
+    if len(url) > 100:
+        out.append("the web address is unusually long, which is often used to hide the real destination")
+    return out
+
+
+def _text_heuristic_findings(text: str) -> List[str]:
+    out: List[str] = []
+    low = (text or "").lower()
+    hits = [p for p in _URGENT_PHRASES if p in low]
+    if len(hits) >= 2:
+        out.append("the wording pressures you to act fast, using phrases like " + ", ".join(f'"{h}"' for h in hits[:3]))
+    elif hits:
+        out.append(f'the wording includes a phrase scammers rely on: "{hits[0]}"')
+    return out
+
+
+def _enrich_findings(findings, grounded, evidence, rich_evidence, text_tokens, sample_text) -> List[str]:
+    """v2: add every extra concrete signal we hold (lexical anomalies, decision trace, URL/text
+    heuristics, model-attributed words); drop the generic last-resort sentence if anything
+    concrete is found. Output is capped at 4, strongest first."""
+    if any(f.startswith("we checked ") for f in findings):
+        return findings  # genuinely clean verdict - nothing to add
+    out = [f for f in findings if _LAST_RESORT_MARK not in f]
+    generic = [f for f in findings if _LAST_RESORT_MARK in f]
+
+    def add(phrase):
+        if phrase and phrase not in out and len(out) < 4:
+            out.append(phrase)
+
+    rich = rich_evidence or {}
+    ume = rich.get("url_model_evidence") or {}
+    for anomaly in (ume.get("lexical_anomalies") or [])[:3]:
+        add(_lexical_anomaly_phrase(str(anomaly)))
+    for sig in ((rich.get("decision_trace") or {}).get("positive_evidence") or [])[:4]:
+        add(_TRACE_PHRASES.get(sig.get("signal", "")))
+    if grounded["kind"] in ("page", "download"):
+        for ph in _url_heuristic_findings(rich.get("target_url") or evidence.get("url") or evidence.get("domain") or ""):
+            add(ph)
+    if grounded["kind"] in ("text", "email") or evidence.get("text_summary"):
+        for ph in _text_heuristic_findings(sample_text):
+            add(ph)
+    if text_tokens:
+        words = [t["token"] for t in text_tokens[:3]]
+        add("the words that pushed the model's decision most were " + ", ".join(f'"{w}"' for w in words))
+    return out if out else generic
+
+
+def _pick_summary_findings(findings: List[str], k: int = 2) -> List[str]:
+    """Choose which findings go in the short summary. The strongest (first) always leads; the
+    rest are chosen by the extractive summarizer. Everything still appears in main_reasons."""
+    if len(findings) <= k:
+        return findings
+    chosen = [findings[0]]
+    try:
+        if SUMY_AVAILABLE and _XAI_SUMMARIZE_ENABLED:
+            tok = _SimpleWordTokenizer()
+            doc = _SumyDocument([_SumyParagraph([_SumySentence(f, tok) for f in findings])])
+            picked = {str(x) for x in LexRankSummarizer()(doc, k)}
+            chosen += [f for f in findings[1:] if f in picked]
+    except Exception:
+        pass
+    for f in findings[1:]:
+        if len(chosen) >= k:
+            break
+        if f not in chosen:
+            chosen.append(f)
+    return chosen[:k]
+
+
+def _v2_opener(noun, verb, risk, target, findings) -> str:
+    """Varied (but deterministic per target) sentence shape so repeat explanations differ."""
+    f0 = findings[0]
+    pick = zlib.crc32(str(target).encode("utf-8")) % 3
+    if pick == 0:
+        s = f"AegisOne {verb} this {noun} ({risk}% risk) — {f0}."
+        joiner = "On top of that"
+    elif pick == 1:
+        s = f"This {noun} was {verb} at {risk}% risk because {f0}."
+        joiner = "Also"
+    else:
+        s = f"{verb.capitalize()} ({risk}% risk): {f0}."
+        joiner = "In addition"
+    if len(findings) > 1:
+        s += f" {joiner}, {findings[1]}."
+    return s
+
+
 def generate_tier1_explanation(
     evidence: Dict[str, Any],
     model: Optional[Any] = None,
@@ -494,6 +651,7 @@ def generate_tier1_explanation(
     url_feature_tensor: Optional[torch.Tensor] = None,
     text_snippet: Optional[str] = None,
     rich_evidence: Optional[Dict[str, Any]] = None,
+    variant: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Tier 1 XAI Controller. Fast, grounded, no LLM — this is what the user sees
@@ -551,11 +709,19 @@ def generate_tier1_explanation(
     brand = grounded["brand"]
     noun = grounded["noun"]
 
+    # "v1" = original behaviour (default). "v2" = richer evidence use + varied wording.
+    v2 = (variant or _XAI_VARIANT) == "v2"
+    if v2:
+        findings = _enrich_findings(findings, grounded, evidence, rich_evidence, text_tokens, sample_text)
+
     if risk_score >= 20:
         verb = "blocked" if risk_score >= 80 else "flagged"
-        summary = f"AegisOne {verb} this {noun} ({risk_score}% risk) — {findings[0]}."
-        if len(findings) > 1:
-            summary += f" On top of that, {findings[1]}."
+        if v2:
+            summary = _v2_opener(noun, verb, risk_score, grounded["target_label"], _pick_summary_findings(findings))
+        else:
+            summary = f"AegisOne {verb} this {noun} ({risk_score}% risk) — {findings[0]}."
+            if len(findings) > 1:
+                summary += f" On top of that, {findings[1]}."
     elif grounded.get("concerning"):
         # The model's score is low but the content still has warning signs: say both, not "safe".
         summary = (f"AegisOne rated this {noun} low risk ({risk_score}%), but it still shows warning signs: "
@@ -581,7 +747,18 @@ def generate_tier1_explanation(
     if risk_score >= 70 and not mitre:
         mitre.append("T1566 - Phishing")
 
-    summary = _smooth_summary(summary, main_reasons)
+    recommendations = _build_recommendations(
+        risk_score, evidence, brand, grounded["kind"],
+        concerning=bool(grounded.get("concerning")) and risk_score < 20,
+        clean=any(f.startswith("we checked ") for f in findings),
+    )
+    if v2:
+        summary = _polish(summary)
+        main_reasons = [_polish(r) for r in main_reasons]
+        recommendations = [_polish(r) for r in recommendations]
+
+    if not v2:
+        summary = _smooth_summary(summary, main_reasons)
 
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
 
@@ -596,7 +773,8 @@ def generate_tier1_explanation(
         },
         "main_reasons": main_reasons,
         "scan_kind": grounded["kind"],
-        "recommendations": _build_recommendations(risk_score, evidence, brand, grounded["kind"]),
+        "recommendations": recommendations,
+        "xai_variant": "v2" if v2 else "v1",
         "threat_likelihood": f"{'High' if risk_score >= 80 else 'Moderate' if risk_score >= 50 else 'Low'} Likelihood of {evidence.get('threat_type', 'Phishing').replace('_', ' ').title()}",
         "mitre_mapping": mitre,
         "ioc": {
@@ -944,7 +1122,8 @@ def build_grounded_findings(evidence: Dict[str, Any], rich_evidence: Optional[Di
     return {"findings": findings, "target_label": target, "brand": brand, "kind": kind, "noun": noun, "concerning": concerning}
 
 
-def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Optional[str] = None, kind: str = "page") -> List[str]:
+def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Optional[str] = None, kind: str = "page",
+                           concerning: bool = False, clean: bool = False) -> List[str]:
     recs: List[str] = []
     if evidence.get("login_form_detected"):
         recs.append("Do not type your password or personal details into this page.")
@@ -965,6 +1144,13 @@ def _build_recommendations(risk_score: int, evidence: Dict[str, Any], brand: Opt
         recs.append("Use the \"Report Threat\" button so your security team can warn others.")
     elif risk_score >= 50:
         recs.append("Double-check the web address in your browser's address bar before doing anything on this page.")
+    elif concerning:
+        # Low model score but the content still has warning signs (the summary says "treat with
+        # caution") - the advice must agree with it instead of saying "no action needed".
+        recs.append("Don't click links or share any details until you've confirmed this is genuine, using a channel you already trust.")
+        recs.append("If it claims to be from a company or person you know, contact them directly rather than replying.")
+    elif clean:
+        recs.append("No action needed — nothing suspicious was found.")
     else:
         recs.append("No action needed — a few minor signals were present, but nothing matched a known scam pattern.")
     return recs
@@ -1078,6 +1264,21 @@ def _build_xai_prompt(tier1_json: Dict[str, Any]) -> str:
     )
 
 
+# When Ollama can't be reached, remember that for a while so /xai/explain doesn't make the user
+# wait out a connect timeout on every single request (on Windows a refused localhost connection
+# alone can take ~2 s). One probe per window is enough to notice it came back.
+_OLLAMA_RETRY_AFTER_S = 120.0
+_local_ollama_down_until = 0.0
+_cloud_ollama_down_until = 0.0
+
+
+def llm_polish_available() -> bool:
+    """False while every Tier 2 backend is known to be down - callers can skip the wait entirely."""
+    now = time.monotonic()
+    cloud_ok = bool(_OLLAMA_API_KEY) and now >= _cloud_ollama_down_until
+    return cloud_ok or now >= _local_ollama_down_until
+
+
 async def generate_tier2_deep_explanation(
     tier1_json: Dict[str, Any],
     ollama_url: str = _LOCAL_OLLAMA_URL,
@@ -1091,10 +1292,11 @@ async def generate_tier2_deep_explanation(
     """
     import httpx
 
+    global _local_ollama_down_until, _cloud_ollama_down_until
     prompt = _build_xai_prompt(tier1_json)
 
     # ── Stage 1: Ollama Cloud ──────────────────────────────────────────────────
-    if _OLLAMA_API_KEY:
+    if _OLLAMA_API_KEY and time.monotonic() >= _cloud_ollama_down_until:
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(
@@ -1113,11 +1315,15 @@ async def generate_tier2_deep_explanation(
                             "source": "ollama_cloud",
                             "xai_tier": "tier2_deep",
                         }
+            _cloud_ollama_down_until = time.monotonic() + _OLLAMA_RETRY_AFTER_S
         except Exception as cloud_exc:
+            _cloud_ollama_down_until = time.monotonic() + _OLLAMA_RETRY_AFTER_S
             logger.warning(f"Ollama Cloud unavailable ({cloud_exc}), trying local...")
 
     # ── Stage 2: Local Ollama ──────────────────────────────────────────────────
     try:
+        if time.monotonic() < _local_ollama_down_until:
+            raise RuntimeError("skipped: local Ollama was unreachable recently")
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.post(
                 _LOCAL_OLLAMA_URL,
@@ -1137,8 +1343,11 @@ async def generate_tier2_deep_explanation(
                     "source": "local_llm",
                     "xai_tier": "tier2_deep",
                 }
+        _local_ollama_down_until = time.monotonic() + _OLLAMA_RETRY_AFTER_S
     except Exception as local_exc:
-        logger.warning(f"Local Ollama unavailable ({local_exc}). Using Tier 1 grounded summary.")
+        if "skipped:" not in str(local_exc):
+            _local_ollama_down_until = time.monotonic() + _OLLAMA_RETRY_AFTER_S
+            logger.warning(f"Local Ollama unavailable ({local_exc}). Using Tier 1 grounded summary.")
 
     # Stage 2.5 used to fall through to the built-in flan-t5-small HuggingFace model here.
     # Measured in practice: at 60M parameters it's too weak to reliably follow the
@@ -1197,6 +1406,8 @@ async def ensure_ollama_model_ready(
             logger.info(f"✓ Background pull for '{model_name}' completed successfully.")
 
     except Exception as e:
+        global _local_ollama_down_until
+        _local_ollama_down_until = time.monotonic() + _OLLAMA_RETRY_AFTER_S  # first request won't pay the probe
         logger.info(f"Ollama auto-check: local LLM offline ({e}). XAI will use Tier 1 fast path.")
 
 

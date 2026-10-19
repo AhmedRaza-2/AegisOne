@@ -616,6 +616,28 @@ def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool 
     ]):
         scam_signals.append("cold-contact solicitation pattern")
 
+    # Credential-harvesting phishing ("your account will be suspended, verify your password").
+    # The rules above only describe advance-fee scams, so this far more common kind got no help
+    # when the neural score came back low. Deliberately conservative: it needs BOTH an
+    # urgency/account-threat phrase AND a request for credentials or payment details, so ordinary
+    # notifications ("your order shipped", "meeting notes") never match.
+    _urgency = any(k in combined_lower for k in [
+        "will be suspended", "has been suspended", "account suspended", "will be locked", "has been locked",
+        "will be closed", "unusual activity", "suspicious activity", "unauthorized login", "unauthorised login",
+        "within 24 hours", "within 48 hours", "act now", "action required", "urgent action", "final notice",
+    ])
+    _cred_ask = any(k in combined_lower for k in [
+        "verify your password", "confirm your password", "enter your password", "your password",
+        "login credentials", "verify your account", "verify your identity", "confirm your identity",
+        "update your payment", "update your billing", "card number", "social security", "one-time code",
+        "bank details", "account details", "sign in to verify", "log in to verify",
+    ])
+    if _urgency and _cred_ask:
+        scam_signals.append("urgent account-threat language")
+        scam_signals.append("request for password or account details")
+        if "http://" in combined_lower or "https://" in combined_lower or "click here" in combined_lower:
+            scam_signals.append("link to a verification page")
+
     # Dynamic probability scaling based on neural inference + scam signals
     if len(scam_signals) > 0:
         base_boost = 0.52 + (len(scam_signals) * 0.12)

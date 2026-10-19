@@ -87,6 +87,7 @@ from api.services.model_orchestrator import (
 from api.services.content_router import route_image_input_detailed
 from api.services.xai_engine import (
     generate_tier1_explanation, generate_tier2_deep_explanation, build_grounded_findings, find_lure_phrases,
+    llm_polish_available,
 )
 from api.services.redaction import redact_text
 from api.logs import scan_log, event_log, short_target
@@ -595,15 +596,19 @@ async def api_email(
                 out.append(t[0].lower() + t[1:])
         return out
 
+    # Rule-based signal labels travel in the same list as the model's attention words, but they are
+    # not words the model "paid attention to" - keep them out of that sentence and list them as findings.
+    _rule_signals = {str(x) for x in (result.get("scam_signals") or [])}
     rich = {
         "scan_kind": "email", "final_risk": round(score, 1), "source_model": "Email phishing model",
-        "text_evidence": {"lures": email_lures, "top_words": [str(w) for w in factor_codes[:6]], "context": ""},
+        "text_evidence": {"lures": email_lures, "top_words": [str(w) for w in factor_codes if str(w) not in _rule_signals][:6], "context": ""},
     }
     xai = generate_tier1_explanation(
         {"risk_score": round(score), "scan_type": "email", "url": subj_preview or "email", "domain": "email"},
         rich_evidence=rich,
     )
     extra = _clean_list(link_signals) + _clean_list(attach_signals)
+    extra = [str(x) for x in (result.get("scam_signals") or [])] + extra
     if extra and score >= 20:
         xai["main_reasons"] = (xai["main_reasons"] + [e[0].upper() + e[1:] for e in extra])[:8]
 
@@ -938,8 +943,15 @@ async def api_explain(evidence: Dict[str, Any] = Body(...), current_user: User =
     # that's fine, Tier 1 is already a real, grounded explanation — but the background
     # task (shielded from cancellation) keeps running, so Ollama finishes loading and the
     # NEXT request completes within the timeout and gets the polished version.
-    bg_task = asyncio.create_task(generate_tier2_deep_explanation(tier1))
+    # Skipped entirely while Ollama is known to be unreachable, so a deployment without it
+    # answers at Tier 1 speed (~1 ms) instead of always waiting out the timeout.
+    if not llm_polish_available():
+        bg_task = None
+    else:
+        bg_task = asyncio.create_task(generate_tier2_deep_explanation(tier1))
     try:
+        if bg_task is None:
+            raise asyncio.TimeoutError()
         tier2 = await asyncio.wait_for(asyncio.shield(bg_task), timeout=2.5)
         # Only adopt the Tier 2 result if an LLM actually polished it — its own final
         # fallback stage just echoes the Tier 1 summary back with a less informative
