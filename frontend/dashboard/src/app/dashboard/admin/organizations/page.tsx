@@ -6,9 +6,15 @@ import { Globe, Plus, Trash2, Send, ShieldCheck, AlertCircle, Building2, Externa
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+type TenantOrganization = {
+  id: string; name: string; domain: string; plan: string;
+  activeAlertsCount?: number; createdAt?: string;
+};
+type TenantUser = { organization: string; role: string };
+
 export default function OrganizationsPage() {
   const { user } = useAuth();
-  const [orgs, setOrgs] = useState(() => organizations.getAll());
+  const [orgs, setOrgs] = useState<TenantOrganization[]>(() => organizations.getAll());
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Form States
@@ -20,7 +26,7 @@ export default function OrganizationsPage() {
 
   // Pre-calculate user counts per organization
   const orgStats = useMemo(() => {
-    const allUsers = users.getAll();
+    const allUsers: TenantUser[] = users.getAll();
     return orgs.reduce((acc, org) => {
       const orgUsers = allUsers.filter(u => u.organization === org.id);
       acc[org.id] = {
@@ -107,7 +113,7 @@ export default function OrganizationsPage() {
         <div className="stat-card">
           <div className="text-xs text-surface-500">Active Warning Signals</div>
           <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">
-            {orgs.reduce((sum, o) => sum + o.activeAlertsCount, 0)}
+            {orgs.reduce((sum, o) => sum + (o.activeAlertsCount || 0), 0)}
           </div>
         </div>
       </div>
@@ -160,7 +166,7 @@ export default function OrganizationsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
-                      {org.activeAlertsCount > 0 ? (
+                      {(org.activeAlertsCount || 0) > 0 ? (
                         <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-450 font-medium">
                           <AlertCircle className="w-3.5 h-3.5" /> {org.activeAlertsCount} Alerts Dispatched
                         </span>

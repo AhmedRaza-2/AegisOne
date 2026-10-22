@@ -1,0 +1,28 @@
+{
+  "package": "@echogarden/espeak-ng-emscripten",
+  "version": "0.3.5",
+  "npmShasum": "4817314c0a9aed9653785e4b4b45802960ac8c5a",
+  "packageCommit": "ea36b43595facf07f1c5dc487b9f0de3340c1b5e",
+  "dataBytes": 1823837,
+  "files": [
+    "/usr/share/espeak-ng-data/ar_dict",
+    "/usr/share/espeak-ng-data/en_dict",
+    "/usr/share/espeak-ng-data/fa_dict",
+    "/usr/share/espeak-ng-data/hi_dict",
+    "/usr/share/espeak-ng-data/intonations",
+    "/usr/share/espeak-ng-data/lang/gmw/en",
+    "/usr/share/espeak-ng-data/lang/gmw/en-US",
+    "/usr/share/espeak-ng-data/lang/inc/hi",
+    "/usr/share/espeak-ng-data/lang/inc/ur",
+    "/usr/share/espeak-ng-data/lang/ira/fa",
+    "/usr/share/espeak-ng-data/lang/sem/ar",
+    "/usr/share/espeak-ng-data/phondata",
+    "/usr/share/espeak-ng-data/phonindex",
+    "/usr/share/espeak-ng-data/phontab",
+    "/usr/share/espeak-ng-data/ur_dict"
+  ],
+  "sha256": {
+    "espeak-ng.js": "0ba3910f5e11e9babee8ea4519bd757c55fdfbfd6b79104f84fed1419c93bc70",
+    "espeak-ng.data": "af4ebcfe7040a0667fb13b59dee52aa4637d63007b6e8dd31f68fd52b9c7708b"
+  }
+}

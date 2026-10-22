@@ -106,6 +106,8 @@ export default function PortalPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Remove password copies left by older versions of the website.
+    try { window.sessionStorage.removeItem('tempAdminPassword'); } catch { /* Storage may be unavailable. */ }
 
     (async () => {
       // Detect Supabase email confirmation redirect (hash contains access_token)
@@ -183,9 +185,8 @@ export default function PortalPage() {
 
   const isApproved = org.status === 'active';
 
-  // The password rides in the URL *fragment* (after #): browsers never send it to any server, it
-  // never appears in access logs or Referer headers, and the setup page erases it on arrival.
-  const launchUrl = `http://${cleanHost(serverHost)}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org.name || '')}&industry=${encodeURIComponent(org.industry || '')}&adminEmail=${encodeURIComponent(org.admin_email || '')}&adminName=${encodeURIComponent(org.admin_name || org.contact_person || 'Administrator')}&serverHost=${encodeURIComponent(cleanHost(serverHost))}${sessionStorage.getItem('tempAdminPassword') ? `#adminPassword=${encodeURIComponent(sessionStorage.getItem('tempAdminPassword') || '')}` : ''}`;
+  // Customers sign in to their own dashboard; portal passwords never cross into setup links.
+  const launchUrl = `http://${cleanHost(serverHost)}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org.name || '')}&industry=${encodeURIComponent(org.industry || '')}&adminEmail=${encodeURIComponent(org.admin_email || '')}&adminName=${encodeURIComponent(org.admin_name || org.contact_person || 'Administrator')}&serverHost=${encodeURIComponent(cleanHost(serverHost))}`;
 
   // Do not use Vercel/public domain as the SERVER_HOST. 
   // Let PowerShell automatically detect the server's local network IP.

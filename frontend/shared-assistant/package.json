@@ -1,0 +1,8 @@
+{
+  "name": "@aegisone/assistant-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "node --experimental-strip-types --test --test-isolation=none tests/*.test.ts", "check:speech": "node scripts/check-speech.mjs" }
+}

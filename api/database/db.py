@@ -1,6 +1,6 @@
 """
 AegisOne API — Database Connection
-Configured strictly for PostgreSQL production environment.
+Supports PostgreSQL in production and SQLite for local development.
 """
 import logging
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -47,7 +47,7 @@ async def get_background_db() -> AsyncSession:
 
 
 async def init_db():
-    """Create all tables on first startup using PostgreSQL schema definition."""
+    """Create missing tables and apply additive migrations for the active database."""
     async with engine.begin() as conn:
         from api.database.models import (  # noqa: F401
             Organization,
@@ -82,4 +82,4 @@ async def init_db():
 
         from api.database.migrations import run_additive_migrations
         await run_additive_migrations(conn)
-    logger.info("PostgreSQL Database initialized successfully.")
+    logger.info("%s database initialized successfully.", engine.dialect.name)

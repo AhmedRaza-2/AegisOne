@@ -2,8 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getApiBaseUrl } from "@/lib/api";
+import { safeDashboardNext } from '@/lib/login-navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
+import {
+  EMPLOYEE_CSV_TEMPLATE, canOpenSetupStep, isValidSmtpPort,
+  parseEmployeeCsv, validateSetupEmployees,
+} from '@/components/setup-wizard/lib/setup-guide';
 import {
   Building2, Users, Download, Upload, CheckCircle2, AlertCircle, Key, Mail,
   ShieldCheck, Activity, ArrowRight, ChevronRight, Loader2, Sparkles, UserPlus,
@@ -133,6 +138,8 @@ export default function AdminSetupPage() {
 
   const [executing, setExecuting] = useState(false);
   const [dispatchDone, setDispatchDone] = useState(false);
+  const [dispatchUnknown, setDispatchUnknown] = useState(false);
+  const dispatchPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -218,6 +225,8 @@ export default function AdminSetupPage() {
         setIsSetupCompleted(false);
         setIsEditingSetup(true);
         setDispatchDone(false);
+        setDispatchUnknown(false);
+        if (dispatchPollRef.current) clearInterval(dispatchPollRef.current);
         localStorage.removeItem('aegis_setup_done');
 
         // Reset local memory state to admin user & empty departments
@@ -246,7 +255,12 @@ export default function AdminSetupPage() {
   const [dispatchSummary, setDispatchSummary] = useState<{ total: number; successCount: number; failedCount: number } | null>(null);
 
   const handleExecuteDispatch = async () => {
+    if (!canNavigateToStep(5) || executing || dispatchUnknown) {
+      showToast('Complete the required setup fields before dispatching accounts.', 'error');
+      return;
+    }
     setExecuting(true);
+    setDispatchUnknown(false);
     setDispatchResults([]);
     setDispatchSummary(null);
     try {
@@ -283,14 +297,26 @@ export default function AdminSetupPage() {
         // Poll for background dispatch completion
         if (data.run_id) {
           const runId = data.run_id;
+          const startedAt = Date.now();
           const pollInterval = setInterval(async () => {
+            if (Date.now() - startedAt > 120_000) {
+              clearInterval(pollInterval);
+              setDispatchUnknown(true);
+              setExecuting(false);
+              return;
+            }
             try {
               const statusRes = await fetch(`${API_BASE}/setup/dispatch-status/${runId}`);
               if (statusRes.ok) {
                 const statusData = await statusRes.json();
                 if (statusData.done) {
                   clearInterval(pollInterval);
-                  const resList = statusData.results || [];
+                  if (!Array.isArray(statusData.results)) {
+                    setDispatchUnknown(true);
+                    setExecuting(false);
+                    return;
+                  }
+                  const resList = statusData.results;
                   const successC = resList.filter((r: any) => r.sent).length;
                   const failC = resList.filter((r: any) => !r.sent).length;
                   setDispatchResults(resList);
@@ -298,7 +324,7 @@ export default function AdminSetupPage() {
                   setDispatchDone(true);
                   setExecuting(false);
                   if (failC > 0) {
-                    showToast(`Provisioned users! ${successC} emails sent, ${failC} failed due to SMTP authentication.`, 'error');
+                    showToast(`Provisioned users! ${successC} emails sent, ${failC} delivery failures.`, 'error');
                   } else {
                     showToast('Rollout & credentials dispatched successfully to all users!');
                   }
@@ -306,12 +332,14 @@ export default function AdminSetupPage() {
               }
             } catch (err) {
               clearInterval(pollInterval);
-              setDispatchDone(true);
+              setDispatchUnknown(true);
               setExecuting(false);
             }
           }, 1500);
+          dispatchPollRef.current = pollInterval;
         } else {
-          setDispatchDone(true);
+          // A successful provisioning request is not proof of email delivery.
+          setDispatchUnknown(true);
           setExecuting(false);
         }
       } else {
@@ -321,6 +349,7 @@ export default function AdminSetupPage() {
       }
     } catch (e) {
       showToast('Network error executing dispatch', 'error');
+      setDispatchUnknown(true);
       setExecuting(false);
     }
   };
@@ -329,80 +358,27 @@ export default function AdminSetupPage() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      if (!text) return;
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) return;
-
-      const newEmployees: Employee[] = [];
-      const newDeptMap = new Map<string, string>();
-      const seenEmployeeIds = new Set<string>();
-      const seenEmails = new Set<string>();
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
-        if (cols.length < 4) continue;
-
-        const [employeeId, firstName, lastName, email, phone, departmentCode, role, designation] = cols;
-        const deptCode = (departmentCode || 'IT').toUpperCase().trim();
-        const empRole = (role || 'Employee').trim();
-
-        const cleanId = (employeeId || `EMP00${i}`).trim().toUpperCase();
-        const cleanEmail = (email || `user${i}@company.com`).trim().toLowerCase();
-
-        let status: 'valid' | 'invalid' = 'valid';
-        let error = '';
-
-        if (seenEmployeeIds.has(cleanId)) {
-          status = 'invalid';
-          error = `Duplicate Employee ID: ${cleanId}`;
-        } else if (seenEmails.has(cleanEmail)) {
-          status = 'invalid';
-          error = `Duplicate Email: ${cleanEmail}`;
-        }
-
-        seenEmployeeIds.add(cleanId);
-        seenEmails.add(cleanEmail);
-
-        if (!newDeptMap.has(deptCode)) {
-          let deptName = deptCode;
-          if (deptCode === 'IT') deptName = 'Information Technology';
-          else if (deptCode === 'DEVOPS') deptName = 'DevOps & Cloud';
-          else if (deptCode === 'WEBDEV') deptName = 'Web Development';
-          newDeptMap.set(deptCode, deptName);
-        }
-
-        newEmployees.push({
-          id: `emp_csv_${i}_${Date.now()}`,
-          employeeId: cleanId,
-          firstName: firstName || 'User',
-          lastName: lastName || `${i}`,
-          email: cleanEmail,
-          phone: phone || '',
-          departmentCode: deptCode,
-          role: empRole,
-          designation: designation || 'Staff',
-          status,
-          error
-        });
+      try {
+        const newEmployees: Employee[] = parseEmployeeCsv(text || '').map((row, index) => ({
+          ...row, id: `emp_csv_${index}_${Date.now()}`,
+        }));
+        const currentAdmin = employees.find(employee => employee.role.toLowerCase() === 'admin');
+        const importedMembers = newEmployees.filter(employee => employee.role.toLowerCase() !== 'admin');
+        const finalEmployees = currentAdmin ? [currentAdmin, ...importedMembers] : importedMembers;
+        const departmentCodes = Array.from(new Set(importedMembers.map(employee => employee.departmentCode).filter(code => code !== 'NONE')));
+        const names: Record<string, string> = { IT: 'Information Technology', DEVOPS: 'DevOps & Cloud', WEBDEV: 'Web Development' };
+        const finalDepts: Department[] = departmentCodes.map((code, index) => ({
+          id: `d_${index}_${Date.now()}`, code, name: names[code] || code,
+          leadId: importedMembers.find(employee => employee.departmentCode === code && employee.role === 'Manager')?.id,
+        }));
+        setEmployees(finalEmployees);
+        setDepartments(finalDepts);
+        showToast(`Uploaded CSV! Parsed ${importedMembers.length} employees across ${finalDepts.length} departments.`, 'success');
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Could not read this CSV. Download the employee template and try again.', 'error');
       }
-
-      const currentAdmin = employees.find(e => e.role === 'Admin');
-      const finalEmployees = currentAdmin ? [currentAdmin, ...newEmployees.filter(e => e.role !== 'Admin')] : newEmployees;
-
-      const finalDepts: Department[] = Array.from(newDeptMap.entries()).map(([code, name], idx) => {
-        const lead = finalEmployees.find(e => e.departmentCode === code && e.role.toLowerCase() === 'manager')?.id;
-        return {
-          id: `d_${code}_${idx}`,
-          name,
-          code,
-          leadId: lead
-        };
-      });
-
-      setEmployees(finalEmployees);
-      setDepartments(finalDepts);
-      showToast(`Uploaded CSV! Parsed ${newEmployees.length} employees across ${finalDepts.length} departments.`, 'success');
     };
+    reader.onerror = () => { showToast('Could not read the CSV file. Please try again.', 'error'); };
     reader.readAsText(file);
   };
 
@@ -412,26 +388,20 @@ export default function AdminSetupPage() {
       const storedSetupDone = localStorage.getItem('aegis_setup_done') === 'true' || dispatchDone;
       if (storedSetupDone) {
         setIsSetupCompleted(true);
+        setStep(5);
+        // A local completion flag cannot reconstruct a previous delivery result.
+        if (!dispatchDone) setDispatchUnknown(true);
       }
 
+      const cleanPath = safeDashboardNext(window.location.pathname + window.location.search);
+      if (cleanPath && (window.location.hash || cleanPath !== window.location.pathname + window.location.search)) {
+        window.history.replaceState(null, '', cleanPath);
+      }
       const searchParams = new URLSearchParams(window.location.search);
       const orgNameParam = searchParams.get('orgName');
       const industryParam = searchParams.get('industry');
       const adminEmailParam = searchParams.get('adminEmail') || user?.email || '';
       const adminNameParam = searchParams.get('adminName') || user?.full_name || 'Administrator';
-      // The landing page passes the password in the URL fragment (never sent to servers). Read it
-      // once, then erase it from the address bar / history so it cannot be copied or shoulder-surfed.
-      const hashParams = new URLSearchParams((typeof window !== 'undefined' ? window.location.hash : '').replace(/^#/, ''));
-      // Kept in memory only (not storage) so a re-run of this effect still has it.
-      const w = window as any;
-      w.__aegisSetupPw = hashParams.get('adminPassword') || searchParams.get('adminPassword') || w.__aegisSetupPw || null;
-      const adminPasswordParam: string | null = w.__aegisSetupPw;
-      if (typeof window !== 'undefined' && (window.location.hash || searchParams.get('adminPassword'))) {
-        const clean = new URL(window.location.href);
-        clean.hash = '';
-        clean.searchParams.delete('adminPassword');
-        window.history.replaceState(null, '', clean.pathname + clean.search);
-      }
       const serverHostParam = searchParams.get('serverHost') || '';
       if (serverHostParam) setServerHost(serverHostParam);
 
@@ -456,7 +426,7 @@ export default function AdminSetupPage() {
         ]);
       }
 
-      // Auto-authenticate session if arriving from Landing/Portal with credentials
+      // Show the portal welcome after the customer has signed in on this server.
       const fromLanding = searchParams.get('fromLanding') === 'true';
       const welcomeAlreadyShown = sessionStorage.getItem('aegis_welcome_shown') === 'true';
       
@@ -466,85 +436,34 @@ export default function AdminSetupPage() {
           sessionStorage.setItem('aegis_welcome_shown', 'true');
         }
         
-        // ALWAYS auto-login if we have credentials and came from landing page,
-        // even if the welcome modal was already shown (e.g. user refreshed the page)
-        if (adminEmailParam && adminPasswordParam && !user) {
-          const attemptAutoLogin = async () => {
-            try {
-              let res = await fetch(`${API_BASE}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: adminEmailParam, password: adminPasswordParam })
-              });
-
-              // If login fails (user might not exist in local DB yet), auto-register them using the URL params
-              if (!res.ok) {
-                await fetch(`${API_BASE}/auth/send-admin-credentials`, {
-                  method: 'POST',
-                  // Only the very first admin on a fresh instance can go through without a real
-                  // setup key (the backend allows that one case); there's no safe default to put
-                  // here for any call after that.
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    email: adminEmailParam,
-                    full_name: adminNameParam,
-                    password: adminPasswordParam,
-                    org_name: orgNameParam || 'Enterprise'
-                  })
-                });
-
-                // Retry login after registration
-                res = await fetch(`${API_BASE}/auth/login`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: adminEmailParam, password: adminPasswordParam })
-                });
-              }
-
-              if (res.ok) {
-                const data = await res.json();
-                if (data && data.access_token) {
-                  const loggedUser = data.user || { email: adminEmailParam, full_name: adminNameParam, role: data.role || 'admin', organization_id: data.organization_id || 'org_default' };
-                  localStorage.setItem('aegis_access_token', data.access_token);
-                  if (data.refresh_token) localStorage.setItem('aegis_refresh_token', data.refresh_token);
-                  localStorage.setItem('user', JSON.stringify(loggedUser));
-                  document.cookie = `aegis_user=${encodeURIComponent(JSON.stringify(loggedUser))}; path=/; SameSite=Lax`;
-                  
-                  // Notify auth-context so the layout's auth guard sees the user immediately
-                  try {
-                    window.dispatchEvent(new CustomEvent('aegis-user-login', { detail: { email: loggedUser.email } }));
-                  } catch (_) { }
-                  
-                  // Force a shallow re-navigation to the same URL so Next.js re-evaluates the auth state
-                  window.history.replaceState({}, '', window.location.href);
-                }
-              }
-            } catch (err) {
-              console.error("Auto-login failed:", err);
-            }
-          };
-          attemptAutoLogin();
-        }
       }
     }
   }, [user, dispatchDone]);
 
-  // Step validation state checks
-  const hasInvalidEmployees = employees.some(e => e.status === 'invalid');
+  // Keep stepper and footer navigation subject to the same setup prerequisites.
+  const validation = React.useMemo(() => validateSetupEmployees(employees, departments.map(department => department.code)), [employees, departments]);
   const isStep1Valid = Boolean(orgName.trim() && industry.trim());
-  const isStep2Valid = isStep1Valid && departments.length > 0 && employees.length > 0 && !hasInvalidEmployees;
-  const isStep3Valid = isStep2Valid; // Validation
-  const isStep4Valid = isStep3Valid && Boolean(smtpHost.trim() && smtpPort.trim() && smtpUser.trim() && smtpPass.trim());
-  const isStep5Valid = isStep4Valid && dispatchDone;
-
-  const canNavigateToStep = (targetStep: number) => {
-    if (targetStep === 1) return true;
-    if (targetStep === 2) return isStep1Valid;
-    if (targetStep === 3) return isStep2Valid;
-    if (targetStep === 4) return isStep3Valid;
-    if (targetStep === 5) return isStep4Valid;
-    return false;
+  const navigationState = {
+    organizationReady: isStep1Valid,
+    hasStructure: departments.length > 0 && employees.length > 0,
+    validationErrorCount: validation.errorCount,
+    smtpReady: Boolean(smtpHost.trim() && isValidSmtpPort(smtpPort) && smtpUser.trim() && smtpPass.trim()),
   };
+  const canNavigateToStep = (targetStep: number) => canOpenSetupStep(targetStep, navigationState);
+  const navigateToStep = (targetStep: number) => {
+    if (executing || resettingOrg || (isSetupCompleted && !isEditingSetup)) {
+      showToast('Setup is locked while provisioning or after completion.', 'error');
+      return false;
+    }
+    if (!canNavigateToStep(targetStep)) {
+      showToast('Complete required fields and resolve validation errors before opening this step.', 'error');
+      return false;
+    }
+    setStep(targetStep);
+    return true;
+  };
+
+  useEffect(() => () => { if (dispatchPollRef.current) clearInterval(dispatchPollRef.current); }, []);
 
   // Calculate current progress percentage for horizontal progress bar (100% when setup completed)
   const progressPercentage = isSetupCompleted && !isEditingSetup ? 100 : Math.min(100, Math.round((step / 5) * 100));
@@ -553,7 +472,7 @@ export default function AdminSetupPage() {
     <div className={`space-y-5 bg-transparent text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
 
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[999] px-4 py-3 rounded-xl shadow-2xl text-xs font-bold text-white flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
+        <div role="status" className={`fixed bottom-24 right-6 z-[999] px-4 py-3 rounded-xl shadow-2xl text-xs font-bold text-white flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
           {toast.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
           {toast.message}
         </div>
@@ -601,11 +520,7 @@ export default function AdminSetupPage() {
                       key={s.num}
                       type="button"
                       onClick={() => {
-                        if (!canNavigateToStep(s.num)) {
-                          showToast(`Please complete required fields before opening Step ${s.num}`, 'error');
-                          return;
-                        }
-                        setStep(s.num);
+                        navigateToStep(s.num);
                       }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${isActive ? 'bg-[#0A5ED6] text-white shadow-sm' : isCompleted ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
                     >
@@ -627,11 +542,11 @@ export default function AdminSetupPage() {
           </div>
 
           {/* Main Wizard Content Wrapper with Blur Effect */}
-          <div className={`transition-all duration-500 ease-in-out ${isSetupCompleted && !isEditingSetup ? 'opacity-40 blur-[3px] pointer-events-none select-none grayscale-[30%]' : ''}`}>
+          <div className={`transition-all duration-500 ease-in-out ${isSetupCompleted && !isEditingSetup && step !== 5 ? 'opacity-40 blur-[3px] pointer-events-none select-none grayscale-[30%]' : ''}`}>
 
             {/* STEP 1: ORGANIZATION PROFILE */}
             {step === 1 && (
-              <div className="space-y-5 animate-fadeIn">
+              <div id="setup-step-1" tabIndex={-1} className="space-y-5 animate-fadeIn">
                 <div>
                   <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1 font-display tracking-tight">Organization Profile & Environment</h2>
                   <p className="text-slate-500 dark:text-slate-400 text-xs">Verify your company profile and deployment environment parameters before structuring your departments.</p>
@@ -661,13 +576,13 @@ export default function AdminSetupPage() {
                     </div>
                   </div>
 
-                  <div className="bg-[#E4EEF6]/60 dark:bg-[#1A3D63]/20 border border-[#C7DAE8] dark:border-[#1A3D63]/40 rounded-xl p-4 flex items-center gap-3">
+                  <div id="setup-guide-admin_email" tabIndex={-1} className="bg-[#E4EEF6]/60 dark:bg-[#1A3D63]/20 border border-[#C7DAE8] dark:border-[#1A3D63]/40 rounded-xl p-4 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-[#1A3D63] dark:bg-[#4A7FA7] text-white flex items-center justify-center shrink-0 shadow-sm">
                       <Key className="w-4 h-4" />
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Admin Account</p>
-                      <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate">{employees.find(e => e.role === 'Admin')?.email || 'araza2125012.pgc@gmail.com'}</p>
+                      <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate">{employees.find(e => e.role.toLowerCase() === 'admin')?.email || 'Not configured'}</p>
                       <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5"><CheckCircle2 className="w-3 h-3" /> Credentials Provisioned</span>
                     </div>
                   </div>
@@ -689,8 +604,9 @@ export default function AdminSetupPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Organization Name <span className="text-blue-600">*</span></label>
+                      <label htmlFor="setup-guide-org_name" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Organization Name <span className="text-blue-600">*</span></label>
                       <input
+                        id="setup-guide-org_name"
                         type="text"
                         disabled={isSetupCompleted && !isEditingSetup}
                         value={orgName}
@@ -701,8 +617,9 @@ export default function AdminSetupPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Industry / Sector <span className="text-blue-600">*</span></label>
+                      <label htmlFor="setup-guide-org_industry" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Industry / Sector <span className="text-blue-600">*</span></label>
                       <input
+                        id="setup-guide-org_industry"
                         type="text"
                         disabled={isSetupCompleted && !isEditingSetup}
                         value={industry}
@@ -741,7 +658,7 @@ export default function AdminSetupPage() {
                     <span className="text-xs text-slate-400 font-medium">Changes are automatically saved as you configure your organization.</span>
                     <button
                       disabled={!isStep1Valid}
-                      onClick={() => setStep(2)}
+                      onClick={() => navigateToStep(2)}
                       className="px-8 py-3.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm transition-all shadow-lg flex items-center gap-2 disabled:opacity-50"
                     >
                       Verify & Continue <ChevronRight className="w-4 h-4" />
@@ -753,7 +670,7 @@ export default function AdminSetupPage() {
 
             {/* STEP 2: REVIEW & EDIT STRUCTURE */}
             {step === 2 && (
-              <div className="space-y-6 animate-fadeIn">
+              <div id="setup-step-2" tabIndex={-1} className="space-y-6 animate-fadeIn">
                 <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 flex flex-col gap-4 shadow-sm">
 
                   {/* Instruction Header Banner */}
@@ -800,8 +717,7 @@ export default function AdminSetupPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const csvContent = "Employee ID,First Name,Last Name,Email,Department Code,Role\nEMP001,Ahmed,Raza,ahmed@company.local,IT,Manager\nEMP002,Ali,Khan,ali@company.local,HR,Employee";
-                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const blob = new Blob([EMPLOYEE_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
@@ -813,7 +729,7 @@ export default function AdminSetupPage() {
                         <Download className="w-3.5 h-3.5" /> Template
                       </button>
 
-                      <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm">
+                      <label id="setup-csv-import" tabIndex={-1} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm">
                         <Upload className="w-3.5 h-3.5" /> Upload CSV
                         <input
                           type="file"
@@ -1135,44 +1051,19 @@ export default function AdminSetupPage() {
                 )}
 
                 <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
-                  <button onClick={() => setStep(1)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
-                  <button onClick={() => setStep(3)} className="px-8 py-3.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Verify & Continue <ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => navigateToStep(1)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
+                  <button onClick={() => navigateToStep(3)} className="px-8 py-3.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Verify & Continue <ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
             )}
 
             {/* STEP 3: VALIDATION */}
             {step === 3 && (() => {
-              const seenIds = new Set<string>();
-              const dupIds = new Set<string>();
-              const seenEmails = new Set<string>();
-              const dupEmails = new Set<string>();
-
-              employees.forEach(e => {
-                const cleanId = (e.employeeId || '').trim().toUpperCase();
-                const cleanEmail = (e.email || '').trim().toLowerCase();
-
-                if (cleanId) {
-                  if (seenIds.has(cleanId)) dupIds.add(cleanId);
-                  else seenIds.add(cleanId);
-                }
-
-                if (cleanEmail) {
-                  if (seenEmails.has(cleanEmail)) dupEmails.add(cleanEmail);
-                  else seenEmails.add(cleanEmail);
-                }
-              });
-
-              const errorCount = employees.filter(e => {
-                const cleanId = (e.employeeId || '').trim().toUpperCase();
-                const cleanEmail = (e.email || '').trim().toLowerCase();
-                return (cleanId && dupIds.has(cleanId)) || (cleanEmail && dupEmails.has(cleanEmail)) || e.departmentCode === 'NONE';
-              }).length;
-
+              const errorCount = validation.errorCount;
               const validCount = employees.length - errorCount;
 
               return (
-                <div className="space-y-6 animate-fadeIn">
+                <div id="setup-step-3" tabIndex={-1} className="space-y-6 animate-fadeIn">
                   <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1">Preview Import & Verification</h2>
@@ -1195,7 +1086,7 @@ export default function AdminSetupPage() {
                   </div>
 
                   {/* Data Verification Table (Scrollable after 10 items) */}
-                  <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
+                  <div id="setup-validation-results" tabIndex={-1} className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-10">
@@ -1210,15 +1101,11 @@ export default function AdminSetupPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
                           {employees.map((emp) => {
-                            const cleanId = (emp.employeeId || '').trim().toUpperCase();
-                            const cleanEmail = (emp.email || '').trim().toLowerCase();
-
-                            const isDupId = Boolean(cleanId && dupIds.has(cleanId));
-                            const isDupEmail = Boolean(cleanEmail && dupEmails.has(cleanEmail));
-                            const isUnassigned = emp.departmentCode === 'NONE';
-
-                            const isRowInvalid = isDupId || isDupEmail || isUnassigned;
-                            const errorLabel = isDupId ? 'DUPLICATE ID' : isDupEmail ? 'DUPLICATE EMAIL' : 'NO DEPT';
+                            const rowErrors = validation.byId.get(emp.id) || [];
+                            const isRowInvalid = rowErrors.length > 0;
+                            const errorLabel = rowErrors.includes('duplicate_ids') ? 'DUPLICATE ID'
+                              : rowErrors.includes('duplicate_emails') ? 'DUPLICATE EMAIL'
+                              : rowErrors.includes('unassigned_members') ? 'NO DEPT' : 'INVALID FIELDS';
 
                             return (
                               <tr key={emp.id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isRowInvalid ? 'bg-red-50/20 dark:bg-red-950/20' : ''}`}>
@@ -1255,14 +1142,14 @@ export default function AdminSetupPage() {
                   </div>
 
                   <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
-                    <button onClick={() => setStep(2)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
+                    <button onClick={() => navigateToStep(2)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
                     <button
                       onClick={() => {
                         if (errorCount > 0) {
-                          showToast(`Cannot proceed: ${errorCount} employee(s) have duplicate IDs or unassigned departments! Please fix them in Step 2.`, 'error');
+                          showToast(`Cannot proceed: ${errorCount} member(s) have validation errors. Please fix them in Step 2.`, 'error');
                           return;
                         }
-                        setStep(4);
+                        navigateToStep(4);
                       }}
                       disabled={errorCount > 0}
                       className={`px-8 py-3.5 font-bold rounded-xl text-sm shadow-lg flex items-center gap-2 transition-all ${errorCount > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-[#0A5ED6] hover:bg-[#0B63E0] text-white'}`}
@@ -1276,7 +1163,7 @@ export default function AdminSetupPage() {
 
             {/* STEP 4: SECURITY CREDENTIALS (SMTP) */}
             {step === 4 && (
-              <div className="space-y-6 animate-fadeIn">
+              <div id="setup-step-4" tabIndex={-1} className="space-y-6 animate-fadeIn">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-1">Security & SMTP Credentials</h2>
@@ -1296,21 +1183,22 @@ export default function AdminSetupPage() {
                 <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-sm">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Host</label>
-                      <input type="text" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
+                      <label htmlFor="setup-guide-smtp_host" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Host</label>
+                      <input id="setup-guide-smtp_host" type="text" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Port</label>
-                      <input type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
+                      <label htmlFor="setup-guide-smtp_port" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Port</label>
+                      <input id="setup-guide-smtp_port" type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Sender Email / Username</label>
-                      <input type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="e.g. admin@company.com" className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-medium mt-1 outline-none focus:border-[#0A5ED6]" />
+                      <label htmlFor="setup-guide-smtp_username" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Sender Email / Username</label>
+                      <input id="setup-guide-smtp_username" type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="e.g. admin@company.com" className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-medium mt-1 outline-none focus:border-[#0A5ED6]" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP App Password</label>
+                      <label htmlFor="setup-guide-smtp_password" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP App Password</label>
                       <div className="relative mt-1">
                         <input
+                          id="setup-guide-smtp_password"
                           type={showSmtpPass ? "text" : "password"}
                           value={smtpPass}
                           onChange={e => setSmtpPass(e.target.value)}
@@ -1340,23 +1228,29 @@ export default function AdminSetupPage() {
                 </div>
 
                 <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
-                  <button onClick={() => setStep(3)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
-                  <button onClick={() => setStep(6)} className="px-8 py-3.5 bg-[#0A5ED6] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Continue to Rollout <ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => navigateToStep(3)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
+                  <button onClick={() => navigateToStep(5)} disabled={!canNavigateToStep(5)} className="px-8 py-3.5 bg-[#0A5ED6] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2 disabled:opacity-50">Continue to Rollout <ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
             )}
 
-            {/* STEP 6: ROLLOUT & DISPATCH */}
-            {step === 6 && (
-              <div className="space-y-6 text-center py-8 animate-fadeIn">
+            {/* STEP 5: ROLLOUT & DISPATCH */}
+            {step === 5 && (
+              <div id="setup-step-5" tabIndex={-1} className="space-y-6 text-center py-8 animate-fadeIn">
                 <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
                   <ShieldCheck className="w-10 h-10" />
                 </div>
                 <h2 className="text-3xl font-extrabold text-[#0F172A] dark:text-white">Send Credentials to All Employees</h2>
-                <p className="text-sm text-slate-500 max-w-md mx-auto">Send credentials to all employees and activate browser extension protection policy for your organization.</p>
+                <p className="text-sm text-slate-500 max-w-md mx-auto">Create employee accounts and send welcome packages. Each employee must then install and connect the browser extension.</p>
 
                 <div className="pt-6">
-                  {dispatchDone ? (
+                  {dispatchUnknown ? (
+                    <div role="status" className="mx-auto max-w-lg rounded-2xl border border-amber-300 bg-amber-50 p-5 text-left text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                      <p className="font-bold">Delivery status could not be confirmed</p>
+                      <p className="mt-2">Accounts may already have been provisioned. Check existing accounts and email delivery before repeating dispatch.</p>
+                      <button type="button" onClick={() => router.push('/dashboard/admin')} className="mt-4 rounded-lg bg-[#0A5ED6] px-4 py-2 font-bold text-white">Go to Admin Dashboard</button>
+                    </div>
+                  ) : dispatchDone ? (
                     <div className="space-y-5 max-w-lg mx-auto">
                       {dispatchSummary && dispatchSummary.failedCount > 0 ? (
                         <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-2xl text-left space-y-3">
@@ -1365,7 +1259,7 @@ export default function AdminSetupPage() {
                             <span>Provisioned with Email Warnings ({dispatchSummary.successCount} Sent / {dispatchSummary.failedCount} Failed)</span>
                           </div>
                           <p className="text-xs text-amber-700 dark:text-amber-400">
-                            Accounts were created in the database, but {dispatchSummary.failedCount} email(s) could not be delivered due to <strong>SMTP Bad Credentials (535 Auth Error)</strong>.
+                            Accounts were created in the database, but {dispatchSummary.failedCount} email(s) could not be delivered. Review your email service settings and delivery results.
                           </p>
                           <div className="bg-white dark:bg-[#0F1423] p-3 rounded-xl border border-amber-200 dark:border-amber-800/40 max-h-40 overflow-y-auto space-y-1.5 text-xs font-mono">
                             {dispatchResults.map((r, i) => (
@@ -1374,7 +1268,7 @@ export default function AdminSetupPage() {
                                 {r.sent ? (
                                   <span className="text-emerald-600 font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Sent</span>
                                 ) : (
-                                  <span className="text-red-600 font-bold flex items-center gap-1" title={r.error || ''}><AlertCircle className="w-3 h-3" /> SMTP Auth Fail</span>
+                                  <span className="text-red-600 font-bold flex items-center gap-1" title={r.error || ''}><AlertCircle className="w-3 h-3" /> Delivery failed</span>
                                 )}
                               </div>
                             ))}
@@ -1388,9 +1282,9 @@ export default function AdminSetupPage() {
                             </div>
                             <h3 className="text-emerald-800 dark:text-emerald-400 font-extrabold text-xl mb-2">Organization Setup Complete!</h3>
                             <p className="text-emerald-700 dark:text-emerald-500 text-sm leading-relaxed max-w-sm mx-auto">
-                              Email dispatch completed successfully. Credentials have been delivered to all employees.
+                              Email dispatch completed. {dispatchSummary?.successCount || 0} welcome email(s) were sent.
                               <br /><br />
-                              <strong>You are all done!</strong> Keep going and head over to your new dashboard.
+                              Head over to your dashboard to check employee activation and browser extension connections.
                             </p>
                           </div>
                         </div>
@@ -1408,8 +1302,8 @@ export default function AdminSetupPage() {
                   ) : (
                     <div className="flex justify-center gap-4">
                       <button
-                        disabled={executing}
-                        onClick={() => setStep(4)}
+                        disabled={executing || (isSetupCompleted && !isEditingSetup)}
+                        onClick={() => navigateToStep(4)}
                         className="px-8 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm disabled:opacity-50"
                       >
                         Back

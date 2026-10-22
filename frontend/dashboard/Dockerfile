@@ -1,16 +1,16 @@
 FROM node:18-alpine
 
 # Set working directory
-WORKDIR /app
+WORKDIR /app/frontend/dashboard
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY frontend/dashboard/package.json frontend/dashboard/package-lock.json* ./
 
 # Install dependencies
 RUN npm install --legacy-peer-deps
 
 # Copy all files
-COPY . .
+COPY frontend/dashboard/ .
 
 # Build the Next.js application
 RUN npm run build

@@ -1,6 +1,7 @@
 "use client";
 import { useAuth } from "@/lib/auth-context";
 import { getApiBaseUrl } from "@/lib/api";
+import { safeDashboardNext } from "@/lib/login-navigation";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
@@ -284,33 +285,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => clearInterval(interval);
   }, []);
 
-  // ── fromLanding grace window ────────────────────────────────────────────────
-  // We initialize based on `pathname` (available in SSR). We don't check
-  // `window.location.search` here because Next.js App Router sometimes provides an
-  // empty string for it on the very first effect tick, which causes the grace window
-  // to instantly abort. Any unauthenticated access to /setup simply gets a 20s
-  // loading window before being redirected to /login.
-  const [fromLandingGrace, setFromLandingGrace] = useState<boolean>(() => {
-    return pathname?.includes('/setup') || false;
-  });
-
-  useEffect(() => {
-    if (!pathname?.includes('/setup')) {
-      if (fromLandingGrace) setFromLandingGrace(false);
-      return;
-    }
-    // Allow up to 20 seconds for Next.js dev compilation & the setup page's auto-login fetch
-    const t = setTimeout(() => setFromLandingGrace(false), 20000);
-    return () => clearTimeout(t);
-  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // Preserve setup context when an unauthenticated customer must sign in.
   useEffect(() => {
     if (isLoading) return;
-    // If arriving from landing page, wait for the setup page's auto-login to complete
-    if (fromLandingGrace && pathname.includes('/setup')) return;
-
     if (!user) {
-      router.replace("/login");
+      const next = safeDashboardNext(window.location.pathname + window.location.search);
+      router.replace(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
       return;
     }
     const role = user.role;
@@ -341,7 +321,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace("/dashboard/supervisor");
       }
     }
-  }, [user, isLoading, router, pathname, fromLandingGrace]);
+  }, [user, isLoading, router, pathname]);
 
   // Poll for new inbox messages every 30 seconds
   useEffect(() => {
@@ -477,23 +457,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (!user) {
-    if (fromLandingGrace && pathname.includes('/setup')) {
-      return (
-        <>
-          <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex flex-col items-center justify-center relative z-50">
-            <Shield className="w-12 h-12 text-brand-500 animate-pulse mb-6" />
-            <h2 className="text-xl font-bold text-surface-900 dark:text-white mb-2">Authenticating Secure Session</h2>
-            <p className="text-surface-500 dark:text-surface-400">Please wait while we establish a connection...</p>
-          </div>
-          <div className="hidden">{children}</div>
-        </>
-      );
-    }
     return null; // router.replace will handle redirect
   }
 
   const navItems = navByRole[user.role] || navByRole.employee;
-  const roleBadge = getRoleBadge(user.role);
+  const roleBadge = { label: getRoleBadge(user.role) };
   const userName = user?.fullName || user?.full_name || "Admin User";
   const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2);
 

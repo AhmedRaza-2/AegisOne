@@ -1,13 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { ShieldCheck, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { API_BASE } from "@/lib/api";
+import { dashboardLoginDestination, firstAdministratorContext, isFirstAdministratorMode, safeDashboardNext } from "@/lib/login-navigation";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, user, isLoading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,43 +19,42 @@ export default function LoginPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [resetMode, setResetMode] = useState(false);
   const [otp, setOtp] = useState("");
-  const [requestedRole, setRequestedRole] = useState("employee");
+  const [nextPath, setNextPath] = useState<string | null>(null);
+  const [mode, setMode] = useState<'sign_in' | 'create_first_admin'>('sign_in');
+  const [fullName, setFullName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const setupContext = firstAdministratorContext(nextPath);
+  const creatingAdministrator = isFirstAdministratorMode(mode, nextPath);
 
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    // 1. Auto-redirect if user is already logged in (has active session / token)
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem("aegis_access_token") || document.cookie.includes("aegis_access_token=");
-      const userStr = localStorage.getItem("user");
-      if (token && userStr) {
-        try {
-          const parsedUser = JSON.parse(userStr);
-          const userRole = parsedUser.role?.toLowerCase() || "employee";
-          const dest = (userRole === "admin" || userRole === "super_admin" || userRole === "global_admin")
-            ? "/dashboard/admin"
-            : (userRole === "manager" || userRole === "department_admin")
-              ? "/dashboard/supervisor"
-              : "/dashboard/employee";
-          router.replace(dest);
-          return;
-        } catch (e) {
-          console.error("[Login] Error reading existing session:", e);
-        }
-      }
-
-      // 2. Check if the user just registered
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get("registered") === "true") {
-        setSuccessMsg("Registration successful. Please wait for an admin to approve your account.");
-      }
-      setCheckingSession(false);
+    if (isLoading) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const next = safeDashboardNext(urlParams.get("next"));
+    setNextPath(next);
+    // Replace legacy credential-bearing return URLs with the nonsecret setup context.
+    if (urlParams.has('next') && urlParams.get('next') !== next) {
+      if (next) urlParams.set('next', next);
+      else urlParams.delete('next');
+      const query = urlParams.toString();
+      window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
     }
-  }, [router]);
-
-  const [detectedRole, setDetectedRole] = useState<string>("employee");
+    const context = firstAdministratorContext(next);
+    if (context) {
+      setEmail(current => current || context.email);
+      setFullName(current => current || context.fullName);
+    }
+    if (user) {
+      router.replace(dashboardLoginDestination(user.role, next));
+      return;
+    }
+    if (urlParams.get("registered") === "true") {
+      setSuccessMsg("Registration successful. Please wait for an admin to approve your account.");
+    }
+    setCheckingSession(false);
+  }, [router, user, isLoading]);
 
   // Auto-detect assigned user role when email changes
   const handleEmailBlur = async () => {
@@ -69,19 +69,30 @@ export default function LoginPage() {
     setSuccessMsg("");
     setLoading(true);
 
-    const result = await login(email, password);
-
-    if (result.success) {
-      const dbRole = result.role?.toLowerCase() || detectedRole || "employee";
-      const dest = (dbRole === "admin" || dbRole === "super_admin")
-        ? "/dashboard/admin"
-        : (dbRole === "manager" || dbRole === "department_admin")
-          ? "/dashboard/supervisor"
-          : "/dashboard/employee";
-      router.push(dest);
-    } else {
+    try {
+      if (mode === 'create_first_admin') {
+        if (!creatingAdministrator || !setupContext) throw new Error('Open organization setup from your portal to create the first administrator.');
+        if (!fullName.trim()) throw new Error('Enter the administrator name.');
+        if (password !== confirmPassword) throw new Error('Passwords do not match.');
+        const response = await fetch(`${API_BASE}/auth/send-admin-credentials`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), full_name: fullName.trim(), password, org_name: setupContext.organization || 'Enterprise' }),
+        });
+        if (!response.ok) {
+          if (response.status === 403) throw new Error('This server already has an administrator. Sign in with that account or contact the server owner.');
+          throw new Error('Could not create the administrator. Use at least eight characters with uppercase, lowercase and a number, then try again.');
+        }
+      }
+      const result = await login(email.trim(), password);
+      if (!result.success) throw new Error(result.error || 'Invalid credentials.');
+      setPassword('');
+      setConfirmPassword('');
+      router.replace(dashboardLoginDestination(result.role, nextPath));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not sign in. Please try again.');
+    } finally {
       setLoading(false);
-      setError(result.error || "Invalid credentials.");
     }
   };
 
@@ -240,10 +251,10 @@ export default function LoginPage() {
             <ShieldCheck className="w-7 h-7 text-white" strokeWidth={1.75} />
           </motion.div>
           <h1 className="font-semibold tracking-tight" style={{ fontFamily: "'Inter', sans-serif", fontSize: "1.375rem", color: "var(--text-primary)" }}>
-            Welcome back
+            {creatingAdministrator ? 'Create first administrator' : 'Welcome back'}
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            Sign in to your AegisOne workspace
+            {setupContext ? `Continue setup${setupContext.organization ? ` for ${setupContext.organization}` : ''} on this server` : 'Sign in to your AegisOne workspace'}
           </p>
         </div>
 
@@ -354,9 +365,27 @@ export default function LoginPage() {
 
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
+              {setupContext && (
+                <div className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <p>{creatingAdministrator ? 'Choose credentials for the first administrator of this server.' : 'Sign in with your account on this server. For a new server, create its first administrator.'}</p>
+                  <button type="button" disabled={loading}
+                    className="font-medium disabled:opacity-40" style={{ color: 'var(--blue-600)' }}
+                    onClick={() => { setMode(creatingAdministrator ? 'sign_in' : 'create_first_admin'); setError(''); setPassword(''); setConfirmPassword(''); }}>
+                    {creatingAdministrator ? 'Sign in with an existing account' : 'Create first administrator'}
+                  </button>
+                </div>
+              )}
               {successMsg && (
                 <div className="px-3.5 py-3 rounded-xl text-sm" style={{ background: "rgba(47,169,126,0.08)", border: "1px solid rgba(47,169,126,0.2)", color: "var(--success)" }}>
                   {successMsg}
+                </div>
+              )}
+
+              {creatingAdministrator && (
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Administrator name</label>
+                  <input type="text" autoComplete="name" value={fullName} onChange={event => setFullName(event.target.value)}
+                    maxLength={255} required className="input-premium" />
                 </div>
               )}
 
@@ -367,6 +396,7 @@ export default function LoginPage() {
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
                   <input
                     type="email"
+                    autoComplete="username"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     onBlur={handleEmailBlur}
@@ -384,6 +414,9 @@ export default function LoginPage() {
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
                   <input
                     type={showPassword ? "text" : "password"}
+                    autoComplete={creatingAdministrator ? 'new-password' : 'current-password'}
+                    minLength={creatingAdministrator ? 8 : undefined}
+                    maxLength={512}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
@@ -398,6 +431,15 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              {creatingAdministrator && (
+                <div>
+                  <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>Use at least eight characters with uppercase, lowercase and a number.</p>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Confirm password</label>
+                  <input type="password" autoComplete="new-password" value={confirmPassword}
+                    onChange={event => setConfirmPassword(event.target.value)} minLength={8} maxLength={512} required className="input-premium" />
+                </div>
+              )}
+
               {/* Error states */}
               {error && (
                 error.includes("awaiting admin approval")
@@ -408,14 +450,14 @@ export default function LoginPage() {
               {/* Submit */}
               <button type="submit" disabled={loading} className="btn-primary mt-2">
                 {loading ? (
-                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Signing in...</>
-                ) : "Sign In"}
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{creatingAdministrator ? 'Creating administrator...' : 'Signing in...'}</>
+                ) : creatingAdministrator ? 'Create Administrator & Continue' : 'Sign In'}
               </button>
             </form>
           )}
 
           {/* Forgot password */}
-          {resetStep === "none" && (
+          {resetStep === "none" && !creatingAdministrator && (
             <p className="text-center text-sm mt-5">
               <button
                 onClick={handleForgotPassword}

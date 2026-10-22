@@ -188,7 +188,9 @@ def load_all_models():
             break
         except Exception as e:
             logger.error(f"  ✗ URL AI failed from {url_pt}: {e}")
-    if not loaded_url:
+    if not loaded_url and any(path.exists() for path in url_candidates):
+        logger.warning("  URL AI unavailable: checkpoint loading failed; see errors above.")
+    elif not loaded_url:
         logger.warning(f"  ✗ URL weights not found: {URL_MODEL_PT} or {URL_MODEL_PT_FALLBACK}")
 
     # ── 4. IMAGE MODEL ──

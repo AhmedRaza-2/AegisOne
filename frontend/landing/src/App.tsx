@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useAssistantContext } from './components/assistant/AssistantProvider';
+import type { SafeContext } from '../../shared-assistant/src/index';
 import SiteHeader from './components/SiteHeader';
 import HeroSection from './components/HeroSection';
 import SectionServices from './components/SectionServices';
@@ -19,10 +21,43 @@ import {
   ShieldCheck, X, Check, Server, Database, Key, Send, Copy, Sparkles, 
   ArrowRight, Calendar, Clock, Mail, User, MessageSquare, ExternalLink, ShieldAlert
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function App() {
   const navigate = useNavigate();
+  const { hash } = useLocation();
+  const [assistantSection, setAssistantSection] = useState<SafeContext['section']>('hero');
+  useAssistantContext({ surface: 'landing', section: assistantSection });
+  useEffect(() => {
+    if (['#contact', '#demo', '#services', '#process', '#stack', '#about'].includes(hash)) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [hash]);
+  useEffect(() => {
+    const sections: Array<[string, SafeContext['section']]> = [
+      ['assistant-hero', 'hero'], ['services', 'features'], ['pricing-panel', 'pricing'],
+      ['demo', 'demo'], ['process', 'deployment'], ['stack', 'deployment'],
+      ['about', 'privacy'], ['contact', 'contact'],
+    ];
+    const visible = new Map<Element, { section: SafeContext['section']; ratio: number }>();
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        const section = sections.find(([id]) => id === entry.target.id)?.[1];
+        if (entry.isIntersecting) visible.set(entry.target, { section, ratio: entry.intersectionRatio });
+        else visible.delete(entry.target);
+      }
+      const current = [...visible.values()].sort((a, b) => b.ratio - a.ratio)[0];
+      if (current?.section) setAssistantSection(current.section);
+    }, { rootMargin: '-90px 0px -30% 0px', threshold: [0, 0.2, 0.5, 0.8] });
+    const observed = new Set<Element>();
+    const observeSections = () => {
+      for (const element of observed) if (!element.isConnected) { observer.unobserve(element); visible.delete(element); observed.delete(element); }
+      sections.forEach(([id]) => { const element = document.getElementById(id); if (element && !observed.has(element)) { observed.add(element); observer.observe(element); } });
+    };
+    observeSections();
+    const additions = new MutationObserver(observeSections);
+    const hero = document.getElementById('assistant-hero');
+    if (hero) additions.observe(hero, { childList: true, subtree: true });
+    return () => { observer.disconnect(); additions.disconnect(); };
+  }, []);
   // Setup Request Modal States
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [setupStep, setSetupStep] = useState(1);
@@ -173,7 +208,7 @@ export default function App() {
       {successToast && (
         <div 
           id="toast-notification"
-          className="fixed bottom-6 right-6 z-50 bg-[#0F172A] border border-slate-800 text-white rounded-xl py-3.5 px-5 shadow-2xl flex items-center gap-3 animate-fadeIn glow-blue"
+          className="fixed bottom-24 right-6 z-50 bg-[#0F172A] border border-slate-800 text-white rounded-xl py-3.5 px-5 shadow-2xl flex items-center gap-3 animate-fadeIn glow-blue"
         >
           <div className="bg-[#0A5ED6] p-1.5 rounded-full text-white">
             <Check className="w-4 h-4" />
@@ -188,11 +223,11 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1" id="main-content">
         <div className="animate-fadeIn">
-          <HeroSection
+          <div id="assistant-hero"><HeroSection
             onSelectPlan={(planId, billingCycle) => {
               navigate(`/register?plan=${planId}&billing=${billingCycle}`);
             }}
-          />
+          /></div>
           <SectionServices />
           <SectionProcess />
           <SectionTechStack />

@@ -24,3 +24,13 @@ venv
 .vscode
 .idea
 *.log
+.cache
+.tmp
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+frontend/shared-assistant/vendor
+frontend/shared-assistant/*.tgz

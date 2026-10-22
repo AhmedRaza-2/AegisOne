@@ -95,16 +95,18 @@ async def lifespan(app: FastAPI):
     await ensure_setup_key()
 
     import shutil
-    # Copies the logo into both frontends' public folders if a local source copy is present
-    # (a developer convenience on the machine that owns it) - harmless to skip elsewhere.
-    _logo_src = PROJECT_ROOT / "frontend" / "logo.png"
-    if _logo_src.exists():
-        try:
-            shutil.copy(_logo_src, PROJECT_ROOT / "frontend" / "landing" / "public" / "logo.png")
-            shutil.copy(_logo_src, PROJECT_ROOT / "frontend" / "dashboard" / "public" / "logo.png")
-            logger.info("Logo copied to landing and dashboard public folders successfully!")
-        except Exception as e:
-            logger.warning(f"Could not copy logo: {e}")
+    # Copy a local logo when both the source and frontend public folders exist.
+    # PROJECT_ROOT keeps this portable across developer machines and containers.
+    try:
+        frontend_dir = PROJECT_ROOT / "frontend"
+        logo = frontend_dir / "logo.png"
+        if logo.is_file():
+            for app_name in ("landing", "dashboard"):
+                public_dir = frontend_dir / app_name / "public"
+                if public_dir.is_dir():
+                    shutil.copy(logo, public_dir / "logo.png")
+    except Exception as e:
+        logger.warning(f"Could not copy logo: {e}")
 
     from api.database.db import async_session, engine
     from api.database.models import Organization, Department, WebsiteScan, Device, AuditLog, Message, ThreatReport

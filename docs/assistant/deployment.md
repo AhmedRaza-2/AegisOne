@@ -1,0 +1,74 @@
+# AegisOne assistant deployment
+
+The assistant is limited to AegisOne product guidance. The server checks each message before provider requests or cached answers: greetings receive a local welcome, and unrelated questions receive a brief redirect to AegisOne topics. Merely mentioning AegisOne, viewing a homepage section, or having an earlier project conversation does not authorize unrelated answers. Only relevant user history is included in model prompts; older generated answers are excluded. Quick-guide mode also recognizes greetings addressed to AegisOne and redirects unrelated questions without suggesting cloud AI. Deploy the updated Edge Function to apply these rules to a hosted assistant API; updating a frontend alone does not update that API.
+
+For Groq-backed chat with `npm run dev` and no Supabase deployment, see [local development](local-development.md). The central production workflow below is unchanged.
+
+The chatbot is mounted only on the landing homepage (`/`). It is absent from registration, sign-in, deployment portal, documentation and customer dashboard pages. Leaving the homepage disposes its active requests and voice. It can explain general deployment and organization setup, but does not observe or operate those workflows.
+
+The homepage assistant uses one central Supabase Edge Function, independent of customer Docker/FastAPI installations. The function is disabled by default. The chat launcher is visible by default during local development when its frontend flag is unset; an explicit `false` hides it. Production still requires the frontend flag to be `true`. No remote deployment, provider key or paid service is required to build the landing app or use its basic local help when the API is unconfigured or unavailable.
+
+## Account and content preparation
+
+1. Use the existing Supabase project on its Free plan and a Groq **Free** account. Do not enable paid billing, auto-upgrades, a paid fallback, or another provider. Check the account plans and current project allocations before enabling the function. Runtime flags cannot determine an account's billing plan; remaining on those free plans is an operational requirement.
+2. Review `supabase/functions/assistant/knowledge.mjs` against the product and published pricing before launch. The allowlist is versioned and intentionally excludes unverified accuracy, SLA, integration, certification and commercial promises. Current checked-in pricing matches `frontend/landing/src/config/pricingConfig.ts`: Starter 1–100, $20/month or $150/year; Growth 101–1,000, $79/month or $699/year; Enterprise 1,001+, $199/month or $1,799/year (USD). Update both sources together when prices change.
+3. Review the current [Groq model limits](https://console.groq.com/settings/limits). Enter the actual configured chat model's RPM/RPD/TPM/TPD and `whisper-large-v3` RPM/RPD/audio-seconds-per-hour/audio-seconds-per-day into the server-only variables in the example. `ASSISTANT_CHAT_MODEL` defaults to `openai/gpt-oss-120b`; the only reviewed alternative is `openai/gpt-oss-20b`. Any other model disables the API. If switching between those models, recheck the limits and update the quota values first. These limits are per account/model and include other uses of the same Groq account. Reserve capacity for other applications separately or use a dedicated free project/account where permitted. The function leaves 20% headroom by capping usage at 80% of every configured limit; missing values fail closed.
+
+## Install and configure
+
+Use a current Supabase CLI, link the intended central project, then run:
+
+```sh
+supabase db push
+supabase functions deploy assistant --no-verify-jwt
+supabase secrets set --env-file /secure/path/assistant.env
+```
+
+Create that private environment file from `supabase/functions/assistant/.env.example`. Supabase injects `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; they are never frontend variables. Set a server-only `GROQ_API_KEY` and a random `ASSISTANT_IP_HASH_SECRET` of at least 32 characters. After reviewing the actual limits and account plans, set `ASSISTANT_QUOTAS_VERIFIED=true`, then enable `ASSISTANT_ENABLED=true`. Enable `ASSISTANT_VOICE_ENABLED=true` only after testing the HTTPS voice path. Never commit the private environment file or paste its values into chat.
+
+The public client base URL is `https://<project-ref>.supabase.co/functions/v1/assistant`. It is a public endpoint, not a credential. Landing settings are `VITE_ASSISTANT_API_URL`, `VITE_ASSISTANT_ENABLED` and `VITE_ASSISTANT_VOICE_ENABLED`. Enable frontend flags explicitly and rebuild after changing these public settings. Keep the API URL free of credentials, query strings and fragments. Inline voice runs on the homepage over HTTPS or localhost; there is no separate voice page or dashboard assistant configuration.
+
+When the API is configured, the chat accepts questions directly and uses AI automatically. There is no visitor-facing enable switch. A compact privacy disclosure remains accessible below the composer, and local product guidance handles unconfigured or unavailable APIs. English, Urdu and Roman Urdu are detected from the conversation rather than selected in a menu. Chat requests include a `language` hint and default to `languageMode: 'auto'`; the model chooses the response language from the current message, relevant history and explicit language requests. Deploy the gateway and landing frontend together: older gateways reject the new `languageMode` field. Offline detection keeps the previous language for short or ambiguous follow-ups. Voice transcription detects the spoken language automatically; recording still starts only from a user action with browser microphone permission, and the transcript is reviewed before it is submitted.
+
+The canonical Vite config reads the repository-root `.env`. For hosted builds, set public variables in the hosting environment. The landing build needs `frontend/shared-assistant` alongside its app folder. On Vercel, deploy from the repository root with build command `npm --prefix frontend/landing run build` and output `frontend/landing/dist`, or enable inclusion of source files outside the landing Root Directory. Retain the SPA rewrite in `frontend/landing/vercel.json`.
+
+Local Docker builds use the repository root and the app's Dockerfile; `docker-compose.yml` passes the landing app's public assistant build arguments. For example, `docker build -f frontend/landing/Dockerfile --build-arg VITE_ASSISTANT_ENABLED=true --build-arg VITE_ASSISTANT_API_URL=https://<project-ref>.supabase.co/functions/v1/assistant --build-arg VITE_ASSISTANT_VOICE_ENABLED=true .`. Existing prebuilt landing images must be rebuilt/released with these settings; runtime environment variables cannot change compiled `VITE_*` values.
+
+The landing prebuild/predev hooks copy pinned speech assets from the shared package. `npm test --prefix frontend/shared-assistant` runs its offline tests using Node 24. `npm run check:speech --prefix frontend/shared-assistant` synthesizes English and Urdu samples and checks non-empty audio. The basic eSpeak voice is deliberately synthetic: successful synthesis does not prove pronunciation quality. Have an Urdu speaker review representative instructions and test supported desktop/mobile browsers before enabling voice. The bundled license and source are available at `/assistant-assets/espeak/COPYING` and `/assistant-assets/espeak/source.zip`.
+
+The migration enables RLS and revokes table/function access from `anon` and `authenticated`. Only service-role RPCs can access assistant data. JWT verification is deliberately disabled for this capability-only guest API; it has no account-claiming, tenant-data or setup-mutation path. Do not add direct public database grants as a deployment workaround.
+
+## Origin, voice and privacy behavior
+
+- Guest API CORS permits `*`, without cookies or credentialed requests. The homepage sends requests with `X-Assistant-Capability`, never Supabase/FastAPI user JWTs. CORS is not an abuse defense; transactionally enforced global/session/IP quotas are.
+- A fresh random 256-bit capability authorizes only one session. Only its SHA-256 hash is stored. Chat sessions expire after 24 hours; transcription sessions after 15 minutes. A transcription capability cannot chat or read a chat transcript. There is no cross-domain chat-history handoff in v1.
+- Voice recording, transcript review and requested speech playback stay inside the homepage chatbot. Microphone access requires HTTPS or localhost, a deliberate record action and browser permission. Remote plain-HTTP pages retain text chat. The client obtains a separate transcription-only capability; it does not send authentication objects or form values.
+- Audio must be a canonical mono 16 kHz PCM16 WAV of 0.25–30 seconds, at most 960,044 bytes. Duration and structure are checked on the server; each recording reserves 30 seconds. Audio bytes are sent to Groq and discarded, never stored in the database or application logs. A short-lived transcription result remains inside its session until deletion/expiry.
+- The homepage supplies only its landing surface and current section. It does not send deployment readiness, setup fields, validation counts or rollout status. The server validates context against its allowlist. Common pasted email addresses, tokens, credentials and URLs are redacted from messages before persistence/provider calls; users must still avoid pasting secrets because pattern matching cannot identify every secret.
+- The application does not log prompts, audio, transcript text, provider response bodies or keys. Hosting/provider services have their own policies; do not promise on-premises-only processing, zero provider retention or any unverified compliance property.
+
+The gateway should overwrite its trusted client IP header. The function prefers `cf-connecting-ip`, then the final `x-forwarded-for` value; missing addresses share an `unknown` bucket. Verify this behavior in the deployed gateway before enabling the service. Raw IPs are hashed with the server secret and are not stored. Global quotas remain effective even if IP attribution is unavailable.
+
+## Quotas, failures and retention
+
+Usage reservations are atomic Postgres transactions across session, IP and global buckets. The checked-in app limits are six requests/minute per session, 30 chat requests/day per session, 20 transcription requests/day per session, 12 requests/minute and 120/day per hashed IP. Session creation has separate per-IP/global limits. Groq account limits are additionally enforced at 80% of supplied values. Input token reservations conservatively use UTF-8 bytes plus message/schema framing and the full 1,200-token completion allowance. Provider history includes only bounded relevant user turns. This can reject long messages before the upstream limit is reached, particularly in multilingual conversations.
+
+Completion tokens include any model reasoning; reasoning is neither requested in the response nor forwarded to the browser. Answers use strict JSON schema plus independent source/action/size validation, at most 150 visible words, and only allowlisted advisory UI actions. Responses with a truncated/non-stop finish reason are rejected. There are no tools or streaming in this first release. Whisper is pinned to `whisper-large-v3`; chat uses the reviewed configured model with low reasoning effort. Both Urdu and Roman Urdu replies provide Urdu-script `speechText` for pronunciation, while the visible answer follows the detected or explicitly requested language. [Groq Structured Outputs](https://console.groq.com/docs/structured-outputs) documents the reviewed models' schema support.
+
+Each turn has an input hash and 45-second lease. Reusing the same turn ID/input returns a cached result; a changed input is rejected. In-flight duplicates are rejected. Expired leases are terminal and cannot replay a request that may already have reached Groq. Reservations are never refunded automatically, including cancellation/failure, avoiding uncertain usage undercount. Provider calls have a 20-second deadline, database calls four seconds, and no retry loops or paid fallback. Provider/malformed-answer failures return reviewed deterministic language-specific help. Quota/configuration failures tell the client to use its local help. Voice failure falls back to typing.
+
+`assistant_cleanup()` physically deletes expired sessions and their turns. If `pg_cron` is already enabled, the migration schedules hourly cleanup. Otherwise schedule `select public.assistant_cleanup()` hourly using a service-role scheduler **before enabling the feature**. Access is denied at expiry even between cleanup runs. Clear chat cascades session/turn deletion immediately; content-free quota counters remain to prevent resetting chat from bypassing limits. Expired usage buckets are removed after one additional day (at most approximately 48 hours for daily counters).
+
+## Validation and operations
+
+Run offline checks without keys or a provider connection:
+
+```sh
+node --test --test-isolation=none supabase/functions/assistant/tests/*.test.mjs
+```
+
+For database validation, apply the migration to a **disposable** PostgreSQL database with Supabase-style `anon`, `authenticated` and `service_role` roles. Run `psql -v ON_ERROR_STOP=1 -f supabase/functions/assistant/tests/integration.sql`. The integration script uses `dblink` and two local connections to exercise an actual concurrent global-limit race, alongside RLS/permissions, wrong capabilities, scope checks, idempotency, leases and retention. It must not run on the production project. Deno/CLI deployment checks are additional release checks; Node tests do not replace a deployed smoke test.
+
+Before public enablement, smoke-test English/Urdu/Roman Urdu detection, short follow-ups and explicit language changes, rejected secrets/context, wrong capability/scope, duplicate turn IDs, no-provider fallback, exhausted quotas, malformed model output, confirmed voice text and microphone denial. Verify that navigating away stops active chat/voice and that no chatbot appears on registration, portal, documentation or dashboard pages. Inspect network payloads to verify no passwords, employee rows, deployment tokens or URL fragments are transmitted. Test with real free-account credentials only after explicit deployment configuration; no real provider calls are made by the checked-in test suite.
+
+Monitor Groq/Supabase account usage and metadata in `assistant_usage` and `assistant_turns` (reserved/actual tokens, timestamps, status and feedback). Do not build dashboards that expose raw chat content publicly. Disable `ASSISTANT_ENABLED` for a full cloud kill switch or `ASSISTANT_VOICE_ENABLED` for transcription only; session read/delete remain available. Keep local help available throughout. Do not automatically upgrade or change provider when free capacity is exhausted.

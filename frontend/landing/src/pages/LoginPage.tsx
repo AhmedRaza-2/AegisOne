@@ -61,7 +61,6 @@ export default function LoginPage() {
     setError('');
     try {
       await loginOrganization(email, password);
-      sessionStorage.setItem('tempAdminPassword', password);
       navigate('/portal');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed. Check your credentials.');

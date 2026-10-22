@@ -1,0 +1,10 @@
+import { cp, mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+const core = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const app = process.cwd();
+if (path.basename(app) !== 'landing') throw new Error('Run this script from the landing frontend directory');
+const destination = path.join(app, 'public', 'assistant-assets', 'espeak');
+await mkdir(destination, { recursive: true });
+await cp(path.join(core, 'assets', 'espeak'), destination, { recursive: true });
+console.log('Prepared local assistant voice assets');

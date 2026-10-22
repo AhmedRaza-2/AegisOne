@@ -4,6 +4,7 @@ import { getOrganizations, updateOrganizationStatus, deleteOrganization } from '
 import type { Organization } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { hasTrustedSuperAdminRole } from '../lib/admin-access';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -67,20 +68,11 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      // 3. Verify user is the single designated super admin (231564@students.au.edu.pk) or has super_admin metadata
-      const user = data.user;
-      const roleInApp = user?.app_metadata?.role;
-      const roleInUser = user?.user_metadata?.role;
-      const emailLower = user?.email?.toLowerCase() || '';
-
-      const isSuperAdmin = 
-        emailLower === '231564@students.au.edu.pk' ||
-        roleInApp === 'super_admin' || 
-        roleInUser === 'super_admin';
-
-      if (!isSuperAdmin) {
+      // Only server-controlled metadata may unlock this UI. Database policies and RPCs
+      // must independently enforce the same authorization for every operation.
+      if (!hasTrustedSuperAdminRole(data.user)) {
         await supabaseAdmin.auth.signOut();
-        throw new Error("Access Denied: Email is not registered as a Super Administrator.");
+        throw new Error("Access denied: this account is not a Super Administrator.");
       }
 
       setIsAuthenticated(true);

@@ -57,12 +57,14 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_MINUTES = 60  # 1 hour
 
 # The one-time setup wizard's bootstrap secret. Same reasoning as the JWT secret above: if
-# VITE_SETUP_KEY/SETUP_KEY is unset or still the well-known placeholder that used to ship as
+# SETUP_KEY is unset or still the well-known placeholder that used to ship as
 # the hard-coded default (visible in this repo and in both frontends), a random secret is
 # generated ONCE at first start and kept in the database instead - so a fresh deployment is
 # never protected by a key every reader of this code already knows.
+# Only a server-side variable may configure this secret. VITE_ variables are public browser
+# configuration and must never grant administrator-provisioning access.
 SETUP_KEY_PLACEHOLDERS = {"", "aegis-setup-key-change-me"}
-SETUP_KEY = (os.environ.get("VITE_SETUP_KEY") or os.environ.get("SETUP_KEY") or "").strip()
+SETUP_KEY = (os.environ.get("SETUP_KEY") or "").strip()
 SETUP_KEY_FROM_ENV = SETUP_KEY not in SETUP_KEY_PLACEHOLDERS
 if not SETUP_KEY_FROM_ENV:
     SETUP_KEY = None   # filled in at startup, before the first request is served

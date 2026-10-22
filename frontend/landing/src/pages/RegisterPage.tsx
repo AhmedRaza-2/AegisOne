@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { registerOrganization, isRegistrationInFlight } from '../lib/org-service';
 import { supabase } from '../lib/supabase';
+import { getRegistrationErrorMessage } from '../lib/registration-errors';
 import { PRICING_PLANS, getPlanByEmployeeCount, getPlanById, isValidPlan } from '../config/pricingConfig';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -616,40 +617,6 @@ export default function RegisterPage() {
     setError('');
   };
 
-  // ── Friendly error mapper ──────────────────────────────────────────────────
-  const sanitizeError = (raw: string): string => {
-    const r = raw.toLowerCase();
-    // Supabase RLS / DB errors
-    if (r.includes('row-level security') || r.includes('rls') || r.includes('policy for table'))
-      return 'Registration is temporarily restricted. Please contact support or try again later.';
-    if (r.includes('duplicate key') || r.includes('already registered') || r.includes('already exists'))
-      return 'This email address is already registered. Please sign in or use a different email.';
-    // Supabase's per-email throttle: "For security purposes, you can only request this after 20 seconds."
-    const throttle = r.match(/after (\d+) seconds?/);
-    if (throttle)
-      return `Please wait ${throttle[1]} seconds before trying again.`;
-    if (r.includes('could not be verified'))
-      return 'We could not finish creating your organization. If you registered this email before, use Sign in or Forgot password; otherwise please try again.';
-    if (r.includes('already has an aegisone login'))
-      return raw;   // already user-friendly
-    if (r.includes('email rate limit') || r.includes('rate limit') || r.includes('too many requests'))
-      return 'Too many sign-up attempts. Please wait a few minutes and try again.';
-    if (r.includes('invalid email') || r.includes('invalid_email'))
-      return 'The email address provided is not valid. Please check and try again.';
-    if (r.includes('weak password') || r.includes('password should be'))
-      return 'Your password is too weak. Please choose a stronger password (min. 8 characters, uppercase, number).';
-    if (r.includes('network') || r.includes('fetch') || r.includes('failed to fetch'))
-      return 'A network error occurred. Please check your connection and try again.';
-    if (r.includes('user already registered') || r.includes('user_already_exists'))
-      return 'An account with this email already exists. Please sign in instead.';
-    if (r.includes('signup disabled') || r.includes('signups not allowed'))
-      return 'New registrations are temporarily paused. Please try again later or contact support.';
-    if (r.includes('organization') && r.includes('already registered'))
-      return raw; // This one is already user-friendly from org-service.ts
-    // Generic fallback — never expose raw db errors in production, but helpful for debugging
-    return `Registration failed. Please review your details and try again, or contact support. (Debug: ${raw})`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -667,7 +634,7 @@ export default function RegisterPage() {
         ? `${dialCode} ${form.phone.trim()}`
         : form.phone.trim();
 
-      const org = await registerOrganization({
+      await registerOrganization({
         name: form.name.trim(),
         industry: finalIndustry,
         employee_count: form.employee_count,
@@ -677,29 +644,6 @@ export default function RegisterPage() {
         phone: fullPhone,
         password: form.password,
       });
-
-      // Send Admin Welcome & Credentials email via public auth API
-      try {
-        const apiHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
-        await fetch(`http://${apiHost}:8000/auth/send-admin-credentials`, {
-          method: "POST",
-          // No key needed for the very first admin on a fresh instance (the backend allows that
-          // one case through); VITE_SETUP_KEY must be set to match the server's generated key
-          // for any call after that. There's no safe hardcoded default to fall back to here.
-          headers: { "Content-Type": "application/json", "X-Setup-Key": (import.meta as any).env?.VITE_SETUP_KEY || "" },
-          body: JSON.stringify({
-            email: form.admin_email,
-            full_name: form.admin_name,
-            password: form.password,
-            org_name: form.name
-          })
-        });
-      } catch (e) {
-        console.warn("[RegisterPage] Admin credentials email dispatch notify skipped/logged:", e);
-      }
-
-      // Temporarily store the password in sessionStorage so PortalPage can pass it to the local setup wizard
-      sessionStorage.setItem('tempAdminPassword', form.password);
 
       // An unfinished earlier registration is completed by signing in, so there is no email to confirm:
       // go straight to the portal. Otherwise show the "check your email" screen.
@@ -713,7 +657,7 @@ export default function RegisterPage() {
       const rawMsg = err instanceof Error ? err.message : String(err);
       // The friendly mapper hides the underlying cause; keep it in the console so it can be diagnosed.
       console.error('[Register] registration failed:', rawMsg);
-      const friendly = sanitizeError(rawMsg);
+      const friendly = getRegistrationErrorMessage(err);
       setError(friendly);
       // Rate-limit errors start a cooldown: the exact wait Supabase asks for, else 60 seconds
       const throttle = rawMsg.toLowerCase().match(/after (\d+) seconds?/);

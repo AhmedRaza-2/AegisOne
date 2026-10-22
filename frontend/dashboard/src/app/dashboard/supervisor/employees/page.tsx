@@ -479,7 +479,7 @@ export default function EmployeesPage() {
                             onClick={() => {
                               const nextStatus = emp.account_status === "active" ? "disable" : "enable";
                               setConfirmModal({
-                                title: `${nextStatus === "active" ? "Enable" : "Disable"} Account`,
+                                title: `${nextStatus === "enable" ? "Enable" : "Disable"} Account`,
                                 message: `Are you sure you want to ${nextStatus} ${emp.fullName}'s account?`,
                                 onConfirm: () => handleToggleStatusDirect(emp.id, emp.account_status, emp.fullName)
                               });

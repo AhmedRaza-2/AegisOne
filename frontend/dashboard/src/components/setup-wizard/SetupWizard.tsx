@@ -640,10 +640,10 @@ export default function App() {
                 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300'
             }`}>
             <span className="text-sm font-semibold">{toast.message}</span>
-            {toast.action && (
+            {toast.onUndo && (
               <button
                 onClick={() => {
-                  toast.action!();
+                  toast.onUndo!();
                   hideToast();
                 }}
                 className="font-bold underline text-sm hover:opacity-80 transition-opacity ml-2 flex items-center gap-1"

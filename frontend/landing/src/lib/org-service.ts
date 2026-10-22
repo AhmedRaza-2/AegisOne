@@ -1,5 +1,6 @@
-import { supabase, Organization } from './supabase';
+import { supabase, supabaseConfiguration, requireRegistrationService, type Organization } from './supabase';
 import { supabaseAdmin } from './supabaseAdmin';
+import { registrationLookupError } from './supabase-config';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ export async function registerOrganization(payload: RegisterPayload): Promise<Or
 }
 
 async function registerOrganizationInner(payload: RegisterPayload): Promise<Organization> {
+  requireRegistrationService();
   // Step 0: Check for duplicate org name AND email BEFORE calling auth.signUp
   // This prevents wasting Supabase email rate limit quota on duplicate attempts.
   const [nameCheckRes, emailCheckRes] = await Promise.all([
@@ -66,8 +68,8 @@ async function registerOrganizationInner(payload: RegisterPayload): Promise<Orga
       .maybeSingle(),
   ]);
 
-  if (nameCheckRes.error) throw new Error('Failed to verify organization name. Please try again.');
-  if (emailCheckRes.error) throw new Error('Failed to verify email address. Please try again.');
+  if (nameCheckRes.error) throw registrationLookupError(nameCheckRes.error, nameCheckRes.status);
+  if (emailCheckRes.error) throw registrationLookupError(emailCheckRes.error, emailCheckRes.status);
 
   if (nameCheckRes.data) {
     throw new Error(`An organization named "${payload.name}" is already registered. Please login or contact support.`);
@@ -146,6 +148,7 @@ async function registerOrganizationInner(payload: RegisterPayload): Promise<Orga
 // ─── Login ───────────────────────────────────────────────────────────────────
 
 export async function loginOrganization(email: string, password: string): Promise<Organization> {
+  requireRegistrationService();
   // Single sign-in round-trip returns the user — use it directly for the org lookup
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
   if (authError) throw new Error(authError.message);
@@ -172,6 +175,7 @@ async function getOrganizationForUser(userId: string): Promise<Organization | nu
 // ─── Password Reset ─────────────────────────────────────────────────────────
 
 export async function sendPasswordResetEmail(email: string): Promise<void> {
+  requireRegistrationService();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/update-password`,
   });
@@ -179,6 +183,7 @@ export async function sendPasswordResetEmail(email: string): Promise<void> {
 }
 
 export async function updatePassword(newPassword: string): Promise<void> {
+  requireRegistrationService();
   const { error } = await supabase.auth.updateUser({
     password: newPassword
   });
@@ -188,6 +193,7 @@ export async function updatePassword(newPassword: string): Promise<void> {
 // ─── Session ─────────────────────────────────────────────────────────────────
 
 export async function getMyOrganization(): Promise<Organization | null> {
+  if (!supabaseConfiguration.configured) return null;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   return getOrganizationForUser(user.id);
@@ -207,6 +213,7 @@ const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
  * the portal in a second tab - or a brief network hiccup - can no longer look like "logged out".
  */
 export async function getPortalAccess(): Promise<PortalAccess> {
+  if (!supabaseConfiguration.configured) return { state: 'error' };
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) return { state: 'error' };
   if (!session) return { state: 'signed_out' };
@@ -228,6 +235,7 @@ export async function logoutOrganization(): Promise<void> {
 }
 
 export async function getCurrentAuthUser() {
+  if (!supabaseConfiguration.configured) return null;
   const { data: { user } } = await supabase.auth.getUser();
   return user;
 }

@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
+import { resolveSupabaseConfiguration, requireSupabaseConfiguration } from './supabase-config';
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || "https://xiktyrtujgdpegqttgac.supabase.co";
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhpa3R5cnR1amdkcGVncXR0Z2FjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzY2NTMsImV4cCI6MjA5MjQxMjY1M30.WIaiRzDxqEdPne_s3M_5EMk9sElDByHuNJM9NagpRaA";
+export const supabaseConfiguration = resolveSupabaseConfiguration({
+  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
+});
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
-}
+export const requireRegistrationService = () => requireSupabaseConfiguration(supabaseConfiguration);
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseConfiguration.url, supabaseConfiguration.anonKey);
 
 // ─────────────────────────────────────────────
 // Types mirroring the Supabase DB schema

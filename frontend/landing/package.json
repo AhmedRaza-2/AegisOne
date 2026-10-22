@@ -4,9 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node ../shared-assistant/scripts/copy-assets.mjs",
+    "prebuild": "node ../shared-assistant/scripts/copy-assets.mjs",
+    "prestart": "node ../shared-assistant/scripts/copy-assets.mjs",
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
+    "check:registration": "node --experimental-strip-types scripts/check-registration.ts",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "start": "vite --port=3000 --host=0.0.0.0"

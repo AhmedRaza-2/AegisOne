@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/components/ui/toast";
 import { getApiBaseUrl } from "@/lib/api";
 
-export function getRoleBadge(role: string) {
+function getRoleBadge(role: string) {
   switch (role) {
     case "global_admin":
     case "super_admin":

@@ -67,7 +67,8 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   dashboard:
     build:
-      context: ./frontend/dashboard
+      context: .
+      dockerfile: frontend/dashboard/Dockerfile
     container_name: aegisone-dashboard
     ports:
       - "3002:3000"
@@ -86,7 +87,12 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   landing:
     build:
-      context: ./frontend/landing
+      context: .
+      dockerfile: frontend/landing/Dockerfile
+      args:
+        VITE_ASSISTANT_ENABLED: ${VITE_ASSISTANT_ENABLED:-false}
+        VITE_ASSISTANT_VOICE_ENABLED: ${VITE_ASSISTANT_VOICE_ENABLED:-false}
+        VITE_ASSISTANT_API_URL: ${VITE_ASSISTANT_API_URL:-}
     container_name: aegisone-landing
     ports:
       - "3000:3000"

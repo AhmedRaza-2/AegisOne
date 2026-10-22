@@ -8,6 +8,7 @@ import PortalPage from './pages/PortalPage.tsx';
 import AdminDashboard from './pages/AdminDashboard.tsx';
 import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
 import DocsPage from './pages/DocsPage.tsx';
+import { AssistantProvider } from './components/assistant/AssistantProvider';
 import './index.css';
 
 console.log("main.tsx: Script started executing");
@@ -27,7 +28,7 @@ try {
     <StrictMode>
       <BrowserRouter>
         <Routes>
-          <Route path="/"         element={<App />} />
+          <Route path="/"         element={<AssistantProvider><App /></AssistantProvider>} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login"    element={<LoginPage />} />
           <Route path="/portal"   element={<PortalPage />} />

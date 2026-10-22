@@ -42,7 +42,7 @@ async def ensure_jwt_secret() -> None:
 async def ensure_setup_key() -> None:
     """Same pattern as the JWT secret, for the one-time setup wizard's bootstrap key."""
     if config.SETUP_KEY_FROM_ENV:
-        logger.info("Setup wizard key: from VITE_SETUP_KEY/SETUP_KEY")
+        logger.info("Setup wizard key: from server-only SETUP_KEY")
         return
     db = await get_background_db()
     try:
@@ -57,7 +57,7 @@ async def ensure_setup_key() -> None:
             logger.warning("=" * 60)
             logger.warning("SETUP WIZARD KEY (first start - save this, it will not be shown again):")
             logger.warning(f"  {row.value}")
-            logger.warning("Or set VITE_SETUP_KEY / SETUP_KEY yourself to pick yours.")
+            logger.warning("Or configure the server-only SETUP_KEY environment variable.")
             logger.warning("=" * 60)
         else:
             logger.info("Setup wizard key: loaded from the database")

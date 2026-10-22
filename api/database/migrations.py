@@ -7,10 +7,10 @@ onto each customer's own on-prem Postgres, any new column added to an existing m
 needs an explicit, idempotent ALTER here so already-running deployments pick it up
 on their next container restart without losing data.
 
-Each entry runs `ADD COLUMN IF NOT EXISTS`, so this is safe to run on every startup.
+Existing columns are inspected first, so this is safe on SQLite and PostgreSQL.
 """
 import logging
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 logger = logging.getLogger("aegisone.migrations")
@@ -29,11 +29,32 @@ _ADDITIVE_COLUMNS = [
 
 async def run_additive_migrations(conn: AsyncConnection):
     """Add any missing columns to already-existing tables. No-op if already applied."""
+    def get_existing_columns(sync_conn):
+        inspector = inspect(sync_conn)
+        return {
+            table: {column["name"] for column in inspector.get_columns(table)}
+            for table in {entry[0] for entry in _ADDITIVE_COLUMNS}
+        }
+
+    existing = await conn.run_sync(get_existing_columns)
+    # PostgreSQL supports this clause; SQLite requires the inspection above.
+    if_missing = " IF NOT EXISTS" if conn.dialect.name == "postgresql" else ""
+    failures = 0
     for table, column, coltype in _ADDITIVE_COLUMNS:
+        if column in existing[table]:
+            continue
         try:
-            await conn.execute(
-                text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}")
-            )
+            # Isolate failed statements so PostgreSQL's startup transaction
+            # remains usable for the remaining migrations.
+            async with conn.begin_nested():
+                await conn.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN{if_missing} {column} {coltype}")
+                )
+            existing[table].add(column)
         except Exception as e:
+            failures += 1
             logger.warning(f"[migrations] Could not add {table}.{column}: {e}")
-    logger.info("Additive schema migrations applied.")
+    if failures:
+        logger.warning("Additive schema migrations completed with %d failure(s).", failures)
+    else:
+        logger.info("Additive schema migrations applied.")
