@@ -285,3 +285,7 @@ Evaluator_Feedback_Response.docx
 *_Presentation.html
 Modules_Audit_Report*.docx
 CLAUDE.md
+
+# Cached benchmark embeddings (regenerated on demand)
+AIML/url/.bench_*.pt
+AIML/adapters/

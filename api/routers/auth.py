@@ -15,6 +15,7 @@ from api.auth.roles import require_role, Role
 from api.dependencies import get_current_user
 from api.services.email_service import send_unified_email, get_dynamic_dashboard_url
 from api.rate_limiter import limiter
+from api.services import license as _license
 import os
 import hmac
 import hashlib
@@ -309,7 +310,7 @@ async def send_admin_credentials_notify(
             role="admin",
             department=None,
             account_status="approved",
-            organization_id="org_default",
+            organization_id=_license.licensed_org() or "org_default",
         ))
         await db.commit()
         logger.info("First administrator provisioned for %s", email)

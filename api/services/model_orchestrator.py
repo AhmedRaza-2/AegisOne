@@ -728,6 +728,32 @@ def apply_adapter_weights(model_type: str, adapter_path: str, version_tag: str) 
         return True
 
 
+def apply_head_weights(heads_path: str | None, version_tag: str) -> bool:
+    """Swap the URL model's trained heads (feature_mlp + classifier) into the served model.
+
+    The language backbone is never modified. `heads_path=None` returns to the shipped base heads.
+    The replacement is built off to the side and swapped in atomically, so requests in flight
+    keep using a complete model."""
+    if "url" not in MODELS:
+        return False
+    try:
+        from api.services import weight_trainer as wt
+        heads = wt.load_heads(heads_path) if heads_path else None
+        bb = wt.get_backbone()
+        model = bb.head_modules(heads).to(DEVICE).eval()
+        already_quantized = any("quantized" in type(m).__module__ for m in MODELS["url"]["model"].modules())
+        if already_quantized:
+            model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
+        MODELS["url"]["model"] = model
+        MODELS["url"]["active_version"] = version_tag
+        MODELS["url"]["active_heads"] = heads_path
+        logger.info("URL model heads switched to %s", version_tag)
+        return True
+    except Exception as e:
+        logger.error("Could not apply head weights %s: %s", version_tag, e)
+        return False
+
+
 def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
     if "text" not in MODELS:
         return {"error": "Text model not loaded", "model": "text"}

@@ -47,6 +47,9 @@ async def _user_from_credentials(
         return None, "invalid"
     if user.account_status not in ACTIVE_STATUSES:
         return None, "not_approved"
+    from api.services import license as _license
+    if not _license.user_allowed(user.organization_id, user.role):
+        return None, "wrong_org"
 
     # Sessions minted before the last password change are no longer valid.
     changed = getattr(user, "password_changed_at", None)
@@ -68,6 +71,11 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account is awaiting administrator approval.",
+        )
+    if problem == "wrong_org":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account does not belong to the organization this deployment is licensed for.",
         )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

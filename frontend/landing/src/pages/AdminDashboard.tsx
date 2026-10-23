@@ -5,6 +5,7 @@ import type { Organization } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { hasTrustedSuperAdminRole } from '../lib/admin-access';
+import ModelHubPanel from '../components/ModelHubPanel';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -18,6 +19,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusTab, setStatusTab] = useState<'all' | 'pending' | 'active' | 'suspended'>('all');
+  const [view, setView] = useState<'orgs' | 'models'>('orgs');
   const navigate = useNavigate();
 
   // Always require manual login when accessing /admin
@@ -332,6 +334,12 @@ export default function AdminDashboard() {
             <Shield className="w-4 h-4 text-[#0A5ED6]" />
           </div>
           <span className="font-bold text-[#0F172A] text-sm tracking-tight">AegisOne Platform Control</span>
+          <div className="ml-6 flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+            {([['orgs', 'Organizations'], ['models', 'Model Hub']] as const).map(([id, label]) => (
+              <button key={id} onClick={() => setView(id)}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${view === id ? 'bg-white text-[#0A5ED6] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>{label}</button>
+            ))}
+          </div>
         </div>
         <button
           onClick={handleLogout}
@@ -341,7 +349,9 @@ export default function AdminDashboard() {
         </button>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      {view === 'models' && <div className="max-w-6xl mx-auto px-4 py-8"><ModelHubPanel /></div>}
+
+      <div className={view === 'models' ? 'hidden' : 'max-w-6xl mx-auto px-4 py-8'}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Organization Control Center</h1>

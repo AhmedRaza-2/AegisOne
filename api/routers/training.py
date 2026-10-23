@@ -153,6 +153,8 @@ async def trigger_model_retraining(
     valid_types = ["url", "email", "text", "image"]
     if model_type not in valid_types:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid model_type. Must be one of {valid_types}")
+    if payload.method == "weights":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Use POST /admin/model-updates/train for server-side weight training.")
 
     # Count pending candidates
     pending_res = await db.execute(

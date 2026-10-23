@@ -45,6 +45,23 @@ async def submit_report(
         )
 
     org_id = current_user.organization_id or "org_default"
+
+    # A reported phishing SIMULATION is the behaviour we want: thank the employee, record it, no incident.
+    import re as _re
+    _m = _re.search(r"/sim/([A-Za-z0-9_-]{20,64})", f"{payload.target_ref or ''} {payload.user_notes or ''}")
+    if _m:
+        from api.database.models import SimulationTarget
+        _t = (await db.execute(select(SimulationTarget).where(SimulationTarget.token == _m.group(1),
+                                                              SimulationTarget.user_id == current_user.id))).scalar_one_or_none()
+        if _t:
+            if not _t.reported_at:
+                _t.reported_at = datetime.utcnow()
+                await db.commit()
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=200, content={
+                "simulation": True,
+                "message": "Great catch! This was a phishing exercise set by your organisation, and reporting it is exactly the right move."})
+
     report_id = f"REP-{uuid.uuid4().hex[:8].upper()}"
     target_ref = payload.target_ref or payload.scan_id or payload.event_id or "Unknown Target"
     evidence = await build_report_evidence(db, org_id, payload.scan_id, payload.evidence, target_ref, payload.risk_score)

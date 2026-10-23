@@ -424,6 +424,7 @@ class TrainingCandidateSummary(BaseModel):
 class RetrainRequest(BaseModel):
     model_type: str = Field(..., description="url, email, text, image")
     force_cpu: bool = False
+    method: str = Field("calibration", description="calibration (light correction layer) | weights (fine-tune model heads on the server)")
 
 
 class TrainingJobResponse(BaseModel):

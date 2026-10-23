@@ -36,7 +36,7 @@ from api.services.model_orchestrator import load_all_models
 
 from api.routers import (
     auth, scan, admin, health, compatibility, setup, public,
-    communication, email_analytics, reports, incidents, incident_response, manager_incidents, training, global_learning, notifications
+    communication, email_analytics, reports, incidents, incident_response, manager_incidents, training, global_learning, notifications, license_status, model_updates, integrations_admin, awareness
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -179,6 +179,13 @@ async def lifespan(app: FastAPI):
             db.add(Organization(id="org_default", name="AegisOne", domain=None, plan="standard", timezone="UTC"))
             await db.flush()
 
+        from api.services import license as _license
+        if _license.licensed_org():
+            lic_org = (await db.execute(select(Organization).where(Organization.id == _license.licensed_org()))).scalars().first()
+            if not lic_org:
+                db.add(Organization(id=_license.licensed_org(), name=_license.licensed_org(), domain=None, plan="standard", timezone="UTC"))
+                await db.flush()
+
         rev_exists = (await db.execute(select(OrganizationAnalyticsState).where(OrganizationAnalyticsState.organization_id == "org_default"))).scalars().first()
         if not rev_exists:
             db.add(OrganizationAnalyticsState(organization_id="org_default", revision=1))
@@ -203,6 +210,8 @@ async def lifespan(app: FastAPI):
     # of the unchanged base models) - previously these were lost on every restart.
     from api.services.calibration import restore_active_calibrations
     await restore_active_calibrations()
+    from api.services.weights_pipeline import restore_active_heads
+    await restore_active_heads()
 
     # Fire-and-forget: checks/pulls the local Ollama XAI model and warms the HuggingFace
     # fallback in the background. Does not block startup or readiness — if Ollama isn't
@@ -210,6 +219,9 @@ async def lifespan(app: FastAPI):
     import asyncio as _asyncio
     from api.services.xai_engine import ensure_ollama_model_ready
     _asyncio.create_task(ensure_ollama_model_ready())
+
+    from api.services import license as _license
+    _asyncio.create_task(_license.refresh_loop())
 
     app.state.startup_complete = True
     logger.info("AegisOne API ready — accepting requests")
@@ -288,6 +300,11 @@ async def add_request_metadata(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4())[:12])
     start = time.perf_counter()
 
+    from api.services import license as _license
+    blocked, why = _license.is_blocked(request.url.path)
+    if blocked and request.method != "OPTIONS":
+        return JSONResponse(status_code=402, content={"detail": why, "license": _license.current()["status"]})
+
     response: Response = await call_next(request)
 
     process_time = round((time.perf_counter() - start) * 1000, 2)
@@ -318,6 +335,17 @@ app.include_router(reports.router)
 app.include_router(incident_response.router)  # before incidents: its /export must win over /{incident_id}
 app.include_router(incidents.router)
 app.include_router(notifications.router)
+app.include_router(license_status.router)
+app.include_router(model_updates.router)
+app.include_router(integrations_admin.admin_router)
+app.include_router(integrations_admin.api_router)
+app.include_router(awareness.admin_router)
+app.include_router(awareness.staff_router)
+app.include_router(awareness.public_router)
+if os.environ.get("AEGIS_VENDOR_MODE", "0") == "1":
+    # Only the vendor runs the Model Hub; customer deployments never expose it.
+    from api.routers import vendor_hub
+    app.include_router(vendor_hub.router)
 app.include_router(manager_incidents.router)
 app.include_router(training.router)
 app.include_router(global_learning.router)

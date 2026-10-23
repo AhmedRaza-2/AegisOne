@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/components/ui/EvidencePanel";
+import { WeightsPanel } from "@/components/models/WeightsPanel";
 
 const fadeUp = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
@@ -53,7 +54,6 @@ export default function ModelsPage() {
   const [versions, setVersions] = useState<any[]>([]);
   const [candidates, setCandidates] = useState<any[]>([]);
   const [policy, setPolicy] = useState<any>(null);
-  const [releases, setReleases] = useState<any[]>([]);
   const [retraining, setRetraining] = useState<string | null>(null);
   const [openCandidate, setOpenCandidate] = useState<string | null>(null);
   const [sampleFilter, setSampleFilter] = useState("all");
@@ -63,16 +63,15 @@ export default function ModelsPage() {
     const base = getApiBaseUrl();
     const headers = authHeaders();
     const get = (p: string) => fetch(`${base}${p}`, { headers }).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    const [s, j, m, c, p, r] = await Promise.all([
+    const [s, j, m, c, p] = await Promise.all([
       get("/admin/training-candidates/summary"), get("/admin/training-jobs"), get("/admin/models"),
-      get("/admin/training-candidates"), get("/admin/global-learning/policy"), get("/admin/global-learning/releases"),
+      get("/admin/training-candidates"), get("/admin/global-learning/policy"),
     ]);
     if (s) setSummary(s);
     if (Array.isArray(j)) setJobs(j);
     if (Array.isArray(m)) setVersions(m);
     if (Array.isArray(c)) setCandidates(c);
     if (p) setPolicy(p);
-    if (Array.isArray(r)) setReleases(r);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -245,6 +244,8 @@ export default function ModelsPage() {
         })}
       </div>
 
+      <motion.div variants={fadeUp}><WeightsPanel onChange={fetchData} /></motion.div>
+
       {/* Jobs */}
       <motion.div variants={fadeUp} id="jobs-section" className="stat-card scroll-mt-24">
         <div className="flex items-center justify-between mb-4">
@@ -393,7 +394,6 @@ export default function ModelsPage() {
             <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Globe className="w-4 h-4 text-blue-500" /> Global AegisOne learning</h2>
             <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 max-w-xl">
               Optionally share anonymised patterns (never raw emails or page content) with AegisOne Central so every customer&apos;s base model improves. Off by default.
-              {releases.length > 0 ? ` ${releases.length} global release${releases.length === 1 ? "" : "s"} available.` : ""}
             </p>
           </div>
           <button

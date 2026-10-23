@@ -448,6 +448,14 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
     request.orgId = request.orgId or _admin_org(admin)
     _check_org_access(admin, request.orgId)
 
+    # Licensed seat limit: count the accounts this run would add
+    from api.services import license as _license
+    existing_emails = {e.lower() for (e,) in (await db.execute(select(User.email).where(User.organization_id == request.orgId))).all()}
+    new_accounts = len({e.email.lower() for e in request.employees} - existing_emails)
+    ok_seats, why_seats = await _license.can_add_users(db, request.orgId, new_accounts)
+    if not ok_seats:
+        raise HTTPException(status_code=402, detail=why_seats)
+
     # Save employees/admins to DB
     emails_to_send = []
     try:

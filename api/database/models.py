@@ -710,6 +710,151 @@ class GlobalModelRelease(Base):
     metrics_json = Column(JSON, nullable=True)
     release_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    status = Column(String(20), default="active")            # active | withdrawn
+    submission_id = Column(String(64), nullable=True)        # the organisation submission this release came from
+    source_org_id = Column(String(64), nullable=True)
+
+
+class WeightPackage(Base):
+    """Improved model weights (heads package) trained on THIS organisation's server."""
+    __tablename__ = "weight_packages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    package_id = Column(String(64), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    job_id = Column(String(100), nullable=True)
+    model_type = Column(String(50), nullable=False, default="url")
+    version_tag = Column(String(80), nullable=False)
+    artifact_path = Column(String(500), nullable=False)
+    checksum = Column(String(128), nullable=False)
+    metrics_json = Column(JSON, nullable=True)
+    status = Column(String(30), default="validated")         # validated | submitted | accepted | rejected
+    vendor_submission_id = Column(String(64), nullable=True)
+    vendor_verdict_json = Column(JSON, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    submitted_at = Column(DateTime, nullable=True)
+
+
+class VendorSubmission(Base):
+    """(Vendor hub) A weights package received from an organisation and its automatic evaluation."""
+    __tablename__ = "vendor_submissions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    submission_id = Column(String(64), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    org_name = Column(String(255), nullable=True)
+    model_type = Column(String(50), nullable=False, default="url")
+    weights_path = Column(String(500), nullable=False)
+    checksum = Column(String(128), nullable=False)
+    org_metrics_json = Column(JSON, nullable=True)           # what the organisation claims (informational only)
+    eval_json = Column(JSON, nullable=True)                  # what the vendor measured
+    baseline_release_id = Column(String(100), nullable=True) # the model it was compared against
+    status = Column(String(30), default="received", index=True)  # received | evaluating | approved | rejected | failed
+    reason = Column(Text, nullable=True)
+    release_id = Column(String(100), nullable=True)
+    decided_by = Column(String(120), nullable=True)          # "auto" or a vendor admin
+    created_at = Column(DateTime, server_default=func.now())
+    decided_at = Column(DateTime, nullable=True)
+
+
+class ApiKey(Base):
+    """Organization API key for the enterprise API / SIEM feed. Only a SHA-256 hash is stored."""
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    key_id = Column(String(40), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    name = Column(String(120), nullable=False)
+    key_hash = Column(String(64), nullable=False, index=True)
+    prefix = Column(String(16), nullable=False)              # first characters, so the admin can tell keys apart
+    scopes = Column(JSON, default=list)                      # incidents:read | events:read | intel:read | scan
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    expires_at = Column(DateTime, nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+
+
+class Webhook(Base):
+    """Outbound webhook: signed JSON events pushed to the customer's SIEM / chat / ticketing system."""
+    __tablename__ = "webhooks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    webhook_id = Column(String(40), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    url = Column(String(1000), nullable=False)
+    secret = Column(String(80), nullable=False)              # HMAC key (shown once at creation)
+    events = Column(JSON, default=lambda: ["*"])
+    enabled = Column(Boolean, default=True)
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    last_delivery_at = Column(DateTime, nullable=True)
+    last_status = Column(String(80), nullable=True)
+    consecutive_failures = Column(Integer, default=0)
+
+
+class WebhookDelivery(Base):
+    __tablename__ = "webhook_deliveries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    webhook_id = Column(String(40), nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    event = Column(String(60), nullable=False)
+    ok = Column(Boolean, default=False)
+    status_code = Column(Integer, nullable=True)
+    attempts = Column(Integer, default=1)
+    error = Column(String(300), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class SimulationCampaign(Base):
+    """A phishing-awareness exercise: one template sent (with a unique tracked link) to a set of employees."""
+    __tablename__ = "simulation_campaigns"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    campaign_id = Column(String(40), unique=True, nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    name = Column(String(160), nullable=False)
+    template_key = Column(String(60), nullable=False)
+    audience = Column(JSON, default=dict)                    # {"type": "all"} | {"type": "department", "department_id": 3}
+    status = Column(String(20), default="draft", index=True)  # draft | active | closed
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    launched_at = Column(DateTime, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
+
+
+class SimulationTarget(Base):
+    """One employee in one campaign, with their unique tracked token and what they did."""
+    __tablename__ = "simulation_targets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    campaign_id = Column(String(40), nullable=False, index=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = Column(String(48), unique=True, nullable=False, index=True)
+    sent_at = Column(DateTime, nullable=True)                # set when AegisOne emailed it (or the admin exported the link)
+    send_error = Column(String(300), nullable=True)
+    clicked_at = Column(DateTime, nullable=True)
+    click_count = Column(Integer, default=0)
+    reported_at = Column(DateTime, nullable=True)            # the employee reported it as suspicious (the right behaviour)
+
+
+class TrainingAssignment(Base):
+    """A short awareness module assigned to (or taken by) an employee."""
+    __tablename__ = "training_assignments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    module_key = Column(String(60), nullable=False)
+    source = Column(String(80), default="manual")            # manual | simulation:<campaign_id>
+    status = Column(String(20), default="assigned")          # assigned | completed
+    score = Column(Integer, nullable=True)
+    attempts = Column(Integer, default=0)
+    assigned_at = Column(DateTime, server_default=func.now())
+    completed_at = Column(DateTime, nullable=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

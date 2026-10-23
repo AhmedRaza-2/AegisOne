@@ -41,6 +41,12 @@ services:
       ORG_ID: ${ORG_ID:-}
       LICENSE_KEY: ${LICENSE_KEY:-}
       DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
+      # License / org binding (see api/services/license.py): off | warn | strict
+      AEGIS_LICENSE_ENFORCE: ${AEGIS_LICENSE_ENFORCE:-warn}
+      AEGIS_REGISTRY_URL: ${AEGIS_REGISTRY_URL:-}
+      AEGIS_REGISTRY_KEY: ${AEGIS_REGISTRY_KEY:-}
+      # Vendor Model Hub the improved-weights submissions go to (optional)
+      AEGIS_VENDOR_URL: ${AEGIS_VENDOR_URL:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
     # Published on loopback only; external traffic goes through the TLS proxy

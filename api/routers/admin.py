@@ -984,6 +984,12 @@ async def update_user_status(
     if user.role in ["super_admin", "global_admin"] and admin.role not in ["super_admin", "global_admin"]:
         raise HTTPException(status_code=403, detail="Cannot modify super_admin accounts")
 
+    if req.status == "approved" and user.account_status not in ("approved", "active"):
+        from api.services import license as _license
+        ok, why = await _license.can_add_users(db, user.organization_id, 1)
+        if not ok:
+            raise HTTPException(status_code=402, detail=why)
+
     user.account_status = req.status
     user.status_reason = req.reason
     user.approved_by = admin.id
@@ -1437,6 +1443,11 @@ async def create_user(
             existing_user.account_status = "active"
             await db.commit()
             return {"status": "success", "user_id": existing_user.id, "transferred": True}
+
+    from api.services import license as _license
+    ok, why = await _license.can_add_users(db, admin.organization_id, 1)
+    if not ok:
+        raise HTTPException(status_code=402, detail=why)
 
     new_user = User(
         organization_id=admin.organization_id,
