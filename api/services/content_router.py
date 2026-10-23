@@ -15,6 +15,7 @@ from api.services.model_orchestrator import (
 )
 from api.services.risk_aggregator import aggregate_model_results
 from api.services.ocr_service import extract_text_from_image
+from api.services.qr_service import decode_qr_codes
 
 logger = logging.getLogger("aegisone.router")
 
@@ -99,8 +100,25 @@ async def route_image_input_detailed(image_bytes: bytes) -> dict:
             logger.error(f"OCR error: {e}")
             return ""
 
-    img_result, ocr_text = await asyncio.gather(_run_image_model(), _run_ocr())
+    async def _run_qr():
+        return await asyncio.to_thread(decode_qr_codes, image_bytes)
+
+    img_result, ocr_text, qr_payloads = await asyncio.gather(_run_image_model(), _run_ocr(), _run_qr())
     results.append(img_result)
+
+    # QR codes: the payload (usually a link) is scanned exactly like a link typed by the user -
+    # before anyone opens it. The result is tagged so explanations can say it came from a QR code.
+    for payload in qr_payloads:
+        try:
+            qr_results = await route_text_input(payload)
+        except Exception as e:
+            logger.error(f"QR payload scan error: {e}")
+            continue
+        for r in qr_results:
+            r["from_qr"] = True
+            r["qr_payload"] = payload[:300]
+            r["explanation"] = "[From QR code] " + r.get("explanation", "")
+            results.append(r)
 
     # Route extracted OCR text
     if ocr_text and ocr_text.strip():
@@ -109,4 +127,4 @@ async def route_image_input_detailed(image_bytes: bytes) -> dict:
             r["explanation"] = "[From OCR] " + r.get("explanation", "")
             results.append(r)
 
-    return {"results": results, "ocr_text": (ocr_text or "").strip()}
+    return {"results": results, "ocr_text": (ocr_text or "").strip(), "qr_payloads": qr_payloads}

@@ -79,6 +79,7 @@
         { initWhatsappGuard },
         { initPopupGuard },
         { initImageGuard },
+        { initQrGuard },
         { isAegisServerUrl },
         { isKnownSafeHost },
         { queryAllDeep },
@@ -94,6 +95,7 @@
         import(chrome.runtime.getURL("content/plugins/whatsapp-guard.js")),
         import(chrome.runtime.getURL("content/plugins/popup-guard.js")),
         import(chrome.runtime.getURL("content/plugins/image-guard.js")),
+        import(chrome.runtime.getURL("content/plugins/qr-guard.js")),
         import(chrome.runtime.getURL("utils/auth.js")),
         import(chrome.runtime.getURL("utils/trusted-domains.js")),
         import(chrome.runtime.getURL("content/dom-walk.js")),
@@ -647,6 +649,11 @@
       initPopupGuard();
       if (storedPlugins.enableImageGuard !== false) {
         initImageGuard();
+      }
+      // QR codes: decode + scan the hidden destination and show it before anyone opens it.
+      // Skipped on webmail (email-guard scans embedded images itself).
+      if (storedPlugins.enableImageGuard !== false && !/(^|\.)(mail\.google\.com|outlook\.office\.com|outlook\.live\.com)$/.test(location.hostname)) {
+        initQrGuard();
       }
 
       // ── Clipboard Protection ────────────────────────

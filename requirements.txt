@@ -29,6 +29,7 @@ transformers
 peft
 scikit-learn
 numpy
+opencv-python-headless
 pandas
 
 # Image Processing & OCR

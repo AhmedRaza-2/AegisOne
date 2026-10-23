@@ -10,7 +10,7 @@ from typing import Dict, List, Any
 import torch
 import numpy as np
 
-from AIML.url.brand_engine import check_brand_impersonation
+from AIML.url.brand_engine import check_brand_impersonation, _is_official_host
 from AIML.url.lexical_engine import extract_expanded_features
 from AIML.url.calibration import calibrate_probability
 
@@ -18,9 +18,15 @@ from AIML.url.calibration import calibrate_probability
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 META_CLASSIFIER_PATH = os.path.join(BASE_DIR, "meta_classifier.pkl")
 
-# Ceiling on the neural score for a URL with no brand/lexical red flags. 0.15 hid most neural
-# detections (recall ~23% on recent PhishTank URLs); it is tunable so it can be set from data.
-_CLEAN_CAP = float(os.environ.get("AEGIS_URL_CLEAN_CAP", "0.15"))
+# Ceiling on the neural score for a URL with no brand/lexical red flags on a domain we have no
+# reputation for. 0.15 hid most neural detections (recall ~23% on recent PhishTank URLs); 0.6 keeps
+# them as a "suspicious" warning (recall ~91%, ~6% false positives on unfamiliar benign URLs).
+# Measured, see docs/URL_MODEL_EVALUATION.md.
+_CLEAN_CAP = float(os.environ.get("AEGIS_URL_CLEAN_CAP", "0.6"))
+# The model was trained mostly on long deep-link URLs, so it over-scores short pages of famous sites
+# (office.com, accounts.google.com/signin). A domain that really belongs to a known service is capped
+# low unless it carries a structural red flag (raw IP, @ trick, odd port...).
+_OFFICIAL_CAP = float(os.environ.get("AEGIS_URL_OFFICIAL_CAP", "0.2"))
 
 META_CLASSIFIER = None
 if os.path.exists(META_CLASSIFIER_PATH):
@@ -154,8 +160,17 @@ def fuse_url_intelligence(
     elif lexical_risk > 0:
         fused_prob = min(1.0, fused_prob + (lexical_risk * 0.20))
         
-    # A URL with ZERO brand impersonation and ZERO lexical anomalies cannot assert high phishing risk purely on raw neural output.
-    if is_structurally_clean:
+    try:
+        from urllib.parse import urlparse as _up
+        _host = (_up(url if "://" in str(url) else "http://" + str(url)).hostname or "")
+    except Exception:
+        _host = ""
+    _structural = [a for a in anomalies if not a.startswith("contains_")]
+    if _is_official_host(_host) and not _structural:
+        # genuine domain of a known service: login/signin wording in the path is normal there
+        fused_prob = min(fused_prob, _OFFICIAL_CAP)
+    elif is_structurally_clean:
+        # A URL with ZERO brand impersonation and ZERO lexical anomalies cannot assert high phishing risk purely on raw neural output.
         fused_prob = min(fused_prob, _CLEAN_CAP)
 
     calibration = calibrate_probability(fused_prob)

@@ -942,6 +942,9 @@ def _image_findings(rich: Dict[str, Any]) -> List[str]:
             f"the words written inside the image read like a typical phishing message (our text model rated them "
             f"{round(float(ie['ocr_text_probability']) * 100)}% likely)"
         )
+    for qr in (ie.get("qr_codes") or [])[:2]:
+        if (qr.get("risk") or 0) >= 50:
+            out.append(f"the image contains a QR code that leads to {qr.get('payload', 'a hidden address')} - our scanner rated that destination {round(qr['risk'])}% risky, and a QR code hides where it goes until you open it")
     for emb in (ie.get("embedded_urls") or [])[:2]:
         if (emb.get("risk") or 0) >= 50:
             reason = (emb.get("signals") or [""])[0]

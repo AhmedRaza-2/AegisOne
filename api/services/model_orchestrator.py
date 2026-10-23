@@ -41,6 +41,10 @@ from api.config import (
 )
 
 FAST_SCAN_MODE = os.environ.get("AEGIS_FAST_SCAN_MODE", "1") != "0"
+# URLs go through the neural pipeline by default. The rules-only shortcut scored worse than chance
+# on recent PhishTank URLs (AUC 0.19 vs 0.93, recall 1% vs 91%); set AEGIS_FAST_URL_MODE=1 only
+# for load testing.
+FAST_URL_MODE = os.environ.get("AEGIS_FAST_URL_MODE", "0") != "0"
 logger = logging.getLogger("aegisone.orchestrator")
 
 # GLOBALS
@@ -761,7 +765,7 @@ def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
 
 
 def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[str] = None) -> dict:
-    if FAST_SCAN_MODE:
+    if FAST_URL_MODE:
         fast = _heuristic_url_result(url)
         if fast is not None:
             return fast

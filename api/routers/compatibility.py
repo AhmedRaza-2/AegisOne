@@ -636,6 +636,7 @@ async def api_image(request: Request, file: UploadFile = File(...), source_url: 
     detailed = await route_image_input_detailed(data)
     results = detailed["results"]
     ocr_text = detailed["ocr_text"]
+    qr_payloads = detailed.get("qr_payloads") or []
 
     overall_prob = 0.0
     predictions = []
@@ -666,12 +667,19 @@ async def api_image(request: Request, file: UploadFile = File(...), source_url: 
             "risk": round(float(ur.get("phishing_probability", 0) or 0) * 100),
             "signals": [str(s) for s in ((ur.get("evidence") or {}).get("signals") or [])][:3],
         })
+    qr_scored = [
+        {"payload": redact_text(p)[:200],
+         "risk": round(max((float(r.get("phishing_probability", 0) or 0) for r in results
+                            if r.get("from_qr") and r.get("qr_payload") == p[:300]), default=0.0) * 100)}
+        for p in qr_payloads
+    ]
     ocr_lures = find_lure_phrases(ocr_text)
     ocr_text_prob = max((float(r.get("phishing_probability", 0) or 0) for r in ocr_text_results), default=0.0)
     visual_prob = float(visual.get("phishing_probability", 0) or 0)
     driver = max(
         [("the image itself", visual_prob), ("the text written in it", ocr_text_prob)]
-        + [("a link shown in it", e["risk"] / 100.0) for e in embedded],
+        + [("a link shown in it", e["risk"] / 100.0) for e in embedded]
+        + [("a QR code in it", q["risk"] / 100.0) for q in qr_scored],
         key=lambda x: x[1],
     )[0]
     page_url = _safe_http_url(source_url)
@@ -684,6 +692,7 @@ async def api_image(request: Request, file: UploadFile = File(...), source_url: 
         "ocr_lures": ocr_lures,
         "ocr_text_probability": round(ocr_text_prob, 3),
         "embedded_urls": embedded,
+        "qr_codes": qr_scored,
         "driver": driver,
     }
     rich = {

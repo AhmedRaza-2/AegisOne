@@ -121,7 +121,9 @@ export function applyDangerBadges(dangerUrls) {
 // links in the viewport are scanned first, and work continues in batches until the page is
 // covered. Each distinct URL is sent at most once.
 const BATCH_SIZE = 40;
-const MAX_LINKS_PER_PAGE = 600;
+const MAX_LINKS_PER_PAGE = 300;
+// Links that differ only by query string / fragment (tracking ids, anchors) are one destination.
+const _key = (href) => { try { const u = new URL(href); return u.origin + u.pathname; } catch (_) { return href; } };
 const _scannedHref = new Map();   // href -> score (null while in flight / failed)
 let _scanTimer = null;
 let _scanRunning = false;
@@ -138,23 +140,25 @@ async function _runFullLinkScan() {
   try {
     do {
       _rescanQueued = false;
-      const links = collectLinks().filter(l => !isInternalURL(l.href) && !_scannedHref.has(l.href));
+      const links = collectLinks().filter(l => !isInternalURL(l.href) && !_scannedHref.has(_key(l.href)));
       if (!links.length) break;
 
       // Viewport links first, then document order.
       const visible = links.filter(l => isInViewport(l.el));
       const rest = links.filter(l => !isInViewport(l.el));
       const ordered = [...visible, ...rest];
-      const pending = [...new Set(ordered.map(l => l.href))];
+      const byKey = new Map();
+      for (const l of ordered) if (!byKey.has(_key(l.href))) byKey.set(_key(l.href), l.href);
+      const pending = [...byKey.values()];
 
       for (let i = 0; i < pending.length && _scannedHref.size < MAX_LINKS_PER_PAGE; i += BATCH_SIZE) {
         const batch = pending.slice(i, i + BATCH_SIZE);
-        batch.forEach(h => _scannedHref.set(h, null));
+        batch.forEach(h => _scannedHref.set(_key(h), null));
         let res = null;
         try {
           res = await chrome.runtime.sendMessage({ type: "SEARCH_SCAN", urls: batch });
         } catch (_) { return; } // extension context invalidated
-        (res?.results || []).forEach(r => { if (r?.url) _scannedHref.set(r.url, r.score ?? 0); });
+        (res?.results || []).forEach(r => { if (r?.url) _scannedHref.set(_key(r.url), r.score ?? 0); });
         _applyBadgesFromResults();
       }
     } while (_rescanQueued);
@@ -165,7 +169,7 @@ async function _runFullLinkScan() {
 
 function _applyBadgesFromResults() {
   for (const { el, href } of collectLinks()) {
-    const score = _scannedHref.get(href);
+    const score = _scannedHref.get(_key(href));
     if (score != null && score >= THRESHOLD.HIGHLIGHT * 100) {
       el.dataset.aegisDanger = "true";
       _attachBadge(el, "danger");

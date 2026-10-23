@@ -74,6 +74,49 @@ PROTECTED_BRANDS = {
     "yahoo": [],
 }
 
+# Registrable domains that genuinely BELONG to a protected brand (or to a very widely used,
+# legitimate service). The matcher below is substring/similarity based, so without this list the
+# real "login.microsoftonline.com", "office.com" or "accounts.google.com" were reported as
+# impersonating Microsoft/Google. Subdomains of these are official too, EXCEPT user-content hosts
+# where anyone can publish a page (see USER_CONTENT_HOSTS).
+OFFICIAL_DOMAINS = {
+    "google.com", "gmail.com", "googlemail.com", "gstatic.com", "googleapis.com", "googleusercontent.com", "youtube.com", "youtu.be", "goo.gl",
+    "microsoft.com", "microsoftonline.com", "office.com", "office365.com", "live.com", "outlook.com", "onedrive.com",
+    "sharepoint.com", "windows.com", "bing.com", "msn.com", "skype.com", "azure.com", "azureedge.net", "microsoft365.com",
+    "apple.com", "icloud.com", "amazon.com", "amazon.co.uk", "amazon.de", "amazonaws.com", "aws.amazon.com", "amazon.in", "daraz.pk",
+    "paypal.com", "paypal.me", "stripe.com", "github.com", "githubusercontent.com", "openai.com", "chatgpt.com", "zoom.us",
+    "facebook.com", "fb.com", "messenger.com", "instagram.com", "whatsapp.com", "whatsapp.net", "linkedin.com", "twitter.com", "x.com",
+    "discord.com", "discord.gg", "slack.com", "telegram.org", "t.me", "tiktok.com", "snapchat.com", "twitch.tv", "spotify.com",
+    "netflix.com", "hulu.com", "disneyplus.com", "hbomax.com", "dropbox.com", "trello.com", "asana.com",
+    "dhl.com", "fedex.com", "ups.com", "usps.com", "steampowered.com", "steamcommunity.com", "epicgames.com", "roblox.com",
+    "comcast.com", "xfinity.com", "yahoo.com", "wellsfargo.com", "bankofamerica.com", "chase.com", "citi.com", "citibank.com",
+    "capitalone.com", "hsbc.com", "barclays.co.uk", "americanexpress.com", "coinbase.com", "binance.com", "kraken.com", "kucoin.com",
+    "opensea.io", "metamask.io", "trustwallet.com", "blockchain.com",
+    # Pakistan: banks, telecom, government, universities
+    "ubl.com.pk", "hbl.com", "mcb.com.pk", "meezanbank.com", "bankalfalah.com", "allied.com.pk", "abl.com", "nbp.com.pk", "jazzcash.com.pk",
+    "easypaisa.com.pk", "jazz.com.pk", "ufone.com", "zong.com.pk", "telenor.com.pk", "nadra.gov.pk", "fbr.gov.pk", "au.edu.pk",
+    "wikipedia.org", "wikimedia.org", "mozilla.org", "cloudflare.com", "stackoverflow.com", "reddit.com", "medium.com",
+}
+# Subdomains of official domains where ANY member of the public can host content - these are
+# NOT treated as the brand's own site.
+USER_CONTENT_HOSTS = (
+    "sites.google.com", "docs.google.com", "forms.gle", "storage.googleapis.com", "firebaseapp.com", "web.app",
+    "blogspot.com", "github.io", "githubusercontent.com", "pages.dev", "workers.dev", "s3.amazonaws.com",
+    "sharepoint.com", "onedrive.live.com", "1drv.ms", "azurewebsites.net", "windows.net",
+    "weebly.com", "wixsite.com", "herokuapp.com", "netlify.app", "vercel.app", "glitch.me",
+)
+
+
+def _is_official_host(host: str) -> bool:
+    host = (host or "").lower().strip(".")
+    if not host:
+        return False
+    for u in USER_CONTENT_HOSTS:
+        if host == u or host.endswith("." + u):
+            return False
+    return any(host == d or host.endswith("." + d) for d in OFFICIAL_DOMAINS)
+
+
 # Homoglyph character mappings
 HOMOGLYPH_MAP = {
     '0': 'o', '1': 'l', 'vv': 'w', 'rn': 'm', 'cl': 'd',
@@ -176,7 +219,13 @@ def check_brand_impersonation(url: str) -> dict:
         domain = parsed.netloc
         if domain.startswith("www."):
             domain = domain[4:]
-            
+
+        # The brand's own site (or another widely used legitimate service) is not an impersonation.
+        _host_only = domain.split("@")[-1].split(":")[0]
+        if _is_official_host(_host_only):
+            return {"matched": False, "matched_brand": None, "score": 0.0, "confidence": 0.0,
+                    "reason": "Official domain of a known service"}
+
         # Strip TLD and ports
         domain_parts = domain.split(':')[0].split('.')
         if len(domain_parts) > 1:
