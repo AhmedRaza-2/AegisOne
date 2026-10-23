@@ -651,6 +651,22 @@ def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool 
         if "http://" in combined_lower or "https://" in combined_lower or "click here" in combined_lower:
             scam_signals.append("link to a verification page")
 
+    # Business e-mail compromise ("CEO fraud"): a request to pay or buy untraceable value, wrapped in
+    # secrecy or urgency, usually with no link at all, so link and wording models both miss it. Needs
+    # BOTH halves, so an ordinary "please approve the invoices" never matches.
+    _pay_ask = any(k in combined_lower for k in [
+        "gift card", "gift cards", "itunes card", "google play card", "steam card", "wire transfer", "wire the funds",
+        "wire me", "bitcoin", "send me the codes", "scratch off", "change of bank account", "new bank account",
+        "updated bank details", "new banking details",
+    ])
+    _secrecy = any(k in combined_lower for k in [
+        "confidential", "keep this between", "keep it quiet", "don't tell", "do not tell", "can't talk", "cannot talk",
+        "in a meeting", "reply only to me", "reply to me only", "do not call", "don't call", "urgent", "right away", "asap",
+        "before the end of the day", "today",
+    ])
+    if _pay_ask and _secrecy:
+        scam_signals.append("payment request with secrecy or urgency (CEO-fraud pattern)")
+
     # Dynamic probability scaling based on neural inference + scam signals
     if len(scam_signals) > 0:
         base_boost = 0.52 + (len(scam_signals) * 0.12)

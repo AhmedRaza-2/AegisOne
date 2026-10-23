@@ -483,6 +483,12 @@ async def api_text(request: Request, text: str = Form(...), source_url: str = Fo
              ", ".join(lures[:2]))
     return result
 
+_ACTION_WORDS = _re_mod.compile(
+    r"sign in|log in|login|verify|confirm|refund|claim|payment|pay now|invoice|password|shared with you|"
+    r"view (?:the )?(?:document|recording|invoice|file)|update your|unlock|re-?activate|within \d+ hours|expires?",
+    _re_mod.I)
+
+
 @router.post("/analyze/email")
 async def api_email(
     request: Request,
@@ -536,6 +542,7 @@ async def api_email(
     # Scam-style phrases are matched now, while the body is in memory, so the explanation can
     # quote them. Only the matched phrases from a fixed list are kept - never the text itself.
     email_lures = find_lure_phrases(f"{subject}\n{body}")
+    raw_body_for_action = body[:6000]
 
     # Each link in the body is scored by the URL pipeline (bounded: 8 links, 6 s). Only the scores
     # are kept; the addresses are returned to the caller and never stored.
@@ -558,8 +565,10 @@ async def api_email(
 
     text_score = result.get("phishing_probability", 0) * 100
     link_max = max((i["score"] for i in link_items), default=0)
-    # A link only lifts the verdict when the URL pipeline is confident (newsletters are full of tracking links).
-    score = max(text_score, link_max) if link_max >= 75 else text_score
+    # A link lifts the verdict when the URL pipeline is confident (newsletters are full of tracking links), or when
+    # it is moderately suspicious AND the message asks the reader to sign in / verify / pay / claim something.
+    asks_for_action = bool(_ACTION_WORDS.search(subject + " " + raw_body_for_action)) or bool(email_lures) or bool(result.get("scam_signals"))
+    score = max(text_score, link_max) if (link_max >= 75 or (link_max >= 55 and asks_for_action)) else text_score
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
     verdict = "phishing" if score >= 75 else "suspicious" if score >= 35 else "safe"
     severity = "critical" if score >= 90 else "high" if score >= 75 else "medium" if score >= 50 else "low"
