@@ -11,6 +11,9 @@
  *    Opening an email or re-navigating reuses cached state without re-scanning.
  */
 
+import { isKnownSafeHost } from "../../utils/trusted-domains.js";
+
+
 export function initEmailGuard() {
   const isGmail = location.hostname.includes("mail.google.com");
   const isOutlook = location.hostname.includes("outlook.") || location.hostname.includes("office.com");
@@ -141,7 +144,7 @@ export function initEmailGuard() {
       try {
         const parsed = new URL(url);
         const host = parsed.hostname.toLowerCase();
-        if (host.includes("google.com") || host.includes("gmail.com") || host.includes("googleusercontent.com") || host.includes("gstatic.com") || host.includes("github.com") || host.includes("linkedin.com")) {
+        if (isKnownSafeHost(host)) {
           continue;
         }
         if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) {

@@ -13,6 +13,7 @@
 import { MSG, THRESHOLD, API_BASE, getApiBaseUrl } from "../../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../../utils/trusted-domains.js";
 import { authFetch } from "../../utils/auth.js";
+import { collectLinks, isInViewport } from "./dom-walk.js";
 
 const _badged = new WeakSet();
 
@@ -37,14 +38,28 @@ export function initLinkScanner() {
   document.addEventListener("focusout", _onOut);
   document.addEventListener("click", _onLinkClick, { capture: true });
 
-  // Watch for new links (SPAs)
+  // Watch for new links (SPAs, infinite scroll, links whose href is rewritten after load)
   const observer = new MutationObserver(() => _scanVisibleLinks());
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["href"] });
+  // Lazy-rendered content that arrives without a DOM mutation we can see (shadow DOM, late frames)
+  window.addEventListener("scroll", _scanVisibleLinks, { passive: true });
+  window.addEventListener("load", _scanVisibleLinks);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) _scanVisibleLinks(); });
+}
+
+// Event target is retargeted to the shadow host for links inside web components; the composed
+// path still contains the real anchor.
+function _anchorFromEvent(e) {
+  const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+  for (const n of path) {
+    if (n && n.nodeType === 1 && typeof n.matches === "function" && n.matches("a[href], area[href]")) return n;
+  }
+  return e.target?.closest ? e.target.closest("a[href]") : null;
 }
 
 // ── Click intercept ────────────────────────────────────
 async function _onLinkClick(e) {
-  const a = e.target.closest("a[href]");
+  const a = _anchorFromEvent(e);
   if (!a) return;
 
   try {
@@ -100,49 +115,68 @@ export function applyDangerBadges(dangerUrls) {
   });
 }
 
-// ── Visible link batch scan (badges from cache) ────────
+// ── Full-page link scan (every link, once) ─────────────
+// Previously only the first 40 links on the page were ever scanned and links inside shadow DOM were
+// invisible. Now: every http(s) link (including shadow roots / same-origin iframes) is queued,
+// links in the viewport are scanned first, and work continues in batches until the page is
+// covered. Each distinct URL is sent at most once.
+const BATCH_SIZE = 40;
+const MAX_LINKS_PER_PAGE = 600;
+const _scannedHref = new Map();   // href -> score (null while in flight / failed)
 let _scanTimer = null;
+let _scanRunning = false;
+let _rescanQueued = false;
+
 function _scanVisibleLinks() {
   clearTimeout(_scanTimer);
-  _scanTimer = setTimeout(async () => {
-    const urls = [...new Set(
-      [...document.querySelectorAll("a[href]")]
-        .filter(a => !_badged.has(a))
-        .map(a => { try { return new URL(a.href, location.href).href; } catch { return ""; } })
-        .filter(u => u.startsWith("http") && !isInternalURL(u))
-    )].slice(0, 40);
+  _scanTimer = setTimeout(_runFullLinkScan, 600);
+}
 
-    if (!urls.length) return;
+async function _runFullLinkScan() {
+  if (_scanRunning) { _rescanQueued = true; return; }
+  _scanRunning = true;
+  try {
+    do {
+      _rescanQueued = false;
+      const links = collectLinks().filter(l => !isInternalURL(l.href) && !_scannedHref.has(l.href));
+      if (!links.length) break;
 
-    let res = null;
-    try {
-      res = await chrome.runtime.sendMessage({ type: "SEARCH_SCAN", urls });
-    } catch (e) {
-      // Catch "Extension context invalidated" silently
-      return;
+      // Viewport links first, then document order.
+      const visible = links.filter(l => isInViewport(l.el));
+      const rest = links.filter(l => !isInViewport(l.el));
+      const ordered = [...visible, ...rest];
+      const pending = [...new Set(ordered.map(l => l.href))];
+
+      for (let i = 0; i < pending.length && _scannedHref.size < MAX_LINKS_PER_PAGE; i += BATCH_SIZE) {
+        const batch = pending.slice(i, i + BATCH_SIZE);
+        batch.forEach(h => _scannedHref.set(h, null));
+        let res = null;
+        try {
+          res = await chrome.runtime.sendMessage({ type: "SEARCH_SCAN", urls: batch });
+        } catch (_) { return; } // extension context invalidated
+        (res?.results || []).forEach(r => { if (r?.url) _scannedHref.set(r.url, r.score ?? 0); });
+        _applyBadgesFromResults();
+      }
+    } while (_rescanQueued);
+  } finally {
+    _scanRunning = false;
+  }
+}
+
+function _applyBadgesFromResults() {
+  for (const { el, href } of collectLinks()) {
+    const score = _scannedHref.get(href);
+    if (score != null && score >= THRESHOLD.HIGHLIGHT * 100) {
+      el.dataset.aegisDanger = "true";
+      _attachBadge(el, "danger");
     }
-    if (!res?.results) return;
-
-    const riskMap = new Map();
-    res.results.forEach(r => { if (r?.url) riskMap.set(r.url, r.score ?? 0); });
-
-    document.querySelectorAll("a[href]").forEach(a => {
-      try {
-        const href = new URL(a.href, location.href).href;
-        const score = riskMap.get(href);
-        if (score != null && score >= THRESHOLD.HIGHLIGHT * 100) {
-          a.dataset.aegisDanger = "true";
-          _attachBadge(a, "danger");
-        }
-      } catch (_) { }
-    });
-  }, 600);
+  }
 }
 
 // ── Hover handlers ────────────────────────────────────
 function _onHover(e) {
   // Only trigger hover preview for links (<a>), NOT for images automatically
-  const a = e.target.closest("a[href]");
+  const a = _anchorFromEvent(e);
   if (a) {
     try {
       const url = new URL(a.href, location.href).href;

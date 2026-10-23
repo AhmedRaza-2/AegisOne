@@ -28,6 +28,8 @@
   let _currentScanData = null;
   let _deepScanTimer = null;
   let _deepScanInFlight = false;
+  let _qad = (sel) => [...document.querySelectorAll(sel)]; // deep (shadow DOM / same-origin iframe) query, set in init()
+  let _isKnownSafeHost = () => false; // set once utils/trusted-domains.js has loaded in init()
 
   function safeSendMessage(msg) {
     if (typeof chrome === "undefined" || !chrome?.runtime?.id) {
@@ -78,6 +80,8 @@
         { initPopupGuard },
         { initImageGuard },
         { isAegisServerUrl },
+        { isKnownSafeHost },
+        { queryAllDeep },
       ] = await Promise.all([
         import(chrome.runtime.getURL("utils/constants.js")),  // imports API_BASE, DEBUG_MODE, etc.
         import(chrome.runtime.getURL("content/widget.js")),
@@ -91,7 +95,11 @@
         import(chrome.runtime.getURL("content/plugins/popup-guard.js")),
         import(chrome.runtime.getURL("content/plugins/image-guard.js")),
         import(chrome.runtime.getURL("utils/auth.js")),
+        import(chrome.runtime.getURL("utils/trusted-domains.js")),
+        import(chrome.runtime.getURL("content/dom-walk.js")),
       ]);
+      _isKnownSafeHost = isKnownSafeHost;
+      _qad = (sel) => queryAllDeep(sel);
 
       const policy = await chrome.storage.local.get([STORE_KEYS.ALLOWLIST]);
       const allowlist = Array.isArray(policy[STORE_KEYS.ALLOWLIST]) ? policy[STORE_KEYS.ALLOWLIST] : [];
@@ -392,7 +400,7 @@
           }
 
           case "GET_PAGE_STATE": {
-            const linksCount = document.querySelectorAll("a[href]").length;
+            const linksCount = _qad("a[href]").length;
             const imagesCount = document.images ? document.images.length : 0;
             const formsCount = document.forms ? document.forms.length : 0;
             return sendResponse({
@@ -563,11 +571,11 @@
         try {
           const bodyText = document.body ? document.body.innerText?.slice(0, 4000) : "";
           const h1Text = Array.from(document.querySelectorAll("h1, h2, .hP")).map(h => h.innerText?.trim()).filter(Boolean).join(" ");
-          const linksCount = document.querySelectorAll("a[href]").length;
+          const linksCount = _qad("a[href]").length;
           const imagesCount = document.querySelectorAll("img[src]").length;
 
           return {
-            login_form_found: document.querySelectorAll('form input[type="password"]').length > 0,
+            login_form_found: _qad('input[type="password"]').length > 0,
             brand_impersonation: null,
             brand_impersonation_score: null,
             brand_impersonation_role: null,
@@ -661,20 +669,15 @@
     // Known-safe hosts: search engines + major platforms.
     // Their pages legitimately use eval(), fromCharCode(), tiny iframes, and search forms.
     // Suppress behavioural signals on these hosts to avoid false positives.
-    const SAFE_HOSTS = [
-      "google.", "bing.", "duckduckgo.", "yahoo.", "baidu.",
-      "youtube.com", "facebook.com", "instagram.com", "twitter.com", "x.com",
-      "linkedin.com", "github.com", "microsoft.com", "apple.com", "amazon.com",
-      "reddit.com", "wikipedia.org"
-    ];
-    const isKnownSafeHost = SAFE_HOSTS.some(h => hostname.includes(h));
+    // Exact-domain match (a substring test would trust "microsoft.com.evil.xyz").
+    const isKnownSafeHost = _isKnownSafeHost(hostname);
 
-    const scripts  = [...document.querySelectorAll("script")];
-    const iframes  = [...document.querySelectorAll("iframe")];
-    const forms    = [...document.querySelectorAll("form")];
-    const links    = [...document.querySelectorAll("a[href]")];
-    const images   = [...document.querySelectorAll("img[src]")];
-    const buttons  = [...document.querySelectorAll("button, input[type='button'], input[type='submit']")];
+    const scripts  = _qad("script");
+    const iframes  = _qad("iframe");
+    const forms    = _qad("form");
+    const links    = _qad("a[href]");
+    const images   = _qad("img[src]");
+    const buttons  = _qad("button, input[type='button'], input[type='submit']");
     const metas    = [...document.querySelectorAll("meta")];
 
     // Meta tags
@@ -762,11 +765,15 @@
     if (btn) { btn.textContent = "⏳"; btn.disabled = true; }
 
     const pageText = document.body?.innerText?.slice(0, 3000) || "";
+    // Deduplicate by URL, keep external destinations first (those are the risky ones), cap at 100.
     const allLinks = [...new Set(
-      [...document.querySelectorAll("a[href]")]
-        .map(a => { try { return new URL(a.href, location.href).href; } catch { return ""; } })
+      _qad("a[href], area[href]")
+        .map(a => { try { return new URL(a.getAttribute("href"), location.href).href; } catch { return ""; } })
         .filter(u => u.startsWith("http"))
-    )];
+    )].sort((a, b) => {
+      const ext = u => { try { return new URL(u).hostname !== location.hostname ? 0 : 1; } catch { return 1; } };
+      return ext(a) - ext(b);
+    }).slice(0, 100);
 
     // Send to background — DEEP_PAGE_SCAN skips images intentionally
     await safeSendMessage({
@@ -1079,17 +1086,16 @@
     window.__AEGIS_DOM_OBSERVER__ = true;
 
     const hostname = location.hostname.toLowerCase();
-    // Known-safe hosts don't need DOM mutation scanning
-    const SAFE_HOSTS = ["google.", "bing.", "youtube.com", "facebook.com", "github.com", "microsoft.com"];
-    if (SAFE_HOSTS.some(h => hostname.includes(h))) return;
+    // Known-safe hosts don't need DOM mutation scanning (exact-domain match only)
+    if (_isKnownSafeHost(hostname)) return;
 
     let _domScanTimer = null;
-    let _injectedFormCount = document.querySelectorAll('input[type="password"]').length;
-    let _injectedIframeCount = document.querySelectorAll('iframe').length;
+    let _injectedFormCount = _qad('input[type="password"]').length;
+    let _injectedIframeCount = _qad('iframe').length;
 
     const observer = new MutationObserver(debounce(() => {
-      const newPasswordFields = document.querySelectorAll('input[type="password"]').length;
-      const newIframes = document.querySelectorAll('iframe').length;
+      const newPasswordFields = _qad('input[type="password"]').length;
+      const newIframes = _qad('iframe').length;
 
       const newFormInjected = newPasswordFields > _injectedFormCount;
       const newIframeInjected = newIframes > _injectedIframeCount;

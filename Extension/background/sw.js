@@ -343,6 +343,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
+        // ── Risky credential form inside an iframe (reported by content/frame-guard.js) ──
+        case "FRAME_RISK": {
+          const tabId = sender.tab?.id;
+          if (tabId != null && (msg.score || 0) >= THRESHOLD.WARNING * 100 && msg.hasPassword) {
+            const current = getTabCache(tabId) || {};
+            setTabCache(tabId, { ...current, frame_risk: { url: msg.frameUrl, score: msg.score, at: Date.now() } });
+            chrome.tabs.sendMessage(tabId, {
+              type: MSG.SHOW_WARNING,
+              score: msg.score,
+              verdict: msg.score >= THRESHOLD.DANGER * 100 ? "danger" : "warning",
+              threat_type: msg.threat_type || "credential_harvesting",
+              top_factors: [{ label: `A login form embedded in this page comes from a risky site (${(() => { try { return new URL(msg.frameUrl).hostname; } catch { return "unknown"; } })()})` }, ...(msg.top_factors || [])],
+            }, { frameId: 0 }).catch(() => { });
+          }
+          sendResponse({ ok: true });
+          break;
+        }
+
         // ── Hover URL Scan ────────────────────────────────
         case MSG.SCAN_HOVER_URL: {
           // Use cache if fresh (within HOVER_TTL). Only go to API if cache is missing/stale.
@@ -399,7 +417,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
           const [textRes, urlsRes] = await Promise.allSettled([
             pageText ? scanPageText(pageText, signal, pageUrl) : Promise.resolve(null),
-            scanURLBatch(allLinks.slice(0, 30), 5, signal, pageUrl),
+            scanURLBatch(allLinks.slice(0, 100), 5, signal, pageUrl),
           ]);
 
           const textResult = textRes.status === "fulfilled" ? textRes.value : null;

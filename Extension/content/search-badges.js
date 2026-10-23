@@ -4,6 +4,7 @@
  */
 
 import { MSG } from "../../utils/constants.js";
+import { isSearchEngineHost } from "../../utils/trusted-domains.js";
 
 const SCAN_BATCH_SIZE = 12; // Increased batch size for speed
 const _observedElements = new Set();
@@ -55,9 +56,9 @@ function _detectSearchEngine() {
   if (host.includes("mail.google.com") || host.includes("accounts.google.") || host.includes("drive.google.") || host.includes("docs.google.")) {
     return null;
   }
-  if (host.includes("google.") && (location.pathname.includes("/search") || location.search.includes("q="))) return "google";
-  if (host.includes("bing.") && (location.pathname.includes("/search") || location.search.includes("q="))) return "bing";
-  if (host.includes("duckduckgo.")) return "ddg";
+  if (/(^|\.)google\./.test(host) && isSearchEngineHost(host) && (location.pathname.includes("/search") || location.search.includes("q="))) return "google";
+  if (isSearchEngineHost(host) && /(^|\.)bing\./.test(host) && (location.pathname.includes("/search") || location.search.includes("q="))) return "bing";
+  if (isSearchEngineHost(host) && /(^|\.)duckduckgo\./.test(host)) return "ddg";
   return null;
 }
 
@@ -89,7 +90,7 @@ function _isExternalSearchLink(a, href) {
     // Exclude same-host navigation
     if (u.host === host) return false;
     // Exclude Google internal tools, translate, caches etc
-    if (u.host.includes("google.") && !href.includes("/url?")) return false;
+    if (isSearchEngineHost(u.hostname) && /(^|\.)google\./.test(u.hostname) && !href.includes("/url?")) return false;
   } catch (_) { return false; }
   return true;
 }

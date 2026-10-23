@@ -32,12 +32,23 @@
         "content/main.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/frame-guard.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": [
         "content/widget.js",
+        "content/dom-walk.js",
         "content/search-badges.js",
         "content/link-scanner.js",
         "content/form-guard.js",

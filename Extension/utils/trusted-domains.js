@@ -60,3 +60,30 @@ export function shortURL(url, maxLen = 50) {
     return url.replace(/^https?:\/\//, "").slice(0, maxLen);
   } catch { return url.slice(0, maxLen); }
 }
+
+/**
+ * Exact-domain matching for "known safe" hosts.
+ *
+ * Never use hostname.includes("google.") / includes("microsoft.com") for this: an attacker's
+ * "microsoft.com.login-verify.xyz" or "google.evil.com" contains those strings and would be
+ * treated as the real site, switching protections OFF on the phishing page. A host is only safe
+ * when it IS the domain or a subdomain of it ("login.microsoft.com"), and search engines only
+ * match their real country domains.
+ */
+const _SAFE_EXACT = [
+  "youtube.com", "facebook.com", "instagram.com", "twitter.com", "x.com",
+  "linkedin.com", "github.com", "microsoft.com", "apple.com", "amazon.com",
+  "reddit.com", "wikipedia.org", "gmail.com", "googleusercontent.com", "gstatic.com",
+];
+const _SEARCH_RE = /(^|\.)(google|bing|yahoo|baidu|duckduckgo)\.(com|co\.(uk|in|jp|nz|za|id|kr)|com\.(pk|au|br|sg|tr|mx|ar|eg|sa)|de|fr|it|es|nl|ca|jp|in|ru|cn|pk|ae)$/;
+
+export function isSearchEngineHost(host) {
+  return _SEARCH_RE.test(String(host || "").toLowerCase());
+}
+
+export function isKnownSafeHost(host) {
+  const h = String(host || "").toLowerCase().replace(/\.$/, "");
+  if (!h) return false;
+  if (isSearchEngineHost(h)) return true;
+  return _SAFE_EXACT.some(d => h === d || h.endsWith("." + d));
+}

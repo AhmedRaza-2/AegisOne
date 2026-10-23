@@ -18,6 +18,10 @@ from AIML.url.calibration import calibrate_probability
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 META_CLASSIFIER_PATH = os.path.join(BASE_DIR, "meta_classifier.pkl")
 
+# Ceiling on the neural score for a URL with no brand/lexical red flags. 0.15 hid most neural
+# detections (recall ~23% on recent PhishTank URLs); it is tunable so it can be set from data.
+_CLEAN_CAP = float(os.environ.get("AEGIS_URL_CLEAN_CAP", "0.15"))
+
 META_CLASSIFIER = None
 if os.path.exists(META_CLASSIFIER_PATH):
     try:
@@ -152,7 +156,7 @@ def fuse_url_intelligence(
         
     # A URL with ZERO brand impersonation and ZERO lexical anomalies cannot assert high phishing risk purely on raw neural output.
     if is_structurally_clean:
-        fused_prob = min(fused_prob, 0.15)
+        fused_prob = min(fused_prob, _CLEAN_CAP)
 
     calibration = calibrate_probability(fused_prob)
     risk_category = calibration["category"]

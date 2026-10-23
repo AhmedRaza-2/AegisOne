@@ -183,6 +183,13 @@ def load_all_models():
             # Store sanitize_url if available
             if hasattr(mod, "sanitize_url"):
                 MODELS["url"]["sanitize"] = mod.sanitize_url
+            # best_v7.pt was trained on structuralize_url() text + canonicalized numeric features.
+            # Serving must reproduce that exactly (AEGIS_URL_PREP=raw only for A/B experiments).
+            if "v7" in url_pt.name.lower() and os.environ.get("AEGIS_URL_PREP", "auto") != "raw":
+                from AIML.url import v7_features as _v7
+                MODELS["url"]["prep"] = _v7.structuralize_url
+                MODELS["url"]["extract_features"] = _v7.extract_url_numerical_features
+                logger.info("  URL AI: using v7 training-identical preprocessing")
             logger.info(f"  ✓ URL AI loaded from {url_pt.name} (base: {model_name})")
             loaded_url = True
             break
@@ -811,9 +818,10 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
     m = MODELS["url"]
     sanitize = m.get("sanitize", lambda x: x)
     clean_url = sanitize(url)
+    model_text = m["prep"](clean_url) if "prep" in m else clean_url
 
     url_tokenizer = m.get("tokenizer", TOKENIZER)
-    enc = url_tokenizer(clean_url, add_special_tokens=True, max_length=128,
+    enc = url_tokenizer(model_text, add_special_tokens=True, max_length=128,
                         padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
                         
     # Model forward pass expects original 10 features

@@ -8,6 +8,8 @@
  *  - Form action domain mismatch vs. current domain
  *  - Mismatched/hidden action URL scanning
  */
+import { isSearchEngineHost } from "../utils/trusted-domains.js";
+import { queryAllDeep } from "./dom-walk.js";
 import { MSG } from "../../utils/constants.js";
 
 let _currentPageRisk = 0;
@@ -69,12 +71,12 @@ export function checkBrandImpersonation() {
   const hostname = window.location.hostname.toLowerCase();
 
   // Skip search engines
-  if (hostname.includes("google.") || hostname.includes("bing.") || hostname.includes("duckduckgo.")) {
+  if (isSearchEngineHost(hostname)) {
     return null;
   }
 
   // Require a real login-like form before we even try brand impersonation.
-  const passwordInputs = [...document.querySelectorAll('input[type="password"]')];
+  const passwordInputs = queryAllDeep('input[type="password"]');
   if (passwordInputs.length === 0) return null;
 
   const loginForms = passwordInputs
@@ -220,10 +222,10 @@ export function setCurrentRisk(score) {
  * Returns features for the risk engine.
  */
 function _analyzePageForms() {
-  const passwordInputs = document.querySelectorAll('input[type="password"]');
-  const emailInputs = document.querySelectorAll('input[type="email"], input[name*="email"], input[name*="user"], input[type="text"]');
-  const forms = document.querySelectorAll("form");
-  const buttons = document.querySelectorAll("button, input[type='submit'], input[type='button']");
+  const passwordInputs = queryAllDeep('input[type="password"]');
+  const emailInputs = queryAllDeep('input[type="email"], input[name*="email"], input[name*="user"], input[type="text"]');
+  const forms = queryAllDeep("form");
+  const buttons = queryAllDeep("button, input[type='submit'], input[type='button']");
 
   let login_form_found = false;
   let form_count = forms.length;
@@ -356,11 +358,11 @@ function _setupSubmitInterceptors() {
     }, { capture: true });
   }
 
-  document.querySelectorAll("form").forEach(attachToForm);
+  queryAllDeep("form").forEach(attachToForm);
 
   // Watch for new forms
   const observer = new MutationObserver(() => {
-    document.querySelectorAll("form").forEach(attachToForm);
+    queryAllDeep("form").forEach(attachToForm);
   });
   observer.observe(document.body, { childList: true, subtree: true });
 }
