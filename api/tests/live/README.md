@@ -10,3 +10,10 @@ PYTHONPATH=. python api/tests/live/live_incident_response.py    # report -> back
 PYTHONPATH=. python api/tests/live/live_endpoint_smoke.py       # every /user/* and admin endpoint answers 200
 ```
 Each prints PASS/FAIL lines and a final ALL PASS.
+
+More checks:
+```
+PYTHONPATH=. python api/tests/live/live_awareness_integrations.py   # simulation, training, API keys, webhooks (49 checks)
+PYTHONPATH=. python api/tests/live/live_email_components.py         # email wording/link components regression guard
+PYTHONPATH=. python api/tests/live/live_model_hub.py                # improved-weights loop; see the environment in its header (slow the first time)
+```
