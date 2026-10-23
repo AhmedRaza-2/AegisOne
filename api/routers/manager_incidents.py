@@ -24,6 +24,7 @@ from api.database.models import User, Incident, IncidentReport, AuditLog, Websit
 from api.database.schemas import IncidentResponse, ManagerTriageRequest
 from api.auth.roles import Role, require_role
 from api.services.incident_view import redact_incident, redact_incident_report
+from api.services.alerts import raise_alert, fire_and_forget
 from api.services.xai_engine import build_grounded_findings
 from pydantic import BaseModel, Field
 
@@ -121,6 +122,12 @@ async def escalate_employee(
         result="success", ip_address="127.0.0.1",
     ))
     await db.commit()
+    fire_and_forget(raise_alert(
+        org_id, kind="incident_escalated", severity="critical" if priority == "Critical" else "high",
+        title=f"{priority} escalation: {emp.full_name or emp.email}",
+        body=f"{current_user.full_name or current_user.email} escalated an employee to the admin queue.\n{payload.notes[:300]}",
+        link="/dashboard/admin/incidents", dedupe_key=f"esc:{inc.incident_id}",
+        event_payload={"incident_id": inc.incident_id}))
     return {"status": "success", "incident_id": inc.incident_id, "priority": priority}
 
 
@@ -378,6 +385,15 @@ async def triage_incident(
     db.add(audit_entry)
 
     await db.commit()
+
+    if action == "escalate":
+        fire_and_forget(raise_alert(
+            inc.organization_id or "org_default", kind="incident_escalated",
+            severity="critical" if inc.severity == "critical" else "high",
+            title=f"Incident {inc.incident_id or inc.id} escalated",
+            body=f"{current_user.full_name or current_user.email} escalated a {inc.severity} incident ({inc.detection_event_ref or 'no target'}).\n{(payload.notes or '')[:300]}",
+            link="/dashboard/admin/incidents", dedupe_key=f"esc:{inc.incident_id}",
+            event_payload={"incident_id": inc.incident_id}))
 
     return {
         "status": "success",

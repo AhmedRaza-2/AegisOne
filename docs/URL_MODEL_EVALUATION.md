@@ -8,7 +8,7 @@ realistic login/deep-link paths. Threshold 0.5 unless stated.
 | Configuration | ROC-AUC | PhishTank-2026 recall | Benign FPR | Famous-site FPs |
 |---|---|---|---|---|
 | **Before** - rules-only shortcut (`AEGIS_FAST_SCAN_MODE=1` was the default) | 0.19 | 1.7% | 2.3% | n/a |
-| Neural pipeline, raw URL as model input (train/serve mismatch) | 0.78 | 20.7% | 6.7% | 5 / 47 |
+| Neural pipeline, raw URL as model input (train/serve mismatch) | 0.78 | 20.7% | 6.7% | not measured |
 | Neural pipeline, training-identical v7 input, old 0.15 score ceiling | 0.93 | 23.3% | 5.3% | 5 / 47 |
 | **Now** - v7 input, 0.6 ceiling for unknown domains, 0.2 for official domains | 0.93 | **90.7%** | 6.3% | **0 / 47** |
 

@@ -21,6 +21,7 @@ from api.database.models import User, Incident, IncidentReport, AuditLog
 from api.database.schemas import EmployeeReportCreate, IncidentReportResponse
 from api.dependencies import get_current_user
 from api.services.evidence import build_report_evidence
+from api.services.alerts import raise_alert, fire_and_forget
 
 logger = logging.getLogger("aegisone.reports")
 
@@ -67,7 +68,9 @@ async def submit_report(
         result = await db.execute(query)
         existing_incident = result.scalars().first()
 
+    new_incident = False
     if not existing_incident:
+        new_incident = True
         incident_id = f"INC-{uuid.uuid4().hex[:8].upper()}"
         severity = "high" if (payload.risk_score and payload.risk_score >= 75) else ("medium" if (payload.risk_score and payload.risk_score >= 40) else "low")
         
@@ -124,6 +127,14 @@ async def submit_report(
 
     await db.commit()
     await db.refresh(report)
+
+    if new_incident and existing_incident.severity in ("high", "critical") and payload.report_type != "false_positive":
+        fire_and_forget(raise_alert(
+            org_id, kind="new_incident", severity=existing_incident.severity,
+            title=f"New {existing_incident.severity}-severity incident {existing_incident.incident_id}",
+            body=f"{current_user.full_name or current_user.email} reported: {target_ref[:200]}",
+            link="/dashboard/admin/incidents", dedupe_key=f"new:{existing_incident.incident_id}",
+            event_payload={"incident_id": existing_incident.incident_id}))
 
     logger.info(f"Report {report_id} submitted by {current_user.email} (Org: {org_id})")
     return report

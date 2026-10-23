@@ -372,6 +372,8 @@ class IncidentVerifyRequest(BaseModel):
     decision: str = Field(..., max_length=50, description="FALSE_POSITIVE, FALSE_NEGATIVE, CONFIRMED_PHISHING, BENIGN, INVALID, NEEDS_INVESTIGATION")
     admin_notes: Optional[str] = Field(None, max_length=10000)
     create_training_candidate: bool = True
+    # When the verdict is FALSE_POSITIVE the domain is allowed for the whole organization (not just the reporter).
+    allowlist_domain: bool = True
 
 
 class IncidentResponse(BaseModel):

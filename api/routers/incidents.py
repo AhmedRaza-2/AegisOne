@@ -25,6 +25,8 @@ from api.database.schemas import (
 )
 from api.auth.roles import Role, require_role
 from api.services.incident_view import redact_incident, redact_incident_report
+from api.services.alerts import raise_alert, fire_and_forget
+from api.services.org_policy import allowlist_domain_for_org
 
 logger = logging.getLogger("aegisone.incidents")
 
@@ -365,6 +367,12 @@ async def verify_incident(
             candidate_created = True
             candidate_id = cand_code
 
+    # A verified false positive teaches the WHOLE organization, not only the person who reported it:
+    # the domain is allowlisted for every employee (and the extension picks it up on its next policy sync).
+    allowlisted = None
+    if decision_upper == "FALSE_POSITIVE" and payload.allowlist_domain:
+        allowlisted = await allowlist_domain_for_org(db, inc, current_user.email)
+
     # Audit Log
     audit_entry = AuditLog(
         organization_id=inc.organization_id or "org_default",
@@ -384,5 +392,6 @@ async def verify_incident(
         "incident_id": inc.incident_id or f"INC-{inc.id}",
         "admin_decision": decision_upper,
         "training_candidate_created": candidate_created,
-        "training_candidate_id": candidate_id
+        "training_candidate_id": candidate_id,
+        "allowlisted_domain": allowlisted,
     }

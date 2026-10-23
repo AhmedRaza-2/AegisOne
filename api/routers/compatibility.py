@@ -1045,6 +1045,14 @@ async def get_current_policy(
     )
 
 
+def _event_host(url) -> str:
+    try:
+        from urllib.parse import urlparse
+        return (urlparse(url if "://" in str(url) else "http://" + str(url)).hostname or "").lower()
+    except Exception:
+        return ""
+
+
 def _auth_org(user) -> str:
     """Tenant comes from the authenticated token, never from a client-supplied org id."""
     return getattr(user, "organization_id", None) or DEFAULT_POLICY["org_id"]
@@ -1064,14 +1072,15 @@ async def add_policy_allowlist(payload: AllowlistRequest, current_user: User = D
     existing = await db.execute(select(Policy).where(
         Policy.organization_id == org_id, Policy.policy_type == "allowlist", Policy.value == domain))
     if not existing.scalars().first():
+        # Policy has no policy_id / name columns - passing them raised TypeError and made this endpoint always 500.
         db.add(Policy(
-            policy_id=str(uuid.uuid4()),
             organization_id=org_id,
-            name=f"Allowlist {domain}",
             policy_type="allowlist",
             value=domain,
+            action="allow",
             enabled=True,
-            priority=10
+            priority=10,
+            created_by=current_user.email,
         ))
         await db.commit()
 
@@ -1213,6 +1222,10 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
         if event.type == "credential_warning":
             db.add(CredentialEvent(
                 credential_event_id=event_id,
+                # tenant and user come from the authenticated token, never from the event body
+                organization_id=auth_org_id or DEFAULT_POLICY["org_id"],
+                user_id=user_id_str,
+                domain=(_event_host(event.url) or str(details.get("domain") or ""))[:255] or None,
                 website_scan_id=details.get("website_scan_id"),
                 form_action=details.get("form_action", ""),
                 credential_type=details.get("credential_type", "unknown"),
@@ -1223,7 +1236,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
             raw_filename = details.get("filename") or event.url or "unknown"
             db.add(DownloadEvent(
                 download_id=event_id,
-                organization_id=event.org_id or DEFAULT_POLICY["org_id"],
+                organization_id=auth_org_id or DEFAULT_POLICY["org_id"],
                 user_id=user_id_str,
                 filename=str(raw_filename)[:500],
                 extension=str(details.get("extension", ""))[:32],
@@ -1237,7 +1250,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
             reason_val = details.get("user_note") or details.get("reason") or ("User reported False Positive" if event.type == "false_positive_reported" else "Threat reported by user")
             db.add(ThreatReport(
                 report_id=event_id,
-                organization_id=event.org_id or DEFAULT_POLICY["org_id"],
+                organization_id=auth_org_id or DEFAULT_POLICY["org_id"],
                 user_id=user_id_str,
                 website=event.url or event.domain or "",
                 reason=reason_val,
@@ -1259,7 +1272,7 @@ async def ingest_security_events(payload: SecurityEventIngestRequest, request: R
             verdict_mapped = "safe" if decision == "allow" else "warning" if decision == "warn" else "danger"
             db.add(WebsiteScan(
                 scan_id=event_id,
-                organization_id=event.org_id or DEFAULT_POLICY["org_id"],
+                organization_id=auth_org_id or DEFAULT_POLICY["org_id"],
                 user_id=user_id_int,
                 device_id=event.device_id,
                 url=event.url or event.domain or "unknown",

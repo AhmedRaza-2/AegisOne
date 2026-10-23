@@ -36,7 +36,7 @@ from api.services.model_orchestrator import load_all_models
 
 from api.routers import (
     auth, scan, admin, health, compatibility, setup, public,
-    communication, email_analytics, reports, incidents, manager_incidents, training, global_learning
+    communication, email_analytics, reports, incidents, incident_response, manager_incidents, training, global_learning, notifications
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -315,7 +315,9 @@ app.include_router(public.router)
 app.include_router(communication.router)
 app.include_router(email_analytics.router)
 app.include_router(reports.router)
+app.include_router(incident_response.router)  # before incidents: its /export must win over /{incident_id}
 app.include_router(incidents.router)
+app.include_router(notifications.router)
 app.include_router(manager_incidents.router)
 app.include_router(training.router)
 app.include_router(global_learning.router)

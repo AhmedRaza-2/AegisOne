@@ -212,6 +212,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [activityOpen, setActivityOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alertUnread, setAlertUnread] = useState(0);
   const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
   const [systemHealth, setSystemHealth] = useState<any>(null);
   const [apiOffline, setApiOffline] = useState(false);
@@ -347,6 +349,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           if (Array.isArray(data)) setInboxMessages(data);
         })
         .catch(() => { });
+      fetch(`${getApiBaseUrl()}/notifications?limit=10`, { headers: { "Authorization": `Bearer ${token}` } })
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => { if (data && Array.isArray(data.notifications)) { setAlerts(data.notifications); setAlertUnread(data.unread || 0); } })
+        .catch(() => { });
     };
     fetchInbox();
     const interval = setInterval(() => {
@@ -402,6 +408,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const unreadCount = inboxMessages.filter(m => !m.is_read && !seenIds.has(m.id)).length;
+  const bellCount = unreadCount + alertUnread;
+  const openAlert = (a: any) => {
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    if (token && !a.is_read) {
+      fetch(`${getApiBaseUrl()}/notifications/${a.id}/read`, { method: "POST", headers: { "Authorization": `Bearer ${token}` } }).catch(() => { });
+      setAlerts(prev => prev.map(x => (x.id === a.id ? { ...x, is_read: true } : x)));
+      setAlertUnread(c => Math.max(0, c - 1));
+    }
+    setNotificationsOpen(false);
+    if (a.link) router.push(a.link);
+  };
+  const markAllAlertsRead = () => {
+    const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+    if (token) fetch(`${getApiBaseUrl()}/notifications/read-all`, { method: "POST", headers: { "Authorization": `Bearer ${token}` } }).catch(() => { });
+    setAlerts(prev => prev.map(x => ({ ...x, is_read: true })));
+    setAlertUnread(0);
+  };
   const commPath = user?.role === "department_admin" || user?.role === "manager" || user?.role === "office_admin"
     ? "/dashboard/supervisor/communication"
     : "/dashboard/employee/communication";
@@ -528,9 +551,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center"
               >
                 <Bell className="w-4 h-4" />
-                {unreadCount > 0 && (
+                {bellCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-bold flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {bellCount > 9 ? '9+' : bellCount}
                   </span>
                 )}
               </button>
@@ -538,15 +561,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] shadow-xl rounded-xl overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-surface-100 dark:border-white/[0.04] flex items-center justify-between">
-                    <span className="text-sm font-semibold text-surface-900 dark:text-white">Messages</span>
-                    {unreadCount > 0 && (
+                    <span className="text-sm font-semibold text-surface-900 dark:text-white">Alerts &amp; Messages</span>
+                    {bellCount > 0 && (
                       <span className="text-[10px] bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400 px-2 py-0.5 rounded-full font-medium">
-                        {unreadCount} New
+                        {bellCount} New
                       </span>
                     )}
                   </div>
                   <div className="max-h-72 overflow-y-auto custom-scrollbar">
-                    {inboxMessages.length === 0 ? (
+                    {alerts.map(a => (
+                      <button
+                        key={`alert-${a.id}`}
+                        onClick={() => openAlert(a)}
+                        className="w-full p-4 border-b border-surface-100 dark:border-white/[0.04] hover:bg-surface-50 dark:hover:bg-white/[0.02] transition-colors text-left flex gap-3 items-start"
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${a.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+                          <Shield className={`w-4 h-4 ${a.severity === 'critical' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs ${a.is_read ? 'font-medium text-surface-500' : 'font-bold text-surface-900 dark:text-white'}`}>{a.title}</p>
+                          {a.body && <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-2">{a.body}</p>}
+                          <p className="text-[10px] text-surface-400 mt-1">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</p>
+                        </div>
+                        {!a.is_read && <span className="w-2 h-2 rounded-full bg-red-500 mt-1 shrink-0"></span>}
+                      </button>
+                    ))}
+                    {inboxMessages.length === 0 && alerts.length === 0 ? (
                       <div className="py-8 text-center text-surface-500 text-sm">
                         <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
                         No new messages
@@ -588,6 +628,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <button
                       onClick={() => {
                         setSeenIds(new Set(inboxMessages.map((m: any) => m.id)));
+                        markAllAlertsRead();
                       }}
                       className="flex-1 py-1.5 text-xs text-center font-medium text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 hover:bg-surface-100 dark:hover:bg-white/[0.04] rounded-lg transition-colors"
                     >

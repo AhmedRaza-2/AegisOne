@@ -24,6 +24,7 @@ _ADDITIVE_COLUMNS = [
     ("users", "password_changed_at", "TIMESTAMP"),
     ("incidents", "evidence", "JSON"),
     ("incident_reports", "evidence", "JSON"),
+    ("credential_events", "user_id", "VARCHAR(128)"),
 ]
 
 

@@ -278,6 +278,7 @@ class CredentialEvent(Base):
     id                  = Column(Integer,     primary_key=True, autoincrement=True)
     credential_event_id = Column(String(128), unique=True, nullable=False, index=True)
     organization_id     = Column(String(64),  nullable=False, index=True, default="org_default")
+    user_id             = Column(String(128), nullable=True, index=True)   # who triggered it (from the auth token)
     website_scan_id     = Column(String(128), nullable=True)
     domain              = Column(String(255), nullable=True)
     form_action         = Column(Text,        default="")    # form POST URL, not values
@@ -832,3 +833,28 @@ class EmailSecurityEvent(Base):
         Index("ix_ese_dept_scanned", "department_id", "scanned_at"),
     )
 
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 16. IN-APP NOTIFICATIONS (alerts to admins / managers)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Notification(Base):
+    """An alert shown in the dashboard bell (and optionally e-mailed): escalations, critical scans, incident updates."""
+    __tablename__ = "notifications"
+
+    id              = Column(Integer,     primary_key=True, autoincrement=True)
+    organization_id = Column(String(64),  nullable=False, index=True)
+    user_id         = Column(Integer,     ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind            = Column(String(50),  nullable=False)     # incident_escalated | critical_scan | new_incident | incident_resolved
+    severity        = Column(String(20),  default="high")     # low | medium | high | critical
+    title           = Column(String(255), nullable=False)
+    body            = Column(Text,        nullable=True)
+    link            = Column(String(255), nullable=True)      # dashboard path, e.g. /dashboard/admin/incidents?open=INC-1234
+    is_read         = Column(Boolean,     default=False)
+    emailed         = Column(Boolean,     default=False)
+    created_at      = Column(DateTime,    server_default=func.now(), index=True)
+
+    __table_args__ = (
+        Index("ix_notif_user_read", "user_id", "is_read"),
+    )
