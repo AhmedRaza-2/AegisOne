@@ -43,33 +43,58 @@ Checked against the code on 2026-10-20 (not the 4 Oct audit snapshot). "Verified
 9. Only 4 test files, no CI.
 10. Teammate branch `aegisone-updated` unmerged (review before deciding).
 
-## 3. Plan (in order)
+## 3. Decisions taken (2026-10-23)
+- Google OAuth: dropped (in-house accounts only). Scope wording amended.
+- SHAP/LIME: replaced by evidence-grounded XAI (already built). Scope wording amended.
+- 8.4 Real-time monitoring: accepted as implemented.
+- Retraining runs on the server, never the admin's laptop. Org weights are submitted to the vendor (landing-page admin UI), auto-compared with the current baseline, and promoted if better.
+- Alerts/playbooks (8.15): vendor decides based on scope utility (see Phase 2).
 
-### Phase 0 - Make it correct and safe (first, ~2-3 days)
-- P0.1 Fix cross-tenant leaks (scope every `/user/*` and communication query by org/department) + tests.
-- P0.2 Fix URL model sanitize/structuralize mismatch; re-run `url_benchmark_100.csv` before/after.
-- P0.3 Replace fake domain age with real RDAP lookup (cached, timeout, "unknown" on failure).
-- P0.4 Fix `/policy/allowlist`, WhatsApp backend batch bugs, move HMAC key to DB-generated secret.
-- P0.5 Replace `mock-data` on organizations page; real `/user/recommendations`.
+## 4. Plan
 
-### Phase 1 - Scope features the panel will look for (~4-5 days)
-- P1.1 **QR code detection**: decode QR in image scan path (server: OpenCV QRCodeDetector; extension: image-guard) -> scan decoded URL with the URL model.
-- P1.2 **Alerts + playbooks (8.15, 7.7)**: email admins on escalation / critical scan; static playbooks per incident type (credential entered, malware download, wire-fraud email) shown in incident page.
-- P1.3 **Reporting/export (7.5, 7.7, 8.7)**: CSV export for incidents, scans, audit; printable incident report with timeline.
-- P1.4 **Enterprise API (7.4)**: per-org API keys, HMAC-signed webhooks for high-risk events, SIEM-friendly JSON/CEF feed, threat-feed import into the blocklist.
+### Phase 0 - Correct and safe
+| # | Item | Status |
+|---|---|---|
+| 0.1 | Cross-tenant leaks: /setup (structure, merge, bulk-reassign, reset, session, status, execute), /communication, /user/* | **Done** (verified with a two-tenant live test) |
+| 0.2 | /setup API requires an authenticated admin (status endpoints included) | **Done** |
+| 0.3 | WhatsApp sender HMAC key per deployment, not in source | **Done** |
+| 0.4 | /policy/allowlist is org-scoped, no process-wide mutation | **Done** |
+| 0.5 | Real domain age (RDAP, cached, "unknown" on failure) | Next |
+| 0.6 | Remove mock data: admin/organizations page, hard-coded "Compliance 100%", fabricated /user/recommendations, "mock" fallbacks in /user/downloads and /user/media | Next |
+| 0.7 | URL model sanitize/structuralize mismatch (benchmark before/after) | Next |
+| 0.8 | Extension: undefined VERDICT constants; scan every element after load (late-injected content) | Next |
 
-### Phase 2 - Hardening (~3 days)
-- P2.1 TLS reverse proxy (Caddy) in prod compose; HTTP -> HTTPS redirect; document E2E honestly.
-- P2.2 Encrypt extension local storage (AES-GCM via WebCrypto, non-extractable key).
-- P2.3 Minimal phishing simulation: admin creates campaign from template, tracked link, "caught/clicked" stats, training nudge on click.
-- P2.4 Auto-allowlist from verified false positives; redirect-chain tracer (SSRF-guarded).
+### Phase 1 - Scope features
+| # | Item |
+|---|---|
+| 1.1 | QR decoding everywhere (web images, WhatsApp, email images): decode before the user opens it, scan the decoded URL/text, show verdict |
+| 1.2 | Incident backtrace + exports (8.7): who reported, what was scanned, which model/evidence, redirect chain (server-side SSRF-guarded tracer), timeline; CSV export and printable end-to-end report |
+| 1.3 | Alerts + playbooks (8.15): email/webhook on escalation and critical scans, built-in playbooks per incident type |
+| 1.4 | Org-wide auto-allowlist from verified false positives (8.14) |
 
-### Phase 3 - Performance and polish (~2 days)
-- Query/index fixes, quantization (with accuracy check), debounce WhatsApp observer.
-- Evaluator #3 UI alignment pass; tests + CI; update scope document wording where the build deliberately differs (SHAP/LIME -> evidence-based XAI, OAuth).
+### Phase 2 - Platform
+| # | Item |
+|---|---|
+| 2.1 | License key + organization id enforced on every API call (not only setup) |
+| 2.2 | Org API keys, HMAC-signed webhooks, SIEM (JSON/CEF) feed, threat-feed import |
+| 2.3 | TLS reverse proxy in the prod compose; HTTP redirects to HTTPS (8.9) |
+| 2.4 | Extension local storage encrypted with AES-GCM; chat messages end-to-end encrypted (8.10) |
+| 2.5 | Server-side retraining job, base-weight submission to the vendor, automated baseline comparison and promotion (8.11) |
+| 2.6 | Phishing simulation + real recommendations (8.13) |
+| 2.7 | Deployment options: Compose profiles, Helm chart (8.8) |
 
-## 4. Decisions needed from the team
-1. Google OAuth: build it, or amend the scope document?
-2. Phishing simulation depth: minimal (Phase 2.3) or full campaign engine?
-3. TLS: Let's Encrypt (needs public domain) or self-signed for on-prem demo?
-4. Review/merge or discard `aegisone-updated`?
+### Phase 3 - Polish
+UI alignment pass from the evaluator feedback, query/index performance, tests + CI, scope wording amendments.
+
+## 5. Options (need a pick before building)
+**8.8 Deployment**
+- A. Docker Compose + license server in the vendor cloud (recommended for FYP: small, demonstrable).
+- B. A + Helm chart for Kubernetes.
+- C. B + multi-tenant SaaS mode with plan limits.
+
+**8.13 Simulation**
+- A. Template library + tracked links + per-employee click stats + training nudge (recommended).
+- B. A + scheduled campaigns and difficulty levels.
+- C. B + simulated emails actually sent through the org SMTP.
+
+**8.15 Recovery (my decision):** playbooks per incident type + email alerts to admins/managers on escalation and critical scans + webhook. Anything heavier (SOAR integrations) is out of scope.
