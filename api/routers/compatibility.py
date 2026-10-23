@@ -536,10 +536,30 @@ async def api_email(
     # Scam-style phrases are matched now, while the body is in memory, so the explanation can
     # quote them. Only the matched phrases from a fixed list are kept - never the text itself.
     email_lures = find_lure_phrases(f"{subject}\n{body}")
+
+    # Each link in the body is scored by the URL pipeline (bounded: 8 links, 6 s). Only the scores
+    # are kept; the addresses are returned to the caller and never stored.
+    from api.services.model_orchestrator import extract_urls_from_text
+    body_urls = list(dict.fromkeys(extract_urls_from_text(f"{subject}\n{body}")))[:8]
+    link_items = []
+    if body_urls:
+        try:
+            link_preds = await asyncio.wait_for(asyncio.gather(*[predict_url(u) for u in body_urls], return_exceptions=True), timeout=6)
+        except Exception as _e:
+            _logging.getLogger("aegisone.email").warning("email link scoring failed: %r", _e)
+            link_preds = []
+        for u, lp in zip(body_urls, link_preds):
+            if isinstance(lp, dict) and "error" not in lp:
+                host = _event_host(u)
+                link_items.append({"url": u[:200], "domain": host, "score": int(round(float(lp.get("phishing_probability", 0)) * 100)),
+                                   "category": lp.get("category")})
     # body is no longer referenced after this point
     del body
 
-    score = result.get("phishing_probability", 0) * 100
+    text_score = result.get("phishing_probability", 0) * 100
+    link_max = max((i["score"] for i in link_items), default=0)
+    # A link only lifts the verdict when the URL pipeline is confident (newsletters are full of tracking links).
+    score = max(text_score, link_max) if link_max >= 75 else text_score
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
     verdict = "phishing" if score >= 75 else "suspicious" if score >= 35 else "safe"
     severity = "critical" if score >= 90 else "high" if score >= 75 else "medium" if score >= 50 else "low"
@@ -612,11 +632,27 @@ async def api_email(
     if extra and score >= 20:
         xai["main_reasons"] = (xai["main_reasons"] + [e[0].upper() + e[1:] for e in extra])[:8]
 
+    flagged_links = [i for i in link_items if i["score"] >= 50]
+    components = {
+        "text": {"score": int(round(text_score)), "label": "Message wording",
+                 "signals": ([str(x) for x in (result.get("scam_signals") or [])] + email_lures)[:5]},
+        "links": {"label": "Links", "count": len(link_items), "max_score": link_max, "flagged": len(flagged_links),
+                  "items": sorted(link_items, key=lambda i: -i["score"])[:8]},
+    }
+    top = max((("links", link_max), ("text", int(round(text_score)))), key=lambda kv: kv[1])
+    components["dominant"] = top[0] if top[1] >= 50 else None
+    components["summary"] = (
+        (f"{len(flagged_links)} of {len(link_items)} link(s) look dangerous" if flagged_links else "")
+        + ("; " if flagged_links and text_score >= 50 else "")
+        + ("the message wording matches phishing patterns" if text_score >= 50 else "")
+    ) or "No component looked dangerous"
+
     return {
         "phishing_probability": score / 100.0,
         "prediction": event.threat_type,
         "verdict": verdict,
         "decision": decision,
+        "components": components,
         "top_words": factor_codes,
         "lures": email_lures,
         "xai": {
@@ -1099,6 +1135,9 @@ async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Dep
 
         # Try to find existing device
         device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
+        if device and current_user.id is not None and device.organization_id and device.organization_id != _auth_org(current_user):
+            # A device id already registered to another organization can't be claimed from this one.
+            raise HTTPException(status_code=409, detail="This device is registered to a different organization.")
         if not device:
             device = Device(
                 device_id=payload.device_id,
@@ -1118,6 +1157,8 @@ async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Dep
             device.os = payload.os
             device.status = "active"
         await db.commit()
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         # Fetch the existing one again and update to handle concurrent race conditions
@@ -1140,10 +1181,12 @@ async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Dep
 async def heartbeat_device(payload: DeviceHeartbeatRequest, current_user: User = Depends(get_scan_user), db: AsyncSession = Depends(get_db)):
     try:
         device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
+        if device and current_user.id is not None and device.organization_id and device.organization_id != _auth_org(current_user):
+            raise HTTPException(status_code=409, detail="This device is registered to a different organization.")
         if not device:
             device = Device(
                 device_id=payload.device_id,
-                organization_id=DEFAULT_POLICY["org_id"],
+                organization_id=_auth_org(current_user) if current_user.id is not None else DEFAULT_POLICY["org_id"],
                 browser=payload.browser,
                 browser_version=payload.browser_version,
                 os=payload.os,
@@ -1156,6 +1199,8 @@ async def heartbeat_device(payload: DeviceHeartbeatRequest, current_user: User =
             device.os = payload.os
             device.status = "active"
         await db.commit()
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))

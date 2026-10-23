@@ -26,7 +26,8 @@ async def _check_sqlite_migrations(partially_migrated):
     try:
         async with engine.begin() as conn:
             await conn.execute(text("PRAGMA foreign_keys=ON"))
-            for table in ("users", "departments", "incidents", "incident_reports"):
+            legacy_tables = {t for t, _, _ in migrations._ADDITIVE_COLUMNS} | {"users", "departments", "incidents", "incident_reports"}
+            for table in sorted(legacy_tables):
                 await conn.execute(text(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)"))
                 await conn.execute(text(f"INSERT INTO {table} (id) VALUES (1)"))
             if partially_migrated:

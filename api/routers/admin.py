@@ -1863,30 +1863,107 @@ async def get_all_organizations(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(Role.GLOBAL_ADMIN))
 ):
-    """Fetch all tenant organizations in the database."""
-    from api.database.models import Organization
-    res = await db.execute(select(Organization).order_by(Organization.created_at.desc()))
-    orgs = res.scalars().all()
-    return [
-        {
-            "id": getattr(o, "id", ""),
-            "org_id": getattr(o, "id", ""),
-            "name": getattr(o, "name", "Unnamed Organization"),
-            "industry": getattr(o, "plan", "Enterprise"),
-            "employee_count": 50,
-            "country": "Pakistan",
-            "admin_name": "Admin",
-            "admin_email": f"admin@{getattr(o, 'domain', 'aegisone.com') or 'aegisone.com'}",
-            "phone": "+923000000000",
-            "status": "active" if getattr(o, "is_active", True) else "suspended",
-            "license_key": f"AEGIS-{getattr(o, 'id', 'KEY')}",
-            "deployment_token": f"TOKEN-{getattr(o, 'id', 'TKN')}",
-            "allowed_users": 100,
-            "product_version": "1.0.0",
-            "created_at": o.created_at.isoformat() if getattr(o, "created_at", None) else None
+    """Every tenant organization with REAL figures (users by role, activity, alerts). Nothing is invented:
+    fields the platform does not know are simply absent."""
+    from datetime import datetime, timedelta
+    from api.database.models import Organization, Notification, WebsiteScan
+    from api.services import license as _license
+    orgs = (await db.execute(select(Organization).order_by(Organization.created_at.desc()))).scalars().all()
+
+    role_rows = (await db.execute(select(User.organization_id, User.role, func.count(User.id))
+                                  .where(User.account_status.in_(["approved", "active"])).group_by(User.organization_id, User.role))).all()
+    roles: dict = {}
+    for oid, role, n in role_rows:
+        roles.setdefault(oid or "org_default", {})[role] = n
+
+    since = datetime.utcnow() - timedelta(days=30)
+    scan_rows = (await db.execute(select(WebsiteScan.organization_id, func.count(WebsiteScan.id))
+                                  .where(WebsiteScan.created_at >= since).group_by(WebsiteScan.organization_id))).all()
+    scans = {oid: n for oid, n in scan_rows}
+    week = datetime.utcnow() - timedelta(days=7)
+    alert_rows = (await db.execute(select(Notification.organization_id, func.count(Notification.id))
+                                   .where(Notification.created_at >= week, Notification.severity.in_(["high", "critical"]))
+                                   .group_by(Notification.organization_id))).all()
+    alerts = {oid: n for oid, n in alert_rows}
+
+    lic = _license.current()
+    out = []
+    for o in orgs:
+        r = roles.get(o.id, {})
+        row = {
+            "id": o.id, "org_id": o.id, "name": o.name, "domain": o.domain, "plan": o.plan,
+            "status": "active" if o.is_active else "suspended",
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+            "users_total": sum(r.values()),
+            "users_by_role": {"admins": r.get("admin", 0) + r.get("super_admin", 0), "managers": r.get("manager", 0) + r.get("office_admin", 0) + r.get("department_admin", 0),
+                              "employees": r.get("employee", 0)},
+            "scans_30d": scans.get(o.id, 0), "high_alerts_7d": alerts.get(o.id, 0),
         }
-        for o in orgs
-    ]
+        if o.id == lic["org_id"]:   # only this deployment's own organization has a verified license
+            row["license"] = {"status": lic["status"], "valid": lic["valid"], "allowed_users": lic["allowed_users"], "expires_at": lic["expires_at"]}
+        out.append(row)
+    return out
+
+
+class OrgCreate(BaseModel):
+    name: str
+    domain: str | None = None
+    plan: str = "standard"
+
+
+@router.post("/organizations", status_code=201)
+async def create_organization(
+    body: OrgCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.GLOBAL_ADMIN))
+):
+    """Create a tenant organization record (its first administrator is provisioned through setup)."""
+    import re as _re
+    from api.database.models import Organization
+    name = body.name.strip()
+    if len(name) < 2:
+        raise HTTPException(status_code=400, detail="Organization name is required.")
+    if body.plan not in ("standard", "professional", "enterprise"):
+        raise HTTPException(status_code=400, detail="plan must be standard, professional or enterprise")
+    slug = _re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:40] or "org"
+    org_id = slug
+    n = 1
+    while (await db.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none():
+        n += 1
+        org_id = f"{slug}_{n}"
+    db.add(Organization(id=org_id, name=name, domain=(body.domain or "").strip().lower() or None, plan=body.plan, timezone="UTC"))
+    await db.commit()
+    return {"id": org_id, "name": name, "plan": body.plan}
+
+
+class OrgBroadcast(BaseModel):
+    message: str
+    severity: str = "medium"
+
+
+@router.post("/organizations/{org_id}/broadcast")
+async def broadcast_to_org_admins(
+    org_id: str,
+    body: OrgBroadcast,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(Role.GLOBAL_ADMIN))
+):
+    """Send a platform notice to every administrator of one organization (appears in their dashboard bell)."""
+    from api.database.models import Organization, Notification
+    if not (await db.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Organization not found")
+    msg = body.message.strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="Message is required.")
+    admins = (await db.execute(select(User).where(User.organization_id == org_id, User.role.in_(["admin", "super_admin"]),
+                                                  User.account_status.in_(["approved", "active"])))).scalars().all()
+    for a in admins:
+        db.add(Notification(organization_id=org_id, user_id=a.id, kind="platform_notice",
+                            severity=body.severity if body.severity in ("low", "medium", "high", "critical") else "medium",
+                            title="Notice from the AegisOne platform team", body=msg[:2000], link=None))
+    await db.commit()
+    return {"status": "sent", "recipients": len(admins)}
+
 
 @router.put("/organizations/{org_id}/status")
 async def update_organization_status(
@@ -1909,15 +1986,21 @@ async def update_organization_status(
 @router.delete("/organizations/{org_id}")
 async def delete_organization(
     org_id: str,
+    confirm: str = Query("", description="Must equal the organization id"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(Role.GLOBAL_ADMIN))
 ):
-    """Delete organization in local PostgreSQL database."""
+    """Delete an organization and (through database cascades) its data. Irreversible, so the caller must
+    repeat the organization id in `confirm`, and an administrator cannot delete their own organization."""
     from api.database.models import Organization
     res = await db.execute(select(Organization).where(Organization.id == org_id))
     org = res.scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    if confirm != org_id:
+        raise HTTPException(status_code=400, detail="Confirmation does not match the organization id.")
+    if org_id == (admin.organization_id or "org_default"):
+        raise HTTPException(status_code=400, detail="You cannot delete the organization you are signed in to.")
     
     await db.delete(org)
     await db.commit()

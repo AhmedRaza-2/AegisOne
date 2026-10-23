@@ -412,15 +412,12 @@ async def forgot_password(request: Request, req: ForgotPasswordRequest, bg_tasks
     else:
         logger.info("Password reset code issued for %s", user.email)
 
-    # Retrieve user's organization SMTP settings, or fall back to any org SMTP / environment vars
+    # The user's OWN organization's SMTP account, or the deployment's server-wide one (environment).
+    # Never another tenant's: that would send this user's reset code through someone else's mail account.
     user_org_id = getattr(user, "organization_id", None) or "org_default"
     org = (await db.execute(select(Organization).where(Organization.id == user_org_id))).scalar_one_or_none()
     if not (org and org.smtp_user and org.smtp_pass):
-        fallback_org = (await db.execute(
-            select(Organization).where(Organization.smtp_user != None, Organization.smtp_user != "")
-        )).scalars().first()
-        if fallback_org:
-            org = fallback_org
+        org = None
 
     smtp_user = (org.smtp_user if org and org.smtp_user else os.getenv("SMTP_USER")) or ""
     smtp_pass = (org.smtp_pass if org and org.smtp_pass else os.getenv("SMTP_PASS")) or ""

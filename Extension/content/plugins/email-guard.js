@@ -642,7 +642,7 @@ export function initEmailGuard() {
       if (!scanRes || scanRes.ok !== true || !scanRes.result) {
         if (record && record.verdict !== "offline" && record.score != null && record.score >= 0) {
           _processedOpenKeys.add(emailKey);
-          _injectOpenEmailBanner(record.score, record.verdict, bodyContainer);
+          _injectOpenEmailBanner(record.score, record.verdict, bodyContainer, record);
         }
         return;
       }
@@ -755,7 +755,31 @@ export function initEmailGuard() {
     }
   }
 
-  function _injectOpenEmailBanner(score, verdict, bodyContainer) {
+  // Per-component result (message wording / links / embedded images) so the user sees WHICH part of the
+  // email is dangerous, not just one combined number. Built only from numbers and fixed labels.
+  function _componentRow(record) {
+    const c = record?.modelResult?.components || {};
+    const img = record?.imageEval;
+    const imgScanned = (img?.evaluated || []).filter(e => e.scanned).length;
+    const items = [
+      { label: "Wording", score: c.text?.score, detail: null },
+      { label: "Links", score: c.links ? c.links.max_score : null, detail: c.links ? `${c.links.flagged || 0}/${c.links.count || 0} flagged` : null },
+      { label: "Images", score: imgScanned ? (img.score || 0) : null, detail: imgScanned ? `${imgScanned} scanned` : "none" },
+    ];
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; flex-wrap:wrap; gap:6px; margin-top:6px";
+    for (const it of items) {
+      const has = typeof it.score === "number";
+      const col = !has ? "#94a3b8" : it.score >= 70 ? "#f87171" : it.score >= 40 ? "#fbbf24" : "#34d399";
+      const chip = document.createElement("span");
+      chip.style.cssText = `font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid ${col}55; color:${col}; background:${col}14`;
+      chip.textContent = `${it.label}: ${has ? it.score + "%" : "-"}${it.detail ? " (" + it.detail + ")" : ""}`;
+      row.appendChild(chip);
+    }
+    return row;
+  }
+
+  function _injectOpenEmailBanner(score, verdict, bodyContainer, record) {
     if (verdict === "offline" || score == null || score === -1) return;
     if (document.getElementById("aegis-email-banner")) return;
     const target = bodyContainer || document.querySelector(".a3s.aiL, .a3s")?.parentElement;
@@ -792,6 +816,7 @@ export function initEmailGuard() {
         transition: color 0.2s;
       " title="Dismiss">✕</button>
     `;
+    if (record) banner.querySelector("div > div > div:last-child")?.appendChild(_componentRow(record));
     target.insertBefore(banner, target.firstChild);
     banner.querySelector("#aegis-banner-close")?.addEventListener("click", () => banner.remove());
   }

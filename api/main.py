@@ -14,6 +14,14 @@ import sys
 import platform
 import logging
 import asyncio
+
+# A Windows console or redirected stdout is often cp1252: a stray emoji in any library's print() would
+# raise UnicodeEncodeError mid-request. Make the real streams lossy instead of fatal.
+for _stream in (getattr(sys, "__stdout__", None), getattr(sys, "__stderr__", None), sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:
+        pass
 from concurrent.futures import ThreadPoolExecutor
 import contextlib
 from fastapi import FastAPI, Request, Response

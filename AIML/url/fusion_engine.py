@@ -4,6 +4,7 @@ AegisOne URL Intelligence Engine — Evidence Fusion & Decision Logic
 Fuses neural network outputs, brand impersonation checks, and lexical features.
 """
 
+import logging
 import os
 import pickle
 from typing import Dict, List, Any
@@ -33,9 +34,11 @@ if os.path.exists(META_CLASSIFIER_PATH):
     try:
         with open(META_CLASSIFIER_PATH, "rb") as f:
             META_CLASSIFIER = pickle.load(f)
-        print("🧠 [OK] URL Meta-Classifier loaded from pkl checkpoint.")
+        # logging, not print(): a Windows console/redirect without UTF-8 made the emoji raise
+        # UnicodeEncodeError, which broke importing this module on the first URL scan.
+        logging.getLogger("aegisone.url").info("URL meta-classifier loaded from pkl checkpoint.")
     except Exception as e:
-        print(f"⚠️ Failed to load meta-classifier pkl: {e}")
+        logging.getLogger("aegisone.url").warning("Failed to load meta-classifier pkl: %s", e)
 
 def fuse_url_intelligence(
     url: str,

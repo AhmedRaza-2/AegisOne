@@ -3,12 +3,14 @@
  * =========================================================
  * Scans images on ordinary web pages without the user having to right-click.
  *
- * This is deliberately hover-triggered, not blanket-automatic: it never sends every
- * <img> on a page to the vision model on load. Instead a scan starts only once the
- * user's cursor rests on an image for a short moment — the same signal a person uses
- * to actually look at an image — which keeps it "automatic" (no click needed) while
- * bounding both server cost and how much image data ever leaves the browser. Tiny
- * icons/avatars/emoji and already-scanned images are skipped outright.
+ * Two triggers, no clicking needed:
+ *   1. AUTOMATIC  - images that scroll into view are queued and scanned in the background
+ *      (substantial images only, a bounded number per page, two at a time). A flagged image is
+ *      outlined in red the moment the verdict arrives; safe images are left untouched.
+ *   2. HOVER      - resting the cursor on any eligible image shows its verdict (instant when the
+ *      automatic scan already covered it) and scans it if it has not been seen yet.
+ * Tiny icons/avatars/emoji, data: images and already-scanned images are skipped. The per-page
+ * cap and concurrency keep server cost and data leaving the browser bounded.
  *
  * Pages with their own specialized image handling (popups via popup-guard.js, email
  * bodies via email-guard.js) are excluded here to avoid double-scanning the same image
@@ -27,8 +29,16 @@ const HOVER_DEBOUNCE_MS = 400;
 const MIN_DIMENSION_PX = 60; // skip icons/avatars/emoji
 const MAX_TOOLTIP_MS = 2200;
 
+const AUTO_MIN_DIMENSION_PX = 120;   // automatic scanning skips anything smaller than this
+const AUTO_MAX_PER_PAGE = 12;
+const AUTO_CONCURRENCY = 2;
+const FLAG_SCORE = 50;
+
 const _scannedSrcs = new Map(); // src -> {score, verdict} | "pending" | "failed"
 let _activeTooltip = null;
+let _autoCount = 0;
+let _autoRunning = 0;
+const _autoQueue = [];
 
 function safeSendMessage(msg) {
   if (typeof chrome === "undefined" || !chrome?.runtime?.id) return Promise.resolve(null);
@@ -117,9 +127,79 @@ async function _scanOnHover(img) {
   );
 }
 
+function _flag(img, score) {
+  try {
+    img.style.outline = "3px solid #ef4444";
+    img.style.outlineOffset = "-3px";
+    img.setAttribute("title", `AegisOne: this image looks like part of a phishing attempt (${score}%)`);
+    img.setAttribute("data-aegis-flagged", "1");
+  } catch (_) { /* never break the page */ }
+}
+
+async function _autoScan(img) {
+  const src = img.currentSrc || img.src;
+  if (!src || _scannedSrcs.has(src)) return;
+  _scannedSrcs.set(src, "pending");
+  const res = await safeSendMessage({ type: "SCAN_HOVER_IMAGE", src });
+  const result = res?.ok ? res.result : null;
+  if (!result) { _scannedSrcs.set(src, "failed"); return; }
+  const prob = result.phishing_probability ?? (result.score != null ? result.score / 100 : 0);
+  const score = Math.round(prob <= 1 ? prob * 100 : prob);
+  _scannedSrcs.set(src, { score, verdict: result.prediction });
+  if (score >= FLAG_SCORE) _flag(img, score);
+}
+
+function _pump() {
+  while (_autoRunning < AUTO_CONCURRENCY && _autoQueue.length) {
+    const img = _autoQueue.shift();
+    _autoRunning++;
+    _autoScan(img).finally(() => { _autoRunning--; _pump(); });
+  }
+}
+
+function _autoEligible(img) {
+  if (!_isEligible(img)) return false;
+  const rect = img.getBoundingClientRect();
+  return rect.width >= AUTO_MIN_DIMENSION_PX && rect.height >= AUTO_MIN_DIMENSION_PX;
+}
+
+function _startAutoScan() {
+  if (typeof IntersectionObserver === "undefined") return;
+  const seen = new WeakSet();
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const img = e.target;
+      io.unobserve(img);
+      if (_autoCount >= AUTO_MAX_PER_PAGE || !_autoEligible(img)) continue;
+      const src = img.currentSrc || img.src;
+      if (_scannedSrcs.has(src)) continue;
+      _autoCount++;
+      _autoQueue.push(img);
+    }
+    _pump();
+  }, { threshold: 0.4 });
+
+  const watch = (img) => {
+    if (!(img instanceof HTMLImageElement) || seen.has(img)) return;
+    seen.add(img);
+    if (img.complete) io.observe(img);
+    else img.addEventListener("load", () => io.observe(img), { once: true });   // lazy-loaded images
+  };
+  document.querySelectorAll("img").forEach(watch);
+  new MutationObserver((muts) => {
+    for (const m of muts) for (const n of m.addedNodes) {
+      if (n instanceof HTMLImageElement) watch(n);
+      else if (n.querySelectorAll) n.querySelectorAll("img").forEach(watch);
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+}
+
 export function initImageGuard() {
   const host = location.hostname.toLowerCase();
   if (EXCLUDED_DOMAINS.some(d => host === d || host.endsWith("." + d))) return;
+
+  _startAutoScan();
 
   let hoverTimer = null;
   let hoveredImg = null;

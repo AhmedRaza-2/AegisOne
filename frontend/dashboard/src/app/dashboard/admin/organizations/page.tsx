@@ -1,43 +1,46 @@
 "use client";
 import { toast } from "@/components/ui/toast";
-import { organizations, users, getGlobalStats } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
-import { Globe, Plus, Trash2, Send, ShieldCheck, AlertCircle, Building2, ExternalLink } from "lucide-react";
-import { useState, useMemo } from "react";
+import { getApiBaseUrl } from "@/lib/api";
+import { Plus, Trash2, Send, AlertCircle, Building2, Loader2, Power, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-type TenantOrganization = {
-  id: string; name: string; domain: string; plan: string;
-  activeAlertsCount?: number; createdAt?: string;
+type Org = {
+  id: string; name: string; domain: string | null; plan: string; status: "active" | "suspended"; created_at: string | null;
+  users_total: number; users_by_role: { admins: number; managers: number; employees: number };
+  scans_30d: number; high_alerts_7d: number;
+  license?: { status: string; valid: boolean; allowed_users: number | null; expires_at: string | null };
 };
-type TenantUser = { organization: string; role: string };
+
+function authHeaders(): Record<string, string> {
+  const t = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
+  return { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) };
+}
+async function api(path: string, method = "GET", body?: any) {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, { method, headers: authHeaders(), body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Request failed");
+  return data;
+}
 
 export default function OrganizationsPage() {
   const { user } = useAuth();
-  const [orgs, setOrgs] = useState<TenantOrganization[]>(() => organizations.getAll());
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  // Form States
+  const [orgs, setOrgs] = useState<Org[] | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
-  const [plan, setPlan] = useState<"starter" | "professional" | "enterprise">("enterprise");
-  const [broadcastTarget, setBroadcastTarget] = useState<string | null>(null);
+  const [plan, setPlan] = useState("standard");
+  const [broadcastTarget, setBroadcastTarget] = useState<Org | null>(null);
   const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Org | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
 
-  // Pre-calculate user counts per organization
-  const orgStats = useMemo(() => {
-    const allUsers: TenantUser[] = users.getAll();
-    return orgs.reduce((acc, org) => {
-      const orgUsers = allUsers.filter(u => u.organization === org.id);
-      acc[org.id] = {
-        adminsCount: orgUsers.filter(u => u.role === "super_admin").length,
-        supervisorsCount: orgUsers.filter(u => u.role === "office_admin").length,
-        employeesCount: orgUsers.filter(u => u.role === "employee").length,
-        total: orgUsers.length,
-      };
-      return acc;
-    }, {} as Record<string, { adminsCount: number; supervisorsCount: number; employeesCount: number; total: number }>);
-  }, [orgs]);
+  const load = useCallback(async () => {
+    try { setOrgs(await api("/admin/organizations")); } catch (e: any) { toast(e.message, "error"); setOrgs([]); }
+  }, []);
+  useEffect(() => { if (user?.role === "global_admin") load(); }, [user, load]);
 
   if (!user || user.role !== "global_admin") {
     return (
@@ -49,208 +52,127 @@ export default function OrganizationsPage() {
     );
   }
 
-
-  const handleAddOrg = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !domain) return;
-    organizations.add(name, domain, plan);
-    setOrgs(organizations.getAll());
-    setName("");
-    setDomain("");
-    setPlan("enterprise");
-    setShowAddModal(false);
+  const run = async (key: string, fn: () => Promise<void>) => {
+    setBusy(key);
+    try { await fn(); await load(); } catch (e: any) { toast(e.message || "Something went wrong", "error"); } finally { setBusy(null); }
   };
 
-  const handleDeleteOrg = (id: string) => {
-    if (confirm("Are you sure you want to remove this tenant organization? All tenant users and configuration will be disconnected.")) {
-      organizations.delete(id);
-      setOrgs(organizations.getAll());
-    }
-  };
-
-  const handleSendBroadcast = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (broadcastTarget) {
-      organizations.sendBroadcast(broadcastTarget);
-      setOrgs(organizations.getAll());
-      setBroadcastTarget(null);
-      setBroadcastMessage("");
-      toast("Broadcast dispatched to the tenant administrators.");
-    }
-  };
+  const list = orgs || [];
+  const totalUsers = list.reduce((n, o) => n + o.users_total, 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
             <Building2 className="w-6 h-6 text-brand-650 dark:text-brand-400" /> Tenant Organizations
           </h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Global multi-tenant control directory
-          </p>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Organizations hosted on this AegisOne platform, with live figures</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Plus className="w-4 h-4" /> Add Tenant
-        </button>
-      </div>
-
-      {/* Stats Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="stat-card">
-          <div className="text-xs text-surface-500">Active Tenants</div>
-          <div className="text-2xl font-bold text-surface-900 dark:text-white mt-1">{orgs.length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="text-xs text-surface-500">Enterprise Plan Tenants</div>
-          <div className="text-2xl font-bold text-surface-900 dark:text-white mt-1">
-            {orgs.filter(o => o.plan === "enterprise").length}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="text-xs text-surface-500">Active Warning Signals</div>
-          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">
-            {orgs.reduce((sum, o) => sum + (o.activeAlertsCount || 0), 0)}
-          </div>
+        <div className="flex gap-2">
+          <button onClick={load} className="px-3 py-2 bg-surface-100 hover:bg-surface-200 dark:bg-white/[0.05] text-surface-700 dark:text-surface-200 text-sm font-medium rounded-lg flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Refresh</button>
+          <button onClick={() => setShowAdd(true)} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+            <Plus className="w-4 h-4" /> Add Tenant
+          </button>
         </div>
       </div>
 
-      {/* Organizations Directory */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          ["Organizations", list.length, ""],
+          ["Active", list.filter(o => o.status === "active").length, ""],
+          ["Accounts", totalUsers, ""],
+          ["High alerts (7 days)", list.reduce((n, o) => n + o.high_alerts_7d, 0), "text-yellow-600 dark:text-yellow-400"],
+        ].map(([l, v, c]) => (
+          <div key={l as string} className="stat-card">
+            <div className="text-xs text-surface-500">{l}</div>
+            <div className={`text-2xl font-bold mt-1 ${c || "text-surface-900 dark:text-white"}`}>{orgs === null ? "…" : (v as number)}</div>
+          </div>
+        ))}
+      </div>
+
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-200 dark:border-white/[0.06] bg-surface-50/50 dark:bg-white/[0.01]">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Organization Name</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Domain</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Service Plan</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Tenant Users</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Active Communications</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500">Onboarding Date</th>
-                <th className="px-4 py-3"></th>
+                {["Organization", "Domain", "Plan", "Accounts", "Last 30 days", "Status", "Created", ""].map(h => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-surface-500">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {orgs.map(org => {
-                const stats = orgStats[org.id] || { adminsCount: 0, supervisorsCount: 0, employeesCount: 0, total: 0 };
-                return (
-                  <tr key={org.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3.5">
-                      <div className="font-semibold text-surface-900 dark:text-white">{org.name}</div>
-                      <div className="text-[10px] text-surface-400">ID: {org.id}</div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="flex items-center gap-1 text-surface-700 dark:text-surface-300">
-                        {org.domain}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${org.plan === "enterprise"
-                          ? "bg-purple-500/10 text-purple-650 dark:text-purple-400"
-                          : org.plan === "professional"
-                            ? "bg-brand-500/10 text-brand-650 dark:text-brand-400"
-                            : "bg-surface-100 text-surface-600 dark:bg-surface-850 dark:text-surface-400"
-                        }`}>
-                        {org.plan}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="text-surface-800 dark:text-surface-200 font-medium">
-                        {stats.total} total
+              {orgs === null && <tr><td colSpan={8} className="px-4 py-10 text-center text-surface-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>}
+              {orgs !== null && list.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-surface-500">No organizations yet.</td></tr>}
+              {list.map(org => (
+                <tr key={org.id} className="border-b border-surface-100 dark:border-white/[0.03] hover:bg-surface-100/50 dark:hover:bg-white/[0.02] transition-colors">
+                  <td className="px-4 py-3.5">
+                    <div className="font-semibold text-surface-900 dark:text-white">{org.name}</div>
+                    <div className="text-[10px] text-surface-400">ID: {org.id}</div>
+                    {org.license && (
+                      <div className={`text-[10px] mt-0.5 ${org.license.valid ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                        License {org.license.status}{org.license.allowed_users ? ` • ${org.license.allowed_users} seats` : ""}
                       </div>
-                      <div className="text-[10px] text-surface-500">
-                        {stats.adminsCount} Admin · {stats.supervisorsCount} Supervisor · {stats.employeesCount} User
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {(org.activeAlertsCount || 0) > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-450 font-medium">
-                          <AlertCircle className="w-3.5 h-3.5" /> {org.activeAlertsCount} Alerts Dispatched
-                        </span>
-                      ) : (
-                        <span className="text-xs text-surface-400">System clear</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-surface-500">
-                      {org.createdAt}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2 justify-end">
-                        <button
-                          onClick={() => setBroadcastTarget(org.id)}
-                          className="p-1.5 rounded hover:bg-surface-100 dark:hover:bg-white/[0.04] text-surface-500 hover:text-brand-500 transition-colors"
-                          title="Broadcast Alert to Admins"
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteOrg(org.id)}
-                          className="p-1.5 rounded hover:bg-surface-100 dark:hover:bg-white/[0.04] text-surface-400 hover:text-red-500 transition-colors"
-                          title="Remove Tenant Organization"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5 text-surface-700 dark:text-surface-300">{org.domain || <span className="text-surface-400">—</span>}</td>
+                  <td className="px-4 py-3.5"><span className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize bg-brand-500/10 text-brand-650 dark:text-brand-400">{org.plan}</span></td>
+                  <td className="px-4 py-3.5">
+                    <div className="text-surface-800 dark:text-surface-200 font-medium">{org.users_total} total</div>
+                    <div className="text-[10px] text-surface-500">{org.users_by_role.admins} Admin · {org.users_by_role.managers} Manager · {org.users_by_role.employees} Employee</div>
+                  </td>
+                  <td className="px-4 py-3.5 text-xs">
+                    <div className="text-surface-700 dark:text-surface-300">{org.scans_30d.toLocaleString()} scans</div>
+                    {org.high_alerts_7d > 0
+                      ? <span className="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400 font-medium"><AlertCircle className="w-3.5 h-3.5" /> {org.high_alerts_7d} high alerts this week</span>
+                      : <span className="text-surface-400">No high alerts</span>}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${org.status === "active" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>{org.status}</span>
+                  </td>
+                  <td className="px-4 py-3.5 text-xs text-surface-500">{org.created_at ? new Date(org.created_at).toLocaleDateString() : "—"}</td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center gap-1 justify-end">
+                      <button onClick={() => setBroadcastTarget(org)} className="p-1.5 rounded hover:bg-surface-100 dark:hover:bg-white/[0.04] text-surface-500 hover:text-brand-500" title="Send a notice to this organization's administrators"><Send className="w-4 h-4" /></button>
+                      <button disabled={busy === org.id} onClick={() => run(org.id, async () => { await api(`/admin/organizations/${org.id}/status?status=${org.status === "active" ? "suspended" : "active"}`, "PUT"); toast(org.status === "active" ? "Organization suspended." : "Organization reactivated."); })}
+                        className="p-1.5 rounded hover:bg-surface-100 dark:hover:bg-white/[0.04] text-surface-500 hover:text-amber-500" title={org.status === "active" ? "Suspend" : "Reactivate"}><Power className="w-4 h-4" /></button>
+                      <button onClick={() => { setDeleteTarget(org); setConfirmText(""); }} className="p-1.5 rounded hover:bg-surface-100 dark:hover:bg-white/[0.04] text-surface-400 hover:text-red-500" title="Delete organization"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal: Add Organization */}
       <AnimatePresence>
-        {showAddModal && (
+        {showAdd && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-lg relative z-10 overflow-hidden">
               <div className="p-6 border-b border-surface-200 dark:border-white/[0.06]">
-                <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Register Tenant Organization</h3>
-                <p className="text-xs text-surface-500 mt-1">Deploy AegisOne AI security nodes for a client tenant</p>
+                <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Add Tenant Organization</h3>
+                <p className="text-xs text-surface-500 mt-1">Creates the organization record. Its first administrator is then provisioned through Organization Setup.</p>
               </div>
-              <form onSubmit={handleAddOrg} className="p-6 space-y-4">
+              <form onSubmit={e => { e.preventDefault(); run("add", async () => { await api("/admin/organizations", "POST", { name, domain: domain || null, plan }); toast("Organization created."); setShowAdd(false); setName(""); setDomain(""); setPlan("standard"); }); }} className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Organization Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="e.g. Bank of Punjab"
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
-                  />
+                  <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Bank of Punjab" className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Corporate Domain</label>
-                  <input
-                    type="text"
-                    required
-                    value={domain}
-                    onChange={e => setDomain(e.target.value)}
-                    placeholder="e.g. bop.com.pk"
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
-                  />
+                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Corporate Domain (optional)</label>
+                  <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="e.g. bop.com.pk" className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Service Plan</label>
-                  <select
-                    value={plan}
-                    onChange={e => setPlan(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50"
-                  >
-                    <option value="starter">Starter Plan</option>
-                    <option value="professional">Professional Plan</option>
-                    <option value="enterprise">Enterprise Plan</option>
+                  <select value={plan} onChange={e => setPlan(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50">
+                    <option value="standard">Standard</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option>
                   </select>
                 </div>
                 <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors">Deploy Node</button>
+                  <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
+                  <button type="submit" disabled={busy === "add"} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg disabled:opacity-60">Create</button>
                 </div>
               </form>
             </motion.div>
@@ -258,37 +180,43 @@ export default function OrganizationsPage() {
         )}
       </AnimatePresence>
 
-      {/* Modal: Broadcast Alert */}
       <AnimatePresence>
         {broadcastTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setBroadcastTarget(null)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-lg relative z-10 overflow-hidden">
               <div className="p-6 border-b border-surface-200 dark:border-white/[0.06]">
-                <h3 className="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2">
-                  <Send className="w-5 h-5 text-brand-500" /> Alert Tenant Admin
-                </h3>
-                <p className="text-xs text-surface-500 mt-1">Send a priority platform warning or update notification directly to this tenant's administration panel.</p>
+                <h3 className="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Send className="w-5 h-5 text-brand-500" /> Notice to {broadcastTarget.name}</h3>
+                <p className="text-xs text-surface-500 mt-1">Appears in the notification bell of every administrator of this organization.</p>
               </div>
-              <form onSubmit={handleSendBroadcast} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Notification Message</label>
-                  <textarea
-                    required
-                    value={broadcastMessage}
-                    onChange={e => setBroadcastMessage(e.target.value)}
-                    placeholder="e.g. Critical AI engine latency alert for your domain nodes. Recommended update to model version 2.4."
-                    rows={4}
-                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50 resize-none"
-                  />
-                </div>
+              <form onSubmit={e => { e.preventDefault(); run("bc", async () => { const r = await api(`/admin/organizations/${broadcastTarget.id}/broadcast`, "POST", { message: broadcastMessage }); toast(`Sent to ${r.recipients} administrator${r.recipients === 1 ? "" : "s"}.`); setBroadcastTarget(null); setBroadcastMessage(""); }); }} className="p-6 space-y-4">
+                <textarea required value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} rows={4} placeholder="Write the notice…" className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50 resize-none" />
                 <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
-                  <button type="button" onClick={() => setBroadcastTarget(null)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
-                    <Send className="w-3.5 h-3.5" /> Dispatch Alert
-                  </button>
+                  <button type="button" onClick={() => setBroadcastTarget(null)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
+                  <button type="submit" disabled={busy === "bc"} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg flex items-center gap-2 disabled:opacity-60"><Send className="w-3.5 h-3.5" /> Send</button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDeleteTarget(null)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-surface-900 border border-red-300/40 w-full max-w-md rounded-xl shadow-lg relative z-10 overflow-hidden">
+              <div className="p-6 space-y-3">
+                <h3 className="text-lg font-semibold text-surface-900 dark:text-white">Delete {deleteTarget.name}?</h3>
+                <p className="text-sm text-surface-600 dark:text-surface-300">This permanently removes the organization and its {deleteTarget.users_total} account{deleteTarget.users_total === 1 ? "" : "s"} and data. It cannot be undone.</p>
+                <label className="block text-xs text-surface-500">Type <b className="font-mono">{deleteTarget.id}</b> to confirm</label>
+                <input value={confirmText} onChange={e => setConfirmText(e.target.value)} className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm font-mono text-surface-900 dark:text-white focus:outline-none focus:border-red-500/60" />
+                <div className="flex gap-3 justify-end pt-2">
+                  <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
+                  <button disabled={confirmText !== deleteTarget.id || busy === "del"} onClick={() => run("del", async () => { await api(`/admin/organizations/${deleteTarget.id}?confirm=${encodeURIComponent(confirmText)}`, "DELETE"); toast("Organization deleted."); setDeleteTarget(null); })}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg disabled:opacity-40">Delete permanently</button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
