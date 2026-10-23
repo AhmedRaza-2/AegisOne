@@ -1169,6 +1169,8 @@ async def get_users(
     user_ids = [r.id for r in rows]
     scan_stats = {}
     creds_map = {}
+    downloads_map = {}   # user_id -> (total, flagged, blocked)
+    credevents_map = {}  # user_id -> (total, blocked)
     if user_ids:
         from sqlalchemy import func, case
         from api.database.models import WebsiteScan, SecurityEvent
@@ -1220,6 +1222,28 @@ async def get_users(
         creds_rows = (await db.execute(creds_q)).all()
         creds_map = {int(row.user_id): row.today_creds for row in creds_rows if row.user_id and row.user_id.isdigit()}
 
+        # Real per-user download / credential-warning counts and how often the user heeded warnings.
+        from api.database.models import DownloadEvent, CredentialEvent
+        uid_strs = [str(uid) for uid in user_ids]
+        window = start_time or (now - timedelta(days=30))
+        dl_rows = (await db.execute(
+            select(DownloadEvent.user_id, func.count(DownloadEvent.id),
+                   func.sum(case((DownloadEvent.decision.in_(["warn", "block"]), 1), else_=0)),
+                   func.sum(case((DownloadEvent.decision == "block", 1), else_=0)))
+            .where(DownloadEvent.user_id.in_(uid_strs), DownloadEvent.created_at >= window)
+            .group_by(DownloadEvent.user_id))).all()
+        for uid, total, flagged, blocked in dl_rows:
+            if uid and uid.isdigit():
+                downloads_map[int(uid)] = (total or 0, flagged or 0, blocked or 0)
+        cr_rows = (await db.execute(
+            select(CredentialEvent.user_id, func.count(CredentialEvent.id),
+                   func.sum(case((CredentialEvent.blocked == True, 1), else_=0)))  # noqa: E712
+            .where(CredentialEvent.user_id.in_(uid_strs), CredentialEvent.created_at >= window)
+            .group_by(CredentialEvent.user_id))).all()
+        for uid, total, blocked in cr_rows:
+            if uid and uid.isdigit():
+                credevents_map[int(uid)] = (total or 0, blocked or 0)
+
     users_response = []
     for r in rows:
         stats = scan_stats.get(r.id, {"total_scans": 0, "threats": 0, "critical_count": 0, "today_warns": 0})
@@ -1234,7 +1258,14 @@ async def get_users(
         )
         # Risk stays threat-driven (0 = no threats) so inactive users don't read as high-risk.
         risk_score = min(100, threats * 2)
-        
+
+        dl_total, dl_flagged, dl_blocked = downloads_map.get(r.id, (0, 0, 0))
+        cr_total, cr_blocked = credevents_map.get(r.id, (0, 0))
+        # Compliance = share of risky actions (warned/blocked downloads + credential warnings) where the
+        # protection held (the file/credential was blocked rather than let through). None = no risky actions.
+        risky_total = dl_flagged + cr_total
+        compliance = round(100 * (dl_blocked + cr_blocked) / risky_total) if risky_total else None
+
         users_response.append({
             "id": r.id, 
             "email": r.email, 
@@ -1247,6 +1278,9 @@ async def get_users(
             "threats": threats,
             "risk_score": risk_score,
             "security_score": security_score,
+            "downloads_scanned": dl_total,
+            "credential_events": cr_total,
+            "compliance_rate": compliance,
         })
         
     return {"users": users_response}

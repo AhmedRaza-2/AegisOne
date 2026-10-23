@@ -174,8 +174,9 @@ export default function EmployeesPage() {
         score,
         threatsCount: threats,
         status,
-        downloadsScanned: Math.floor(totalScans * 0.1),
-        credentialEvents: Math.floor(threats * 0.2),
+        downloadsScanned: emp.downloads_scanned ?? 0,
+        credentialEvents: emp.credential_events ?? 0,
+        complianceRate: emp.compliance_rate ?? null,
         lastActivity: totalScans > 0 ? "Just now" : "Offline"
       };
     });
@@ -693,7 +694,7 @@ export default function EmployeesPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-surface-600 dark:text-surface-400 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Compliance Rating</span>
-                        <span className="font-semibold text-emerald-500">100%</span>
+                        <span className={`font-semibold ${selectedEmployee.complianceRate == null ? "text-surface-400" : selectedEmployee.complianceRate >= 80 ? "text-emerald-500" : selectedEmployee.complianceRate >= 50 ? "text-amber-500" : "text-red-500"}`}>{selectedEmployee.complianceRate == null ? "No risky actions yet" : `${selectedEmployee.complianceRate}%`}</span>
                       </div>
                     </div>
                   </div>
@@ -701,18 +702,14 @@ export default function EmployeesPage() {
                   <div className="p-5 rounded-xl border border-surface-200 dark:border-white/[0.05] bg-brand-50/50 dark:bg-brand-900/10">
                     <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-surface-900 dark:text-white"><Sparkles className="w-4 h-4 text-brand-500" /> AI Recommendations</h4>
                     <ul className="space-y-3 text-sm text-surface-600 dark:text-surface-400 list-disc list-inside">
-                      {selectedEmployee.score >= 80 ? (
-                        <>
-                          <li>Employee is maintaining excellent security hygiene.</li>
-                          <li>No immediate awareness training required.</li>
-                        </>
-                      ) : (
-                        <>
-                          <li>Recommend reviewing "Identifying Phishing Links" training.</li>
-                          <li>Employee recently interacted with suspicious credential prompts.</li>
-                          <li>Consider a brief check-in regarding recent blocked downloads.</li>
-                        </>
-                      )}
+                      {(() => {
+                        const tips: string[] = [];
+                        if (selectedEmployee.credentialEvents > 0) tips.push(`${selectedEmployee.credentialEvents} credential warning(s) in this period${selectedEmployee.complianceRate != null && selectedEmployee.complianceRate < 100 ? " - some were not blocked, so consider a password-safety refresher." : "."}`);
+                        if (selectedEmployee.threatsCount >= 5) tips.push(`${selectedEmployee.threatsCount} flagged scans in this period - recommend "Identifying Phishing Links" training.`);
+                        else if (selectedEmployee.threatsCount > 0) tips.push(`${selectedEmployee.threatsCount} flagged scan(s) in this period - worth a short check-in.`);
+                        if (tips.length === 0) tips.push(selectedEmployee.total_scans > 0 ? "No risky activity in this period. No training needed." : "No activity recorded in this period.");
+                        return tips.map((t, i) => <li key={i}>{t}</li>);
+                      })()}
                     </ul>
                   </div>
                 </div>

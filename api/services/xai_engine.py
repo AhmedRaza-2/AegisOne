@@ -587,6 +587,14 @@ def _enrich_findings(findings, grounded, evidence, rich_evidence, text_tokens, s
             out.append(phrase)
 
     rich = rich_evidence or {}
+    age_days = evidence.get("domain_age_days")
+    if isinstance(age_days, (int, float)) and age_days < 180 and grounded["kind"] in ("page", "download"):
+        if age_days < 1:
+            add("the website's domain was registered today - scam sites are usually brand-new")
+        elif age_days < 60:
+            add(f"the website's domain was registered only {int(age_days)} day{'s' if int(age_days) != 1 else ''} ago - scam sites are usually brand-new")
+        else:
+            add(f"the website's domain was registered only about {int(age_days // 30)} months ago, which is young for a trustworthy brand")
     ume = rich.get("url_model_evidence") or {}
     for anomaly in (ume.get("lexical_anomalies") or [])[:3]:
         add(_lexical_anomaly_phrase(str(anomaly)))

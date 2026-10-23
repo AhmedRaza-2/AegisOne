@@ -936,6 +936,17 @@ async def api_explain(evidence: Dict[str, Any] = Body(...), current_user: User =
             except Exception:
                 rich_evidence = None
 
+    # Real domain age (RDAP, cached) for flagged page scans; short budget so the endpoint stays fast.
+    try:
+        _u = evidence.get("url") or evidence.get("domain") or ""
+        if _u and int(evidence.get("risk_score") or 0) >= 20 and "domain_age_days" not in evidence:
+            from api.services.domain_intel import lookup_domain_age
+            _age = await asyncio.wait_for(lookup_domain_age(_u), timeout=1.5)
+            if _age.get("age_days") is not None:
+                evidence["domain_age_days"] = _age["age_days"]
+    except Exception:
+        pass
+
     tier1 = generate_tier1_explanation(evidence, rich_evidence=rich_evidence)
 
     # Opportunistically ask the LLM to polish the wording within a tight timeout so this
@@ -1495,17 +1506,49 @@ async def get_personal_stats(current_user: User = Depends(get_current_user), db:
 
 
 @router.get("/user/recommendations")
-async def get_user_recommendations(current_user: User = Depends(get_current_user)):
-    email = current_user.email  # identity comes from the token, never the query string
-    """Module 18: Security Recommendations"""
-    return {
-        "recommendations": [
-            {"id": 1, "title": "Avoid shortened URLs", "desc": "You clicked on 3 bit.ly links recently. Expand them before clicking.", "type": "warning"},
-            {"id": 2, "title": "Enable MFA", "desc": "We detected logins without Multi-Factor Authentication. Secure your accounts.", "type": "action"},
-            {"id": 3, "title": "Update Browser", "desc": "Your Chrome version is 2 versions behind. Update to patch vulnerabilities.", "type": "critical"},
-            {"id": 4, "title": "Don't reuse passwords", "desc": "AegisOne detected similar password hashes used across multiple sites.", "type": "warning"}
-        ]
-    }
+async def get_user_recommendations(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Module 18: advice generated from THIS user's own last 30 days of activity (no canned claims)."""
+    from datetime import datetime, timedelta
+    since = datetime.utcnow() - timedelta(days=30)
+    uid = current_user.id
+    scans = (await db.execute(select(WebsiteScan).where(WebsiteScan.user_id == uid, WebsiteScan.created_at >= since))).scalars().all()
+    cred_events = (await db.execute(select(CredentialEvent).where(
+        cast(CredentialEvent.user_id, String) == str(uid), CredentialEvent.created_at >= since))).scalars().all()
+    dl_events = (await db.execute(select(DownloadEvent).where(
+        cast(DownloadEvent.user_id, String) == str(uid), DownloadEvent.created_at >= since))).scalars().all()
+
+    recs = []
+    def add(title, desc, kind):
+        recs.append({"id": len(recs) + 1, "title": title, "desc": desc, "type": kind})
+
+    flagged = [x for x in scans if x.decision in ("warn", "block")]
+    emails = [x for x in flagged if (x.scan_type or "") in ("email", "mail")]
+    plain_http = [x for x in scans if (x.url or "").lower().startswith("http://") and x.decision != "allow"]
+    blocked_creds = [c for c in cred_events if c.blocked]
+    risky_dl = [d for d in dl_events if d.decision in ("warn", "block")]
+
+    if blocked_creds:
+        add("Don't type passwords on unfamiliar sites",
+            f"AegisOne stopped {len(blocked_creds)} password/credential submission(s) to untrusted sites in the last 30 days. "
+            "Open important sites from your bookmarks instead of links.", "critical")
+    if risky_dl:
+        add("Be careful with downloads",
+            f"{len(risky_dl)} download(s) were warned or blocked. Only install software from your IT team or the official vendor.", "warning")
+    if emails:
+        add("Verify emails before acting",
+            f"{len(emails)} suspicious email(s) were flagged. Check the sender's real address and call the sender if a message asks for money or passwords.", "warning")
+    if plain_http:
+        add("Avoid sites without HTTPS",
+            f"{len(plain_http)} risky page(s) you visited did not use HTTPS. Never enter personal details on them.", "warning")
+    if len(flagged) >= 5:
+        add("Slow down on links",
+            f"{len(flagged)} of your {len(scans)} scans in the last 30 days were flagged. Hover over a link to check where it goes before you click.", "action")
+    if not recs:
+        add("No risky behaviour detected",
+            f"AegisOne scanned {len(scans)} item(s) for you in the last 30 days and found nothing that needs action. Keep it up.", "info")
+    add("Report anything suspicious",
+        "If something looks wrong, use Report in the Threat Center so your security team can review it.", "tip")
+    return {"recommendations": recs}
 
 
 # =============================================================================
@@ -1601,18 +1644,6 @@ async def get_user_downloads(current_user: User = Depends(get_current_user), db:
     q = await db.execute(select(DownloadEvent).where(cast(DownloadEvent.user_id, String) == str(current_user.id)).order_by(DownloadEvent.created_at.desc()).limit(50))
     downloads = q.scalars().all()
     
-    # Mock data for FYP if empty
-    if not downloads:
-        import datetime
-        now = datetime.datetime.now()
-        results = [
-            {"id": "dl-1", "filename": "invoice_Q3.pdf", "size": "1.2 MB", "type": "PDF Document", "risk": "Low (0%)", "decision": "Allowed", "timestamp": str(now - datetime.timedelta(hours=1))},
-            {"id": "dl-2", "filename": "setup_installer.exe", "size": "45.1 MB", "type": "Executable", "risk": "High (94%)", "decision": "Blocked", "timestamp": str(now - datetime.timedelta(hours=3))},
-            {"id": "dl-3", "filename": "financial_report.xlsx", "size": "3.4 MB", "type": "Excel Spreadsheet", "risk": "Medium (45%)", "decision": "Warned", "timestamp": str(now - datetime.timedelta(hours=12))},
-            {"id": "dl-4", "filename": "meeting_notes.docx", "size": "0.8 MB", "type": "Word Document", "risk": "Low (2%)", "decision": "Allowed", "timestamp": str(now - datetime.timedelta(days=1))},
-        ]
-        return {"downloads": results}
-
     results = []
     for d in downloads:
         results.append({
@@ -1639,21 +1670,7 @@ async def get_user_credentials(current_user: User = Depends(get_current_user), d
     allowed = 0
     timeline = []
     
-    if not creds:
-        # Mock data for FYP
-        import datetime
-        now = datetime.datetime.now()
-        protected = 3
-        attempted = 4
-        blocked = 3
-        allowed = 1
-        timeline = [
-            {"id": "cr-1", "domain": "paypal-login.xyz", "type": "Password", "action": "Blocked", "timestamp": str(now - datetime.timedelta(hours=2))},
-            {"id": "cr-2", "domain": "microsoft-auth.net", "type": "OTP", "action": "Blocked", "timestamp": str(now - datetime.timedelta(hours=14))},
-            {"id": "cr-3", "domain": "github.com", "type": "Password", "action": "Allowed", "timestamp": str(now - datetime.timedelta(days=1))},
-            {"id": "cr-4", "domain": "internal-portal.local", "type": "PIN", "action": "Blocked", "timestamp": str(now - datetime.timedelta(days=3))},
-        ]
-    else:
+    if creds:
         attempted = len(creds)
         for c in creds:
             if c.blocked:
@@ -1697,16 +1714,6 @@ async def get_user_media(current_user: User = Depends(get_current_user), db: Asy
     )
     media = q.scalars().all()
     
-    # Mock data if empty for FYP
-    if not media:
-        import datetime
-        now = datetime.datetime.now()
-        results = [
-            {"id": "md-1", "type": "QR Code", "target": "https://malicious-crypto.io", "risk": 95, "decision": "Blocked", "timestamp": str(now - datetime.timedelta(minutes=30))},
-            {"id": "md-2", "type": "Image OCR", "target": "Fake Invoice Payment Details", "risk": 65, "decision": "Warned", "timestamp": str(now - datetime.timedelta(hours=5))},
-            {"id": "md-3", "type": "Logo Spoofing", "target": "Microsoft Brand Logo", "risk": 82, "decision": "Blocked", "timestamp": str(now - datetime.timedelta(days=2))},
-        ]
-        return {"media": results}
         
     results = []
     for m in media:
@@ -1869,6 +1876,9 @@ async def get_user_url_intelligence(current_user: User = Depends(get_current_use
     )
     scans = q.scalars().all()
     
+    from api.services.domain_intel import lookup_many, registrable_domain
+    ages = await lookup_many([s.url for s in scans])
+
     results = []
     for s in scans:
         url_str = s.url.lower()
@@ -1876,11 +1886,9 @@ async def get_user_url_intelligence(current_user: User = Depends(get_current_use
         factors = str(s.top_factors or "").lower()
         redirects = "redirect" in factors
         
-        # Mock domain age based on risk (low risk = older, high risk = new)
-        domain_age = "5+ Years"
-        if s.risk_score > 80: domain_age = "3 Days"
-        elif s.risk_score > 50: domain_age = "2 Months"
-        elif s.risk_score > 20: domain_age = "1 Year"
+        # Real registration age from RDAP ("Unknown" when the registry can't be reached).
+        age = ages.get(registrable_domain(s.url) or "", {})
+        domain_age = age.get("age_label", "Unknown")
         
         # Reputation
         rep = "Excellent"
@@ -1893,7 +1901,9 @@ async def get_user_url_intelligence(current_user: User = Depends(get_current_use
             "url": s.url,
             "reputation": rep,
             "domainAge": domain_age,
-            "ssl": "Valid (HTTPS)" if has_ssl else "Missing (HTTP)",
+            "domainAgeDays": age.get("age_days"),
+            "registeredOn": age.get("registered_on"),
+            "ssl": "HTTPS" if has_ssl else "No HTTPS",
             "redirects": "Detected" if redirects else "None",
             "result": "Blocked" if s.decision == "block" else "Warned" if s.decision == "warn" else "Allowed",
             "riskScore": s.risk_score,
