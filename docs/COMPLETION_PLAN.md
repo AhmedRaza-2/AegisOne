@@ -59,18 +59,18 @@ Checked against the code on 2026-10-20 (not the 4 Oct audit snapshot). "Verified
 | 0.2 | /setup API requires an authenticated admin (status endpoints included) | **Done** |
 | 0.3 | WhatsApp sender HMAC key per deployment, not in source | **Done** |
 | 0.4 | /policy/allowlist is org-scoped, no process-wide mutation | **Done** |
-| 0.5 | Real domain age (RDAP, cached, "unknown" on failure) | Next |
-| 0.6 | Remove mock data: admin/organizations page, hard-coded "Compliance 100%", fabricated /user/recommendations, "mock" fallbacks in /user/downloads and /user/media | Next |
-| 0.7 | URL model sanitize/structuralize mismatch (benchmark before/after) | Next |
-| 0.8 | Extension: undefined VERDICT constants; scan every element after load (late-injected content) | Next |
+| 0.5 | Real domain age (RDAP, cached, "unknown" on failure) | **Done** |
+| 0.6 | Remove mock data: hard-coded "Compliance 100%", fabricated /user/recommendations, "mock" fallbacks | **Done** (admin/organizations page moves to 2.1 with licensing) |
+| 0.7 | URL model train/serve mismatch + neural pipeline off by default (benchmarked, see docs/URL_MODEL_EVALUATION.md) | **Done** |
+| 0.8 | Extension: scan all links, shadow DOM and iframes; exact-domain safe-host checks (substring bypass fixed) | **Done** (needs a manual browser test) |
 
 ### Phase 1 - Scope features
 | # | Item |
 |---|---|
-| 1.1 | QR decoding everywhere (web images, WhatsApp, email images): decode before the user opens it, scan the decoded URL/text, show verdict |
-| 1.2 | Incident backtrace + exports (8.7): who reported, what was scanned, which model/evidence, redirect chain (server-side SSRF-guarded tracer), timeline; CSV export and printable end-to-end report |
-| 1.3 | Alerts + playbooks (8.15): email/webhook on escalation and critical scans, built-in playbooks per incident type |
-| 1.4 | Org-wide auto-allowlist from verified false positives (8.14) |
+| 1.1 | **Done** - QR decoding everywhere (web images, WhatsApp, email images): decode before the user opens it, scan the decoded URL/text, show verdict |
+| 1.2 | **Done** - Incident backtrace + exports (8.7): who reported, what was scanned, which model/evidence, redirect chain (server-side SSRF-guarded tracer), timeline; CSV export and printable end-to-end report |
+| 1.3 | **Done** - Alerts + playbooks (8.15): email/webhook on escalation and critical scans, built-in playbooks per incident type |
+| 1.4 | **Done** - Org-wide auto-allowlist from verified false positives (8.14) |
 
 ### Phase 2 - Platform
 | # | Item |
