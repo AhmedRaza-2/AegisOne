@@ -90,9 +90,10 @@ async def lifespan(app: FastAPI):
         logger.warning("=" * 60)
 
     # Make sure there is a stable token-signing secret before any request is served.
-    from api.services.secret_store import ensure_jwt_secret, ensure_setup_key
+    from api.services.secret_store import ensure_jwt_secret, ensure_setup_key, ensure_pseudonym_key
     await ensure_jwt_secret()
     await ensure_setup_key()
+    await ensure_pseudonym_key()
 
     import shutil
     # Copy a local logo when both the source and frontend public folders exist.

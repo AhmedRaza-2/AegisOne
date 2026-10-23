@@ -22,6 +22,9 @@ ADMIN_ROLES   = {"admin"}
 MANAGER_ROLES = {"department_admin", "office_admin", "manager"}
 EMPLOYEE_ROLE = {"employee"}
 
+def _org_of(user: User) -> str:
+    return getattr(user, "organization_id", None) or "org_default"
+
 def is_admin(user: User)   -> bool: return user.role in ADMIN_ROLES
 def is_manager(user: User) -> bool: return user.role in MANAGER_ROLES
 def is_employee(user: User)-> bool: return user.role in EMPLOYEE_ROLE
@@ -111,6 +114,9 @@ async def get_conversation(
     Get all direct messages exchanged between current user and another user.
     Auto-marks messages FROM the other user as read.
     """
+    other = (await db.execute(select(User).where(User.id == other_user_id))).scalars().first()
+    if not other or (other.organization_id or "org_default") != _org_of(current_user):
+        raise HTTPException(status_code=404, detail="User not found")
     result = await db.execute(
         select(Message)
         .where(
@@ -162,7 +168,7 @@ async def send_message(
 
         result = await db.execute(select(User).where(User.id == msg.receiver_id))
         receiver = result.scalars().first()
-        if not receiver:
+        if not receiver or (receiver.organization_id or "org_default") != _org_of(current_user):
             raise HTTPException(status_code=404, detail="Receiver not found")
 
         # Block self-messaging
@@ -177,7 +183,8 @@ async def send_message(
             raise HTTPException(status_code=403, detail="Only managers and admins can broadcast")
         if not msg.department_id:
             raise HTTPException(status_code=400, detail="department_id required for broadcast")
-        result = await db.execute(select(Department).where(Department.id == msg.department_id))
+        result = await db.execute(select(Department).where(
+            Department.id == msg.department_id, Department.organization_id == _org_of(current_user)))
         if not result.scalars().first():
             raise HTTPException(status_code=404, detail="Department not found")
 
@@ -224,8 +231,9 @@ async def get_inbox(
         .where(
             or_(
                 Message.receiver_id == current_user.id,
-                and_(Message.msg_type == "broadcast", Message.department_id == current_user.department_id),
-                Message.msg_type == "org_broadcast"
+                and_(Message.msg_type == "broadcast", Message.department_id == current_user.department_id,
+                     User.organization_id == _org_of(current_user)),
+                and_(Message.msg_type == "org_broadcast", User.organization_id == _org_of(current_user))
             )
         )
         .order_by(Message.created_at.desc())
@@ -265,7 +273,9 @@ async def get_announcements(
     """
     result = await db.execute(
         select(Message)
+        .join(User, Message.sender_id == User.id)
         .where(
+            User.organization_id == _org_of(current_user),
             or_(
                 and_(Message.msg_type == "broadcast", Message.department_id == current_user.department_id),
                 Message.msg_type == "org_broadcast"

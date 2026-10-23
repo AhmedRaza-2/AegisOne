@@ -18,6 +18,38 @@ logger = logging.getLogger("aegisone.secrets")
 
 JWT_KEY_NAME = "jwt_signing_key"
 SETUP_KEY_NAME = "setup_wizard_key"
+PSEUDONYM_KEY_NAME = "sender_pseudonym_key"
+
+# Per-deployment key used to pseudonymize WhatsApp sender identifiers (HMAC-SHA256).
+_pseudonym_key: bytes = b""
+
+
+def get_pseudonym_key() -> bytes:
+    """Never a hard-coded constant: derived from the deployment's own stored/env secret."""
+    if _pseudonym_key:
+        return _pseudonym_key
+    import hashlib
+    return hashlib.sha256(b"aegisone-pseudonym|" + str(config.JWT_SECRET_KEY).encode("utf-8")).digest()
+
+
+async def ensure_pseudonym_key() -> None:
+    global _pseudonym_key
+    import os
+    env_val = os.environ.get("AEGIS_PSEUDONYM_KEY")
+    if env_val:
+        _pseudonym_key = env_val.encode("utf-8")
+        return
+    db = await get_background_db()
+    try:
+        row = (await db.execute(select(AppSecret).where(AppSecret.key == PSEUDONYM_KEY_NAME))).scalar_one_or_none()
+        if row is None:
+            row = AppSecret(key=PSEUDONYM_KEY_NAME, value=secrets.token_urlsafe(48))
+            db.add(row)
+            await db.commit()
+            logger.info("Sender pseudonymization key: generated and stored in the database (first start)")
+        _pseudonym_key = row.value.encode("utf-8")
+    finally:
+        await db.close()
 
 
 async def ensure_jwt_secret() -> None:

@@ -34,6 +34,18 @@ router = APIRouter(
 _require_admin = require_role(Role.ADMIN)
 
 
+def _admin_org(user) -> str:
+    return getattr(user, "organization_id", None) or "org_default"
+
+
+def _check_org_access(user, org_id: str) -> None:
+    """An admin may only manage their own organization (global_admin may manage any)."""
+    if getattr(user, "role", "") == "global_admin":
+        return
+    if org_id != _admin_org(user):
+        raise HTTPException(status_code=403, detail="You can only manage your own organization")
+
+
 # In-memory store of per-email dispatch results, keyed by run_id.
 # Used by the frontend to poll real delivery status instead of assuming success.
 _email_dispatch_results: Dict[str, Dict] = {}
@@ -263,8 +275,9 @@ def _dept_code_from_name(name: str) -> str:
     return "".join(token[0] for token in tokens[:4]).upper()
 
 
-@router.get("/structure/{org_id}", response_model=OrgStructureResponse, dependencies=[Depends(_require_admin)])
-async def get_structure(org_id: str, db: AsyncSession = Depends(get_db)):
+@router.get("/structure/{org_id}", response_model=OrgStructureResponse)
+async def get_structure(org_id: str, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
+    _check_org_access(admin, org_id)
     org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalars().first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -301,8 +314,9 @@ async def get_structure(org_id: str, db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.post("/structure/save", dependencies=[Depends(_require_admin)])
-async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = Depends(get_db)):
+@router.post("/structure/save")
+async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
+    _check_org_access(admin, request.orgId)
     org = await _get_or_create_org(db, request.orgId, request.orgName)
 
     existing_departments = (await db.execute(select(Department).where(Department.organization_id == org.id))).scalars().all()
@@ -361,19 +375,20 @@ async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = De
     await db.commit()
     return {"status": "success", "orgId": org.id}
 
-@router.post("/structure/bulk-reassign", dependencies=[Depends(_require_admin)])
-async def bulk_reassign(request: BulkReassignRequest, db: AsyncSession = Depends(get_db)):
-    """Bulk reassigns users to a new department."""
+@router.post("/structure/bulk-reassign")
+async def bulk_reassign(request: BulkReassignRequest, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
+    """Bulk reassigns users to a new department (within the admin's own organization)."""
+    org_id = _admin_org(admin)
     target_code = request.targetDepartmentCode.upper()
     dept = None
     if target_code and target_code != "NONE":
-        dept = (await db.execute(select(Department).where(Department.code == target_code))).scalars().first()
+        dept = (await db.execute(select(Department).where(Department.code == target_code, Department.organization_id == org_id))).scalars().first()
         if not dept:
             raise HTTPException(status_code=404, detail="Target department not found")
             
     await db.execute(
         update(User)
-        .where(User.id.in_(request.employeeIds))
+        .where(User.id.in_(request.employeeIds), User.organization_id == org_id)
         .values(
             department_id=dept.id if dept else None,
             department=dept.name if dept else "General"
@@ -382,17 +397,18 @@ async def bulk_reassign(request: BulkReassignRequest, db: AsyncSession = Depends
     await db.commit()
     return {"status": "success", "reassigned_count": len(request.employeeIds)}
 
-@router.post("/structure/merge", dependencies=[Depends(_require_admin)])
-async def merge_departments(request: MergeDepartmentRequest, db: AsyncSession = Depends(get_db)):
+@router.post("/structure/merge")
+async def merge_departments(request: MergeDepartmentRequest, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
     """Merges source department into target department, moving all users."""
+    org_id = _admin_org(admin)
     src_code = request.sourceDeptCode.upper()
     tgt_code = request.targetDeptCode.upper()
     
-    src_dept = (await db.execute(select(Department).where(Department.code == src_code))).scalars().first()
+    src_dept = (await db.execute(select(Department).where(Department.code == src_code, Department.organization_id == org_id))).scalars().first()
     if not src_dept:
         raise HTTPException(status_code=404, detail="Source department not found")
         
-    tgt_dept = (await db.execute(select(Department).where(Department.code == tgt_code))).scalars().first()
+    tgt_dept = (await db.execute(select(Department).where(Department.code == tgt_code, Department.organization_id == org_id))).scalars().first()
     if not tgt_dept:
         raise HTTPException(status_code=404, detail="Target department not found")
 
@@ -407,7 +423,7 @@ async def merge_departments(request: MergeDepartmentRequest, db: AsyncSession = 
     return {"status": "success"}
 
 
-@router.get("/email-status/{run_id}")
+@router.get("/email-status/{run_id}", dependencies=[Depends(_require_admin)])
 async def email_status(run_id: str):
     """
     Returns the per-email delivery results for a setup/execute run.
@@ -419,8 +435,8 @@ async def email_status(run_id: str):
         return {"run_id": run_id, "done": False, "results": []}
     return {"run_id": run_id, "done": entry["done"], "results": entry["results"]}
 
-@router.post("/execute", dependencies=[Depends(_require_admin)])
-async def execute_setup(body: SetupExecuteRequest, http_request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@router.post("/execute")
+async def execute_setup(body: SetupExecuteRequest, http_request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
     """
     Executes the final setup steps:
     1. Saves employees to DB with hashed passwords.
@@ -429,6 +445,8 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
 
     # Alias body to request for all existing references below
     request = body
+    request.orgId = request.orgId or _admin_org(admin)
+    _check_org_access(admin, request.orgId)
 
     # Save employees/admins to DB
     emails_to_send = []
@@ -452,6 +470,9 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
             # off the event loop so a big employee batch doesn't freeze the whole server.
             hashed_pwd = await asyncio.to_thread(hash_password, pwd_raw)
             
+            if existing and (existing.organization_id or "org_default") != request.orgId:
+                # Never overwrite (or reset the password of) an account that belongs to another organization.
+                raise HTTPException(status_code=409, detail=f"{emp.email} already belongs to another organization")
             if not existing:
                 db_user = User(
                     email=emp.email,
@@ -476,9 +497,8 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
         # Persistent Organization SMTP storage
         org_id_val = request.orgId or "org_default"
         org = await _get_or_create_org(db, org_id_val, "AegisOne")
-        org_default = await _get_or_create_org(db, "org_default", "AegisOne")
-        
-        for target_org in [org, org_default]:
+
+        for target_org in [org]:
             if request.smtpHost:
                 target_org.smtp_host = request.smtpHost
             if request.smtpPort:
@@ -491,10 +511,10 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
         # Reset user department references first to avoid ForeignKeyViolationError in Postgres
         await db.execute(
             update(User)
-            .where(User.organization_id == "org_default")
+            .where(User.organization_id == org_id_val)
             .values(department_id=None)
         )
-        await db.execute(delete(Department).where(Department.organization_id == "org_default"))
+        await db.execute(delete(Department).where(Department.organization_id == org_id_val))
         dept_rows: dict[str, Department] = {}
         dept_names: dict[str, str] = {}
         for emp in request.employees:
@@ -507,7 +527,7 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
                     dept_name = "Human Resources"
                 elif dept_code == "FIN":
                     dept_name = "Finance"
-                dept = Department(organization_id="org_default", name=dept_name, code=dept_code, manager_id=None)
+                dept = Department(organization_id=org_id_val, name=dept_name, code=dept_code, manager_id=None)
                 db.add(dept)
                 await db.flush()
                 dept_rows[dept_code] = dept
@@ -545,8 +565,8 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
     )
     
     # Generate a fresh valid access token for the admin session to avoid 401 unauthorized errors on redirect
-    admin_user = (await db.execute(select(User).where(User.organization_id == "org_default", User.role == "admin"))).scalars().first()
-    admin_email = admin_user.email if admin_user else "admin@amdevwork.com"
+    admin_user = (await db.execute(select(User).where(User.id == admin.id))).scalars().first()
+    admin_email = admin_user.email if admin_user else admin.email
     
     from api.auth.jwt_handler import create_access_token, create_refresh_token
     fresh_token = create_access_token(data={"sub": admin_email, "role": "admin"})
@@ -561,7 +581,7 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
         "message": f"Setup executed. {len(request.employees)} users processed, {len(emails_to_send)} emails dispatching in background."
     }
 
-@router.get("/dispatch-status/{run_id}")
+@router.get("/dispatch-status/{run_id}", dependencies=[Depends(_require_admin)])
 async def get_dispatch_status(run_id: str):
     """Retrieves real-time progress and status of background email dispatch."""
     if run_id not in _email_dispatch_results:
@@ -595,10 +615,10 @@ async def test_smtp(request: SmtpTestRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"SMTP Error: {str(e)}")
 
-@router.post("/session", dependencies=[Depends(_require_admin)])
-async def save_session(request: SetupSessionSaveRequest, db: AsyncSession = Depends(get_db)):
+@router.post("/session")
+async def save_session(request: SetupSessionSaveRequest, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
     """Saves the current setup wizard state as a draft."""
-    session_id = request.sessionId
+    session_id = f"{_admin_org(admin)}:{request.sessionId}"[:64]
     session = (await db.execute(select(SetupSession).where(SetupSession.id == session_id))).scalars().first()
     if session:
         session.state_json = request.state
@@ -608,62 +628,55 @@ async def save_session(request: SetupSessionSaveRequest, db: AsyncSession = Depe
     await db.commit()
     return {"status": "success"}
 
-@router.get("/session/{session_id}", dependencies=[Depends(_require_admin)])
-async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+@router.get("/session/{session_id}")
+async def get_session(session_id: str, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
     """Retrieves a saved setup wizard state."""
+    session_id = f"{_admin_org(admin)}:{session_id}"[:64]
     session = (await db.execute(select(SetupSession).where(SetupSession.id == session_id))).scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"status": "success", "state": session.state_json}
 
 
-@router.post("/reset-organization", dependencies=[Depends(_require_admin)])
-async def reset_organization(db: AsyncSession = Depends(get_db)):
-    """Performs a full hard reset of organization setup, purging all non-admin accounts, departments, and security telemetry."""
+@router.post("/reset-organization")
+async def reset_organization(db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
+    """Hard reset of the CALLER'S organization only: purges its non-admin accounts, departments and security telemetry."""
+    org_id = _admin_org(admin)
     try:
         from api.database.models import (
-            WebsiteScan, SecurityEvent, DownloadEvent, CredentialEvent, 
-            ManualScan, LoginHistory, Device, SetupSession,
+            WebsiteScan, SecurityEvent, DownloadEvent, CredentialEvent,
+            ManualScan, LoginHistory, Device,
             EmailSecurityEvent, ThreatReport, DashboardStatistic,
             OrganizationAnalyticsState, HoverScan
         )
-        # 1. Purge all security scan telemetry & events
-        await db.execute(delete(WebsiteScan))
-        await db.execute(delete(SecurityEvent))
-        await db.execute(delete(DownloadEvent))
-        await db.execute(delete(CredentialEvent))
-        await db.execute(delete(ManualScan))
-        await db.execute(delete(EmailSecurityEvent))
-        await db.execute(delete(HoverScan))
+        # 1. Org-scoped telemetry / analytics (every table below carries organization_id)
+        for model in (WebsiteScan, SecurityEvent, DownloadEvent, CredentialEvent, ManualScan,
+                      EmailSecurityEvent, HoverScan, ThreatReport, DashboardStatistic,
+                      OrganizationAnalyticsState, Device):
+            if hasattr(model, "organization_id"):
+                await db.execute(delete(model).where(model.organization_id == org_id))
 
-        # 1.5. Purge analytics caching & reports
-        await db.execute(delete(ThreatReport))
-        await db.execute(delete(DashboardStatistic))
-        await db.execute(delete(OrganizationAnalyticsState))
+        # 2. Login history has no org column - scope through this org's users
+        org_user_ids = select(User.id).where(User.organization_id == org_id)
+        if hasattr(LoginHistory, "user_id"):
+            await db.execute(delete(LoginHistory).where(LoginHistory.user_id.in_(org_user_ids)))
 
-        # 2. Purge registered devices & login audit history
-        await db.execute(delete(Device))
-        await db.execute(delete(LoginHistory))
+        # 3. This org's wizard drafts only (ids are namespaced "<org>:<session>")
+        await db.execute(delete(SetupSession).where(SetupSession.id.like(f"{org_id}:%")))
 
-        # 3. Clear setup wizard draft sessions
-        await db.execute(delete(SetupSession))
-
-        # 4. Unset foreign key references in BOTH directions to prevent foreign key violation errors in PostgreSQL
-        # a. Clear manager_id foreign key in departments table referencing users
-        await db.execute(update(Department).values(manager_id=None))
-        # b. Clear department_id foreign key in users table referencing departments
-        await db.execute(update(User).values(department_id=None, department=None))
+        # 4. Break FK references (departments <-> users) inside this org only
+        await db.execute(update(Department).where(Department.organization_id == org_id).values(manager_id=None))
+        await db.execute(update(User).where(User.organization_id == org_id).values(department_id=None, department=None))
         await db.flush()
 
-        # 5. Delete all non-admin users (preserve admin, super_admin, and global_admin)
-        await db.execute(delete(User).where(User.role.notin_(["admin", "super_admin", "global_admin"])))
-
-        # 6. Delete all department structures
-        await db.execute(delete(Department))
+        # 5. Delete this org's non-admin users, then its departments
+        await db.execute(delete(User).where(User.organization_id == org_id,
+                                            User.role.notin_(["admin", "super_admin", "global_admin"])))
+        await db.execute(delete(Department).where(Department.organization_id == org_id))
 
         await db.commit()
-        return {"status": "success", "message": "Hard reset completed. All non-admin users, departments, and telemetry records successfully erased."}
+        return {"status": "success", "message": "Hard reset completed for your organization. Non-admin users, departments and telemetry were erased."}
     except Exception as e:
         await db.rollback()
         _log.error("SETUP hard reset failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to reset organization: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to reset organization")

@@ -22,8 +22,7 @@ from api.services.model_orchestrator import predict_url, predict_text, predict_i
 
 logger = logging.getLogger("aegisone.whatsapp_analyzer")
 
-# HMAC secret key for sender pseudonymization
-ORG_HMAC_SECRET = b"aegisone_org_sender_secret_2026_key"
+from api.services.secret_store import get_pseudonym_key  # per-deployment key, not a source-code constant
 
 
 def hmac_pseudonymize_sender(sender: str) -> str:
@@ -33,7 +32,7 @@ def hmac_pseudonymize_sender(sender: str) -> str:
     clean = re.sub(r"[^\d+]", "", str(sender)).lower().strip()
     if not clean:
         clean = str(sender).strip().lower()
-    return hmac.new(ORG_HMAC_SECRET, clean.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+    return hmac.new(get_pseudonym_key(), clean.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
 
 
 def compute_canonical_fingerprint(chat_id: str, sender_id: str, text: str) -> str:

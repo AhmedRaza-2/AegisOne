@@ -1025,20 +1025,28 @@ async def get_current_policy(
     )
 
 
+def _auth_org(user) -> str:
+    """Tenant comes from the authenticated token, never from a client-supplied org id."""
+    return getattr(user, "organization_id", None) or DEFAULT_POLICY["org_id"]
+
+
 class AllowlistRequest(BaseModel):
     domain: str
 
 @router.post("/policy/allowlist")
 async def add_policy_allowlist(payload: AllowlistRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Adds a domain to the caller's organization allowlist (never to other orgs or a process-wide default)."""
     domain = payload.domain.strip().lower()
     if not domain:
         return {"ok": False, "reason": "empty domain"}
+    org_id = getattr(current_user, "organization_id", None) or DEFAULT_POLICY["org_id"]
 
-    existing = await db.execute(select(Policy).where(Policy.policy_type == "allowlist", Policy.value == domain))
-    if not existing.scalar_one_or_none():
+    existing = await db.execute(select(Policy).where(
+        Policy.organization_id == org_id, Policy.policy_type == "allowlist", Policy.value == domain))
+    if not existing.scalars().first():
         db.add(Policy(
             policy_id=str(uuid.uuid4()),
-            organization_id=DEFAULT_POLICY["org_id"],
+            organization_id=org_id,
             name=f"Allowlist {domain}",
             policy_type="allowlist",
             value=domain,
@@ -1046,9 +1054,6 @@ async def add_policy_allowlist(payload: AllowlistRequest, current_user: User = D
             priority=10
         ))
         await db.commit()
-
-    if domain not in DEFAULT_POLICY["allowlist"]:
-        DEFAULT_POLICY["allowlist"].append(domain)
 
     return {"ok": True, "domain": domain}
 
@@ -1068,7 +1073,7 @@ async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Dep
         if not device:
             device = Device(
                 device_id=payload.device_id,
-                organization_id=payload.organization_id or DEFAULT_POLICY["org_id"],
+                organization_id=_auth_org(current_user),
                 user_id=payload.user_id,
                 browser=payload.browser,
                 browser_version=payload.browser_version,
@@ -1077,7 +1082,7 @@ async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Dep
             )
             db.add(device)
         else:
-            device.organization_id = payload.organization_id or device.organization_id or DEFAULT_POLICY["org_id"]
+            device.organization_id = device.organization_id or _auth_org(current_user)
             device.user_id = payload.user_id if payload.user_id is not None else device.user_id
             device.browser = payload.browser
             device.browser_version = payload.browser_version
@@ -1089,7 +1094,7 @@ async def register_device(payload: DeviceRegisterRequest, db: AsyncSession = Dep
         # Fetch the existing one again and update to handle concurrent race conditions
         device = await db.scalar(select(Device).where(Device.device_id == payload.device_id))
         if device:
-            device.organization_id = payload.organization_id or device.organization_id or DEFAULT_POLICY["org_id"]
+            device.organization_id = device.organization_id or _auth_org(current_user)
             device.user_id = payload.user_id if payload.user_id is not None else device.user_id
             device.browser = payload.browser
             device.browser_version = payload.browser_version
@@ -1259,7 +1264,7 @@ async def report_threat(payload: ThreatReportRequest, current_user: User = Depen
     report_id = f"report-{uuid.uuid4().hex[:12]}"
     row = ThreatReport(
         report_id=report_id,
-        organization_id=payload.organization_id or DEFAULT_POLICY["org_id"],
+        organization_id=_auth_org(current_user),
         user_id=payload.user_id,
         website=payload.website,
         reason=payload.reason,
@@ -1303,7 +1308,7 @@ async def ingest_script_telemetry(payload: ScriptTelemetryRequest, current_user:
         severity = "high" if payload.risk_score >= 70 else "medium" if payload.risk_score >= 40 else "low"
         db.add(SecurityEventORM(
             event_id=entry_id,
-            organization_id=payload.org_id or DEFAULT_POLICY["org_id"],
+            organization_id=_auth_org(current_user),
             device_id=payload.device_id,
             event_type="script_risk",
             severity=severity,
@@ -1350,7 +1355,7 @@ async def ingest_cookie_telemetry(payload: CookieTelemetryRequest, current_user:
         severity = "high" if payload.risk_score >= 70 else "medium" if payload.risk_score >= 40 else "low"
         db.add(SecurityEventORM(
             event_id=entry_id,
-            organization_id=payload.org_id or DEFAULT_POLICY["org_id"],
+            organization_id=_auth_org(current_user),
             device_id=payload.device_id,
             event_type="cookie_risk",
             severity=severity,
@@ -1408,7 +1413,7 @@ async def get_user_alerts(current_user: User = Depends(get_current_user), db: As
     """Module 13: Alerts Center (High severity items only)"""
     q = await db.execute(
         select(WebsiteScan)
-        .where(WebsiteScan.decision == "block")
+        .where(WebsiteScan.decision == "block", WebsiteScan.user_id == current_user.id)
         .order_by(WebsiteScan.created_at.desc())
         .limit(20)
     )
@@ -1422,16 +1427,6 @@ async def get_user_alerts(current_user: User = Depends(get_current_user), db: As
             "time": str(a.created_at),
             "severity": "critical"
         })
-    # Add a mock credential alert for variety if list is small
-    import datetime
-    if len(results) < 3:
-        results.append({
-            "id": "alert-mock-1",
-            "title": "Credential Theft Prevented",
-            "description": "Stopped a password submission to an unknown server.",
-            "time": str(datetime.datetime.now() - datetime.timedelta(hours=1)),
-            "severity": "high"
-        })
     return {"alerts": results}
 
 @router.get("/user/timeline")
@@ -1440,6 +1435,7 @@ async def get_user_timeline(current_user: User = Depends(get_current_user), db: 
     """Module 14: Security Timeline (Story mode)"""
     q = await db.execute(
         select(WebsiteScan)
+        .where(WebsiteScan.user_id == current_user.id)
         .order_by(WebsiteScan.created_at.desc())
         .limit(30)
     )
@@ -1602,7 +1598,7 @@ async def get_browser_status(current_user: User = Depends(get_current_user)):
 async def get_user_downloads(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     email = current_user.email  # identity comes from the token, never the query string
     """Module 8: Download Protection"""
-    q = await db.execute(select(DownloadEvent).order_by(DownloadEvent.created_at.desc()).limit(50))
+    q = await db.execute(select(DownloadEvent).where(cast(DownloadEvent.user_id, String) == str(current_user.id)).order_by(DownloadEvent.created_at.desc()).limit(50))
     downloads = q.scalars().all()
     
     # Mock data for FYP if empty
@@ -1634,7 +1630,7 @@ async def get_user_downloads(current_user: User = Depends(get_current_user), db:
 async def get_user_credentials(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     email = current_user.email  # identity comes from the token, never the query string
     """Module 9: Credential Protection"""
-    q = await db.execute(select(CredentialEvent).order_by(CredentialEvent.created_at.desc()).limit(50))
+    q = await db.execute(select(CredentialEvent).where(cast(CredentialEvent.user_id, String) == str(current_user.id)).order_by(CredentialEvent.created_at.desc()).limit(50))
     creds = q.scalars().all()
     
     protected = 0
@@ -1692,7 +1688,8 @@ async def get_user_media(current_user: User = Depends(get_current_user), db: Asy
     q = await db.execute(
         select(WebsiteScan)
         .where(
-            (WebsiteScan.scan_type == "image") | 
+            WebsiteScan.user_id == current_user.id,
+            (WebsiteScan.scan_type == "image") |
             (WebsiteScan.threat_type.ilike("%qr%"))
         )
         .order_by(WebsiteScan.created_at.desc())
@@ -1866,7 +1863,7 @@ async def get_user_url_intelligence(current_user: User = Depends(get_current_use
     """
     q = await db.execute(
         select(WebsiteScan)
-        .where(WebsiteScan.scan_type == "url")
+        .where(WebsiteScan.scan_type == "url", WebsiteScan.user_id == current_user.id)
         .order_by(WebsiteScan.created_at.desc())
         .limit(100)
     )
@@ -1967,12 +1964,12 @@ async def get_user_analytics(current_user: User = Depends(get_current_user), db:
         # Count total vs threats for that day
         total = await db.scalar(
             select(func.count(WebsiteScan.id))
-            .where(cast(WebsiteScan.created_at, Date) == target_date)
+            .where(WebsiteScan.user_id == current_user.id, cast(WebsiteScan.created_at, Date) == target_date)
         ) or 0
         
         threats = await db.scalar(
             select(func.count(WebsiteScan.id))
-            .where(cast(WebsiteScan.created_at, Date) == target_date, WebsiteScan.decision.in_(["warn", "block"]))
+            .where(WebsiteScan.user_id == current_user.id, cast(WebsiteScan.created_at, Date) == target_date, WebsiteScan.decision.in_(["warn", "block"]))
         ) or 0
         
         daily_trend.append({
@@ -1984,7 +1981,7 @@ async def get_user_analytics(current_user: User = Depends(get_current_user), db:
     # 2. Threat Types Pie Chart
     threat_types_q = await db.execute(
         select(WebsiteScan.scan_type, func.count(WebsiteScan.id))
-        .where(WebsiteScan.decision.in_(["warn", "block"]))
+        .where(WebsiteScan.user_id == current_user.id, WebsiteScan.decision.in_(["warn", "block"]))
         .group_by(WebsiteScan.scan_type)
     )
     threat_types_raw = threat_types_q.all()
@@ -1994,9 +1991,9 @@ async def get_user_analytics(current_user: User = Depends(get_current_user), db:
         threat_types = [{"name": "No Threats", "value": 1}]
         
     # 3. Risk Distribution
-    low_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score <= 30))
-    med_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score > 30, WebsiteScan.risk_score <= 70))
-    high_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.risk_score > 70))
+    low_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.user_id == current_user.id, WebsiteScan.risk_score <= 30))
+    med_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.user_id == current_user.id, WebsiteScan.risk_score > 30, WebsiteScan.risk_score <= 70))
+    high_q = await db.execute(select(func.count(WebsiteScan.id)).where(WebsiteScan.user_id == current_user.id, WebsiteScan.risk_score > 70))
     
     risk_distribution = [
         {"name": "Low Risk", "count": low_q.scalar() or 0, "fill": "#22c55e"},
