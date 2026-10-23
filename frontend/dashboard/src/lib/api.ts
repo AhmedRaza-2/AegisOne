@@ -18,6 +18,8 @@ export function getApiBaseUrl(): string {
   // 2. Browser-side detection: use same host as the page, port 8000
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
+    // Behind the TLS proxy (docker-compose.prod.yml) the API is served on :8443
+    if (window.location.protocol === "https:") return `https://${host}:8443`;
     return `http://${host}:8000`;
   }
 

@@ -38,7 +38,8 @@ async function initConfigData() {
     const res = await fetch(chrome.runtime.getURL("config.json"));
     if (!res.ok) return;
     const config = await res.json();
-    const stored = await chrome.storage.local.get(["user_email", "server_url", "auth_refresh_token"]);
+    const stored = await chrome.storage.local.get(["user_email", "server_url"]);
+    stored.auth_refresh_token = (await globalThis.AegisSecure.get("auth_refresh_token")).auth_refresh_token;
 
     const toSet = {};
     const newIdentity = !!config.email && config.email !== stored.user_email;

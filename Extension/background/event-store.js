@@ -12,6 +12,9 @@
  */
 
 import { STORE_KEYS, EVENT_TYPES } from "../utils/constants.js";
+import "../utils/secure-store.js";   // events carry visited URLs: stored AES-GCM encrypted
+
+const secure = globalThis.AegisSecure;
 
 const MAX_LOCAL_EVENTS = 100;
 
@@ -43,7 +46,7 @@ export async function storeEvent(event) {
 
     // Prune to max limit
     const pruned = stored.slice(0, MAX_LOCAL_EVENTS);
-    await chrome.storage.local.set({ [STORE_KEYS.EVENTS]: pruned });
+    await secure.set({ [STORE_KEYS.EVENTS]: pruned });
 
     return entry.id;
   } catch (err) {
@@ -75,7 +78,7 @@ export async function markSynced(ids) {
   const idSet = new Set(ids);
   const events = await _getEvents();
   const updated = events.map(e => idSet.has(e.id) ? { ...e, synced: true } : e);
-  await chrome.storage.local.set({ [STORE_KEYS.EVENTS]: updated });
+  await secure.set({ [STORE_KEYS.EVENTS]: updated });
 }
 
 /**
@@ -90,13 +93,13 @@ export async function getUnsyncedEvents() {
  * Clear all stored events.
  */
 export async function clearEvents() {
-  await chrome.storage.local.set({ [STORE_KEYS.EVENTS]: [] });
+  await secure.set({ [STORE_KEYS.EVENTS]: [] });
 }
 
 // ── Internal ──────────────────────────────────────────────
 async function _getEvents() {
   try {
-    const data = await chrome.storage.local.get(STORE_KEYS.EVENTS);
+    const data = await secure.get(STORE_KEYS.EVENTS);
     return Array.isArray(data[STORE_KEYS.EVENTS]) ? data[STORE_KEYS.EVENTS] : [];
   } catch { return []; }
 }

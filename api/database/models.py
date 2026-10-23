@@ -76,6 +76,7 @@ class User(Base):
     department_id   = Column(Integer,     ForeignKey("departments.id"), nullable=True)
     department      = Column(String(255), default="General") # Legacy field, keep for compatibility
     account_status  = Column(String(50),  default="pending") # pending, active, disabled, locked
+    chat_public_key = Column(Text,        nullable=True)     # ECDH P-256 public key (JWK) for end-to-end encrypted chat
     approved_by     = Column(Integer,     nullable=True)
     status_reason   = Column(Text,        nullable=True)
     avatar_url      = Column(String(500), nullable=True)

@@ -11,6 +11,9 @@
  *                       renewed once with the refresh token and the request retried.
  */
 import { getApiBaseUrl } from "./constants.js";
+import "./secure-store.js";   // defines globalThis.AegisSecure (AES-GCM storage)
+
+const secure = globalThis.AegisSecure;
 
 const ACCESS = "auth_access_token";
 const REFRESH = "auth_refresh_token";
@@ -19,7 +22,7 @@ export async function setTokens(access, refresh) {
   const toSet = {};
   if (access) toSet[ACCESS] = access;
   if (refresh) toSet[REFRESH] = refresh;
-  if (Object.keys(toSet).length) await chrome.storage.local.set(toSet);
+  if (Object.keys(toSet).length) await secure.set(toSet);
 }
 
 export async function clearTokens() {
@@ -27,7 +30,7 @@ export async function clearTokens() {
 }
 
 export async function getAccessToken() {
-  const s = await chrome.storage.local.get(ACCESS);
+  const s = await secure.get(ACCESS);
   return s[ACCESS] || null;
 }
 
@@ -37,7 +40,7 @@ async function _refresh() {
   if (_refreshing) return _refreshing;
   _refreshing = (async () => {
     try {
-      const s = await chrome.storage.local.get(REFRESH);
+      const s = await secure.get(REFRESH);
       if (!s[REFRESH]) return false;
       const base = await getApiBaseUrl();
       const res = await fetch(`${base}/auth/refresh`, {
@@ -84,7 +87,7 @@ function _expiryMs(token) {
  *  - A server that is merely unreachable never clears the stored credential.
  */
 export async function authFetch(url, opts = {}) {
-  const store = await chrome.storage.local.get([ACCESS, REFRESH]);
+  const store = await secure.get([ACCESS, REFRESH]);
   const hasRefresh = !!store[REFRESH];
   const exp = store[ACCESS] ? _expiryMs(store[ACCESS]) : null;
   if (hasRefresh && (!store[ACCESS] || (exp !== null && exp - Date.now() < 60_000))) {

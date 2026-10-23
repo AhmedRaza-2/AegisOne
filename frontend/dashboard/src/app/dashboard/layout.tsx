@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
 import { toast } from "@/components/ui/toast";
+import { publishKeyIfNeeded, isEncrypted } from "@/lib/e2e-chat";
 
 interface NavItem {
   label: string;
@@ -328,6 +329,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Poll for new inbox messages every 30 seconds
   useEffect(() => {
     if (!user) return;
+    publishKeyIfNeeded();   // makes this browser reachable for end-to-end encrypted chat
     let stopped = false;
     const fetchInbox = () => {
       const token = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
@@ -346,7 +348,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return res.ok ? res.json() : null;
         })
         .then(data => {
-          if (Array.isArray(data)) setInboxMessages(data);
+          if (Array.isArray(data)) setInboxMessages(data.map((m: any) => isEncrypted(m.content) ? { ...m, content: "🔒 New encrypted message" } : m));
         })
         .catch(() => { });
       fetch(`${getApiBaseUrl()}/notifications?limit=10`, { headers: { "Authorization": `Bearer ${token}` } })

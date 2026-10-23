@@ -5,6 +5,7 @@ import { MessageSquare, Megaphone, Users, CheckCircle2, XCircle, Plus, X, Globe,
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatView, ContactItem, ChatContact, ChatMessage, roleLabel, ts } from "@/components/chat/ChatComponents";
+import { publishKeyIfNeeded, encryptFor, decryptThread } from "@/lib/e2e-chat";
 
 function Toast({ toast }: { toast: { message: string; type: "success" | "error" } | null }) {
   if (!toast) return null;
@@ -40,6 +41,8 @@ export default function ManagerCommunicationPage() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  useEffect(() => { if (user) publishKeyIfNeeded(); }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -91,9 +94,9 @@ export default function ManagerCommunicationPage() {
     if (pollRef.current) clearInterval(pollRef.current);
     const load = () =>
       fetch(`${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() })
-        .then(r => r.json()).then(d => { 
+        .then(r => r.json()).then(async d => {
           if (Array.isArray(d)) {
-            setThread(d); 
+            setThread(await decryptThread(activeContact.chat_public_key, d));
             setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
           }
         }).catch(() => { });
@@ -104,15 +107,19 @@ export default function ManagerCommunicationPage() {
 
   const handleSend = async (text: string) => {
     if (!activeContact) return;
+    if (!activeContact.chat_public_key) {
+      showToast("Secure chat isn't ready for this person yet. They need to open the dashboard once.", "error");
+      return;
+    }
     const res = await fetch(`${getApiBaseUrl()}/communication/send`, {
       method: "POST", headers: getHeaders(),
-      body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: text })
+      body: JSON.stringify({ msg_type: "direct", receiver_id: activeContact.id, content: await encryptFor(activeContact.chat_public_key, text) })
     });
     if (res.ok) {
       const data = await fetch(
         `${getApiBaseUrl()}/communication/conversation/${activeContact.id}`, { headers: getHeaders() }
       ).then(r => r.json());
-      if (Array.isArray(data)) setThread(data);
+      if (Array.isArray(data)) setThread(await decryptThread(activeContact.chat_public_key, data));
     } else {
       const err = await res.json();
       showToast(err.detail || "Failed to send", "error");

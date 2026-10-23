@@ -39,7 +39,8 @@ async function setupAuth() {
   if (!card || !status) return;
 
   const render = async () => {
-    const { auth_access_token, user_email } = await chrome.storage.local.get(["auth_access_token", "user_email"]);
+    const { auth_access_token } = await AegisSecure.get("auth_access_token");
+    const { user_email } = await chrome.storage.local.get("user_email");
     const signedIn = !!auth_access_token;
     card.style.display = signedIn ? "none" : "block";
     status.style.display = signedIn ? "block" : "none";
@@ -61,9 +62,8 @@ async function setupAuth() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { msg.textContent = (typeof data.detail === "string" ? data.detail : "Sign-in failed."); return; }
-      await chrome.storage.local.set({
-        auth_access_token: data.access_token, auth_refresh_token: data.refresh_token, user_email: email,
-      });
+      await AegisSecure.set({ auth_access_token: data.access_token, auth_refresh_token: data.refresh_token });
+      await chrome.storage.local.set({ user_email: email });
       chrome.runtime.sendMessage({ type: "AUTH_UPDATED", email, access_token: data.access_token, refresh_token: data.refresh_token }).catch(() => { });
       document.getElementById("authPassword").value = "";
       await render();
@@ -251,7 +251,7 @@ async function loadPopupStats() {
 
     for (const url of apiEndpoints) {
       try {
-        const { auth_access_token: _t } = await chrome.storage.local.get("auth_access_token");
+        const { auth_access_token: _t } = await AegisSecure.get("auth_access_token");
         const res = await fetch(url, { signal: AbortSignal.timeout(1500), headers: _t ? { Authorization: `Bearer ${_t}` } : {} });
         if (res.ok) {
           const data = await res.json();
@@ -494,7 +494,7 @@ async function loadRecentEvents() {
   else apiUrl = `${getApiBaseUrl()}/user/stats`;
 
   try {
-    const { auth_access_token: _tok } = await chrome.storage.local.get("auth_access_token");
+    const { auth_access_token: _tok } = await AegisSecure.get("auth_access_token");
     const apiRes = await fetch(apiUrl, {
       signal: AbortSignal.timeout(1200),
       headers: _tok ? { Authorization: `Bearer ${_tok}` } : {},

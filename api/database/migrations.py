@@ -22,6 +22,7 @@ _ADDITIVE_COLUMNS = [
     ("incidents", "manager_notes", "TEXT"),
     ("incident_reports", "department_id", "INTEGER REFERENCES departments(id) ON DELETE SET NULL"),
     ("users", "password_changed_at", "TIMESTAMP"),
+    ("users", "chat_public_key", "TEXT"),
     ("incidents", "evidence", "JSON"),
     ("incident_reports", "evidence", "JSON"),
     ("credential_events", "user_id", "VARCHAR(128)"),

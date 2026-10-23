@@ -87,6 +87,7 @@ async def get_contacts(
                 "role": u.role,
                 "department": u.department,
                 "department_id": u.department_id,
+                "chat_public_key": u.chat_public_key,
                 "unread_count": unread_counts.get(u.id, 0),
                 "last_message_at": last_interaction[u.id].isoformat() if u.id in last_interaction else None
             })
@@ -99,6 +100,44 @@ async def get_contacts(
     ))
 
     return unique_contacts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1b. END-TO-END ENCRYPTION KEYS
+# Each browser generates an ECDH P-256 key pair; the PRIVATE key never leaves that browser
+# (stored non-extractable). Only the public half is published here so colleagues can derive a
+# shared AES-GCM key. Direct-message bodies are ciphertext ("e2e1:...") the server cannot read.
+# ─────────────────────────────────────────────────────────────────────────────
+class ChatKeyIn(BaseModel):
+    public_key: str
+
+
+@router.put("/keys")
+async def publish_chat_key(
+    body: ChatKeyIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import json as _json
+    try:
+        jwk = _json.loads(body.public_key)
+    except Exception:
+        raise HTTPException(status_code=400, detail="public_key must be a JWK JSON string")
+    # Must be a PUBLIC P-256 key: reject anything carrying private material
+    if not (isinstance(jwk, dict) and jwk.get("kty") == "EC" and jwk.get("crv") == "P-256"
+            and jwk.get("x") and jwk.get("y") and "d" not in jwk):
+        raise HTTPException(status_code=400, detail="Expected a public EC P-256 JWK")
+    if len(body.public_key) > 1000:
+        raise HTTPException(status_code=400, detail="Key too large")
+    user = (await db.execute(select(User).where(User.id == current_user.id))).scalars().first()
+    user.chat_public_key = _json.dumps({k: jwk[k] for k in ("kty", "crv", "x", "y")}, separators=(",", ":"))
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.get("/keys/me")
+async def my_chat_key(current_user: User = Depends(get_current_user)):
+    return {"public_key": current_user.chat_public_key}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +214,12 @@ async def send_message(
         if receiver.id == current_user.id:
             raise HTTPException(status_code=400, detail="Cannot message yourself")
         
+        # End-to-end: when both parties have published keys, chat bodies must be ciphertext
+        # (titled system notices, e.g. training assignments, are the only plaintext direct messages).
+        if (current_user.chat_public_key and receiver.chat_public_key and not msg.title
+                and not str(msg.content).startswith("e2e1:")):
+            raise HTTPException(status_code=400, detail="Direct messages must be end-to-end encrypted")
+
         _log.info("CHAT  %s -> %s", current_user.email, receiver.email)
 
     elif msg.msg_type == "broadcast":

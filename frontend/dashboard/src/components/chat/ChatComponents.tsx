@@ -4,6 +4,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
+import { publishKeyIfNeeded, encryptFor, decryptThread } from "@/lib/e2e-chat";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export interface ChatContact {
@@ -13,6 +14,7 @@ export interface ChatContact {
   role: string;
   department?: string;
   department_id?: number;
+  chat_public_key?: string | null;
   unread_count?: number;
   last_message_at?: string;
 }
@@ -120,9 +122,11 @@ export function useChat(userId: number | undefined, preferRole?: string) {
   const [thread, setThread] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const activeId = useRef<number | null>(null);
+  const activeKey = useRef<string | null>(null);   // the active contact's published E2E public key
 
   const setActive = useCallback((c: ChatContact | null) => {
     activeId.current = c ? c.id : null;
+    activeKey.current = c?.chat_public_key ?? null;
     setThread([]);
     setActiveState(c);
   }, []);
@@ -133,6 +137,8 @@ export function useChat(userId: number | undefined, preferRole?: string) {
       const data = r.ok ? await r.json() : null;
       if (!Array.isArray(data)) return;
       const merged = data.map((c: ChatContact) => (c.id === activeId.current ? { ...c, unread_count: 0 } : c));
+      const cur = merged.find((c: ChatContact) => c.id === activeId.current);
+      if (cur) activeKey.current = cur.chat_public_key ?? null;
       setContacts(merged);
       setLoaded(true);
       if (activeId.current === null && merged.length) {
@@ -150,12 +156,16 @@ export function useChat(userId: number | undefined, preferRole?: string) {
     try {
       const r = await fetch(`${getApiBaseUrl()}/communication/conversation/${id}`, { headers: authHeaders() });
       const data = r.ok ? await r.json() : null;
-      if (Array.isArray(data) && activeId.current === id) setThread(data);
+      if (Array.isArray(data)) {
+        const plain = await decryptThread(activeKey.current, data);
+        if (activeId.current === id) setThread(plain);
+      }
     } catch { /* next poll retries */ }
   }, []);
 
   useEffect(() => {
     if (!userId) return;
+    publishKeyIfNeeded();
     loadContacts();
     const t = setInterval(() => { if (!document.hidden) loadContacts(); }, 8000);
     return () => clearInterval(t);
@@ -172,6 +182,10 @@ export function useChat(userId: number | undefined, preferRole?: string) {
   const send = useCallback(async (text: string): Promise<boolean> => {
     const id = activeId.current;
     if (id === null || !userId) return false;
+    if (!activeKey.current) {
+      toast("Secure chat isn't ready for this person yet. They need to open the dashboard once.", "error");
+      return false;
+    }
     const temp: ChatMessage = {
       id: -Date.now(), sender_id: userId, receiver_id: id, msg_type: "direct",
       content: text, created_at: new Date().toISOString(), priority: "Normal", is_read: false,
@@ -180,7 +194,7 @@ export function useChat(userId: number | undefined, preferRole?: string) {
     try {
       const res = await fetch(`${getApiBaseUrl()}/communication/send`, {
         method: "POST", headers: authHeaders(),
-        body: JSON.stringify({ msg_type: "direct", receiver_id: id, content: text }),
+        body: JSON.stringify({ msg_type: "direct", receiver_id: id, content: await encryptFor(activeKey.current, text) }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

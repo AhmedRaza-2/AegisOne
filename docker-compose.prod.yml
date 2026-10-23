@@ -13,8 +13,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-aegisone_secret}
     volumes:
       - aegisone-pg-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # Not published: only the backend and backup containers reach the database
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U aegis -d aegisone" ]
       interval: 5s
@@ -38,14 +37,15 @@ services:
       AEGIS_WORKERS: "1"
       AEGIS_DATABASE_URL: "postgresql+asyncpg://aegis:${DB_PASSWORD:-aegisone_secret}@db:5432/aegisone"
       AEGIS_JWT_SECRET: ${AEGIS_JWT_SECRET:-change-me-in-production}
-      AEGIS_DASHBOARD_URL: ${AEGIS_DASHBOARD_URL:-http://localhost:3002}
+      AEGIS_DASHBOARD_URL: ${AEGIS_DASHBOARD_URL:-https://localhost}
       ORG_ID: ${ORG_ID:-}
       LICENSE_KEY: ${LICENSE_KEY:-}
       DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-} 
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+    # Published on loopback only; external traffic goes through the TLS proxy
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -57,11 +57,34 @@ services:
   dashboard:
     image: ahmedraza2006/aegisone-dashboard:${AEGIS_TAG:-latest}
     container_name: aegisone-dashboard
-    ports:
-      - "3002:3000"
+    expose:
+      - "3000"
     environment:
-      AEGIS_DASHBOARD_URL: "http://${SERVER_HOST:-localhost}:3002"
+      AEGIS_DASHBOARD_URL: "https://${SERVER_HOST:-localhost}"
     depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # TLS reverse proxy — HTTPS for the dashboard (:443) and API (:8443),
+  # HTTP (:80) redirects to HTTPS. Certificates are issued/renewed automatically.
+  # ──────────────────────────────────────────────────────────────────────────
+  proxy:
+    image: caddy:2
+    container_name: aegisone-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8443:8443"
+    environment:
+      SERVER_HOST: ${SERVER_HOST:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - dashboard
       - backend
     restart: unless-stopped
 
@@ -87,3 +110,5 @@ services:
 volumes:
   aegisone-hf-cache:
   aegisone-pg-data:
+  caddy-data:
+  caddy-config:
