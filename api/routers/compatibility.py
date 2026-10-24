@@ -99,6 +99,22 @@ from api.services.revision_service import increment_org_revision, get_org_revisi
 router = APIRouter(tags=["Compatibility & XAI"])
 
 
+def _to_builtin(value):
+    """numpy scalars/arrays (float32 similarity scores, model probabilities) are not JSON
+    serialisable; convert them so a scan never fails with HTTP 500 after the model has run."""
+    if isinstance(value, dict):
+        return {k: _to_builtin(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_to_builtin(v) for v in value]
+    item = getattr(value, "item", None)
+    if callable(item) and not isinstance(value, (str, bytes)):
+        try:
+            return item() if getattr(value, "ndim", 0) == 0 else _to_builtin(value.tolist())
+        except Exception:
+            return str(value)
+    return value
+
+
 def _scan_dept_id(user) -> str | None:
     """WebsiteScan.department_id is a plain String(64) (not an FK, unlike User.department_id's
     Integer), and the admin drilldown already compares against str(scope.department_id) - so the
@@ -359,6 +375,7 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
     contextual_result["url_model_explanation"] = result.get("explanation", "")
     contextual_result["target_url"] = url
     contextual_result["target_domain"] = url.split("/")[2] if "//" in url else url[:255]
+    contextual_result = _to_builtin(contextual_result)
 
     # `category` from the URL model is a risk-severity label ("Safe"/"Suspicious"/"High Risk"),
     # not a threat classification — storing it as threat_type broke downstream analytics
