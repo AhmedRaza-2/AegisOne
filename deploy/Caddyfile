@@ -3,10 +3,6 @@
 # or an IP / internal hostname (Caddy's internal CA issues the certificate;
 # distribute its root from the caddy-data volume to employee devices).
 
-{
-	# Set ACME_EMAIL in .env for certificate expiry notices (optional)
-	email {$ACME_EMAIL:}
-}
 
 # Dashboard: https://SERVER_HOST  (plain HTTP on :80 redirects here automatically)
 {$SERVER_HOST:localhost} {
