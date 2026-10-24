@@ -37,7 +37,7 @@ services:
       AEGIS_WORKERS: "1"
       AEGIS_DATABASE_URL: "postgresql+asyncpg://aegis:${DB_PASSWORD:-aegisone_secret}@db:5432/aegisone"
       AEGIS_JWT_SECRET: ${AEGIS_JWT_SECRET:-change-me-in-production}
-      AEGIS_DASHBOARD_URL: ${AEGIS_DASHBOARD_URL:-https://localhost}
+      AEGIS_DASHBOARD_URL: ${AEGIS_DASHBOARD_URL:-http://localhost:3002}
       ORG_ID: ${ORG_ID:-}
       LICENSE_KEY: ${LICENSE_KEY:-}
       DEPLOYMENT_TOKEN: ${DEPLOYMENT_TOKEN:-}
@@ -49,9 +49,10 @@ services:
       AEGIS_VENDOR_URL: ${AEGIS_VENDOR_URL:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
-    # Published on loopback only; external traffic goes through the TLS proxy
+    # The portal setup flow uses http://SERVER_HOST:8000 and :3002. For a hardened
+    # install set AEGIS_BIND_ADDR=127.0.0.1 and use only the TLS proxy (:443 / :8443).
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${AEGIS_BIND_ADDR:-0.0.0.0}:8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -65,8 +66,10 @@ services:
     container_name: aegisone-dashboard
     expose:
       - "3000"
+    ports:
+      - "${AEGIS_BIND_ADDR:-0.0.0.0}:3002:3000"
     environment:
-      AEGIS_DASHBOARD_URL: "https://${SERVER_HOST:-localhost}"
+      AEGIS_DASHBOARD_URL: "http://${SERVER_HOST:-localhost}:3002"
     depends_on:
       - backend
     restart: unless-stopped
