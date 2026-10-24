@@ -38,6 +38,13 @@ def _admin_org(user) -> str:
     return getattr(user, "organization_id", None) or "org_default"
 
 
+def _org_for(user, org_id: Optional[str]) -> str:
+    """The wizard still sends the placeholder 'org_default'; that means "my organization"."""
+    if not org_id or (org_id == "org_default" and getattr(user, "role", "") != "global_admin"):
+        return _admin_org(user)
+    return org_id
+
+
 def _check_org_access(user, org_id: str) -> None:
     """An admin may only manage their own organization (global_admin may manage any)."""
     if getattr(user, "role", "") == "global_admin":
@@ -277,6 +284,7 @@ def _dept_code_from_name(name: str) -> str:
 
 @router.get("/structure/{org_id}", response_model=OrgStructureResponse)
 async def get_structure(org_id: str, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
+    org_id = _org_for(admin, org_id)
     _check_org_access(admin, org_id)
     org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalars().first()
     if not org:
@@ -316,6 +324,7 @@ async def get_structure(org_id: str, db: AsyncSession = Depends(get_db), admin=D
 
 @router.post("/structure/save")
 async def save_structure(request: OrgStructureSaveRequest, db: AsyncSession = Depends(get_db), admin=Depends(_require_admin)):
+    request.orgId = _org_for(admin, request.orgId)
     _check_org_access(admin, request.orgId)
     org = await _get_or_create_org(db, request.orgId, request.orgName)
 
@@ -445,7 +454,7 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
 
     # Alias body to request for all existing references below
     request = body
-    request.orgId = request.orgId or _admin_org(admin)
+    request.orgId = _org_for(admin, request.orgId)
     _check_org_access(admin, request.orgId)
 
     # Licensed seat limit: count the accounts this run would add
