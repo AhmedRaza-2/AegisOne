@@ -15,10 +15,13 @@ _users.delete = (id: string) => {
 };
 export const users = _users;
 
-export const getRoleBadge = (role: Role) => {
+export const getRoleBadge = (role: Role | string) => {
   switch (role) {
     case "global_admin": return "Global Admin";
     case "super_admin": return "Super Admin";
+    case "admin": return "Admin";
+    case "manager": return "Manager";
+    case "department_admin": return "Department Admin";
     case "office_admin": return "Office Admin";
     default: return "Employee";
   }
