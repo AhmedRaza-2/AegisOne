@@ -12,7 +12,7 @@
  *  - No console.log in production (DEBUG_MODE guard)
  */
 
-import { setTokens, clearTokens, refreshNow, isAegisServerUrl } from "../utils/auth.js";
+import { setTokens, clearTokens, refreshNow, isAegisServerUrl, authFetch } from "../utils/auth.js";
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE, getApiBaseUrl } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
 import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics, submitReport } from "./scanner.js";
@@ -250,6 +250,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     try {
       if (!SHIELD_ENABLED && !["GET_SHIELD_STATE", "TOGGLE_SHIELD", "CHECK_HEALTH", "GET_EVENTS"].includes(msg.type)) {
         sendResponse({ ok: false, reason: "shield_disabled" });
+        return;
+      }
+
+      // ── Authenticated request on behalf of a page-side script (telemetry) ──
+      // Only the configured AegisOne API may be called, and only from a tab, never with a token
+      // the caller supplied.
+      if (msg.type === "AEGIS_AUTH_FETCH") {
+        const base = await getApiBaseUrl();
+        if (!sender.tab || typeof msg.url !== "string" || !msg.url.startsWith(base + "/")) {
+          sendResponse({ status: 403, body: "" });
+          return;
+        }
+        const headers = { ...(msg.headers || {}) };
+        delete headers.Authorization; delete headers.authorization;
+        const res = await authFetch(msg.url, { method: msg.method || "GET", headers, body: msg.body });
+        sendResponse({ status: res.status, body: await res.text().catch(() => "") });
         return;
       }
 

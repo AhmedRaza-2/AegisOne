@@ -87,6 +87,22 @@ function _expiryMs(token) {
  *  - A server that is merely unreachable never clears the stored credential.
  */
 export async function authFetch(url, opts = {}) {
+  // Page-side scripts run in the web page's origin: they cannot reach the extension's encrypted
+  // token store, so the service worker makes the call on their behalf.
+  if (typeof location !== "undefined" && location.protocol !== "chrome-extension:") {
+    try {
+      const r = await chrome.runtime.sendMessage({
+        type: "AEGIS_AUTH_FETCH",
+        url,
+        method: opts.method || "GET",
+        headers: opts.headers instanceof Headers ? Object.fromEntries(opts.headers.entries()) : (opts.headers || {}),
+        body: typeof opts.body === "string" ? opts.body : undefined,
+      });
+      return new Response(r?.body ?? "", { status: r?.status || 503 });
+    } catch (_) {
+      return new Response("", { status: 503 });
+    }
+  }
   const store = await secure.get([ACCESS, REFRESH]);
   const hasRefresh = !!store[REFRESH];
   const exp = store[ACCESS] ? _expiryMs(store[ACCESS]) : null;
