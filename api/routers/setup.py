@@ -493,6 +493,10 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
                 )
                 db.add(db_user)
                 emails_to_send.append(emp)
+            elif (existing.role or "").lower() in ("admin", "super_admin", "global_admin"):
+                # A roster row must never demote an administrator or reset their password
+                # (e.g. the admin's own address listed again as an employee).
+                continue
             else:
                 # Update user info and set password
                 existing.full_name = f"{emp.firstName} {emp.lastName}"
