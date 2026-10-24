@@ -277,6 +277,17 @@ def _setup_key_ok(provided: Optional[str]) -> bool:
     return bool(expected) and bool(provided) and hmac.compare_digest(provided, expected)
 
 
+@router.get("/setup-state")
+@limiter.limit("30/minute")
+async def setup_state(request: Request, db: AsyncSession = Depends(get_db)):
+    """Tells the login page whether this fresh server still needs its first administrator.
+    Reveals only that single boolean (no account details)."""
+    admin_count = (await db.execute(
+        select(func.count(User.id)).where(User.role.in_(["admin", "super_admin", "global_admin"]))
+    )).scalar() or 0
+    return {"needs_first_admin": admin_count == 0}
+
+
 @router.post("/send-admin-credentials")
 @limiter.limit("5/minute")
 async def send_admin_credentials_notify(

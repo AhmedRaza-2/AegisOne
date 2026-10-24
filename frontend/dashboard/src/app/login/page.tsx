@@ -54,6 +54,13 @@ export default function LoginPage() {
       setSuccessMsg("Registration successful. Please wait for an admin to approve your account.");
     }
     setCheckingSession(false);
+    // A brand-new server has no administrator yet: open straight in create mode.
+    if (context && !user) {
+      fetch(`${API_BASE}/auth/setup-state`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { if (d?.needs_first_admin) setMode('create_first_admin'); })
+        .catch(() => {});
+    }
   }, [router, user, isLoading]);
 
   // Auto-detect assigned user role when email changes
