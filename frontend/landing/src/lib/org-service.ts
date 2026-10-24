@@ -4,24 +4,31 @@ import { registrationLookupError } from './supabase-config';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Generates a short random uppercase org ID like "ABC001" */
+/** Uniformly random character from `alphabet` using the browser's cryptographic RNG. */
+function randomChars(alphabet: string, length: number): string {
+  const limit = 256 - (256 % alphabet.length);       // reject values that would bias the result
+  let out = '';
+  while (out.length < length) {
+    const bytes = crypto.getRandomValues(new Uint8Array(length * 2));
+    for (const b of bytes) {
+      if (b < limit && out.length < length) out += alphabet[b % alphabet.length];
+    }
+  }
+  return out;
+}
+
+// Only used by the fallback path while the database still has the old register_organization();
+// the upgraded function generates all three values on the server and ignores these.
 function generateOrgId(): string {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const prefix = Array.from({ length: 3 }, () => letters[Math.floor(Math.random() * letters.length)]).join('');
-  const digits = String(Math.floor(100 + Math.random() * 900));
-  return `${prefix}${digits}`;
+  return randomChars('ABCDEFGHJKLMNPQRSTUVWXYZ', 3) + randomChars('0123456789', 3);
 }
-
-/** Generates a deployment token like "X7D29-K3M11-P9Q82" */
 function generateDeploymentToken(): string {
-  const seg = () => Math.random().toString(36).substring(2, 7).toUpperCase();
-  return `${seg()}-${seg()}-${seg()}`;
+  const A = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return [randomChars(A, 5), randomChars(A, 5), randomChars(A, 5)].join('-');
 }
-
-/** Generates a license key like "XXXX-YYYY-ZZZZ-WWWW" */
 function generateLicenseKey(): string {
-  const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${seg()}-${seg()}-${seg()}-${seg()}`;
+  const A = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return [randomChars(A, 4), randomChars(A, 4), randomChars(A, 4), randomChars(A, 4)].join('-');
 }
 
 // ─── Registration ────────────────────────────────────────────────────────────
@@ -55,27 +62,29 @@ async function registerOrganizationInner(payload: RegisterPayload): Promise<Orga
   requireRegistrationService();
   // Step 0: Check for duplicate org name AND email BEFORE calling auth.signUp
   // This prevents wasting Supabase email rate limit quota on duplicate attempts.
-  const [nameCheckRes, emailCheckRes] = await Promise.all([
-    supabase
-      .from('organizations')
-      .select('id')
-      .ilike('name', payload.name)
-      .maybeSingle(),
-    supabase
-      .from('organizations')
-      .select('id')
-      .ilike('admin_email', payload.admin_email)
-      .maybeSingle(),
-  ]);
-
-  if (nameCheckRes.error) throw registrationLookupError(nameCheckRes.error, nameCheckRes.status);
-  if (emailCheckRes.error) throw registrationLookupError(emailCheckRes.error, emailCheckRes.status);
-
-  if (nameCheckRes.data) {
-    throw new Error(`An organization named "${payload.name}" is already registered. Please login or contact support.`);
-  }
-  if (emailCheckRes.data) {
-    throw new Error(`An admin account for "${payload.admin_email}" already exists. Please sign in or use a different email.`);
+  const exists = await supabase.rpc('organization_exists', { p_name: payload.name, p_email: payload.admin_email });
+  if (exists.error) {
+    // Database not upgraded yet (supabase/harden_organizations.sql): fall back to the direct lookup.
+    if (exists.error.code !== 'PGRST202') throw registrationLookupError(exists.error, exists.status);
+    const [nameCheckRes, emailCheckRes] = await Promise.all([
+      supabase.from('organizations').select('id').ilike('name', payload.name).maybeSingle(),
+      supabase.from('organizations').select('id').ilike('admin_email', payload.admin_email).maybeSingle(),
+    ]);
+    if (nameCheckRes.error) throw registrationLookupError(nameCheckRes.error, nameCheckRes.status);
+    if (emailCheckRes.error) throw registrationLookupError(emailCheckRes.error, emailCheckRes.status);
+    if (nameCheckRes.data) {
+      throw new Error(`An organization named "${payload.name}" is already registered. Please login or contact support.`);
+    }
+    if (emailCheckRes.data) {
+      throw new Error(`An admin account for "${payload.admin_email}" already exists. Please sign in or use a different email.`);
+    }
+  } else {
+    if (exists.data?.name_taken) {
+      throw new Error(`An organization named "${payload.name}" is already registered. Please login or contact support.`);
+    }
+    if (exists.data?.email_taken) {
+      throw new Error(`An admin account for "${payload.admin_email}" already exists. Please sign in or use a different email.`);
+    }
   }
 
   // Step 1: Both checks passed — now create the auth user with email confirmation
@@ -121,9 +130,8 @@ async function registerOrganizationInner(payload: RegisterPayload): Promise<Orga
   // `anon` and be refused by Row Level Security. The register_organization() function
   // (frontend/landing/supabase/register_organization.sql) performs the insert server-side and
   // always stores the organization as 'pending'.
-  const { data, error } = await supabase.rpc('register_organization', {
+  const base = {
     p_auth_user_id: userId,
-    p_org_id: generateOrgId(),
     p_name: payload.name,
     p_industry: payload.industry,
     p_employee_count: payload.employee_count,
@@ -131,11 +139,20 @@ async function registerOrganizationInner(payload: RegisterPayload): Promise<Orga
     p_admin_name: payload.admin_name,
     p_admin_email: payload.admin_email,
     p_phone: payload.phone,
-    p_license_key: generateLicenseKey(),
-    p_deployment_token: generateDeploymentToken(),
     p_allowed_users: payload.employee_count,
     p_product_version: '1.0.0',
-  });
+  };
+  let { data, error } = await supabase.rpc('register_organization', base);
+  if (error && error.code === 'PGRST202') {
+    // Database not upgraded yet (supabase/harden_organizations.sql): the previous function still
+    // expects client-supplied credentials, so supply cryptographically random ones.
+    ({ data, error } = await supabase.rpc('register_organization', {
+      ...base,
+      p_org_id: generateOrgId(),
+      p_license_key: generateLicenseKey(),
+      p_deployment_token: generateDeploymentToken(),
+    }));
+  }
 
   // No rollback of the auth user here: deleting users needs the service-role key, which must never
   // ship in the browser. An unconfirmed auth user left behind is harmless - signing up again with

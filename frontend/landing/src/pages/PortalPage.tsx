@@ -6,7 +6,7 @@ import {
   Server, Terminal, Globe, Info
 } from 'lucide-react';
 import { getPortalAccess, logoutOrganization } from '../lib/org-service';
-import type { Organization } from '../lib/supabase';
+import { supabaseConfiguration, type Organization } from '../lib/supabase';
 
 const DASHBOARD_URL = `http://${window.location.hostname}:3002/login`;
 
@@ -188,17 +188,36 @@ export default function PortalPage() {
   // Customers sign in to their own dashboard; portal passwords never cross into setup links.
   const launchUrl = `http://${cleanHost(serverHost)}:3002/dashboard/admin/setup?fromLanding=true&orgName=${encodeURIComponent(org.name || '')}&industry=${encodeURIComponent(org.industry || '')}&adminEmail=${encodeURIComponent(org.admin_email || '')}&adminName=${encodeURIComponent(org.admin_name || org.contact_person || 'Administrator')}&serverHost=${encodeURIComponent(cleanHost(serverHost))}`;
 
-  // Do not use Vercel/public domain as the SERVER_HOST. 
-  // Let PowerShell automatically detect the server's local network IP.
-  const serverHostExportLinux = `export SERVER_HOST="$(hostname -I | awk '{print $1}')" && `;
-  const serverHostExportWin = `$env:SERVER_HOST = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } | Select-Object -ExpandProperty IPAddress -First 1); `;
-
+  // Do not use Vercel/public domain as the SERVER_HOST.
+  // The server's own network address is detected on the machine that runs the command.
+  // The values are written to a .env file next to docker-compose.yml (not just exported to the
+  // current shell), so a later `docker compose up` / restart from any terminal keeps the same
+  // organization and licence instead of silently falling back to an empty one.
+  const registryUrl = supabaseConfiguration.configured ? supabaseConfiguration.url : '';
+  const registryKey = supabaseConfiguration.configured ? supabaseConfiguration.anonKey : '';
+  const composeUrl = 'https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml';
 
   // Linux/macOS
-  const linuxCommand = `mkdir -p AegisOne && cd AegisOne && curl -sSL https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml -o docker-compose.yml && ${serverHostExportLinux}export ORG_ID="${org.org_id}" LICENSE_KEY="${org.license_key}" DEPLOYMENT_TOKEN="${org.deployment_token}" ADMIN_EMAIL="${org.admin_email}" && docker compose pull && docker compose up -d --force-recreate`;
+  const linuxCommand = [
+    `mkdir -p AegisOne && cd AegisOne`,
+    `curl -sSL ${composeUrl} -o docker-compose.yml`,
+    `{ grep -E '^(DB_PASSWORD|AEGIS_JWT_SECRET|AEGIS_LICENSE_ENFORCE|ACME_EMAIL|AEGIS_TAG)=' .env 2>/dev/null || true; } > .env.keep`,
+    `{ echo "SERVER_HOST=$(hostname -I | awk '{print $1}')"; echo "ORG_ID=${org.org_id}"; echo "LICENSE_KEY=${org.license_key}"; echo "DEPLOYMENT_TOKEN=${org.deployment_token}"; echo "ADMIN_EMAIL=${org.admin_email}"; echo "AEGIS_REGISTRY_URL=${registryUrl}"; echo "AEGIS_REGISTRY_KEY=${registryKey}"; cat .env.keep; } > .env`,
+    `rm -f .env.keep`,
+    `docker compose pull && docker compose up -d --force-recreate`,
+  ].join(' && ');
 
   // Windows PowerShell
-  const windowsCommand = `mkdir AegisOne -ErrorAction SilentlyContinue; Set-Location AegisOne; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AhmedRaza-2/AegisOne/main/docker-compose.prod.yml" -OutFile "docker-compose.yml"; ${serverHostExportWin}$env:ORG_ID="${org.org_id}"; $env:LICENSE_KEY="${org.license_key}"; $env:DEPLOYMENT_TOKEN="${org.deployment_token}"; $env:ADMIN_EMAIL="${org.admin_email}"; docker compose pull; docker compose up -d --force-recreate`;
+  const windowsCommand = [
+    `mkdir AegisOne -ErrorAction SilentlyContinue`,
+    `Set-Location AegisOne`,
+    `Invoke-WebRequest -Uri "${composeUrl}" -OutFile "docker-compose.yml"`,
+    `$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } | Select-Object -ExpandProperty IPAddress -First 1)`,
+    `$keep = @(); if (Test-Path .env) { $keep = @(Get-Content .env | Where-Object { $_ -match '^(DB_PASSWORD|AEGIS_JWT_SECRET|AEGIS_LICENSE_ENFORCE|ACME_EMAIL|AEGIS_TAG)=' }) }`,
+    `@("SERVER_HOST=$ip","ORG_ID=${org.org_id}","LICENSE_KEY=${org.license_key}","DEPLOYMENT_TOKEN=${org.deployment_token}","ADMIN_EMAIL=${org.admin_email}","AEGIS_REGISTRY_URL=${registryUrl}","AEGIS_REGISTRY_KEY=${registryKey}") + $keep | Set-Content -Encoding ascii .env`,
+    `docker compose pull`,
+    `docker compose up -d --force-recreate`,
+  ].join('; ');
 
   const activeCommand = osTab === 'linux' ? linuxCommand : windowsCommand;
 

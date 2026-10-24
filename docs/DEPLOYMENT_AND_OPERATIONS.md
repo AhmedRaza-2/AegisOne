@@ -25,7 +25,8 @@ If Caddy uses its internal CA, install its root certificate on employee devices 
 - Accounts of any other organization are refused (403) except `global_admin`.
 - No account can be created or approved beyond the licensed seat limit (402).
 - `strict` mode answers 402 for everything except health, sign-in, license status and setup when the license is expired/revoked/suspended. `warn` only reports it (`GET /license/status`).
-- Vendor side: run `frontend/landing/supabase/verify_license.sql` once in the Supabase SQL editor.
+- Vendor side: run `frontend/landing/supabase/verify_license.sql` once in the Supabase SQL editor (see section 7).
+- The portal's install command writes `SERVER_HOST`, `ORG_ID`, `LICENSE_KEY`, `DEPLOYMENT_TOKEN`, `ADMIN_EMAIL`, `AEGIS_REGISTRY_URL` and `AEGIS_REGISTRY_KEY` to a `.env` file beside `docker-compose.yml` (existing `DB_PASSWORD`, `AEGIS_JWT_SECRET`, `AEGIS_LICENSE_ENFORCE`, `ACME_EMAIL`, `AEGIS_TAG` lines are kept). Always run `docker compose` from that folder; the values then survive restarts and new terminals. Re-installing under a different organization needs `docker compose down -v` first: accounts of the old organization are refused.
 
 ## 2. Vendor Model Hub (improved weights)
 
@@ -60,3 +61,12 @@ uvicorn api.main:app --port 8765                      # then, with the API runni
 python api/tests/live/live_tenant_isolation.py        # also live_incident_response / live_endpoint_smoke /
 python api/tests/live/live_awareness_integrations.py  #      live_email_components / live_model_hub (see its header)
 ```
+
+## 7. Vendor setup (Supabase) - run once, in this order
+1. `frontend/landing/supabase/harden_organizations.sql`: Row Level Security on `organizations` (owner sees only their own row, super-admins see all, the public key sees nothing), license key / deployment token / org id generated on the server, super-admin functions that check the caller's role, `organization_exists()` for the registration form, `rotate_org_credentials()`.
+2. `frontend/landing/supabase/verify_license.sql`: the function every deployed core calls.
+3. Credentials issued before step 1 were readable with the public key. Rotate them (the commented `update` at the end of `harden_organizations.sql`) and give each customer the new install command from the portal.
+4. Platform super-admin: a Supabase user whose `app_metadata.role` is `super_admin` (Authentication -> Users -> edit raw app metadata). There is no admin password in any `VITE_*` variable.
+5. Landing site (Vercel, Production): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`; for the chatbot also `VITE_ASSISTANT_ENABLED=true` and `VITE_ASSISTANT_API_URL`. Public values are compiled in at build time, so redeploy after changing them.
+6. Chatbot function: `scripts/deploy-assistant.ps1` (see `docs/assistant/deployment.md`).
+7. Docker Hub: rebuild and push `ahmedraza2006/aegisone-backend` and `ahmedraza2006/aegisone-dashboard` after any code change; customers pull `latest`.
