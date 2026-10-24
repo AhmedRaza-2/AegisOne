@@ -86,9 +86,11 @@ services:
       SERVER_HOST: ${SERVER_HOST:-localhost}
       ACME_EMAIL: ${ACME_EMAIL:-}
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
     depends_on:
       - dashboard
       - backend
@@ -112,6 +114,48 @@ services:
       - ./aegisone-backups:/backups
     depends_on:
       - db
+
+# Caddyfile is embedded so this single file is enough to deploy (needs Docker Compose 2.23.1+).
+# Same content as deploy/Caddyfile.
+configs:
+  caddyfile:
+    content: |
+      # AegisOne TLS reverse proxy.
+      # SERVER_HOST is a DNS name (certificate is issued automatically by Let's Encrypt)
+      # or an IP / internal hostname (Caddy's internal CA issues the certificate;
+      # distribute its root from the caddy-data volume to employee devices).
+
+      {
+        # Set ACME_EMAIL in .env for certificate expiry notices (optional)
+        email {$$ACME_EMAIL:}
+      }
+
+      # Dashboard: https://SERVER_HOST  (plain HTTP on :80 redirects here automatically)
+      {$$SERVER_HOST:localhost} {
+        encode gzip
+        header {
+          Strict-Transport-Security "max-age=31536000"
+          X-Content-Type-Options "nosniff"
+          X-Frame-Options "DENY"
+          Referrer-Policy "strict-origin-when-cross-origin"
+          -Server
+        }
+        reverse_proxy dashboard:3000
+      }
+
+      # API (used by the dashboard and the browser extension): https://SERVER_HOST:8443
+      {$$SERVER_HOST:localhost}:8443 {
+        encode gzip
+        header {
+          Strict-Transport-Security "max-age=31536000"
+          X-Content-Type-Options "nosniff"
+          -Server
+        }
+        request_body {
+          max_size 25MB
+        }
+        reverse_proxy backend:8000
+      }
 
 volumes:
   aegisone-hf-cache:
