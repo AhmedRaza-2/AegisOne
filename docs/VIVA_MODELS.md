@@ -168,12 +168,35 @@ routing, an adversarial test as a release gate.
 
 ## 10. Run it end to end (for testing before the viva)
 
+**Quick test that does not touch any existing containers (verified 2026-11-07 on the pushed images):**
 ```
-git clone https://github.com/AhmedRaza-2/AegisOne && cd AegisOne && git checkout final-submission-2026-11-07
-# images: ahmedraza2006/aegisone-backend and ahmedraza2006/aegisone-dashboard (tag 2026-11-07 and latest)
-# .env: SERVER_HOST=localhost  DB_PASSWORD=<choose>  AEGIS_JWT_SECRET=<random>  AEGIS_LICENSE_ENFORCE=off
-docker compose -f docker-compose.prod.yml up -d      # dashboard https://localhost, API https://localhost:8443
+docker network create aegistest
+docker run -d --name aegistest-db --network aegistest -e POSTGRES_USER=aegis -e POSTGRES_PASSWORD=testpass -e POSTGRES_DB=aegisone postgres:16
+docker run -d --name aegistest-backend --network aegistest -p 8100:8000 -e AEGIS_SLA_WATCH=0 -e AEGIS_PORT=8000 ^
+  -e AEGIS_DATABASE_URL=postgresql+asyncpg://aegis:testpass@aegistest-db:5432/aegisone -e AEGIS_JWT_SECRET=any-long-random-text ^
+  -e AEGIS_LICENSE_ENFORCE=off ahmedraza2006/aegisone-backend:2026-11-07 uvicorn api.main:app --host 0.0.0.0 --port 8000
+docker run -d --name aegistest-dash --network aegistest -p 3100:3000 ahmedraza2006/aegisone-dashboard:2026-11-07
 ```
-Then load `Extension/` as an unpacked extension (chrome://extensions, Developer mode), sign in, and try: a normal site,
-`paypa1-secure-login.xyz`-style addresses, a fake bank login page, and a message such as "Your account is locked, send the
-code you just received to our agent".
+(`^` is the Windows line-continuation; on Linux/macOS use `\`.) The backend needs about a minute to load the models:
+`curl http://127.0.0.1:8100/health` must show the four models `online`. The dashboard is at http://localhost:3100/login but calls
+the API on port 8000 of the same host, so for the dashboard use `-p 8000:8000` on the backend instead of `8100`.
+Scans work without signing in (form-encoded):
+```
+curl -X POST http://127.0.0.1:8100/analyze/url  --data-urlencode "url=http://paypa1-secure-login.xyz/verify?acct=7"   -> BLOCK 96
+curl -X POST http://127.0.0.1:8100/analyze/url  --data-urlencode "url=https://www.google.com/search?q=weather"      -> SAFE 0.17
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=Your OTP is 482913. Do not share this code with anyone."   -> legitimate 7.7%
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=HBL: Rs 4,500 debited from A/c XX1234 ... call 111-111-425."  -> legitimate 1.1%
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=Your account has been compromised. Send the code you just received to our agent now ..."  -> phishing 55.9% (just above WARN 51: a borderline case, say so)
+```
+Clean up: `docker rm -f aegistest-db aegistest-backend aegistest-dash && docker network rm aegistest`.
+
+**Full stack (`docker-compose.prod.yml`):** it uses fixed container names (`aegisone-backend`, `aegisone-db`, ...). If you ran an
+earlier AegisOne stack on the same machine, remove the old containers first (`docker compose -f docker-compose.prod.yml down`,
+add `-v` only if you also want to discard the old database), otherwise Docker answers "container name already in use".
+`.env`: `SERVER_HOST=localhost  DB_PASSWORD=<choose>  AEGIS_JWT_SECRET=<random>  AEGIS_LICENSE_ENFORCE=off  AEGIS_TAG=2026-11-07`, then
+`docker compose -f docker-compose.prod.yml up -d` (dashboard https://localhost, API https://localhost:8443; Caddy's own
+certificate authority signs the certificate, so the browser warns until its root certificate is trusted). **Not run here** (ports
+and names clash with the existing containers); the individual images were run as above.
+
+**Browser extension:** `chrome://extensions` -> Developer mode -> Load unpacked -> `Extension/`. Try a normal site, a
+`paypa1-secure-login.xyz`-style address, a fake bank login page and the messages above.
