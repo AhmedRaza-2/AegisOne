@@ -17,13 +17,13 @@ const trendData = [
 ];
 
 const categoryData = [
-  { name: 'Lateral Movement', value: 42, color: '#4F84F8' },
+  { name: 'Lateral Movement', value: 42, color: '#5C93BE' },
   { name: 'Exfiltration', value: 28, color: '#FFB8B8' },
   { name: 'Credentials', value: 15, color: '#F59E0B' },
   { name: 'Malware', value: 15, color: '#F87171' },
 ];
 
-const intensityColors = ['bg-surface-100 dark:bg-[#1A2133]', 'bg-[#A5C0FF]', 'bg-[#4F84F8]', 'bg-[#3D6CE5]', 'bg-[#294BBD]'];
+const intensityColors = ['bg-surface-100 dark:bg-[#14284A]', 'bg-[#A5C0FF]', 'bg-[#5C93BE]', 'bg-[#3D6C90]', 'bg-[#294BBD]'];
 const heatmapDays = Array.from({ length: 48 }, () => Math.floor(Math.random() * 5));
 
 export default function AnalyticsPage() {
@@ -53,24 +53,24 @@ export default function AnalyticsPage() {
   }, [user]);
 
   if (!user) return null;
-  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-[#4F84F8] animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-[#5C93BE] animate-spin" /></div>;
 
   const { dailyTrend: apiTrend, threatTypes: apiThreats, riskDistribution } = data || {
     dailyTrend: [], threatTypes: [], riskDistribution: []
   };
 
   const chartTrend = apiTrend?.length > 0 ? apiTrend.map((t: any) => ({ name: t.name, score: t.threats })) : trendData;
-  const chartCategories = apiThreats?.length > 0 ? apiThreats.map((t: any, i: number) => ({ name: t.name, value: t.value, color: ['#4F84F8', '#FFB8B8', '#F59E0B', '#F87171', '#10b981', '#a855f7'][i % 6] })) : categoryData;
+  const chartCategories = apiThreats?.length > 0 ? apiThreats.map((t: any, i: number) => ({ name: t.name, value: t.value, color: ['#5C93BE', '#FFB8B8', '#F59E0B', '#F87171', '#10b981', '#a855f7'][i % 6] })) : categoryData;
   const totalEvents = chartCategories.reduce((acc: number, curr: any) => acc + curr.value, 0);
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-7xl mx-auto">
 
       {/* Top Banner */}
-      <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="max-w-xl">
           <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-2">Global Security Risk Comparison</h3>
-          <h1 className="text-3xl font-bold text-[#4F84F8] mb-3">20% Lower than industry average</h1>
+          <h1 className="text-3xl font-bold text-[#5C93BE] mb-3">20% Lower than industry average</h1>
           <p className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed">
             Your current defensive posture is significantly stronger than comparable enterprises in the financial sector. We've detected 45% fewer lateral movement attempts this month.
           </p>
@@ -85,7 +85,7 @@ export default function AnalyticsPage() {
             <span className="text-2xl font-bold text-surface-900 dark:text-white mt-1">2.4%</span>
           </div>
           <div className="px-4 py-2 rounded-lg bg-surface-100 dark:bg-white/[0.05] border border-surface-200 dark:border-white/[0.1] flex items-center gap-2 mt-4 md:mt-0">
-            <ShieldCheck className="w-4 h-4 text-[#4F84F8]" />
+            <ShieldCheck className="w-4 h-4 text-[#5C93BE]" />
             <span className="text-xs font-bold text-surface-900 dark:text-white uppercase tracking-wider">Optimized</span>
           </div>
         </div>
@@ -93,13 +93,13 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Trend Chart */}
-        <motion.div variants={fadeUp} className="lg:col-span-2 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
+        <motion.div variants={fadeUp} className="lg:col-span-2 rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-base font-bold text-surface-900 dark:text-white">Security Score Trend</h2>
               <p className="text-xs text-surface-500 mt-1">Rolling 30-day performance baseline</p>
             </div>
-            <div className="flex items-center bg-surface-100 dark:bg-[#0B0F19] rounded-lg p-1 border border-surface-200 dark:border-white/[0.05]">
+            <div className="flex items-center bg-surface-100 dark:bg-[#071426] rounded-lg p-1 border border-surface-200 dark:border-white/[0.05]">
               <button className="px-3 py-1 rounded text-xs font-bold bg-white dark:bg-surface-800 text-surface-900 dark:text-white shadow-sm">30D</button>
               <button className="px-3 py-1 rounded text-xs font-bold text-surface-500 hover:text-surface-900 dark:hover:text-white">90D</button>
               <button className="px-3 py-1 rounded text-xs font-bold text-surface-500 hover:text-surface-900 dark:hover:text-white">1Y</button>
@@ -111,8 +111,8 @@ export default function AnalyticsPage() {
               <AreaChart data={chartTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#4F84F8" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#5C93BE" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#5C93BE" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} dy={10} />
@@ -132,11 +132,11 @@ export default function AnalyticsPage() {
                 <Area
                   type="monotone"
                   dataKey="score"
-                  stroke="#4F84F8"
+                  stroke="#5C93BE"
                   strokeWidth={4}
                   fillOpacity={1}
                   fill="url(#colorScore)"
-                  activeDot={{ r: 6, fill: '#4F84F8', stroke: '#fff', strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: '#5C93BE', stroke: '#fff', strokeWidth: 2 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
         </motion.div>
 
         {/* Threat Categories */}
-        <motion.div variants={fadeUp} className="lg:col-span-1 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
+        <motion.div variants={fadeUp} className="lg:col-span-1 rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
           <h2 className="text-base font-bold text-surface-900 dark:text-white mb-6">Threat Categories</h2>
 
           <div className="relative h-48 w-full flex items-center justify-center mb-6">
@@ -187,7 +187,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Heatmap Section */}
-      <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6">
+      <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6">
         <div className="flex justify-between items-end mb-6">
           <div>
             <h2 className="text-base font-bold text-surface-900 dark:text-white">Detection Activity Intensity</h2>

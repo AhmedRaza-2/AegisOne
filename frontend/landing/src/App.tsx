@@ -170,19 +170,18 @@ export default function App() {
   const isCloudDeployment = deploymentCloud === 'AWS Private Cloud' || deploymentCloud === 'Google Cloud VPC';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900 relative">
+    <div className="min-h-screen bg-[#F6FAFD] text-[#0A1931] flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900 relative">
       
       {/* Cookie Consent Banner */}
       {showCookieConsent && (
         <div 
           id="cookie-consent"
-          className="fixed bottom-6 left-6 z-50 max-w-md bg-white border border-slate-200 shadow-2xl rounded-2xl p-5 animate-slideUp text-left"
+          role="dialog"
+          aria-label="Cookie preferences"
+          className="fixed bottom-4 left-4 right-4 sm:right-auto z-50 sm:max-w-sm bg-white border border-[#E1EBF2] shadow-lg rounded-xl p-4 animate-slideUp text-left"
         >
-          <h3 className="font-sans font-bold text-sm text-[#0F172A] mb-1 flex items-center gap-2">
-            🍪 Cookie Consent
-          </h3>
-          <p className="font-sans text-xs text-[#45464D] leading-relaxed mb-4">
-            We use cookies to improve your experience and analyze website traffic. By clicking "Accept", you agree to our cookie policies.
+          <p className="font-sans text-xs text-[#4A6D8C] leading-relaxed mb-3">
+            We use cookies to improve your experience and analyze site traffic. Choose “Accept” to allow them.
           </p>
           <div className="flex gap-2 justify-end">
             <button
@@ -190,13 +189,16 @@ export default function App() {
                 localStorage.setItem('cookieConsentAccepted', 'true');
                 setShowCookieConsent(false);
               }}
-              className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-4 py-2 rounded-lg cursor-pointer transition-colors"
+              className="font-sans text-xs font-semibold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-4 py-2 rounded-lg cursor-pointer transition-colors"
             >
               Accept
             </button>
             <button
-              onClick={() => setShowCookieConsent(false)}
-              className="font-sans text-xs font-semibold text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg cursor-pointer transition-colors"
+              onClick={() => {
+                localStorage.setItem('cookieConsentAccepted', 'declined');
+                setShowCookieConsent(false);
+              }}
+              className="font-sans text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg cursor-pointer transition-colors"
             >
               Decline
             </button>
@@ -208,9 +210,9 @@ export default function App() {
       {successToast && (
         <div 
           id="toast-notification"
-          className="fixed bottom-24 right-6 z-50 bg-[#0F172A] border border-slate-800 text-white rounded-xl py-3.5 px-5 shadow-2xl flex items-center gap-3 animate-fadeIn glow-blue"
+          className="fixed bottom-24 right-6 z-50 bg-[#0A1931] border border-slate-800 text-white rounded-xl py-3.5 px-5 shadow-2xl flex items-center gap-3 animate-fadeIn glow-blue"
         >
-          <div className="bg-[#0A5ED6] p-1.5 rounded-full text-white">
+          <div className="bg-[#3D6C90] p-1.5 rounded-full text-white">
             <Check className="w-4 h-4" />
           </div>
           <span className="font-sans text-sm font-semibold">{successToast}</span>
@@ -246,10 +248,10 @@ export default function App() {
           <div id="demo-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
             
             {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div className="bg-[#F6FAFD] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#0A5ED6]" />
-                <span className="font-sans font-bold text-lg text-[#0F172A]">Schedule a Live Interactive Demo</span>
+                <Calendar className="w-5 h-5 text-[#3D6C90]" />
+                <span className="font-sans font-bold text-lg text-[#0A1931]">Schedule a Live Interactive Demo</span>
               </div>
               <button 
                 onClick={() => setShowDemoModal(false)}
@@ -264,7 +266,7 @@ export default function App() {
               {demoStep === 1 ? (
                 /* Step 1: Selection Form */
                 <form onSubmit={handleDemoSubmit} className="space-y-4" id="demo-form">
-                  <p className="font-sans text-xs text-[#45464D] leading-relaxed">
+                  <p className="font-sans text-xs text-[#4A6D8C] leading-relaxed">
                     Pick a convenient date and slot below. We will demonstrate how AegisOne operates inside your local servers to block scammers without reading your private links.
                   </p>
 
@@ -279,7 +281,7 @@ export default function App() {
                       value={demoName}
                       onChange={(e) => setDemoName(e.target.value)}
                       placeholder="e.g. Haris Khan"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
+                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#3D6C90] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0A1931] placeholder-slate-400 outline-hidden transition-colors"
                     />
                   </div>
 
@@ -294,7 +296,7 @@ export default function App() {
                       value={demoEmail}
                       onChange={(e) => setDemoEmail(e.target.value)}
                       placeholder="you@domain.com"
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-hidden transition-colors"
+                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#3D6C90] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0A1931] placeholder-slate-400 outline-hidden transition-colors"
                     />
                   </div>
 
@@ -311,7 +313,7 @@ export default function App() {
                         // Format the date back nicely for user display
                         setSelectedDate(e.target.value);
                       }}
-                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] outline-none transition-colors"
+                      className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#3D6C90] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0A1931] outline-none transition-colors"
                     />
                   </div>
 
@@ -327,7 +329,7 @@ export default function App() {
                         value={selectedTime}
                         onChange={(e) => setSelectedTime(e.target.value)}
                         placeholder="e.g. 02:30 PM PKT or 11:00 AM EST"
-                        className="font-sans text-sm flex-1 bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-none transition-colors"
+                        className="font-sans text-sm flex-1 bg-slate-50 border border-slate-200 focus:border-[#3D6C90] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0A1931] placeholder-slate-400 outline-none transition-colors"
                       />
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -349,7 +351,7 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={isDemoSubmitting}
-                    className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6 disabled:opacity-70"
+                    className="font-sans w-full text-center text-sm font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6 disabled:opacity-70"
                   >
                     {isDemoSubmitting ? 'Scheduling...' : 'Confirm Live Demo Booking'}
                     <Check className="w-4 h-4" />
@@ -374,7 +376,7 @@ export default function App() {
                       <span className="text-slate-400">Guest Name:</span> <strong className="text-white">{demoName}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400">Date &amp; Time:</span> <strong className="text-white text-[#0A5ED6]">{selectedDate} at {selectedTime}</strong>
+                      <span className="text-slate-400">Date &amp; Time:</span> <strong className="text-white text-[#3D6C90]">{selectedDate} at {selectedTime}</strong>
                     </div>
                     <div className="pt-2 border-t border-slate-800 space-y-1.5 font-mono text-[11px] text-slate-400">
                       <div className="flex items-center gap-1.5">
@@ -415,7 +417,7 @@ export default function App() {
                   <div className="border-t border-slate-100 pt-3 flex justify-end">
                     <button
                       onClick={() => setShowDemoModal(false)}
-                      className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
+                      className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
                     >
                       Close Window
                     </button>
@@ -433,13 +435,13 @@ export default function App() {
         <div id="privacy-modal-overlay" className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div id="privacy-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
             {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div className="bg-[#F6FAFD] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-[#0A5ED6]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-5 h-5 text-[#3D6C90]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Privacy Commitment</span>
+                <span className="font-sans font-bold text-lg text-[#0A1931]">AegisOne Privacy Commitment</span>
               </div>
               <button 
                 onClick={() => setShowPrivacyModal(false)}
@@ -450,23 +452,23 @@ export default function App() {
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#45464D] leading-relaxed">
-              <p className="font-semibold text-[#0F172A] text-sm">Your Data Stays With You — Always.</p>
+            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#4A6D8C] leading-relaxed">
+              <p className="font-semibold text-[#0A1931] text-sm">Your Data Stays With You — Always.</p>
               <p>
                 At AegisOne, we design security tools around the fundamental right to data sovereignty. Unlike other link check and phishing services, our software functions directly inside your private hardware or corporate VPC. We do not inspect, upload, store, or transmit your URL checks, internal email activities, or employee credentials to our own external database servers.
               </p>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">1. Zero Log Transmission</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">1. Zero Log Transmission</h4>
               <p>
                 All link inspection, scam diagnostics, and threat score calculations are completed entirely in memory on your private node. No log data or metadata containing user identity is sent back to AegisOne or any third-party analytics provider.
               </p>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">2. Local Storage Control</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">2. Local Storage Control</h4>
               <p>
                 The audit trail, blocked scam URLs, and administrative threat reports generated by the software are saved directly onto your office local PostgreSQL database. You hold the unique decryption keys and maintain absolute control over security logs.
               </p>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">3. Strict Compliance</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">3. Strict Compliance</h4>
               <p>
                 Because AegisOne does not act as a central data processor for your user traffic, using AegisOne greatly simplifies your GDPR, HIPAA, and SOC2 compliance profiles. No "cross-border data transfer" agreements are required for our core perimeter checks.
               </p>
@@ -477,10 +479,10 @@ export default function App() {
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
+            <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowPrivacyModal(false)}
-                className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept &amp; Close
               </button>
@@ -494,16 +496,16 @@ export default function App() {
         <div id="terms-modal-overlay" className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div id="terms-modal" className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left">
             {/* Modal Header */}
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div className="bg-[#F6FAFD] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-[#0A5ED6]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-5 h-5 text-[#3D6C90]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M16 13H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M16 17H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M10 9H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span className="font-sans font-bold text-lg text-[#0F172A]">AegisOne Software Terms of Use</span>
+                <span className="font-sans font-bold text-lg text-[#0A1931]">AegisOne Software Terms of Use</span>
               </div>
               <button 
                 onClick={() => setShowTermsModal(false)}
@@ -514,35 +516,35 @@ export default function App() {
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#45464D] leading-relaxed">
-              <p className="font-semibold text-[#0F172A] text-sm">Simple, Direct License Agreements</p>
+            <div className="p-6 max-h-[400px] overflow-y-auto space-y-4 text-xs text-[#4A6D8C] leading-relaxed">
+              <p className="font-semibold text-[#0A1931] text-sm">Simple, Direct License Agreements</p>
               
-              <h4 className="font-bold text-[#0F172A] uppercase">1. Sovereign Node Licensing</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">1. Sovereign Node Licensing</h4>
               <p>
                 AegisOne grants you a non-exclusive, non-transferable license to execute our sovereign link filtering container on your own physical computer servers or cloud VPC subnets. You are solely responsible for setting up and keeping the Docker container active.
               </p>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">2. No Malicious Misuse</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">2. No Malicious Misuse</h4>
               <p>
                 The provided AegisOne software is created solely to detect, block, and log phishing emails, scam portals, and credential stealing links targeting your staff. You may not reverse engineer, redistribute, or use our cognitive heuristics for malicious purposes.
               </p>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">3. Support &amp; SLA</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">3. Support &amp; SLA</h4>
               <p>
                 Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125012.pgc@gmail.com.
               </p>
 
-              <h4 className="font-bold text-[#0F172A] uppercase">4. Limitations</h4>
+              <h4 className="font-bold text-[#0A1931] uppercase">4. Limitations</h4>
               <p>
                 AegisOne checks links on a localized best-effort basis using premium localized rulesets with speed in mind. While we strive for near 100% scam block accuracy, network environments should combine AegisOne with active personnel training.
               </p>
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
+            <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowTermsModal(false)}
-                className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept Terms
               </button>

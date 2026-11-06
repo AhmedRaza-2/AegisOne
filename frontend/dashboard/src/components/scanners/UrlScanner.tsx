@@ -38,9 +38,9 @@ export function UrlScanner() {
   };
 
   return (
-    <div className="p-6 h-full rounded-2xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] flex flex-col items-center text-center transition-all duration-300 hover:shadow-xl hover:shadow-[#4F84F8]/5 hover:border-[#4F84F8]/20 group">
-      <div className="w-12 h-12 rounded-xl bg-[#4F84F8]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-        <Link2 className="w-6 h-6 text-[#4F84F8]" />
+    <div className="p-6 h-full rounded-2xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] flex flex-col items-center text-center transition-all duration-300 hover:shadow-xl hover:shadow-[#5C93BE]/5 hover:border-[#5C93BE]/20 group">
+      <div className="w-12 h-12 rounded-xl bg-[#5C93BE]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+        <Link2 className="w-6 h-6 text-[#5C93BE]" />
       </div>
       <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">Scan URL</h3>
       <p className="text-xs text-surface-500 mb-6 max-w-sm flex-grow">Paste a suspicious link to have the AI analyze it immediately.</p>
@@ -51,12 +51,12 @@ export function UrlScanner() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://example.com"
-          className={`w-full bg-surface-50 dark:bg-[#0B0F19] border ${url && !isValidUrl(url) ? 'border-red-500/50 focus:ring-red-500/50' : 'border-surface-200 dark:border-white/[0.1] focus:ring-[#4F84F8]/50'} rounded-xl px-4 py-3 mb-4 text-sm focus:outline-none focus:ring-2 focus:border-[#4F84F8]/50 text-surface-900 dark:text-white transition-all`}
+          className={`w-full bg-surface-50 dark:bg-[#071426] border ${url && !isValidUrl(url) ? 'border-red-500/50 focus:ring-red-500/50' : 'border-surface-200 dark:border-white/[0.1] focus:ring-[#5C93BE]/50'} rounded-xl px-4 py-3 mb-4 text-sm focus:outline-none focus:ring-2 focus:border-[#5C93BE]/50 text-surface-900 dark:text-white transition-all`}
         />
         <button
           onClick={handleScan}
           disabled={loading || !url || !isValidUrl(url)}
-          className="w-full py-3 bg-[#4F84F8] disabled:opacity-50 text-white rounded-xl font-bold text-sm hover:bg-[#3D6CE5] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#4F84F8]/20 disabled:shadow-none hover:shadow-[#4F84F8]/40">
+          className="w-full py-3 bg-[#5C93BE] disabled:opacity-50 text-white rounded-xl font-bold text-sm hover:bg-[#3D6C90] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#5C93BE]/20 disabled:shadow-none hover:shadow-[#5C93BE]/40">
           {loading ? <Activity className="w-4 h-4 animate-spin" /> : 'Analyze URL'}
         </button>
       </div>

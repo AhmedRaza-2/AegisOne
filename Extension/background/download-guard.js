@@ -5,6 +5,7 @@
  * scans, then re-downloads only if safe or user approves.
  */
 
+import "../utils/secure-store.js";
 import { VERDICT } from "../utils/constants.js";
 import { isInternalURL } from "../utils/trusted-domains.js";
 import { scanDownload } from "./scanner.js";
@@ -21,7 +22,8 @@ const PROCESSED_MAX = 500;
 const PROCESSED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function initDownloadGuard() {
-  chrome.storage.local.get(PROCESSED_STORAGE_KEY, (data) => {
+  // download addresses are browsing history: the list is stored AES-GCM encrypted (utils/secure-store.js)
+  globalThis.AegisSecure.get(PROCESSED_STORAGE_KEY).then((data) => {
     const saved = data[PROCESSED_STORAGE_KEY] || {};
     const now = Date.now();
     for (const [key, ts] of Object.entries(saved)) {
@@ -85,7 +87,7 @@ function _markProcessed(url) {
 function _persistProcessed() {
   const obj = {};
   _processed.forEach((ts, key) => { obj[key] = ts; });
-  chrome.storage.local.set({ [PROCESSED_STORAGE_KEY]: obj });
+  globalThis.AegisSecure.set({ [PROCESSED_STORAGE_KEY]: obj }).catch(() => {});
 }
 
 async function _onDownloadCreated(item) {

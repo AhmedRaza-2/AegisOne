@@ -349,7 +349,7 @@ export function ChatView({ currentUserId, activeContact, thread, accentColor = "
       </div>
 
       {/* Input */}
-      <div className="px-4 py-3 border-t border-surface-200 dark:border-white/[0.06] flex items-end gap-2 shrink-0 bg-white dark:bg-[#141A29]">
+      <div className="px-4 py-3 border-t border-surface-200 dark:border-white/[0.06] flex items-end gap-2 shrink-0 bg-white dark:bg-[#0F2038]">
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}

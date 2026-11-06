@@ -85,7 +85,7 @@ export function showWarningModal({ score, verdict, threat_type, top_factors, url
         </div>` : ""}
       </div>
       <div style="display:flex;gap:8px;padding:10px 14px;background:rgba(15,10,10,0.4);border-top:1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
-        <button id="aegis-warn-explain" style="flex:1;min-width:45%;padding:7px 10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" ${isOffline ? "disabled style='opacity:0.5;cursor:not-allowed;'" : ""}>✨ Explain AI</button>
+        <button id="aegis-warn-explain" style="flex:1;min-width:45%;padding:7px 10px;background:linear-gradient(135deg,#5C93BE,#4A7FA7);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" ${isOffline ? "disabled style='opacity:0.5;cursor:not-allowed;'" : ""}>✨ Explain AI</button>
         <button id="aegis-warn-leave" style="flex:1;min-width:45%;padding:7px 10px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">← Close Scan</button>
         ${!isOffline ? `
         <button id="aegis-warn-falsepos" style="flex:1;min-width:45%;padding:7px 10px;background:rgba(255,255,255,0.06);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">🚩 False Positive</button>
@@ -221,7 +221,7 @@ export function showXAIModal(xai, context = {}) {
     display: flex !important;
     flex-direction: column !important;
     background: linear-gradient(165deg, #0b0f19 0%, #111827 60%, #1e1b4b 100%) !important;
-    border: 1px solid rgba(99, 102, 241, 0.3) !important;
+    border: 1px solid rgba(74,127,167, 0.3) !important;
     border-radius: 18px !important;
     box-shadow: 0 24px 64px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08) inset !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
@@ -294,7 +294,7 @@ export function showXAIModal(xai, context = {}) {
 
       ${reasonsHtml ? `
       <div style="margin-bottom:16px;text-align:left !important;">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:${s < 20 ? '#34d399' : '#a78bfa'};letter-spacing:0.7px;margin-bottom:8px;text-align:left !important;display:flex;align-items:center;gap:5px;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:${s < 20 ? '#34d399' : '#B3CFE5'};letter-spacing:0.7px;margin-bottom:8px;text-align:left !important;display:flex;align-items:center;gap:5px;">
           <span>${s < 20 ? '✅' : '🔎'}</span> <span>${s < 20 ? 'SECURITY ANALYSIS & CHECKS' : 'WHY FLAGGED'}</span>
         </div>
         <ul style="list-style:none;padding:12px 14px;margin:0;background:rgba(17,24,39,0.7);border-radius:10px;border:1px solid rgba(255,255,255,0.08);text-align:left !important;">${reasonsHtml}</ul>
@@ -465,7 +465,7 @@ export function showDownloadModal({ downloadId, filename, risk_score, verdict, u
           <button id="aegis-dl-block" style="flex:1.4;padding:11px;background:#ef4444;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(239,68,68,0.3);transition:all 0.2s;">🛡️ Cancel Download (Recommended)</button>
           <button id="aegis-dl-allow" style="flex:1;padding:11px;background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.1);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s;">Download Anyway</button>
         </div>
-        <button id="aegis-dl-explain" style="width:100%;padding:9px;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.15));border:1px solid rgba(99,102,241,0.35);border-radius:9px;color:#a5b4fc;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">✨ Explain File Risk with AI</button>
+        <button id="aegis-dl-explain" style="width:100%;padding:9px;background:linear-gradient(135deg,rgba(92,147,190,0.15),rgba(74,127,167,0.15));border:1px solid rgba(74,127,167,0.35);border-radius:9px;color:#a5b4fc;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">✨ Explain File Risk with AI</button>
       </div>
     </div>
   `);
@@ -574,8 +574,8 @@ function _showCompactResult({ title, subtitle, score, factors, id, contextUrl })
       <button id="${id}-xai" style="
         display:flex;align-items:center;gap:5px;justify-content:center;
         width:100%;margin-top:10px;padding:7px 0;
-        background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.15));
-        border:1px solid rgba(99,102,241,0.35);
+        background:linear-gradient(135deg,rgba(92,147,190,0.15),rgba(74,127,167,0.15));
+        border:1px solid rgba(74,127,167,0.35);
         border-radius:7px;color:#a5b4fc;
         font-size:11px;font-weight:700;cursor:pointer;
         font-family:inherit;transition:all 0.2s;
@@ -642,15 +642,15 @@ function _showCompactResult({ title, subtitle, score, factors, id, contextUrl })
     // Hover glow effect
     xaiBtn.addEventListener("mouseenter", () => {
       if (!xaiBtn.disabled) {
-        xaiBtn.style.background = "linear-gradient(135deg,rgba(59,130,246,0.28),rgba(139,92,246,0.28))";
-        xaiBtn.style.borderColor = "rgba(99,102,241,0.65)";
+        xaiBtn.style.background = "linear-gradient(135deg,rgba(92,147,190,0.28),rgba(74,127,167,0.28))";
+        xaiBtn.style.borderColor = "rgba(74,127,167,0.65)";
         xaiBtn.style.color = "#c7d2fe";
       }
     });
     xaiBtn.addEventListener("mouseleave", () => {
       if (!xaiBtn.disabled) {
-        xaiBtn.style.background = "linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.15))";
-        xaiBtn.style.borderColor = "rgba(99,102,241,0.35)";
+        xaiBtn.style.background = "linear-gradient(135deg,rgba(92,147,190,0.15),rgba(74,127,167,0.15))";
+        xaiBtn.style.borderColor = "rgba(74,127,167,0.35)";
         xaiBtn.style.color = "#a5b4fc";
       }
     });

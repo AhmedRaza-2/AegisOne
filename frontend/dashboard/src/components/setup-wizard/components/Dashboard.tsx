@@ -503,7 +503,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
   ];
 
   const analyticsCategoryData = [
-    { name: 'Credential Harvesting', value: 24, fill: '#0A5ED6' },
+    { name: 'Credential Harvesting', value: 24, fill: '#3D6C90' },
     { name: 'Financial Phishing', value: 18, fill: '#ef4444' },
     { name: 'Corporate Mimicry', value: 8, fill: '#f59e0b' },
     { name: 'Malware Scams', value: 4, fill: '#10b981' },
@@ -563,24 +563,24 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
   const checklistCompletedCount = Object.values(checklist).filter(Boolean).length;
 
   return (
-    <section className="min-h-screen bg-slate-950 text-white font-sans py-12 px-4 sm:px-6 lg:px-8 border-t-2 border-[#0A5ED6]">
+    <section className="min-h-screen bg-slate-950 text-white font-sans py-12 px-4 sm:px-6 lg:px-8 border-t-2 border-[#3D6C90]">
       <div className="max-w-7xl mx-auto">
         
         {/* Portal Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 border-b border-slate-900 mb-8 text-left">
           <div>
-            <div className="flex items-center gap-2 text-[#0A5ED6] font-mono text-xs uppercase tracking-widest mb-1.5">
+            <div className="flex items-center gap-2 text-[#3D6C90] font-mono text-xs uppercase tracking-widest mb-1.5">
               <span className={`w-2.5 h-2.5 rounded-full ${session.role === 'employee' && !empOrgCodeVerified ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`} />
               {session.role === 'employee' ? 'Endpoint Terminal Node' : `Sovereign Tenant: ${session.orgName}`}
             </div>
             
             <h1 className="font-sans text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-              <Shield className="w-7 h-7 text-[#0A5ED6]" />
+              <Shield className="w-7 h-7 text-[#3D6C90]" />
               AegisOne Shield Admin Portal
             </h1>
             
             <p className="font-sans text-xs text-slate-400 mt-1">
-              Logged in as <strong className="text-slate-200">{session.name}</strong> ({session.email}) • Role: <span className="text-[#0A5ED6] font-mono uppercase font-bold text-xs">{session.role === 'admin' ? 'Organization Admin' : session.role === 'subadmin' ? 'Manager / Team Lead' : 'Staff Employee'}</span>
+              Logged in as <strong className="text-slate-200">{session.name}</strong> ({session.email}) • Role: <span className="text-[#3D6C90] font-mono uppercase font-bold text-xs">{session.role === 'admin' ? 'Organization Admin' : session.role === 'subadmin' ? 'Manager / Team Lead' : 'Staff Employee'}</span>
             </p>
           </div>
 
@@ -592,7 +592,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('wizard')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer relative ${
                   activeTab === 'wizard' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -608,7 +608,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('dashboard')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'dashboard' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -619,7 +619,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('threats')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'threats' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -630,7 +630,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('users')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'users' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -641,7 +641,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('departments')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'departments' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -652,7 +652,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('analytics')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'analytics' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -663,7 +663,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('reports')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'reports' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -674,7 +674,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('extensions')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'extensions' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -685,7 +685,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('settings')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'settings' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -696,7 +696,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('help')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'help' 
-                    ? 'bg-[#0A5ED6] text-white shadow-sm' 
+                    ? 'bg-[#3D6C90] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -731,7 +731,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
           <div className="space-y-8 animate-fadeIn text-left">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
               <h2 className="font-sans font-bold text-xl text-white mb-2 flex items-center gap-2">
-                <Laptop className="w-6 h-6 text-[#0A5ED6]" />
+                <Laptop className="w-6 h-6 text-[#3D6C90]" />
                 Endpoint Protection Hub
               </h2>
               <p className="font-sans text-xs text-slate-400 leading-relaxed max-w-4xl">
@@ -748,7 +748,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative">
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="font-mono text-xs text-[#0A5ED6] font-bold uppercase tracking-wider block mb-1">Step 1</span>
+                      <span className="font-mono text-xs text-[#3D6C90] font-bold uppercase tracking-wider block mb-1">Step 1</span>
                       <h3 className="font-sans font-bold text-base text-white">Complete Corporate Profile</h3>
                       <p className="font-sans text-xs text-slate-400 mt-1">Associate this endpoint with your name and department assignment inside {session.orgName}.</p>
                     </div>
@@ -771,7 +771,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                             required
                             value={empProfileName} 
                             onChange={(e) => setEmpProfileName(e.target.value)}
-                            className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white"
+                            className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white"
                           />
                         </div>
                         <div className="space-y-1">
@@ -780,7 +780,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                             required
                             value={empProfileDept} 
                             onChange={(e) => setEmpProfileDept(e.target.value)}
-                            className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white cursor-pointer"
+                            className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white cursor-pointer"
                           >
                             <option value="">Select Department...</option>
                             {departments.length === 0 ? (
@@ -795,7 +795,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                       </div>
                       <button 
                         type="submit" 
-                        className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-4 py-2.5 rounded-lg cursor-pointer transition-colors"
+                        className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-4 py-2.5 rounded-lg cursor-pointer transition-colors"
                       >
                         Verify Identity Profile
                       </button>
@@ -813,7 +813,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 <div className={`bg-slate-900 border border-slate-800 rounded-2xl p-6 transition-all ${!empProfileSaved ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="font-mono text-xs text-[#0A5ED6] font-bold uppercase tracking-wider block mb-1">Step 2</span>
+                      <span className="font-mono text-xs text-[#3D6C90] font-bold uppercase tracking-wider block mb-1">Step 2</span>
                       <h3 className="font-sans font-bold text-base text-white">Download Secure Local Installer</h3>
                       <p className="font-sans text-xs text-slate-400 mt-1">Receive the baked binary package containing your secure credentials directly.</p>
                     </div>
@@ -837,7 +837,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
 
                   <button 
                     onClick={handleEmployeeDownloadExt}
-                    className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors flex items-center gap-1.5"
+                    className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors flex items-center gap-1.5"
                   >
                     <Download className="w-4 h-4" /> Download Client Extension Bundle
                   </button>
@@ -847,7 +847,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 <div className={`bg-slate-900 border border-slate-800 rounded-2xl p-6 transition-all ${!empExtDownloaded ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="font-mono text-xs text-[#0A5ED6] font-bold uppercase tracking-wider block mb-1">Step 3</span>
+                      <span className="font-mono text-xs text-[#3D6C90] font-bold uppercase tracking-wider block mb-1">Step 3</span>
                       <h3 className="font-sans font-bold text-base text-white">Establish Local Filter Hook</h3>
                       <p className="font-sans text-xs text-slate-400 mt-1">Open your Chrome extension settings, turn on Developer Mode, and click "Load Unpacked" pointing to the zip.</p>
                     </div>
@@ -863,7 +863,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                   {!empExtInstalled && (
                     <button 
                       onClick={handleEmployeeVerifyInstall}
-                      className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors"
+                      className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors"
                     >
                       Verify Extension local Listener
                     </button>
@@ -874,7 +874,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 <div className={`bg-slate-900 border border-slate-800 rounded-2xl p-6 transition-all ${!empExtInstalled ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="font-mono text-xs text-[#0A5ED6] font-bold uppercase tracking-wider block mb-1">Step 4</span>
+                      <span className="font-mono text-xs text-[#3D6C90] font-bold uppercase tracking-wider block mb-1">Step 4</span>
                       <h3 className="font-sans font-bold text-base text-white">Submit Organization Join Code</h3>
                       <p className="font-sans text-xs text-slate-400 mt-1">Enter your organization's private join token to register this hardware node with the threat dashboard.</p>
                     </div>
@@ -895,7 +895,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                         value={empOrgCodeChallenger}
                         onChange={(e) => setEmpOrgCodeChallenger(e.target.value)}
                         placeholder="e.g. ALB-3902"
-                        className="font-sans text-xs bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white outline-none focus:border-[#0A5ED6] uppercase font-bold w-48"
+                        className="font-sans text-xs bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white outline-none focus:border-[#3D6C90] uppercase font-bold w-48"
                       />
                       <button 
                         type="submit"
@@ -920,7 +920,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               <div className="lg:col-span-5 space-y-6">
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
                   <h4 className="font-sans font-bold text-sm text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-                    <Terminal className="w-4 h-4 text-[#0A5ED6]" />
+                    <Terminal className="w-4 h-4 text-[#3D6C90]" />
                     Local Agent Console Log
                   </h4>
 
@@ -966,7 +966,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               {/* Skip to Dashboard */}
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className="font-sans text-xs font-bold text-white bg-[#0A5ED6] hover:bg-[#0B63E0] px-5 py-3 rounded-xl flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer shadow-sm"
+                className="font-sans text-xs font-bold text-white bg-[#3D6C90] hover:bg-[#3D6C90] px-5 py-3 rounded-xl flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer shadow-sm"
               >
                 Go to Dashboard Console <ArrowRight className="w-4 h-4" />
               </button>
@@ -1033,7 +1033,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                         </div>
                         <button 
                           type="submit" 
-                          className="font-sans text-[11px] font-bold bg-[#0A5ED6] text-white px-3 py-1.5 rounded"
+                          className="font-sans text-[11px] font-bold bg-[#3D6C90] text-white px-3 py-1.5 rounded"
                         >
                           Save Corporate Settings
                         </button>
@@ -1074,7 +1074,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                         </div>
                         <button 
                           type="submit" 
-                          className="font-sans text-[11px] font-bold bg-[#0A5ED6] text-white px-3 py-1.5 rounded"
+                          className="font-sans text-[11px] font-bold bg-[#3D6C90] text-white px-3 py-1.5 rounded"
                         >
                           Add Division
                         </button>
@@ -1130,7 +1130,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                         </div>
                         <button 
                           type="submit" 
-                          className="font-sans text-[11px] font-bold bg-[#0A5ED6] text-white px-3 py-1.5 rounded"
+                          className="font-sans text-[11px] font-bold bg-[#3D6C90] text-white px-3 py-1.5 rounded"
                         >
                           Register Team Lead
                         </button>
@@ -1186,7 +1186,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                         </div>
                         <button 
                           type="submit" 
-                          className="font-sans text-[11px] font-bold bg-[#0A5ED6] text-white px-3 py-1.5 rounded"
+                          className="font-sans text-[11px] font-bold bg-[#3D6C90] text-white px-3 py-1.5 rounded"
                         >
                           Register Employee
                         </button>
@@ -1219,7 +1219,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                             markChecklistStep('extensionInstalled', true);
                             setActiveTab('extensions');
                           }}
-                          className="font-sans text-xs font-bold bg-[#0A5ED6] text-white px-4 py-2 rounded"
+                          className="font-sans text-xs font-bold bg-[#3D6C90] text-white px-4 py-2 rounded"
                         >
                           Go to Extension Manager
                         </button>
@@ -1256,7 +1256,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                         <button 
                           onClick={handleVerifyWizardConnection}
                           disabled={isVerifyingConnection}
-                          className="font-sans text-xs font-bold bg-[#0A5ED6] disabled:bg-slate-800 text-white px-4 py-2 rounded flex items-center gap-2"
+                          className="font-sans text-xs font-bold bg-[#3D6C90] disabled:bg-slate-800 text-white px-4 py-2 rounded flex items-center gap-2"
                         >
                           {isVerifyingConnection ? (
                             <>
@@ -1317,7 +1317,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                   <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
                     <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                       <circle cx="50" cy="50" r="42" stroke="#1e293b" strokeWidth="8" fill="transparent" />
-                      <circle cx="50" cy="50" r="42" stroke="#0A5ED6" strokeWidth="8" fill="transparent" 
+                      <circle cx="50" cy="50" r="42" stroke="#3D6C90" strokeWidth="8" fill="transparent" 
                         strokeDasharray={263.8} 
                         strokeDashoffset={263.8 - (263.8 * checklistCompletedCount) / 8}
                         className="transition-all duration-500"
@@ -1334,7 +1334,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
 
                   <div className="p-4 bg-slate-950 rounded-xl border border-slate-850 text-left space-y-2">
                     <div className="font-mono text-[11px] text-slate-400">
-                      <strong>Organization Code:</strong> <span className="text-[#0A5ED6] font-bold">{orgCode}</span>
+                      <strong>Organization Code:</strong> <span className="text-[#3D6C90] font-bold">{orgCode}</span>
                     </div>
                     <p className="font-sans text-[11px] text-slate-500 leading-relaxed leading-normal">
                       Share this private Org Code with employees. When they install the local extension and enter this token, their browsers will automatically connect with this node's whitelists.
@@ -1391,7 +1391,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
 
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
                 <div className="text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">Average Inspection Time</div>
-                <div className="text-2xl font-bold font-mono text-[#0A5ED6]">{stats.avgLatency} ms</div>
+                <div className="text-2xl font-bold font-mono text-[#3D6C90]">{stats.avgLatency} ms</div>
                 <div className="text-[10px] text-slate-500 mt-2 font-mono flex items-center gap-1">
                   <Zap className="w-3.5 h-3.5 text-yellow-500" /> Memory cache lookup limits
                 </div>
@@ -1413,11 +1413,11 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <h3 className="font-sans font-bold text-sm text-white flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-[#0A5ED6]" /> Recent Network Inspections
+                    <Activity className="w-4 h-4 text-[#3D6C90]" /> Recent Network Inspections
                   </h3>
                   <button 
                     onClick={() => setActiveTab('threats')}
-                    className="font-sans text-xs text-[#0A5ED6] hover:underline"
+                    className="font-sans text-xs text-[#3D6C90] hover:underline"
                   >
                     View All Logs
                   </button>
@@ -1504,7 +1504,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
                 <div>
                   <h3 className="font-sans font-bold text-sm text-white border-b border-slate-800 pb-3 flex items-center gap-1.5">
-                    <Play className="w-4 h-4 text-[#0A5ED6]" /> Phishing Sandbox Simulator
+                    <Play className="w-4 h-4 text-[#3D6C90]" /> Phishing Sandbox Simulator
                   </h3>
                   <p className="font-sans text-xs text-slate-400 mt-2 leading-relaxed">
                     Test how our heuristics algorithm inspects URLs. Submit any domain string to run the sandboxed detection logic.
@@ -1520,13 +1520,13 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                       placeholder="e.g. http://irs-tax-refund.com"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
-                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white outline-none"
+                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white outline-none"
                     />
                   </div>
                   <button 
                     type="submit" 
                     disabled={isAnalyzing}
-                    className="font-sans text-xs font-bold bg-[#0A5ED6] disabled:bg-slate-800 text-white w-full py-2.5 rounded-lg transition-all cursor-pointer shadow-sm"
+                    className="font-sans text-xs font-bold bg-[#3D6C90] disabled:bg-slate-800 text-white w-full py-2.5 rounded-lg transition-all cursor-pointer shadow-sm"
                   >
                     {isAnalyzing ? 'Running Local Isolation Analysis...' : 'Evaluate Web Link'}
                   </button>
@@ -1561,7 +1561,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
                 <div className="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
                   <h3 className="font-sans font-bold text-sm text-white flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-[#0A5ED6]" /> Live Protective Gateway Logs
+                    <Terminal className="w-4 h-4 text-[#3D6C90]" /> Live Protective Gateway Logs
                   </h3>
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -1645,7 +1645,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
           <div className="space-y-8 animate-fadeIn text-left">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
               <h2 className="font-sans font-bold text-lg text-white mb-2 flex items-center gap-2">
-                <Users className="w-5 h-5 text-[#0A5ED6]" /> Manage Staff &amp; Team Roster
+                <Users className="w-5 h-5 text-[#3D6C90]" /> Manage Staff &amp; Team Roster
               </h2>
               <p className="font-sans text-xs text-slate-400 max-w-4xl leading-relaxed">
                 Add and manage organizational roles. Registered employees and subadmins can log in to connect their personal client browsers using the organization code.
@@ -1657,7 +1657,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               {/* Form (5 cols) */}
               <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
                 <h3 className="font-sans font-bold text-sm text-white border-b border-slate-800 pb-3 flex items-center gap-1.5">
-                  <Plus className="w-4 h-4 text-[#0A5ED6]" /> Register New Corporate Account
+                  <Plus className="w-4 h-4 text-[#3D6C90]" /> Register New Corporate Account
                 </h3>
 
                 {addSuccessMsg && (
@@ -1675,7 +1675,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                       value={newEmpName} 
                       onChange={(e) => setNewEmpName(e.target.value)}
                       placeholder="e.g. Zainab Bibi"
-                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
+                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
                     />
                   </div>
 
@@ -1687,7 +1687,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                       value={newEmpEmail} 
                       onChange={(e) => setNewEmpEmail(e.target.value)}
                       placeholder="zainab@company.com"
-                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
+                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
                     />
                   </div>
 
@@ -1699,7 +1699,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                       value={newEmpId} 
                       onChange={(e) => setNewEmpId(e.target.value)}
                       placeholder="EMP-LOG-4091"
-                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
+                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
                     />
                   </div>
 
@@ -1708,7 +1708,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                     <select 
                       value={newEmpDept} 
                       onChange={(e) => setNewEmpDept(e.target.value)}
-                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white cursor-pointer"
+                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white cursor-pointer"
                     >
                       <option value="">No Department Assign</option>
                       {departments.map(d => (
@@ -1722,7 +1722,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                     <select 
                       value={newEmpRole} 
                       onChange={(e) => setNewEmpRole(e.target.value as 'lead' | 'employee')}
-                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white cursor-pointer"
+                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white cursor-pointer"
                     >
                       <option value="employee">Standard Staff Employee</option>
                       <option value="lead">Manager / Team Lead (Access to logs)</option>
@@ -1731,7 +1731,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
 
                   <button 
                     type="submit" 
-                    className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white w-full py-3 rounded-lg transition-colors cursor-pointer"
+                    className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white w-full py-3 rounded-lg transition-colors cursor-pointer"
                   >
                     Add User to Directory
                   </button>
@@ -1802,7 +1802,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
           <div className="space-y-8 animate-fadeIn text-left">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
               <h2 className="font-sans font-bold text-lg text-white mb-2 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#0A5ED6]" /> Corporate Departments Whitelist
+                <Layers className="w-5 h-5 text-[#3D6C90]" /> Corporate Departments Whitelist
               </h2>
               <p className="font-sans text-xs text-slate-400 max-w-4xl leading-relaxed">
                 Divide your team rosters into distinct segments. Each department has tailored heuristic rules and can have an assigned subadmin to monitor department threat events.
@@ -1824,12 +1824,12 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                       value={newDeptName} 
                       onChange={(e) => setNewDeptName(e.target.value)}
                       placeholder="e.g. IT Security Core"
-                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#0A5ED6] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
+                      className="font-sans text-xs w-full bg-slate-950 border border-slate-800 focus:border-[#3D6C90] rounded-lg px-3 py-2.5 text-white placeholder-slate-650"
                     />
                   </div>
                   <button 
                     type="submit" 
-                    className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white w-full py-3 rounded-lg cursor-pointer transition-colors"
+                    className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white w-full py-3 rounded-lg cursor-pointer transition-colors"
                   >
                     Establish Department
                   </button>
@@ -1893,14 +1893,14 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                     <AreaChart data={analyticsTimeData}>
                       <defs>
                         <linearGradient id="colorSafe" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0A5ED6" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="#0A5ED6" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#3D6C90" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#3D6C90" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
                       <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', color: '#fff' }} />
-                      <Area type="monotone" dataKey="safe" name="Safe Hits" stroke="#0A5ED6" fillOpacity={1} fill="url(#colorSafe)" />
+                      <Area type="monotone" dataKey="safe" name="Safe Hits" stroke="#3D6C90" fillOpacity={1} fill="url(#colorSafe)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -1949,7 +1949,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
           <div className="space-y-8 animate-fadeIn text-left">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
               <h2 className="font-sans font-bold text-lg text-white mb-2 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#0A5ED6]" /> Risk Executive Audit Reports
+                <FileText className="w-5 h-5 text-[#3D6C90]" /> Risk Executive Audit Reports
               </h2>
               <p className="font-sans text-xs text-slate-400 max-w-4xl leading-relaxed">
                 Generate high-fidelity, printable summaries of security performance inside your SME. This reduces audit compliance friction.
@@ -1964,7 +1964,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 </div>
                 <button 
                   onClick={() => alert("Report printed successfully! Simulated PDF package was generated in cache.")}
-                  className="font-sans text-xs font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white px-5 py-2.5 rounded-xl cursor-pointer transition-all flex items-center gap-2"
+                  className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2.5 rounded-xl cursor-pointer transition-all flex items-center gap-2"
                 >
                   <FileCheck className="w-4 h-4" /> Export Audit Report Card
                 </button>
@@ -2026,7 +2026,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               {/* Left Column: Config cards (5 cols) */}
               <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 text-left">
                 <h3 className="font-sans font-bold text-sm text-white border-b border-slate-800 pb-3 flex items-center gap-1.5">
-                  <Sliders className="w-4 h-4 text-[#0A5ED6]" /> Security Extension Policies
+                  <Sliders className="w-4 h-4 text-[#3D6C90]" /> Security Extension Policies
                 </h3>
 
                 <div className="space-y-4 text-xs">
@@ -2068,7 +2068,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 <h3 className="font-sans font-bold text-sm text-white border-b border-slate-800 pb-3">Download Package</h3>
 
                 <div className="p-6 bg-slate-950 rounded-2xl border border-slate-850 space-y-4">
-                  <h4 className="font-sans font-bold text-sm text-[#0A5ED6]">Personalized Enterprise Installer</h4>
+                  <h4 className="font-sans font-bold text-sm text-[#3D6C90]">Personalized Enterprise Installer</h4>
                   <p className="font-sans text-xs text-slate-400 leading-relaxed">
                     This build is customized with your organization ID. Running this installer automatically injects parameters so endpoints are protected instantly without manual text configurations:
                   </p>
@@ -2162,7 +2162,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
           <div className="space-y-8 animate-fadeIn text-left">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
               <h2 className="font-sans font-bold text-lg text-white mb-2 flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-[#0A5ED6]" /> Help &amp; Knowledge Directory
+                <HelpCircle className="w-5 h-5 text-[#3D6C90]" /> Help &amp; Knowledge Directory
               </h2>
               <p className="font-sans text-xs text-slate-400 max-w-4xl leading-relaxed">
                 Read guide modules and FAQs designed to answer setup queries instantly. This keeps corporate administrative overhead very low.
@@ -2177,7 +2177,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 {/* 1. Quick Start */}
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
                   <h3 className="font-sans font-bold text-sm text-slate-200 flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4 text-[#0A5ED6]" /> Quick Start Guide
+                    <BookOpen className="w-4 h-4 text-[#3D6C90]" /> Quick Start Guide
                   </h3>
                   <p className="font-sans text-xs text-slate-400 leading-relaxed">
                     First, configure your organization under the Setup Wizard. Second, create your departments and invite team leads. Lastly, distribute your <strong>Organization Code</strong> to employees. They can log in, download the unpacked extension, enter the code, and their browsers will automatically filter malicious links.
@@ -2234,9 +2234,9 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 </div>
 
                 {/* Direct Support Desk */}
-                <div className="bg-slate-900 border border-[#0A5ED6]/30 rounded-2xl p-6 space-y-4 shadow-xl">
+                <div className="bg-slate-900 border border-[#3D6C90]/30 rounded-2xl p-6 space-y-4 shadow-xl">
                   <h3 className="font-sans font-bold text-sm text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-                    <MessageSquare className="w-4 h-4 text-[#0A5ED6]" /> Direct Support Desk
+                    <MessageSquare className="w-4 h-4 text-[#3D6C90]" /> Direct Support Desk
                   </h3>
                   <p className="font-sans text-xs text-slate-400 leading-relaxed">
                     Need immediate assistance with organization onboarding, node deployment, or Whitelist setups? Get in touch with our security support team:
@@ -2260,14 +2260,14 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
 
                     <a 
                       href="mailto:araza2125012.pgc@gmail.com"
-                      className="flex items-center gap-3.5 p-3.5 bg-[#0A5ED6]/10 hover:bg-[#0A5ED6]/20 border border-[#0A5ED6]/25 rounded-xl transition-all group cursor-pointer"
+                      className="flex items-center gap-3.5 p-3.5 bg-[#3D6C90]/10 hover:bg-[#3D6C90]/20 border border-[#3D6C90]/25 rounded-xl transition-all group cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-full bg-[#0A5ED6] flex items-center justify-center text-white shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-[#3D6C90] flex items-center justify-center text-white shrink-0">
                         <Mail className="w-4 h-4" />
                       </div>
                       <div className="text-left">
                         <span className="text-[9px] text-slate-400 block font-mono font-bold tracking-wider uppercase">Direct Support Email</span>
-                        <strong className="text-white text-xs font-mono group-hover:text-[#0A5ED6] transition-colors break-all">araza2125012.pgc@gmail.com</strong>
+                        <strong className="text-white text-xs font-mono group-hover:text-[#3D6C90] transition-colors break-all">araza2125012.pgc@gmail.com</strong>
                       </div>
                     </a>
                   </div>

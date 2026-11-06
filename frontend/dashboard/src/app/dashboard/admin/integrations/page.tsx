@@ -116,7 +116,7 @@ export default function IntegrationsPage() {
 
       {/* Webhooks */}
       <motion.div variants={fadeUp} className="stat-card space-y-4">
-        <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Webhook className="w-4 h-4 text-purple-500" /> Webhooks</h2>
+        <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Webhook className="w-4 h-4 text-brand-500" /> Webhooks</h2>
         <p className="text-xs text-surface-500">Each event is a JSON POST signed with HMAC-SHA256 (<code>X-Aegis-Signature: t=…,v1=…</code> over <code>timestamp.body</code>). Only public https addresses are accepted.</p>
         <div className="flex flex-wrap gap-2 items-end">
           <input value={hookUrl} onChange={e => setHookUrl(e.target.value)} placeholder="https://siem.example.com/aegis-hook"
@@ -124,7 +124,7 @@ export default function IntegrationsPage() {
           <div className="flex flex-wrap gap-1.5">
             {["*", ...meta.events].map(ev => (
               <button key={ev} onClick={() => setHookEvents(v => ev === "*" ? ["*"] : (v.includes(ev) ? v.filter(x => x !== ev) : [...v.filter(x => x !== "*"), ev]))}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border ${hookEvents.includes(ev) ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" : "text-surface-500 border-surface-200 dark:border-white/[0.08]"}`}>{ev === "*" ? "all events" : ev}</button>
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border ${hookEvents.includes(ev) ? "bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/30" : "text-surface-500 border-surface-200 dark:border-white/[0.08]"}`}>{ev === "*" ? "all events" : ev}</button>
             ))}
           </div>
           <button disabled={!hookUrl.trim() || !hookEvents.length || busy === "newhook"}

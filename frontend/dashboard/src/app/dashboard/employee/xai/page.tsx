@@ -29,14 +29,14 @@ export default function XAIPage() {
   }, [user]);
 
   if (!user) return null;
-  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-[#4F84F8] animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-[#5C93BE] animate-spin" /></div>;
 
   const explanations = data?.explanations || [];
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-12 max-w-7xl mx-auto">
       {explanations.length === 0 && (
-        <div className="py-20 text-center flex flex-col items-center justify-center rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04]">
+        <div className="py-20 text-center flex flex-col items-center justify-center rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04]">
           <BrainCircuit className="w-12 h-12 text-surface-300 dark:text-surface-600 mb-4" />
           <h2 className="text-lg font-bold text-surface-900 dark:text-white">No active threats detected</h2>
           <p className="text-sm text-surface-500 mt-1">When threats are blocked, AI explanations will appear here.</p>
@@ -47,21 +47,21 @@ export default function XAIPage() {
         <motion.div key={exp.id || idx} variants={fadeUp} className="flex flex-col gap-6">
           {/* Header section */}
           <div className="text-center max-w-3xl mx-auto mb-4">
-            <div className="text-[10px] font-bold text-[#4F84F8] uppercase tracking-widest mb-3 flex items-center justify-center gap-2">
+            <div className="text-[10px] font-bold text-[#5C93BE] uppercase tracking-widest mb-3 flex items-center justify-center gap-2">
               <ShieldAlert className="w-4 h-4" /> Heuristic Threat Analysis
             </div>
             <h1 className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight mb-3">Why was this flagged?</h1>
             <p className="text-sm text-surface-600 dark:text-surface-300">
-              AI model "Sentinel-X" identified anomalous patterns within egress traffic originating from the guest subnet targeting <span className="font-mono text-[#4F84F8]">{exp.target}</span>.
+              AI model "Sentinel-X" identified anomalous patterns within egress traffic originating from the guest subnet targeting <span className="font-mono text-[#5C93BE]">{exp.target}</span>.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Confidence Score */}
-            <div className="lg:col-span-1 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col relative overflow-hidden">
+            <div className="lg:col-span-1 rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col relative overflow-hidden">
               <div className="flex justify-between items-start mb-6 z-10">
                 <h3 className="text-sm font-bold text-surface-900 dark:text-white">Confidence Score</h3>
-                <Shield className="w-4 h-4 text-[#4F84F8]" />
+                <Shield className="w-4 h-4 text-[#5C93BE]" />
               </div>
               <div className="z-10 mb-4">
                 <div className="flex items-baseline">
@@ -70,7 +70,7 @@ export default function XAIPage() {
                 </div>
               </div>
               <div className="w-full h-2 bg-surface-100 dark:bg-white/[0.05] rounded-full mb-4 overflow-hidden z-10">
-                <div className="h-full bg-[#4F84F8] rounded-full" style={{ width: `${exp.confidence || exp.risk || 98}%` }}></div>
+                <div className="h-full bg-[#5C93BE] rounded-full" style={{ width: `${exp.confidence || exp.risk || 98}%` }}></div>
               </div>
               <p className="text-xs text-surface-600 dark:text-surface-400 z-10 leading-relaxed">
                 Extremely high correlation with known exfiltration vectors and malicious profiles based on heuristic matching.
@@ -83,13 +83,13 @@ export default function XAIPage() {
             </div>
 
             {/* AI Executive Summary */}
-            <div className="lg:col-span-2 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
+            <div className="lg:col-span-2 rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
               <div className="flex items-center gap-2 mb-4">
                 <span className="w-2 h-2 rounded-full bg-red-500"></span>
                 <h3 className="text-sm font-bold text-surface-900 dark:text-white">AI Executive Summary</h3>
               </div>
               <p className="text-sm text-surface-700 dark:text-surface-300 leading-relaxed mb-6">
-                The system detected an <span className="font-bold text-red-500 dark:text-red-400">atypical threat pattern</span> on the host. The targeted domain, <span className="font-mono text-[#4F84F8] text-xs bg-surface-100 dark:bg-white/[0.05] px-1.5 py-0.5 rounded">{exp.target}</span>,
+                The system detected an <span className="font-bold text-red-500 dark:text-red-400">atypical threat pattern</span> on the host. The targeted domain, <span className="font-mono text-[#5C93BE] text-xs bg-surface-100 dark:bg-white/[0.05] px-1.5 py-0.5 rounded">{exp.target}</span>,
                 {exp.recommendation.toLowerCase().includes("block") ? " attempted to establish a persistent connection to a server in a high-risk jurisdiction." : " shows indicators of phishing or malicious content."}
                 {exp.reasons.length > 0 ? ` Specifically: ${exp.reasons.join(", ")}.` : ""} This behavior mimics typical malicious pre-stages.
               </p>
@@ -103,7 +103,7 @@ export default function XAIPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* Evidence Registry */}
-            <div className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
+            <div className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xs font-bold text-surface-500 uppercase tracking-widest">Evidence Registry</h3>
                 <span className="text-[10px] text-surface-400">{exp.reasons.length || 3} Flags Detected</span>
@@ -159,14 +159,14 @@ export default function XAIPage() {
             </div>
 
             {/* Network Cluster Visualization */}
-            <div className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col relative overflow-hidden">
+            <div className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col relative overflow-hidden">
               <div className="flex justify-between items-center mb-6 relative z-10">
                 <h3 className="text-xs font-bold text-surface-500 uppercase tracking-widest">Network Cluster Visualization</h3>
                 <span className="flex items-center gap-1.5 text-[10px] text-surface-400 font-bold uppercase"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Topology</span>
               </div>
 
               {/* Mock visualization graph */}
-              <div className="flex-1 min-h-[250px] relative rounded-lg border border-surface-100 dark:border-white/[0.02] bg-[#FAFAFA] dark:bg-[#0B0F19] overflow-hidden">
+              <div className="flex-1 min-h-[250px] relative rounded-lg border border-surface-100 dark:border-white/[0.02] bg-[#FAFAFA] dark:bg-[#071426] overflow-hidden">
                 {/* Connecting lines */}
                 <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
                   <line x1="30%" y1="30%" x2="50%" y2="50%" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
@@ -193,17 +193,17 @@ export default function XAIPage() {
                 <div className="absolute top-[50%] left-[50%] w-12 h-12 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
                 </div>
-                <div className="absolute top-[58%] left-[50%] -translate-x-1/2 text-[10px] text-surface-500 bg-[#0B0F19]/80 px-2 rounded font-mono border border-surface-800 whitespace-nowrap">
+                <div className="absolute top-[58%] left-[50%] -translate-x-1/2 text-[10px] text-surface-500 bg-[#071426]/80 px-2 rounded font-mono border border-surface-800 whitespace-nowrap">
                   {exp.target} (Malicious Src)
                 </div>
 
                 {/* Origin node */}
-                <div className="absolute top-[80%] left-[35%] w-10 h-10 rounded-full bg-[#4F84F8]/20 border border-[#4F84F8]/50 flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
-                  <Network className="w-4 h-4 text-[#4F84F8]" />
+                <div className="absolute top-[80%] left-[35%] w-10 h-10 rounded-full bg-[#5C93BE]/20 border border-[#5C93BE]/50 flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
+                  <Network className="w-4 h-4 text-[#5C93BE]" />
                 </div>
 
                 {/* Info Overlay Box */}
-                <div className="absolute bottom-4 left-4 p-3 rounded bg-white/90 dark:bg-[#141A29]/90 border border-surface-200 dark:border-white/[0.05] backdrop-blur text-xs">
+                <div className="absolute bottom-4 left-4 p-3 rounded bg-white/90 dark:bg-[#0F2038]/90 border border-surface-200 dark:border-white/[0.05] backdrop-blur text-xs">
                   <div className="font-bold text-surface-900 dark:text-white mb-0.5">Source Geo-Location</div>
                   <div className="text-surface-600 dark:text-surface-400 mb-1">Moscow Oblast, RU</div>
                   <div className="text-[9px] font-mono text-surface-500">LAT: 55.75 | LONG: 37.61</div>
@@ -213,7 +213,7 @@ export default function XAIPage() {
           </div>
 
           {/* Recommended Remediations */}
-          <div className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-base font-bold text-surface-900 dark:text-white">Recommended Remediations</h3>
               <p className="text-sm text-surface-500 mt-1">
@@ -224,7 +224,7 @@ export default function XAIPage() {
               <button className="px-5 py-2.5 rounded-lg border border-surface-200 dark:border-white/[0.1] text-sm font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.05] transition-colors">
                 Ignore False Positive
               </button>
-              <button className="px-5 py-2.5 rounded-lg bg-[#4F84F8] hover:bg-[#3D6CE5] transition-colors text-sm font-semibold text-white flex items-center gap-2">
+              <button className="px-5 py-2.5 rounded-lg bg-[#5C93BE] hover:bg-[#3D6C90] transition-colors text-sm font-semibold text-white flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4" /> Block Domain Everywhere
               </button>
             </div>

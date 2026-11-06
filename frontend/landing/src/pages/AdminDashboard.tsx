@@ -327,17 +327,17 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-[#F6FAFD] text-[#0A1931] font-sans selection:bg-blue-100 selection:text-blue-900">
       <nav className="sticky top-0 z-20 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[#0A5ED6]/10 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-[#0A5ED6]" />
+          <div className="w-8 h-8 rounded-lg bg-[#3D6C90]/10 flex items-center justify-center">
+            <Shield className="w-4 h-4 text-[#3D6C90]" />
           </div>
-          <span className="font-bold text-[#0F172A] text-sm tracking-tight">AegisOne Platform Control</span>
+          <span className="font-bold text-[#0A1931] text-sm tracking-tight">AegisOne Platform Control</span>
           <div className="ml-6 flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
             {([['orgs', 'Organizations'], ['models', 'Model Hub']] as const).map(([id, label]) => (
               <button key={id} onClick={() => setView(id)}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${view === id ? 'bg-white text-[#0A5ED6] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>{label}</button>
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${view === id ? 'bg-white text-[#3D6C90] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>{label}</button>
             ))}
           </div>
         </div>
@@ -374,7 +374,7 @@ export default function AdminDashboard() {
                 key={tab}
                 onClick={() => setStatusTab(tab)}
                 className={`px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-all ${statusTab === tab
-                    ? 'bg-white text-[#0A5ED6] shadow-xs'
+                    ? 'bg-white text-[#3D6C90] shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
@@ -391,7 +391,7 @@ export default function AdminDashboard() {
               placeholder="Search org name, email, industry..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:border-[#0A5ED6]"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-[#0A1931] placeholder:text-slate-400 focus:outline-none focus:border-[#3D6C90]"
             />
           </div>
         </div>
@@ -413,7 +413,7 @@ export default function AdminDashboard() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    <Loader2 className="w-6 h-6 text-[#0A5ED6] animate-spin mx-auto mb-2" />
+                    <Loader2 className="w-6 h-6 text-[#3D6C90] animate-spin mx-auto mb-2" />
                     Loading database records...
                   </td>
                 </tr>
@@ -430,7 +430,7 @@ export default function AdminDashboard() {
                 let tierColor = 'bg-blue-50 text-blue-700 border-blue-200';
                 if (empCount > 500) {
                   tier = 'Enterprise Max';
-                  tierColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                  tierColor = 'bg-blue-50 text-blue-700 border-blue-200';
                 } else if (empCount > 100) {
                   tier = 'Business Pro';
                   tierColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -439,7 +439,7 @@ export default function AdminDashboard() {
                 return (
                   <tr key={org.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="font-bold text-[#0F172A] text-base">{org.name}</p>
+                      <p className="font-bold text-[#0A1931] text-base">{org.name}</p>
                       <p className="text-xs text-slate-500 mt-0.5 font-medium">{org.industry || 'General Industry'}</p>
                     </td>
                     <td className="px-6 py-4">
@@ -546,7 +546,7 @@ export default function AdminDashboard() {
                 placeholder={deleteTarget.name}
                 value={confirmName}
                 onChange={e => setConfirmName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:border-red-500 font-semibold"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm text-[#0A1931] placeholder:text-slate-400 focus:outline-none focus:border-red-500 font-semibold"
               />
             </div>
 
@@ -639,7 +639,7 @@ export default function AdminDashboard() {
                 placeholder={suspendModalTarget.action === 'reject' ? 'e.g. Registration details unverified' : 'e.g. Policy violation'}
                 value={suspendReason}
                 onChange={e => setSuspendReason(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-none focus:border-amber-500 font-medium"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0A1931] placeholder:text-slate-400 focus:outline-none focus:border-amber-500 font-medium"
                 autoFocus
               />
             </div>

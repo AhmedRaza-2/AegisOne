@@ -104,7 +104,7 @@ async function _scanOnHover(img) {
   if (cached === "pending") return;
 
   _scannedSrcs.set(src, "pending");
-  _showTooltip(img, `🛡️ Scanning…`, "rgba(59,130,246,0.5)", "rgba(15,23,42,0.95)");
+  _showTooltip(img, `🛡️ Scanning…`, "rgba(92,147,190,0.5)", "rgba(15,23,42,0.95)");
 
   const res = await safeSendMessage({ type: "SCAN_HOVER_IMAGE", src });
   const result = res?.ok ? res.result : null;

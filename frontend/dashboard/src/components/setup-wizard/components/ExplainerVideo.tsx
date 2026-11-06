@@ -38,7 +38,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
       title: 'Armed Endpoint Protection Active',
       desc: 'Zooming in on employee workstations. Every desktop has the lightweight AegisOne extension and endpoint agent loaded and armed.',
       icon: Laptop,
-      color: 'border-indigo-500/30 text-indigo-500'
+      color: 'border-brand-500/30 text-brand-500'
     },
     {
       id: 3,
@@ -78,7 +78,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
       title: 'Role-Based Severity Routing',
       desc: 'The incident notifies relevant Managers, Team Leads, and Admins based on severity, allowing secure localized containment.',
       icon: Users,
-      color: 'border-purple-500/30 text-purple-400'
+      color: 'border-brand-500/30 text-brand-400'
     },
     {
       id: 8,
@@ -94,7 +94,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
       title: 'AegisOne Brand Outro',
       desc: 'Sovereign protection for local offices and SMEs. Secure. Protect. Prevent. Zero-trust architecture you own entirely.',
       icon: ShieldCheck,
-      color: 'border-[#0A5ED6]/30 text-white'
+      color: 'border-[#3D6C90]/30 text-white'
     }
   ];
 
@@ -142,16 +142,16 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
   return (
     <section id="how-it-works" className="min-h-[100dvh] flex flex-col justify-center py-20 bg-slate-950 text-white relative overflow-hidden border-t border-b border-slate-900">
       {/* Decorative cyber grid lines */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] opacity-25 pointer-events-none" />
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#0A5ED6]/10 rounded-full filter blur-[100px] pointer-events-none" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0A1931_1px,transparent_1px),linear-gradient(to_bottom,#0A1931_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] opacity-25 pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#3D6C90]/10 rounded-full filter blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full filter blur-[100px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         
         {/* Header Block */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
-          <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/15 border border-[#0A5ED6]/30 px-3.5 py-1.5 rounded-full">
-            <Tv className="w-3.5 h-3.5 text-[#0A5ED6]" />
+          <div className="inline-flex items-center gap-2 bg-[#3D6C90]/15 border border-[#3D6C90]/30 px-3.5 py-1.5 rounded-full">
+            <Tv className="w-3.5 h-3.5 text-[#3D6C90]" />
             <span className="font-sans text-xs font-semibold uppercase tracking-wider text-blue-400">
               Interactive 3D Simulation
             </span>
@@ -181,7 +181,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400 font-bold">AegisOne_Explainer.mp4</span>
               </div>
-              <div className="font-mono text-[10px] text-[#0A5ED6] font-semibold bg-[#0A5ED6]/10 px-2.5 py-0.5 rounded-full">
+              <div className="font-mono text-[10px] text-[#3D6C90] font-semibold bg-[#3D6C90]/10 px-2.5 py-0.5 rounded-full">
                 {frames[currentFrame].timeRange} / 0:20
               </div>
             </div>
@@ -213,8 +213,8 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                       <div className="w-3.5 h-5 bg-blue-500/10 border-t border-x border-blue-500/30 rounded-t" />
                     </div>
                   </div>
-                  <div className="absolute bottom-0 bg-[#0A5ED6]/10 border border-[#0A5ED6]/30 px-3 py-1 rounded-full text-xs font-mono text-blue-400 flex items-center gap-1.5 animate-bounce">
-                    <Shield className="w-3.5 h-3.5 text-[#0A5ED6]" /> Sovereign Link Protection Active
+                  <div className="absolute bottom-0 bg-[#3D6C90]/10 border border-[#3D6C90]/30 px-3 py-1 rounded-full text-xs font-mono text-blue-400 flex items-center gap-1.5 animate-bounce">
+                    <Shield className="w-3.5 h-3.5 text-[#3D6C90]" /> Sovereign Link Protection Active
                   </div>
                 </div>
               )}
@@ -267,7 +267,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                     <div className="space-y-2.5">
                       <div className="p-3 bg-blue-950/20 border border-blue-500/30 rounded-lg flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Laptop className="w-4 h-4 text-[#0A5ED6]" />
+                          <Laptop className="w-4 h-4 text-[#3D6C90]" />
                           <span className="font-sans text-xs text-white font-bold">Sovereign Agent</span>
                         </div>
                         <span className="font-mono text-[9px] text-emerald-400 uppercase font-bold animate-pulse">Running</span>
@@ -393,7 +393,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                     
                     <div className="space-y-2">
                       {/* Super Admin */}
-                      <div className="p-2 bg-blue-950/20 border border-[#0A5ED6]/30 rounded-lg text-xs font-bold text-white flex items-center justify-between">
+                      <div className="p-2 bg-blue-950/20 border border-[#3D6C90]/30 rounded-lg text-xs font-bold text-white flex items-center justify-between">
                         <span>🛡️ Super Admin Panel</span>
                         <span className="font-mono text-[9px] text-slate-400">Full control &amp; compliance</span>
                       </div>
@@ -441,12 +441,12 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                     {/* Simple pure inline CSS-based mock line-graph */}
                     <div className="h-20 bg-slate-900 rounded-lg border border-slate-850 p-2 flex items-end justify-between relative overflow-hidden">
                       <div className="absolute top-1 right-2 font-mono text-[8px] text-emerald-500 font-bold bg-emerald-500/10 px-1 rounded">HEALTH: 100%</div>
-                      <div className="w-4 h-[20%] bg-[#0A5ED6]/30 rounded-t-sm" />
-                      <div className="w-4 h-[35%] bg-[#0A5ED6]/45 rounded-t-sm" />
-                      <div className="w-4 h-[25%] bg-[#0A5ED6]/30 rounded-t-sm" />
-                      <div className="w-4 h-[60%] bg-[#0A5ED6]/60 rounded-t-sm animate-pulse" />
-                      <div className="w-4 h-[45%] bg-[#0A5ED6]/45 rounded-t-sm" />
-                      <div className="w-4 h-[85%] bg-[#0A5ED6]/80 rounded-t-sm" />
+                      <div className="w-4 h-[20%] bg-[#3D6C90]/30 rounded-t-sm" />
+                      <div className="w-4 h-[35%] bg-[#3D6C90]/45 rounded-t-sm" />
+                      <div className="w-4 h-[25%] bg-[#3D6C90]/30 rounded-t-sm" />
+                      <div className="w-4 h-[60%] bg-[#3D6C90]/60 rounded-t-sm animate-pulse" />
+                      <div className="w-4 h-[45%] bg-[#3D6C90]/45 rounded-t-sm" />
+                      <div className="w-4 h-[85%] bg-[#3D6C90]/80 rounded-t-sm" />
                       <div className="w-4 h-[100%] bg-blue-500 rounded-t-sm" />
                     </div>
                   </div>
@@ -457,10 +457,10 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
               {currentFrame === 9 && (
                 <div className="w-full h-full flex flex-col items-center justify-center animate-fadeIn space-y-4">
                   <div className="relative">
-                    <div className="w-16 h-16 rounded-full bg-[#0A5ED6]/15 flex items-center justify-center text-[#0A5ED6] border border-[#0A5ED6]/40 shadow-lg animate-pulse">
+                    <div className="w-16 h-16 rounded-full bg-[#3D6C90]/15 flex items-center justify-center text-[#3D6C90] border border-[#3D6C90]/40 shadow-lg animate-pulse">
                       <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="24" height="24" rx="6" fill="#0F172A"/>
-                        <path d="M12 5.5L6.5 7.5V11.5C6.5 14.85 8.85 17.95 12 18.5C15.15 17.95 17.5 14.85 17.5 11.5V7.5L12 5.5Z" fill="#0A5ED6"/>
+                        <rect width="24" height="24" rx="6" fill="#0A1931"/>
+                        <path d="M12 5.5L6.5 7.5V11.5C6.5 14.85 8.85 17.95 12 18.5C15.15 17.95 17.5 14.85 17.5 11.5V7.5L12 5.5Z" fill="#3D6C90"/>
                         <path d="M11.5 8H12.5V14.5H11.5V8ZM12 16C11.5 16 11.25 15.75 11.25 15.25C11.25 14.75 11.5 14.5 12 14.5C12.5 14.5 12.75 14.75 12.75 15.25C12.75 15.75 12.5 16 12 16Z" fill="white"/>
                       </svg>
                     </div>
@@ -471,7 +471,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                     <p className="font-sans text-xs text-slate-400 font-medium">Sovereign Link Protection for SMEs</p>
                   </div>
 
-                  <div className="bg-[#0A5ED6]/10 border border-[#0A5ED6]/20 rounded-xl px-4 py-2 font-mono text-[10px] text-blue-300">
+                  <div className="bg-[#3D6C90]/10 border border-[#3D6C90]/20 rounded-xl px-4 py-2 font-mono text-[10px] text-blue-300">
                     Secure. Protect. Prevent. • 100% Air-Gapped Local Control
                   </div>
                 </div>
@@ -486,7 +486,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 <div className="flex items-center gap-3">
                   <button 
                     onClick={() => setIsPlaying(!isPlaying)}
-                    className="w-10 h-10 rounded-full bg-[#0A5ED6] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-[#3D6C90] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
                     title={isPlaying ? "Pause tour" : "Start automated walkthrough"}
                   >
                     {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
@@ -518,7 +518,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                       onClick={() => handleFrameSelect(frame.id)}
                       className={`w-5 h-2 rounded-[2px] transition-all cursor-pointer ${
                         currentFrame === frame.id 
-                          ? 'bg-[#0A5ED6] w-8' 
+                          ? 'bg-[#3D6C90] w-8' 
                           : 'bg-slate-800 hover:bg-slate-750'
                       }`}
                       title={`Jump to ${frame.timeRange}`}
@@ -538,7 +538,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
               <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
                 {React.createElement(frames[currentFrame].icon, { className: "w-5 h-5 text-blue-400" })}
                 <div>
-                  <span className="font-mono text-[9px] text-[#0A5ED6] block tracking-widest font-bold uppercase">Active Segment Details</span>
+                  <span className="font-mono text-[9px] text-[#3D6C90] block tracking-widest font-bold uppercase">Active Segment Details</span>
                   <h3 className="font-sans font-bold text-sm text-white">{frames[currentFrame].title}</h3>
                 </div>
               </div>
@@ -546,13 +546,13 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 {frames[currentFrame].desc}
               </p>
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/80 text-[11px] leading-relaxed font-mono text-slate-500 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#0A5ED6] rounded-full shrink-0" />
+                <span className="w-1.5 h-1.5 bg-[#3D6C90] rounded-full shrink-0" />
                 <span>Simulated deployment context matches local air-gapped node requirements perfectly.</span>
               </div>
             </div>
 
             {/* AI Video Generator Prompt Copy Box */}
-            <div className="bg-slate-900 border border-[#0A5ED6]/25 rounded-2xl p-6 text-left space-y-4 shadow-xl">
+            <div className="bg-slate-900 border border-[#3D6C90]/25 rounded-2xl p-6 text-left space-y-4 shadow-xl">
               <div className="flex items-center gap-2 border-b border-slate-850 pb-3">
                 <Sparkles className="w-4.5 h-4.5 text-amber-400" />
                 <div>
@@ -575,7 +575,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
               {/* Action Trigger Button */}
               <button
                 onClick={handleCopyPrompt}
-                className="font-sans w-full text-center text-xs font-bold bg-[#0A5ED6] hover:bg-blue-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="font-sans w-full text-center text-xs font-bold bg-[#3D6C90] hover:bg-blue-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 {copied ? <Check className="w-4 h-4 text-emerald-400 animate-scaleIn" /> : <Copy className="w-4 h-4" />}
                 {copied ? 'AI Prompt Copied to Clipboard!' : 'Copy AI Video Generator Prompt'}

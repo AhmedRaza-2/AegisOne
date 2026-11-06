@@ -177,40 +177,22 @@ html {
   background: #94A3B8;
 }
 
-/* Keep legacy bright-blue utility classes aligned with the original
-   AegisOne wordmark palette while components migrate to brand tokens. */
-[class~="text-[#0A5ED6]"] {
-  color: #4A7FA7;
+/* ── Interaction polish (web-interface-guidelines pass) ───────────── */
+html { scroll-padding-top: 6rem; }          /* anchored sections clear the fixed header */
+a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid #4A7FA7;
+  outline-offset: 2px;
 }
-
-[class~="bg-[#0A5ED6]"] {
-  background-color: #4A7FA7;
+.transition-all {
+  transition-property: color, background-color, border-color, fill, stroke, opacity, box-shadow, transform, width, height;
 }
-
-[class~="focus:border-[#0A5ED6]"]:focus {
-  border-color: #4A7FA7;
+button, a, [role="button"] { touch-action: manipulation; }
+h1, h2, h3 { text-wrap: balance; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
-
-[class~="hover:text-[#0A5ED6]"]:hover,
-.group:hover [class~="group-hover:text-[#0A5ED6]"] {
-  color: #4A7FA7;
-}
-
-[class~="hover:border-[#0A5ED6]/30"]:hover {
-  border-color: rgb(74 127 167 / 0.3);
-}
-
-[class~="hover:border-[#0A5ED6]/50"]:hover {
-  border-color: rgb(74 127 167 / 0.5);
-}
-
-[class~="hover:bg-[#0B63E0]"]:hover,
-[class~="hover:bg-[#0952be]"]:hover {
-  background-color: #3D6C90;
-}
-
-[class~="shadow-[0_0_8px_#0A5ED6]"] {
-  box-shadow: 0 0 8px #4A7FA7;
-}
-
-

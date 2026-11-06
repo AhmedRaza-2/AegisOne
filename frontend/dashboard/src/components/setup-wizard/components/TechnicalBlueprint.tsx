@@ -26,7 +26,7 @@ export default function TechnicalBlueprint() {
   ];
 
   return (
-    <section id="architecture" className="min-h-[100dvh] flex flex-col justify-center py-16 bg-white border-b border-[#E2E8F0]">
+    <section id="architecture" className="min-h-[100dvh] flex flex-col justify-center py-16 bg-white border-b border-[#E1EBF2]">
       <div className="max-w-7xl mx-auto px-6">
         
         {/* Main Blueprint Box Container */}

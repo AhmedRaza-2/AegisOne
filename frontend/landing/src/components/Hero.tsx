@@ -39,9 +39,9 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
   };
 
   return (
-    <section id="hero" className="relative min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#F8FAFC] overflow-hidden border-b border-[#E2E8F0]">
+    <section id="hero" className="relative min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#F6FAFD] overflow-hidden border-b border-[#E1EBF2]">
       {/* Decorative background grids */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30 pointer-events-none" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#E1EBF2_1px,transparent_1px),linear-gradient(to_bottom,#E1EBF2_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30 pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
         
@@ -49,8 +49,8 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
         <div className="lg:col-span-6 space-y-6" id="hero-left-content">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full" id="hero-badge">
-            <span className="w-2 h-2 rounded-full bg-[#0A5ED6] animate-pulse" />
-            <span className="font-sans text-xs font-semibold uppercase tracking-wider text-[#0A5ED6]">
+            <span className="w-2 h-2 rounded-full bg-[#3D6C90] animate-pulse" />
+            <span className="font-sans text-xs font-semibold uppercase tracking-wider text-[#3D6C90]">
               AegisOne Private Link Security
             </span>
           </div>
@@ -58,14 +58,14 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
           {/* Heading */}
           <h1 
             id="hero-title"
-            className="font-sans text-4xl md:text-5xl lg:text-5.5xl font-bold tracking-tight text-[#0F172A] leading-[1.1] md:leading-[1.15]"
+            className="font-sans text-4xl md:text-5xl lg:text-5.5xl font-bold tracking-tight text-[#0A1931] leading-[1.1] md:leading-[1.15]"
           >
             Defending your organization<br />
-            <span className="text-[#0A5ED6]">from the outside world.</span>
+            <span className="text-[#3D6C90]">from the outside world.</span>
           </h1>
 
           {/* Description */}
-          <p id="hero-subtitle" className="font-sans text-base text-[#45464D] leading-relaxed max-w-xl">
+          <p id="hero-subtitle" className="font-sans text-base text-[#4A6D8C] leading-relaxed max-w-xl">
             Soft on your daily operations, yet absolute against attackers. We build a quiet, sovereign shield around your company to keep scam links, fake logins, and external threats completely at bay.
           </p>
 
@@ -74,7 +74,7 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
             <button
               id="hero-btn-setup"
               onClick={onRequestSetup}
-              className="font-sans text-base font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] px-6 py-3.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer"
+              className="font-sans text-base font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] px-6 py-3.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer"
             >
               Request Organization Setup
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -82,25 +82,25 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
             <button
               id="hero-btn-arch"
               onClick={onViewArchitecture}
-              className="font-sans text-base font-semibold bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#0F172A] px-6 py-3.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              className="font-sans text-base font-semibold bg-white border border-[#E1EBF2] hover:bg-slate-50 text-[#0A1931] px-6 py-3.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-xs cursor-pointer"
             >
-              <Cpu className="w-4 h-4 text-[#0A5ED6]" />
+              <Cpu className="w-4 h-4 text-[#3D6C90]" />
               View Architecture
             </button>
           </div>
 
           {/* Trust badges */}
-          <div className="pt-8 border-t border-[#E2E8F0] flex flex-wrap items-center gap-6 text-[#76777D]" id="hero-trust">
+          <div className="pt-8 border-t border-[#E1EBF2] flex flex-wrap items-center gap-6 text-[#6B87A0]" id="hero-trust">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#0A5ED6]" />
+              <ShieldCheck className="w-4 h-4 text-[#3D6C90]" />
               <span className="font-sans text-xs font-medium">100% Local Control</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#0A5ED6]" />
+              <CheckCircle2 className="w-4 h-4 text-[#3D6C90]" />
               <span className="font-sans text-xs font-medium">&lt;1.5ms Check Speed</span>
             </div>
             <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[#0A5ED6]" />
+              <Shield className="w-4 h-4 text-[#3D6C90]" />
               <span className="font-sans text-xs font-medium">Secure and Compliance Hardened</span>
             </div>
           </div>
@@ -108,7 +108,7 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
 
         {/* Right Column - Beautiful interactive Organization Shield Perimeter with Sad Attackers */}
         <div className="lg:col-span-6 flex justify-center" id="hero-right-visual">
-          <div className="relative w-full max-w-[490px] rounded-2xl border border-slate-800 bg-[#0F172A] shadow-2xl p-6 overflow-hidden flex flex-col justify-between min-h-[460px]">
+          <div className="relative w-full max-w-[490px] rounded-2xl border border-slate-800 bg-[#0A1931] shadow-2xl p-6 overflow-hidden flex flex-col justify-between min-h-[460px]">
             {/* Holographic grid and map background */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#3b82f6_1px,transparent_1px)] bg-[size:16px_16px]" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.08)_0%,transparent_80%)] pointer-events-none" />
@@ -260,7 +260,7 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
                 className={`font-sans text-xs font-semibold px-4.5 py-2.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                   simulating 
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                    : 'bg-[#0A5ED6] text-white hover:bg-[#0B63E0] shadow-sm'
+                    : 'bg-[#3D6C90] text-white hover:bg-[#3D6C90] shadow-sm'
                 }`}
               >
                 <Play className="w-3.5 h-3.5" />

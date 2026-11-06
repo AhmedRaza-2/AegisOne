@@ -35,18 +35,18 @@ export default function DocsPage() {
   }, [hash]);
   const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 
-  return <div className="min-h-screen bg-[#F8FAFC] text-[#0A1931]">
+  return <div className="min-h-screen bg-[#F6FAFD] text-[#0A1931]">
     <SiteHeader />
     <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-32 pb-16">
       <div className="max-w-3xl mb-10">
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#0A5ED6] mb-4"><BookOpen size={16} /> AegisOne documentation</span>
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#3D6C90] mb-4"><BookOpen size={16} /> AegisOne documentation</span>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Understand AegisOne. Set up with confidence.</h1>
         <p className="text-slate-600 leading-7">Explore the product, compare the published plans, or follow deployment and organization setup. The chatbot on the homepage links to this guide when explaining a feature or suggesting a next step.</p>
       </div>
       <div className="grid lg:grid-cols-[230px_minmax(0,1fr)] gap-10 lg:gap-14">
         <nav aria-label="Guide sections" className="lg:sticky lg:top-28 lg:self-start rounded-2xl bg-white border border-slate-200 p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">In this guide</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-1">{sections.map(([id, title]) => <a key={id} href={`#${id}`} className="text-sm px-2 py-1.5 rounded-lg text-slate-600 hover:bg-blue-50 hover:text-[#0A5ED6] focus-visible:outline-2 focus-visible:outline-blue-500">{title}</a>)}</div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-1">{sections.map(([id, title]) => <a key={id} href={`#${id}`} className="text-sm px-2 py-1.5 rounded-lg text-slate-600 hover:bg-blue-50 hover:text-[#3D6C90] focus-visible:outline-2 focus-visible:outline-blue-500">{title}</a>)}</div>
         </nav>
         <article className="min-w-0 bg-white border border-slate-200 rounded-2xl p-6 sm:p-9">
           <GuideSection id="assistant-overview" title="What is AegisOne?">
@@ -57,7 +57,7 @@ export default function DocsPage() {
           <GuideSection id="assistant-features" title="Product capabilities">
             <ul className="list-disc ps-5 space-y-2"><li>URL and text analysis for phishing patterns and social engineering signals.</li><li>Email, image and supported attachment analysis through the available scanners and browser integrations.</li><li>A browser extension that connects to your organization’s AegisOne service.</li><li>Role-based dashboards for detections, reports and team activity.</li><li>Explanations that help users understand why content was flagged.</li></ul>
             <p>Availability depends on deployment and configuration. Ask the team to confirm specific file types, browser compatibility, integrations and commercial commitments.</p>
-            <a href="/#demo" className="inline-flex items-center gap-2 font-semibold text-[#0A5ED6]">Try the interactive product preview <ArrowRight size={15} /></a>
+            <a href="/#demo" className="inline-flex items-center gap-2 font-semibold text-[#3D6C90]">Try the interactive product preview <ArrowRight size={15} /></a>
           </GuideSection>
           <GuideSection id="assistant-pricing" title="Plans and prices">
             <p>Published website prices are in US dollars. Annual prices are the total billed for a year.</p>
@@ -67,14 +67,14 @@ export default function DocsPage() {
               <tbody className="divide-y divide-slate-200">{PRICING_PLANS.map(plan => <tr key={plan.id}><th scope="row" className="p-3 font-semibold text-slate-800">{plan.name}</th><td className="p-3 whitespace-nowrap">{plan.id === 'enterprise' ? '1,001+' : `${plan.minEmployees.toLocaleString('en-US')}–${plan.maxEmployees.toLocaleString('en-US')}`}</td><td className="p-3">{money(plan.monthlyPrice)}</td><td className="p-3">{money(plan.annualPrice)}</td></tr>)}</tbody>
             </table></div>
             <p>The assistant can compare plans using your approximate team size. Confirm custom terms, support commitments, endpoint allowances and required integrations with the team before purchase.</p>
-            <Link to="/register" className="inline-flex items-center gap-2 font-semibold text-[#0A5ED6]">Register your organization <ArrowRight size={15} /></Link>
+            <Link to="/register" className="inline-flex items-center gap-2 font-semibold text-[#3D6C90]">Register your organization <ArrowRight size={15} /></Link>
           </GuideSection>
           <GuideSection id="assistant-deployment" title="Deploy your organization’s services">
             <ol className="list-decimal ps-5 space-y-2"><li>Register your organization and complete account confirmation.</li><li>Open the deployment portal. Wait for approval if your application needs review.</li><li>Install and start Docker on the machine hosting AegisOne.</li><li>Follow the portal’s operating-system-specific instructions. Run its deployment command on the server machine.</li><li>Check service readiness, then open the setup dashboard.</li></ol>
             <p>The current deployment includes PostgreSQL, a FastAPI backend and a Next.js dashboard. Standard backend and dashboard ports are 8000 and 3002. Network access, firewall rules and configuration must fit your environment.</p>
             <p>Running containers do not prove the application is ready. First startup may take longer while services initialize. An HTTPS portal may be unable to check an HTTP server on a remote private network. An unknown check is not a successful check.</p>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex gap-3"><Server size={20} className="shrink-0 mt-1 text-slate-500" /><p>Keep deployment keys and generated commands private. Inspect container health and connectivity in your local terminal. Do not paste commands containing credentials into chat.</p></div>
-            <Link to="/portal" className="inline-flex items-center gap-2 font-semibold text-[#0A5ED6]">Open the deployment portal <ArrowRight size={15} /></Link>
+            <Link to="/portal" className="inline-flex items-center gap-2 font-semibold text-[#3D6C90]">Open the deployment portal <ArrowRight size={15} /></Link>
           </GuideSection>
           <GuideSection id="assistant-organization" title="1. Organization details">
             <p>Complete organization information and the administrator email in the setup form. Fill required fields before continuing. Keep actual names, email addresses and personal details in the form.</p>
@@ -108,7 +108,7 @@ export default function DocsPage() {
             <p>The assistant provides guidance. It cannot run terminal commands, change setup data, register an organization, take a payment, grant permissions, send a rollout email or confirm a meeting.</p>
             <p>An assistant response is not an accuracy guarantee, compliance certification, support SLA or promise of an integration. If an answer is missing or uncertain, use the guide or ask the team.</p>
             <p>A contact-form demo request asks the team to follow up. The team must confirm availability and appointment details.</p>
-            <a href="/#contact" className="inline-flex items-center gap-2 font-semibold text-[#0A5ED6]"><MessageCircle size={16} /> Contact the team or request a demo</a>
+            <a href="/#contact" className="inline-flex items-center gap-2 font-semibold text-[#3D6C90]"><MessageCircle size={16} /> Contact the team or request a demo</a>
           </GuideSection>
           <section id="assistant-api" className="scroll-mt-28 text-sm text-slate-600 leading-7"><h2 className="text-xl font-bold text-[#0A1931] mb-3">API reference for your installation</h2><p>Use the API documentation served by your deployed backend for available endpoints and authentication requirements. Paths must match your installed version. Ask your administrator before integrating applications with a production node.</p></section>
         </article>

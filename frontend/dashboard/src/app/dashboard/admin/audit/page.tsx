@@ -13,16 +13,16 @@ const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 const ACTION_INFO: Record<string, { label: string; tone: string }> = {
   REPORT_SUBMITTED: { label: "Employee submitted a report", tone: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
   INCIDENT_VERIFIED: { label: "Admin verified an incident", tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-  INCIDENT_ESCALATE: { label: "Manager escalated an incident", tone: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
+  INCIDENT_ESCALATE: { label: "Manager escalated an incident", tone: "bg-brand-500/10 text-brand-600 dark:text-brand-400" },
   INCIDENT_RESOLVE: { label: "Manager resolved an incident", tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
   INCIDENT_COMMENT: { label: "Manager commented on an incident", tone: "bg-surface-200 text-surface-700 dark:bg-white/[0.08] dark:text-surface-300" },
-  EMPLOYEE_ESCALATED: { label: "Manager escalated an employee", tone: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
+  EMPLOYEE_ESCALATED: { label: "Manager escalated an employee", tone: "bg-brand-500/10 text-brand-600 dark:text-brand-400" },
   MODEL_RETRAINING_TRIGGERED: { label: "Retraining started", tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
   MODEL_TRAINED_AND_ACTIVATED: { label: "New model trained and activated", tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
   MODEL_ACTIVATED: { label: "Model version activated", tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
   MODEL_ROLLBACK_EXECUTED: { label: "Model rolled back", tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
   GLOBAL_POLICY_UPDATED: { label: "Global learning policy changed", tone: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-  "user.role_changed": { label: "User role changed", tone: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
+  "user.role_changed": { label: "User role changed", tone: "bg-brand-500/10 text-brand-600 dark:text-brand-400" },
   "user.deactivated": { label: "User deactivated", tone: "bg-red-500/10 text-red-600 dark:text-red-400" },
   "user.created": { label: "User created", tone: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },
   "policy.updated": { label: "Policy updated", tone: "bg-brand-500/10 text-brand-600 dark:text-brand-400" },
@@ -167,16 +167,16 @@ export default function AuditPage() {
             <input
               type="text" value={search} onChange={(e) => { setSearch(e.target.value); setShown(PAGE); }}
               placeholder="Search by person, what happened, or target…"
-              className="w-full bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-xl pl-9 pr-4 py-2 text-xs text-surface-900 dark:text-white placeholder:text-surface-400 focus:outline-none focus:border-brand-500"
+              className="w-full bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] rounded-xl pl-9 pr-4 py-2 text-xs text-surface-900 dark:text-white placeholder:text-surface-400 focus:outline-none focus:border-brand-500"
             />
           </div>
           <select value={moduleFilter} onChange={e => { setModuleFilter(e.target.value); setShown(PAGE); }}
-            className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-xl px-3 py-2 text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
+            className="bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] rounded-xl px-3 py-2 text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
             <option value="all">All areas</option>
             {modules.map(m => <option key={m} value={m}>{m.replace(/_/g, " ")}</option>)}
           </select>
           <select value={resultFilter} onChange={e => { setResultFilter(e.target.value); setShown(PAGE); }}
-            className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-xl px-3 py-2 text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
+            className="bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] rounded-xl px-3 py-2 text-xs text-surface-900 dark:text-white focus:outline-none focus:border-brand-500">
             <option value="all">Any result</option>
             <option value="success">Success</option>
             <option value="failure">Failure</option>

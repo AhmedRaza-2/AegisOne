@@ -143,7 +143,7 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
             placeholder="Search by name or email..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#0A5ED6] dark:text-white transition-colors"
+            className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#3D6C90] dark:text-white transition-colors"
           />
         </div>
 
@@ -153,7 +153,7 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
               type="checkbox"
               checked={unassignedOnly}
               onChange={e => setUnassignedOnly(e.target.checked)}
-              className="rounded text-[#0A5ED6]"
+              className="rounded text-[#3D6C90]"
             />
             Unassigned Only
           </label>
@@ -185,7 +185,7 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-2">Quick Filter:</span>
         <button
           onClick={() => setFilterDept('ALL')}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${filterDept === 'ALL' ? 'bg-[#0A5ED6] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+          className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${filterDept === 'ALL' ? 'bg-[#3D6C90] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
         >
           All
         </button>
@@ -209,7 +209,7 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
       {/* Table Header */}
       <div className="grid grid-cols-[48px_1fr_1.5fr_1fr_100px] gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 z-10">
         <div className="flex items-center justify-center cursor-pointer" onClick={toggleSelectAll}>
-          {allSelected ? <CheckSquare className="w-4 h-4 text-[#0A5ED6]" /> : someSelected ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
+          {allSelected ? <CheckSquare className="w-4 h-4 text-[#3D6C90]" /> : someSelected ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
         </div>
         <div>Name</div>
         <div>Email</div>
@@ -254,10 +254,10 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
                     }`}
                 >
                   <div className="flex items-center justify-center cursor-pointer h-full" onClick={() => toggleSelect(emp.id)}>
-                    {isSelected ? <CheckSquare className="w-4 h-4 text-[#0A5ED6]" /> : <Square className="w-4 h-4 text-slate-300 dark:text-slate-600" />}
+                    {isSelected ? <CheckSquare className="w-4 h-4 text-[#3D6C90]" /> : <Square className="w-4 h-4 text-slate-300 dark:text-slate-600" />}
                   </div>
 
-                  <div className="font-semibold text-sm text-[#0F172A] dark:text-white truncate">
+                  <div className="font-semibold text-sm text-[#0A1931] dark:text-white truncate">
                     {emp.firstName} {emp.lastName}
                   </div>
 
@@ -288,7 +288,7 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
 
       {/* Sticky Bulk Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#0F172A] dark:bg-white text-white dark:text-[#0F172A] px-4 sm:px-6 py-3 rounded-full flex flex-row items-center gap-3 sm:gap-4 shadow-xl z-20 animate-in slide-in-from-bottom-10 fade-in w-max max-w-[95%] overflow-x-auto no-scrollbar">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#0A1931] dark:bg-white text-white dark:text-[#0A1931] px-4 sm:px-6 py-3 rounded-full flex flex-row items-center gap-3 sm:gap-4 shadow-xl z-20 animate-in slide-in-from-bottom-10 fade-in w-max max-w-[95%] overflow-x-auto no-scrollbar">
           <div className="font-bold text-xs sm:text-sm whitespace-nowrap">
             {selectedIds.size} {selectedIds.size === 1 ? 'employee' : 'employees'} selected
           </div>
@@ -298,7 +298,7 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
             <select
               value={bulkTargetDept}
               onChange={e => setBulkTargetDept(e.target.value)}
-              className="bg-slate-800 dark:bg-slate-100 border-none rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-bold outline-none text-white dark:text-[#0F172A] cursor-pointer max-w-[120px] sm:max-w-none text-ellipsis"
+              className="bg-slate-800 dark:bg-slate-100 border-none rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-bold outline-none text-white dark:text-[#0A1931] cursor-pointer max-w-[120px] sm:max-w-none text-ellipsis"
             >
               <option value="" disabled>Select Department...</option>
               <option value="NONE">No Department</option>
@@ -307,7 +307,7 @@ export function TableMode({ employees, departments, onMoveEmployee, onBulkMove }
             <button
               onClick={handleBulkApply}
               disabled={!bulkTargetDept}
-              className="bg-[#0A5ED6] text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#0B63E0] transition-colors whitespace-nowrap"
+              className="bg-[#3D6C90] text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3D6C90] transition-colors whitespace-nowrap"
             >
               Apply
             </button>

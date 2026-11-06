@@ -88,7 +88,7 @@ export default function ThreatCenterPage() {
   }, [user]);
 
   if (!user) return null;
-  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-[#4F84F8] animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-96"><Activity className="w-8 h-8 text-[#5C93BE] animate-spin" /></div>;
 
   const recent = data?.recent || [];
 
@@ -137,11 +137,11 @@ export default function ThreatCenterPage() {
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Review and manage blocked threats in real-time.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/employee/scan" className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#4F84F8] hover:bg-[#3D6CE5] transition-colors text-white">
+          <Link href="/dashboard/employee/scan" className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#5C93BE] hover:bg-[#3D6C90] transition-colors text-white">
             <Zap className="w-4 h-4" />
             Quick Scan
           </Link>
-          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.1] hover:bg-surface-50 dark:hover:bg-white/[0.05] transition-colors text-surface-700 dark:text-surface-300">
+          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.1] hover:bg-surface-50 dark:hover:bg-white/[0.05] transition-colors text-surface-700 dark:text-surface-300">
             <Download className="w-4 h-4" />
             Export Data
           </button>
@@ -156,7 +156,7 @@ export default function ThreatCenterPage() {
             key={f}
             onClick={() => setFilter(f)}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${filter === f
-                ? "bg-[#4F84F8] text-white"
+                ? "bg-[#5C93BE] text-white"
                 : "bg-surface-100 dark:bg-white/[0.03] text-surface-600 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-white/[0.06] border border-transparent dark:border-white/[0.05]"
               }`}
           >
@@ -171,7 +171,7 @@ export default function ThreatCenterPage() {
         <div className="xl:col-span-2 space-y-4">
 
           {filteredRecent.length === 0 && (
-            <div className="p-8 text-center text-surface-500 rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04]">
+            <div className="p-8 text-center text-surface-500 rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04]">
               No recent threats found matching the current filter.
             </div>
           )}
@@ -197,13 +197,13 @@ export default function ThreatCenterPage() {
               borderClass = "border-amber-500/50"; bgLightClass = "bg-amber-500/10";
               icon = <ShieldAlert className="w-6 h-6 text-amber-500" />;
             } else if (isMedium) {
-              severity = "Medium"; colorClass = "bg-[#4F84F8]"; textClass = "text-[#4F84F8]";
-              borderClass = "border-[#4F84F8]/50"; bgLightClass = "bg-[#4F84F8]/10";
-              icon = <Shield className="w-6 h-6 text-[#4F84F8]" />;
+              severity = "Medium"; colorClass = "bg-[#5C93BE]"; textClass = "text-[#5C93BE]";
+              borderClass = "border-[#5C93BE]/50"; bgLightClass = "bg-[#5C93BE]/10";
+              icon = <Shield className="w-6 h-6 text-[#5C93BE]" />;
             }
 
             return (
-              <motion.div key={threat.id} variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col gap-4 relative overflow-hidden group hover:border-surface-300 dark:hover:border-white/[0.08] transition-colors">
+              <motion.div key={threat.id} variants={fadeUp} className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col gap-4 relative overflow-hidden group hover:border-surface-300 dark:hover:border-white/[0.08] transition-colors">
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${colorClass}`}></div>
 
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 justify-between items-start">
@@ -258,7 +258,7 @@ export default function ThreatCenterPage() {
           {/* Removed Global Activity */}
 
           {/* Active Alerts */}
-          <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col">
+          <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-5 flex flex-col">
             <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-4">Active Alerts</h3>
             <div className="space-y-4">
               {!(data?.activeAlerts?.length) ? (
@@ -272,7 +272,7 @@ export default function ThreatCenterPage() {
               ) : (
                 (data?.activeAlerts || []).map((alert: any, idx: number) => (
                   <div key={idx} className="flex items-start gap-3 border-b border-surface-100 dark:border-white/[0.05] pb-3 last:border-0 last:pb-0">
-                    {alert.icon === 'shield' ? <ShieldAlert className="w-4 h-4 text-[#4F84F8] shrink-0 mt-0.5" /> :
+                    {alert.icon === 'shield' ? <ShieldAlert className="w-4 h-4 text-[#5C93BE] shrink-0 mt-0.5" /> :
                       alert.icon === 'check' ? <ShieldCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" /> :
                         <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
                     <div>
@@ -288,11 +288,11 @@ export default function ThreatCenterPage() {
 
           {/* Small Stats */}
           <div className="grid grid-cols-2 gap-4">
-            <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
+            <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
               <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Blocked Threats</h3>
               <div className="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">{remediatedCount}</div>
             </motion.div>
-            <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
+            <motion.div variants={fadeUp} className="rounded-xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-4 flex flex-col justify-between h-24">
               <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Risk Level</h3>
               <div className="text-3xl font-bold text-red-500 tracking-tight">{avgScore}</div>
             </motion.div>
@@ -341,20 +341,20 @@ export default function ThreatCenterPage() {
                 <div className="space-y-6">
                   {/* Status & Stats Row */}
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <div className="bg-surface-50 dark:bg-[#0F2038] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Action Taken</span>
                       <span className={`text-sm font-black uppercase tracking-wider ${(selectedThreat.decision || '').toLowerCase().includes('block') ? 'text-red-500' : 'text-amber-500'}`}>
                         {selectedThreat.decision}
                       </span>
                     </div>
-                    <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <div className="bg-surface-50 dark:bg-[#0F2038] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Risk Score</span>
                       <div className="flex items-center gap-1.5">
                         <Activity className="w-4 h-4 text-surface-400" />
                         <span className="text-lg font-bold text-surface-900 dark:text-white leading-none">{selectedThreat.riskScore}<span className="text-sm text-surface-500">%</span></span>
                       </div>
                     </div>
-                    <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <div className="bg-surface-50 dark:bg-[#0F2038] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Category</span>
                       <span className="text-sm font-bold text-surface-700 dark:text-surface-200 leading-tight">
                         {selectedThreat.category}
@@ -363,7 +363,7 @@ export default function ThreatCenterPage() {
                   </div>
 
                   {/* Target URL */}
-                  <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-5 rounded-2xl">
+                  <div className="bg-surface-50 dark:bg-[#0F2038] border border-surface-100 dark:border-white/[0.04] p-5 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2">
                       <ExternalLink className="w-4 h-4 text-surface-400" />
                       <span className="text-xs font-bold text-surface-500 uppercase tracking-widest">Target URL / Domain</span>
@@ -374,18 +374,18 @@ export default function ThreatCenterPage() {
                   </div>
 
                   {/* AI Explanation */}
-                  <div className="relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-purple-500/30 to-brand-500/30">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-brand-500/10" />
+                  <div className="relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-brand-500/30 to-brand-500/30">
+                    <div className="absolute inset-0 bg-gradient-to-br from-brand-500/10 to-brand-500/10" />
                     <div className="relative bg-white dark:bg-[#111727] p-6 rounded-[15px] h-full">
                       <div className="absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-5 pointer-events-none">
                          <BrainCircuit className="w-32 h-32" />
                       </div>
                       
                       <div className="flex items-center gap-2.5 mb-4 relative z-10">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-brand-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
                           <BrainCircuit className="w-4 h-4 text-white" />
                         </div>
-                        <h4 className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-brand-600 dark:from-purple-400 dark:to-brand-400">
+                        <h4 className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-600 dark:from-brand-400 dark:to-brand-400">
                           Why this was flagged
                         </h4>
                       </div>

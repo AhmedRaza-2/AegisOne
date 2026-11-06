@@ -370,7 +370,7 @@ export default function DepartmentsPage() {
             onClick={() => setSelectedDeptId("all")}
             className={`p-3.5 rounded-xl border text-left transition-all ${selectedDeptId === "all"
                 ? "bg-brand-50/70 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 dark:border-brand-500/60 shadow-sm ring-1 ring-brand-500/20"
-                : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+                : "bg-white dark:bg-[#0F2038] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
               }`}
           >
             <div className="flex items-center justify-between mb-1.5">
@@ -389,7 +389,7 @@ export default function DepartmentsPage() {
                 onClick={() => setSelectedDeptId(dept.id)}
                 className={`p-3.5 rounded-xl border text-left transition-all ${isSelected
                     ? "bg-brand-50/70 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 dark:border-brand-500/60 shadow-sm ring-1 ring-brand-500/20"
-                    : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+                    : "bg-white dark:bg-[#0F2038] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
                   }`}
               >
                 <div className="flex items-start justify-between mb-1 gap-2">
@@ -466,7 +466,7 @@ export default function DepartmentsPage() {
                       </td>
                       <td className="py-3 px-2">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${isAdmin
-                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                            ? "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
                             : u.role === "manager" || u.role === "department_admin"
                               ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                               : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
@@ -501,7 +501,7 @@ export default function DepartmentsPage() {
                       <td className="py-3 px-2 text-right">
                         {isAdmin ? (
                           <span className="text-[11px] font-semibold text-surface-400 italic px-3 py-1 bg-surface-100 dark:bg-white/[0.04] rounded-lg inline-flex items-center gap-1">
-                            <Lock className="w-3 h-3 text-purple-500" /> Protected Admin
+                            <Lock className="w-3 h-3 text-brand-500" /> Protected Admin
                           </span>
                         ) : (
                           <div className="flex items-center justify-end gap-2">

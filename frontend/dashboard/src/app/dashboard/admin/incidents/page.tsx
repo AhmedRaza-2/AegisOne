@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { AlertTriangle, Clock, CheckCircle2, Ban, ShieldQuestion, X, Activity, ArrowUpCircle, Download, Printer, Route, ListChecks, Users, Globe } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle2, Ban, ShieldQuestion, X, Activity, ArrowUpCircle, Download, Printer, Route, ListChecks, Users, Globe, Timer, CheckSquare, Square } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api";
 import { EvidencePanel } from "@/components/ui/EvidencePanel";
 import { toast } from "@/components/ui/toast";
@@ -15,10 +15,30 @@ function authHeaders() {
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   investigating: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  escalated: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  escalated: "bg-brand-500/10 text-brand-600 dark:text-brand-400",
   resolved: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   false_positive: "bg-surface-200 text-surface-600 dark:bg-surface-800 dark:text-surface-400",
 };
+
+const ACTION_LABELS: Record<string, string> = {
+  block_domain: "Block domain",
+  allow_domain: "Allow domain",
+  notify_affected: "Notify people",
+  revoke_sessions: "Sign them out",
+  reset_credentials: "Sign out + reset passwords",
+  assign_training: "Assign training",
+  warn_organization: "Warn everyone",
+};
+
+// actions that change other people's accounts or reach the whole organization ask first
+const CONFIRM: Record<string, string> = {
+  revoke_sessions: "Sign the affected people out of every AegisOne session now?",
+  reset_credentials: "Sign the affected people out and e-mail each of them a code to set a new password?",
+  warn_organization: "Send a security warning to everyone in the organization?",
+};
+
+const fmtMin = (m: number | null | undefined) =>
+  m === null || m === undefined ? "—" : m < 120 ? `${Math.round(m)} min` : m < 2880 ? `${(m / 60).toFixed(1)} h` : `${(m / 1440).toFixed(1)} d`;
 
 const DECISIONS = [
   { value: "CONFIRMED_PHISHING", label: "Confirmed Phishing", icon: Ban, cls: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" },
@@ -41,6 +61,14 @@ export default function AdminIncidentsPage() {
   const [trace, setTrace] = useState<any>(null);
   const [traceLoading, setTraceLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<any>(null);
+
+  const fetchMetrics = useCallback(() => {
+    fetch(`${getApiBaseUrl()}/admin/incidents/metrics?days=30`, { headers: authHeaders() })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((m) => m && setMetrics(m))
+      .catch(() => {});
+  }, []);
 
   const fetchIncidents = useCallback(() => {
     const qs = filter !== "all" ? `?status=${filter}` : "";
@@ -61,9 +89,10 @@ export default function AdminIncidentsPage() {
 
   useEffect(() => {
     fetchIncidents();
-    const interval = setInterval(fetchIncidents, 10000);
+    fetchMetrics();
+    const interval = setInterval(() => { fetchIncidents(); fetchMetrics(); }, 10000);
     return () => clearInterval(interval);
-  }, [fetchIncidents]);
+  }, [fetchIncidents, fetchMetrics]);
 
   const openDetail = async (inc: any) => {
     setSelected(inc);
@@ -152,20 +181,58 @@ export default function AdminIncidentsPage() {
     } finally { setBusyAction(null); }
   };
 
-  const runAction = async (action: string) => {
+  const reloadTrace = async () => {
     if (!selected) return;
+    const res = await fetch(`${getApiBaseUrl()}/admin/incidents/${selected.incident_id}/backtrace`, { headers: authHeaders() });
+    if (res.ok) setTrace(await res.json());
+  };
+
+  const runAction = async (action: string, extra: Record<string, unknown> = {}) => {
+    if (!selected) return;
+    if (CONFIRM[action] && !extra.scope && !window.confirm(CONFIRM[action])) return;
     setBusyAction(action);
     try {
       const res = await fetch(`${getApiBaseUrl()}/admin/incidents/${selected.incident_id}/actions`, {
-        method: "POST", headers: authHeaders(), body: JSON.stringify({ action }),
+        method: "POST", headers: authHeaders(), body: JSON.stringify({ action, ...extra }),
       });
       const out = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast(action === "notify_affected" ? `${out.notified} people notified.`
-          : action === "block_domain" ? `${out.domain} is now blocked for your organization.`
-          : `${out.domain} is now allowed for your organization.`);
+        const msg: Record<string, string> = {
+          notify_affected: `${out.notified} people notified.`,
+          warn_organization: `Security warning sent to ${out.notified} people.`,
+          block_domain: `${out.domain} is now blocked for your organization.`,
+          allow_domain: `${out.domain} is now allowed for your organization.`,
+          revoke_sessions: `${out.signed_out} people were signed out of every session.`,
+          reset_credentials: `${out.signed_out} people signed out; ${out.reset_codes_sent} password reset codes e-mailed.`,
+          assign_training: `Training assigned to ${out.assigned} people${out.already_assigned ? ` (${out.already_assigned} already had it)` : ""}.`,
+        };
+        toast(msg[action] || "Done.");
+        await reloadTrace();
+        fetchMetrics();
+      } else if (res.status === 400 && (action === "revoke_sessions" || action === "reset_credentials") && !extra.scope
+                 && window.confirm(`${out.detail}\n\nApply it to everyone who opened it instead?`)) {
+        setBusyAction(null);
+        return runAction(action, { scope: "exposed" });
       } else {
         toast(out.detail || "Action failed.", "error");
+      }
+    } finally { setBusyAction(null); }
+  };
+
+  const toggleStep = async (stepId: string, done: boolean) => {
+    if (!selected) return;
+    setBusyAction(`step:${stepId}`);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/admin/incidents/${selected.incident_id}/playbook/steps/${stepId}`, {
+        method: "POST", headers: authHeaders(), body: JSON.stringify({ done }),
+      });
+      if (res.ok) {
+        const out = await res.json();
+        setTrace((t: any) => ({ ...t, playbook: out.playbook, response: { ...(t?.response || {}), sla: out.sla,
+          time_to_acknowledge_min: out.time_to_acknowledge_min, time_to_contain_min: out.time_to_contain_min, time_to_resolve_min: out.time_to_resolve_min } }));
+        fetchMetrics();
+      } else {
+        toast("Could not update this step.", "error");
       }
     } finally { setBusyAction(null); }
   };
@@ -190,6 +257,26 @@ export default function AdminIncidentsPage() {
         <Download className="w-4 h-4" /> Export CSV
       </button>
       </div>
+
+      {metrics && (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {[
+            ["Open now", Object.values(metrics.open_by_severity || {}).reduce((a: number, b: any) => a + Number(b), 0),
+              Object.entries(metrics.open_by_severity || {}).map(([k, v]) => `${v} ${k}`).join(" · ") || "nothing open"],
+            ["Response SLA met", metrics.sla?.compliance == null ? "—" : `${Math.round(metrics.sla.compliance * 100)}%`,
+              metrics.sla?.breaching_now ? `${metrics.sla.breaching_now} waiting past target` : "none overdue"],
+            ["Time to first response", fmtMin(metrics.time_to_acknowledge_min?.median), "median, last 30 days"],
+            ["Time to contain", fmtMin(metrics.time_to_contain_min?.median), "median, last 30 days"],
+            ["Time to resolve", fmtMin(metrics.time_to_resolve_min?.median), "median, last 30 days"],
+          ].map(([label, value, sub]: any) => (
+            <div key={label} className="glass-card p-4">
+              <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest flex items-center gap-1"><Timer className="w-3 h-3" /> {label}</div>
+              <div className={`text-2xl font-bold mt-1 ${label === "Response SLA met" && metrics.sla?.breaching_now ? "text-red-600 dark:text-red-400" : "text-surface-900 dark:text-white"}`}>{value}</div>
+              <div className="text-[11px] text-surface-500 mt-0.5 truncate">{sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {["all", "open", "investigating", "escalated", "resolved", "false_positive"].map((f) => (
@@ -221,10 +308,10 @@ export default function AdminIncidentsPage() {
             <button
               key={inc.incident_id}
               onClick={() => openDetail(inc)}
-              className={`w-full text-left glass-card p-5 hover:border-surface-300 dark:hover:border-white/[0.12] transition-all ${inc.status === "escalated" ? "ring-1 ring-purple-500/30" : ""}`}
+              className={`w-full text-left glass-card p-5 hover:border-surface-300 dark:hover:border-white/[0.12] transition-all ${inc.status === "escalated" ? "ring-1 ring-brand-500/30" : ""}`}
             >
               <div className="flex items-start gap-3">
-                {inc.status === "escalated" && <ArrowUpCircle className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />}
+                {inc.status === "escalated" && <ArrowUpCircle className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />}
                 <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${
                   inc.severity === "critical" ? "bg-red-500 animate-pulse" :
                   inc.severity === "high" ? "bg-amber-500" :
@@ -239,6 +326,16 @@ export default function AdminIncidentsPage() {
                     {inc.admin_decision && (
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-200 text-surface-700 dark:bg-white/[0.06] dark:text-surface-300 capitalize">
                         {inc.admin_decision.replace("_", " ").toLowerCase()}
+                      </span>
+                    )}
+                    {inc.sla?.breached && !inc.sla?.acknowledged_at && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400">
+                        No response · past {inc.sla.target_minutes} min target
+                      </span>
+                    )}
+                    {!inc.sla?.acknowledged_at && !inc.sla?.breached && inc.sla?.due_at && ["open", "escalated"].includes(inc.status) && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        Respond by {new Date(inc.sla.due_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     )}
                   </div>
@@ -352,7 +449,7 @@ export default function AdminIncidentsPage() {
                       <h4 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3" /> Exposure inside the organization</h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                         {[["Times seen", trace.exposure.scans], ["People", trace.exposure.users], ["Blocked", trace.exposure.blocked], ["Credentials entered", trace.exposure.credential_events - trace.exposure.credentials_blocked]].map(([k, v]: any) => (
-                          <div key={k} className="rounded-xl bg-surface-50 dark:bg-[#141A29] p-3"><div className="text-lg font-bold text-surface-900 dark:text-white">{v}</div><div className="text-[10px] text-surface-500">{k}</div></div>
+                          <div key={k} className="rounded-xl bg-surface-50 dark:bg-[#0F2038] p-3"><div className="text-lg font-bold text-surface-900 dark:text-white">{v}</div><div className="text-[10px] text-surface-500">{k}</div></div>
                         ))}
                       </div>
                       {trace.exposure.credential_people?.length > 0 && (
@@ -387,18 +484,50 @@ export default function AdminIncidentsPage() {
                     <div className="rounded-2xl bg-brand-500/5 border border-brand-500/20 p-4">
                       <h4 className="text-sm font-bold text-surface-900 dark:text-white flex items-center gap-2"><ListChecks className="w-4 h-4 text-brand-500" /> {trace.playbook.title}</h4>
                       <p className="text-xs text-surface-600 dark:text-surface-300 mt-1">{trace.playbook.summary}</p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <div className="flex-1 h-2 rounded-full bg-surface-200 dark:bg-white/[0.06] overflow-hidden">
+                          <div className="h-full bg-brand-500 transition-all" style={{ width: `${trace.playbook.steps_total ? (100 * trace.playbook.steps_done) / trace.playbook.steps_total : 0}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold text-surface-700 dark:text-surface-200 shrink-0">{trace.playbook.steps_done}/{trace.playbook.steps_total} steps</span>
+                      </div>
+                      {trace.response && (
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                          {[
+                            ["Response SLA", trace.response.sla?.met ? "Met" : trace.response.sla?.breached ? "Missed" : `${trace.response.sla?.target_minutes ?? "—"} min`],
+                            ["First response", fmtMin(trace.response.time_to_acknowledge_min)],
+                            ["Contained", fmtMin(trace.response.time_to_contain_min)],
+                            ["Resolved", fmtMin(trace.response.time_to_resolve_min)],
+                          ].map(([k, v]) => (
+                            <div key={k} className="rounded-xl bg-white/60 dark:bg-[#0F2038] p-2">
+                              <div className={`text-sm font-bold ${v === "Missed" ? "text-red-600 dark:text-red-400" : v === "Met" ? "text-emerald-600 dark:text-emerald-400" : "text-surface-900 dark:text-white"}`}>{v}</div>
+                              <div className="text-[10px] text-surface-500">{k}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {trace.playbook.phases.map((ph: any) => (
                       <section key={ph.phase}>
-                        <h4 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-2">{ph.phase}</h4>
+                        <h4 className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          {ph.phase} {ph.complete && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
+                        </h4>
                         <ul className="space-y-2">
-                          {ph.steps.map((st: any, i: number) => (
-                            <li key={i} className="flex items-start justify-between gap-3 rounded-xl border border-surface-100 dark:border-white/[0.05] p-3 text-xs text-surface-700 dark:text-surface-300">
-                              <span>{st.text}</span>
+                          {ph.steps.map((st: any) => (
+                            <li key={st.id} className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-xs ${st.done ? "border-emerald-500/20 bg-emerald-500/5" : "border-surface-100 dark:border-white/[0.05]"}`}>
+                              <button onClick={() => toggleStep(st.id, !st.done)} disabled={busyAction === `step:${st.id}`}
+                                className="flex items-start gap-2 text-left text-surface-700 dark:text-surface-300 disabled:opacity-50" title={st.done ? "Mark as not done" : "Mark as done"}>
+                                {st.done ? <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" /> : <Square className="w-4 h-4 text-surface-400 shrink-0" />}
+                                <span>
+                                  <span className={st.done ? "line-through decoration-surface-400" : ""}>{st.text}</span>
+                                  {st.done && st.done_by && (
+                                    <span className="block text-[11px] text-surface-500 mt-0.5">{st.done_by} · {st.done_at ? new Date(st.done_at).toLocaleString() : ""}{st.note ? ` · ${st.note}` : ""}</span>
+                                  )}
+                                </span>
+                              </button>
                               {st.action && (
                                 <button disabled={busyAction === st.action} onClick={() => runAction(st.action)}
                                   className="shrink-0 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold disabled:opacity-50">
-                                  {st.action === "block_domain" ? "Block domain" : st.action === "allow_domain" ? "Allow domain" : "Notify people"}
+                                  {busyAction === st.action ? "Working…" : ACTION_LABELS[st.action] || st.action}
                                 </button>
                               )}
                             </li>
@@ -415,13 +544,13 @@ export default function AdminIncidentsPage() {
               ) : (
                 <div className="space-y-4">
                   {detail.incident?.manager_notes && (
-                    <div className="bg-purple-500/5 border border-purple-500/20 p-4 rounded-2xl">
-                      <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Manager Notes</span>
+                    <div className="bg-brand-500/5 border border-brand-500/20 p-4 rounded-2xl">
+                      <span className="text-[10px] font-bold text-brand-500 uppercase tracking-widest">Manager Notes</span>
                       <p className="text-sm text-surface-700 dark:text-surface-300 mt-1.5">{detail.incident.manager_notes}</p>
                     </div>
                   )}
 
-                  <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl">
+                  <div className="bg-surface-50 dark:bg-[#0F2038] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl">
                     <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Detection reference</span>
                     <p className="text-sm text-surface-800 dark:text-surface-300 font-mono break-all mt-1.5">
                       {detail.incident?.detection_event_ref || "—"}
@@ -456,7 +585,7 @@ export default function AdminIncidentsPage() {
                       rows={3}
                       maxLength={10000}
                       placeholder="Reasoning for this decision..."
-                      className="w-full px-3 py-2 bg-surface-50 dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 resize-none"
+                      className="w-full px-3 py-2 bg-surface-50 dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 resize-none"
                     />
                   </div>
 

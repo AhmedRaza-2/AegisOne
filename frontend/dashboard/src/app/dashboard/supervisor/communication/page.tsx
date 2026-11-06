@@ -203,8 +203,8 @@ export default function ManagerCommunicationPage() {
             <Megaphone className="w-4 h-4" /> Broadcast
           </button>
           <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-900 rounded-lg">
-            <button onClick={() => setTab("chat")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${tab === "chat" ? "bg-white dark:bg-[#1A2133] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>Chat</button>
-            <button onClick={() => setTab("announce")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${tab === "announce" ? "bg-white dark:bg-[#1A2133] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>
+            <button onClick={() => setTab("chat")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${tab === "chat" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>Chat</button>
+            <button onClick={() => setTab("announce")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${tab === "announce" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>
               Announcements {announcements.length > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-brand-500 text-white rounded-full">{announcements.length}</span>}
             </button>
           </div>
@@ -212,12 +212,12 @@ export default function ManagerCommunicationPage() {
       </div>
 
       {tab === "chat" ? (
-        <div className="flex flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#141A29] shadow-sm min-h-0">
+        <div className="flex flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#0F2038] shadow-sm min-h-0">
           {/* Sidebar */}
           <div className="w-64 shrink-0 border-r border-surface-200 dark:border-white/[0.06] flex flex-col overflow-y-auto custom-scrollbar">
             {contacts.length > 0 ? (
               <>
-                <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] sticky top-0 bg-white dark:bg-[#141A29] z-10 shadow-sm">
+                <div className="px-4 py-2.5 border-b border-surface-200 dark:border-white/[0.06] sticky top-0 bg-white dark:bg-[#0F2038] z-10 shadow-sm">
                   <span className="text-[10px] font-bold text-surface-400 uppercase tracking-widest">Recent Chats</span>
                 </div>
                 {contacts.map(c => (
@@ -244,7 +244,7 @@ export default function ManagerCommunicationPage() {
           )}
         </div>
       ) : (
-        <div className="flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#141A29] shadow-sm">
+        <div className="flex-1 rounded-2xl border border-surface-200 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-[#0F2038] shadow-sm">
           <div className="p-5 border-b border-surface-200 dark:border-white/[0.06] flex items-center justify-between bg-surface-50/50 dark:bg-white/[0.01]">
             <div>
               <h2 className="text-base font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Megaphone className="w-5 h-5 text-brand-500" />Announcements</h2>

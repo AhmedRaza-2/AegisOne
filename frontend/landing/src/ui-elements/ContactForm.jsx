@@ -59,15 +59,15 @@ const ContactForm = () => {
                 </div>
             ) : (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    {error && <div className="text-sm text-red-500">{error}</div>}
-                    <input required type="text" placeholder='Enter Name' value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                    <input required type="email" placeholder='Your Email' value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                    <input required type="text" placeholder='Your Location' value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
-                    <textarea required rows={3} placeholder='Tell us about your Project...' value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })}></textarea>
+                    {error && <div role="alert" className="text-sm text-red-600">{error}</div>}
+                    <input required type="text" name="name" autoComplete="name" aria-label="Your name" placeholder='Your name…' value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    <input required type="email" name="email" autoComplete="email" spellCheck={false} aria-label="Work email" placeholder='name@company.com' value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    <input required type="text" name="location" autoComplete="address-level2" aria-label="City and country" placeholder='City, country…' value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
+                    <textarea required rows={3} name="message" aria-label="Your message" placeholder='Tell us about your team and what you want to protect…' value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })}></textarea>
 
-                    <div onClick={handleSubmit}>
+                    <div>
                         <Button disabled={loading}>
-                            {loading ? 'Sending...' : 'Submit Form'}
+                            {loading ? 'Sending…' : 'Send Message'}
                         </Button>
                     </div>
                 </form>

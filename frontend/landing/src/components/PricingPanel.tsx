@@ -28,7 +28,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
           {/* Panel Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 border-b border-[#E1EBF2] pb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200/80 flex items-center justify-center text-[#0A5ED6] shadow-xs">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200/80 flex items-center justify-center text-[#3D6C90] shadow-xs">
                 <Shield className="w-6 h-6" />
               </div>
               <div>
@@ -58,7 +58,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                   type="button"
                   onClick={() => setBillingCycle('annual')}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${billingCycle === 'annual'
-                    ? 'bg-[#0A5ED6] text-white shadow-xs'
+                    ? 'bg-[#3D6C90] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
@@ -91,8 +91,8 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                 <div
                   key={plan.id}
                   className={`relative rounded-2xl p-6 transition-all duration-300 flex flex-col justify-between ${isPopular
-                    ? 'bg-gradient-to-b from-blue-50/70 via-white to-indigo-50/40 border-2 border-[#0A5ED6] shadow-lg shadow-blue-500/10'
-                    : 'bg-white border border-[#E1EBF2] shadow-xs hover:border-[#0A5ED6]/40 hover:shadow-md'
+                    ? 'bg-gradient-to-b from-blue-50/70 via-white to-blue-50/40 border-2 border-[#3D6C90] shadow-lg shadow-blue-500/10'
+                    : 'bg-white border border-[#E1EBF2] shadow-xs hover:border-[#3D6C90]/40 hover:shadow-md'
                     }`}
                 >
                   {/* Highlight Badge */}
@@ -100,7 +100,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                     <div className="absolute -top-3 left-6">
                       <span
                         className={`px-3 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase shadow-xs flex items-center gap-1 ${isPopular
-                          ? 'bg-[#0A5ED6] text-white'
+                          ? 'bg-[#3D6C90] text-white'
                           : 'bg-slate-800 text-slate-100'
                           }`}
                       >
@@ -122,8 +122,8 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                     </div>
 
                     {/* Employee Target Badge */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[#F0F5FA] text-[#0A5ED6] border border-[#E1EBF2] mb-5">
-                      <Users className="w-3.5 h-3.5 text-[#0A5ED6]" />
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[#F0F5FA] text-[#3D6C90] border border-[#E1EBF2] mb-5">
+                      <Users className="w-3.5 h-3.5 text-[#3D6C90]" />
                       <span>{plan.employeeRangeLabel}</span>
                     </div>
 
@@ -148,7 +148,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                     <div className="space-y-2.5 border-t border-[#E1EBF2] pt-5">
                       {plan.features.map((feature, idx) => (
                         <div key={idx} className="flex items-start gap-2.5 text-xs">
-                          <Check className="w-4 h-4 shrink-0 mt-0.5 text-[#0A5ED6]" />
+                          <Check className="w-4 h-4 shrink-0 mt-0.5 text-[#3D6C90]" />
                           <span className="text-slate-600 font-medium">{feature}</span>
                         </div>
                       ))}
@@ -161,7 +161,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                       type="button"
                       onClick={() => onSelectPlan(plan.id, billingCycle)}
                       className={`w-full py-2.5 px-4 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 group cursor-pointer ${isPopular
-                        ? 'bg-[#0A5ED6] hover:bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                        ? 'bg-[#3D6C90] hover:bg-blue-600 text-white shadow-md shadow-blue-500/20'
                         : 'bg-[#0A1931] hover:bg-slate-800 text-white'
                         }`}
                     >
@@ -177,7 +177,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
           {/* Bottom Enterprise Custom Note */}
           <div className="mt-6 p-4 rounded-2xl bg-[#F0F5FA] border border-[#E1EBF2] flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#0A5ED6]/10 text-[#0A5ED6] flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[#3D6C90]/10 text-[#3D6C90] flex items-center justify-center shrink-0">
                 <Zap className="w-4 h-4" />
               </div>
               <div>
@@ -188,7 +188,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
             <button
               type="button"
               onClick={() => onSelectPlan('enterprise', billingCycle)}
-              className="px-4 py-2 rounded-lg border border-[#0A5ED6] text-[#0A5ED6] hover:bg-[#0A5ED6] hover:text-white font-semibold text-xs transition-all shrink-0 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-[#3D6C90] text-[#3D6C90] hover:bg-[#3D6C90] hover:text-white font-semibold text-xs transition-all shrink-0 cursor-pointer"
             >
               Contact Architect
             </button>

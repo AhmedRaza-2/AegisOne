@@ -106,7 +106,7 @@ export default function EmployeesPage() {
   const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
   const tooltipBg = isDark ? "#1e293b" : "#ffffff";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  const tooltipColor = isDark ? "#ffffff" : "#0f172a";
+  const tooltipColor = isDark ? "#ffffff" : "#0A1931";
 
   // Coverage calculations
   const coverageCards = useMemo(() => {
@@ -115,7 +115,7 @@ export default function EmployeesPage() {
         { label: "URL Protection", value: "100%", icon: Globe, color: "text-blue-500" },
         { label: "Credential Protection", value: "100%", icon: Key, color: "text-emerald-500" },
         { label: "Download Protection", value: "100%", icon: Download, color: "text-amber-500" },
-        { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-purple-500" },
+        { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-brand-500" },
       ];
     }
 
@@ -127,7 +127,7 @@ export default function EmployeesPage() {
       { label: "URL Protection", value: `${urlScore}%`, icon: Globe, color: "text-blue-500" },
       { label: "Credential Protection", value: "100%", icon: Key, color: "text-emerald-500" },
       { label: "Download Protection", value: "100%", icon: Download, color: "text-amber-500" },
-      { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-purple-500" },
+      { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-brand-500" },
     ];
   }, [realStats]);
 
@@ -153,7 +153,7 @@ export default function EmployeesPage() {
     return Object.keys(types).map(k => ({
       name: k,
       value: types[k],
-      color: colorMap[k] || "#8b5cf6"
+      color: colorMap[k] || "#5C93BE"
     })).filter(d => d.value > 0);
   }, [realStats]);
 
@@ -392,7 +392,7 @@ export default function EmployeesPage() {
       <div className="flex justify-between items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-surface-900 dark:text-white">
-            <Users className="w-6 h-6 text-[#4F84F8]" /> Employee Management
+            <Users className="w-6 h-6 text-[#5C93BE]" /> Employee Management
           </h1>
           <p className="text-sm text-surface-500 mt-1">
             Department: {user.department} — Directory & Administrative Actions
@@ -400,7 +400,7 @@ export default function EmployeesPage() {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 bg-[#4F84F8] hover:bg-[#3d6fd8] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm transition-colors shrink-0"
+          className="flex items-center gap-1.5 bg-[#5C93BE] hover:bg-[#3d6fd8] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm transition-colors shrink-0"
         >
           <Plus className="w-4 h-4" /> Add Employee
         </button>
@@ -457,7 +457,7 @@ export default function EmployeesPage() {
                     <td className="px-4 py-3 text-right text-surface-700 dark:text-surface-300">{emp.threatsCount}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${emp.role === "manager"
-                        ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
+                        ? "bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400"
                         : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
                         }`}>
                         {emp.role}
@@ -487,7 +487,7 @@ export default function EmployeesPage() {
                             }}
                             className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${emp.account_status === "active"
                               ? "border-surface-200 dark:border-white/[0.08] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
-                              : "border-purple-500/30 bg-purple-500/5 text-purple-650 dark:text-purple-400 hover:bg-purple-500/10"
+                              : "border-brand-500/30 bg-brand-500/5 text-brand-600 dark:text-brand-400 hover:bg-brand-500/10"
                               }`}
                           >
                             <Power className="w-3.5 h-3.5" />
@@ -509,7 +509,7 @@ export default function EmployeesPage() {
                                 onConfirm: () => handleRoleChangeDirect(emp.id, newRole, emp.fullName)
                               });
                             }}
-                            className="px-2 py-1.5 bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs text-surface-700 dark:text-surface-300 font-bold focus:outline-none focus:border-brand-500/50"
+                            className="px-2 py-1.5 bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] rounded-lg text-xs text-surface-700 dark:text-surface-300 font-bold focus:outline-none focus:border-brand-500/50"
                           >
                             <option value="employee">Employee</option>
                             <option value="manager">Manager</option>
@@ -561,7 +561,7 @@ export default function EmployeesPage() {
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-xl relative z-10 p-6 space-y-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] w-full max-w-md rounded-xl shadow-xl relative z-10 p-6 space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-bold text-surface-900 dark:text-white">Add New Employee</h3>
                 <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-surface-100 dark:hover:bg-white/[0.05] rounded-md transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
@@ -617,7 +617,7 @@ export default function EmployeesPage() {
                             id={`dept-${dept.id}`}
                             checked={isManagerDept}
                             disabled
-                            className="w-3.5 h-3.5 rounded border-surface-200 dark:border-white/[0.08] text-[#4F84F8] cursor-not-allowed focus:ring-0"
+                            className="w-3.5 h-3.5 rounded border-surface-200 dark:border-white/[0.08] text-[#5C93BE] cursor-not-allowed focus:ring-0"
                           />
                           <label
                             htmlFor={`dept-${dept.id}`}
@@ -633,7 +633,7 @@ export default function EmployeesPage() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-[#4F84F8] hover:bg-[#3d6fd8] text-white text-sm font-bold py-2.5 rounded-lg shadow-sm transition-colors mt-2"
+                  className="w-full bg-[#5C93BE] hover:bg-[#3d6fd8] text-white text-sm font-bold py-2.5 rounded-lg shadow-sm transition-colors mt-2"
                 >
                   Create Account
                 </button>
@@ -648,7 +648,7 @@ export default function EmployeesPage() {
         {selectedEmployee && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setSelectedEmployee(null); setConfirmDelete(false); }} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] w-full max-w-2xl rounded-2xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] w-full max-w-2xl rounded-2xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
 
               <div className="p-6 border-b border-surface-200 dark:border-white/[0.06] flex items-center justify-between">
                 <div>
@@ -682,7 +682,7 @@ export default function EmployeesPage() {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="p-5 rounded-xl border border-surface-200 dark:border-white/[0.05]">
-                    <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-surface-900 dark:text-white"><Activity className="w-4 h-4 text-[#4F84F8]" /> Protection Statistics</h4>
+                    <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-surface-900 dark:text-white"><Activity className="w-4 h-4 text-[#5C93BE]" /> Protection Statistics</h4>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-surface-600 dark:text-surface-400 flex items-center gap-2"><Download className="w-4 h-4" /> Downloads Scanned</span>
@@ -749,7 +749,7 @@ export default function EmployeesPage() {
                         {selectedEmployee.role === "employee" ? (
                           <button
                             onClick={handlePromoteUser}
-                            className="w-full flex items-center justify-center gap-1.5 border border-[#4F84F8] hover:bg-[#4F84F8]/10 text-[#4F84F8] text-xs font-bold py-2 rounded-lg transition-colors"
+                            className="w-full flex items-center justify-center gap-1.5 border border-[#5C93BE] hover:bg-[#5C93BE]/10 text-[#5C93BE] text-xs font-bold py-2 rounded-lg transition-colors"
                           >
                             <UserCheck className="w-4 h-4" /> Promote to Manager
                           </button>
@@ -799,7 +799,7 @@ export default function EmployeesPage() {
         {confirmModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setConfirmModal(null)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] w-full max-w-sm rounded-xl shadow-xl relative z-10 p-6 space-y-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] w-full max-w-sm rounded-xl shadow-xl relative z-10 p-6 space-y-4">
               <h3 className="text-base font-bold text-surface-900 dark:text-white">{confirmModal.title}</h3>
               <p className="text-sm text-surface-500">{confirmModal.message}</p>
               <div className="flex justify-end gap-2 pt-2">
@@ -814,7 +814,7 @@ export default function EmployeesPage() {
                     confirmModal.onConfirm();
                     setConfirmModal(null);
                   }}
-                  className="px-4 py-2 bg-[#4F84F8] hover:bg-[#3d6fd8] text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                  className="px-4 py-2 bg-[#5C93BE] hover:bg-[#3d6fd8] text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
                 >
                   Confirm
                 </button>
@@ -829,7 +829,7 @@ export default function EmployeesPage() {
         {pwModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPwModal(null)} className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] w-full max-w-sm rounded-xl shadow-xl relative z-10 p-6 space-y-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] w-full max-w-sm rounded-xl shadow-xl relative z-10 p-6 space-y-4">
               <h3 className="text-base font-bold text-surface-900 dark:text-white">Change Password</h3>
               <p className="text-sm text-surface-500">Enter new password for {pwModal.userName}</p>
               <div className="relative">

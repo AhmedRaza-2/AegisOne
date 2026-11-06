@@ -394,7 +394,7 @@ function _ensureLinkStyles() {
       position: fixed !important;
       z-index: 2147483647 !important;
       background: rgba(15, 23, 42, 0.95) !important;
-      border: 1px solid rgba(99,102,241,0.3) !important;
+      border: 1px solid rgba(74,127,167,0.3) !important;
       border-radius: 6px !important;
       padding: 3px 8px !important;
       min-width: 80px !important;
@@ -437,7 +437,7 @@ function _ensureLinkStyles() {
     }
     .aegis-tip-scanning {
       font-size: 10px !important;
-      color: #818cf8 !important;
+      color: #B3CFE5 !important;
       display: flex !important;
       align-items: center !important;
       gap: 5px !important;

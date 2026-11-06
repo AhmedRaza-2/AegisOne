@@ -36,7 +36,8 @@ export function initEmailGuard() {
 
   // Load persistent cache from chrome.storage.local before scanning
   try {
-    chrome.storage.local.get([STORAGE_CACHE_KEY], (data) => {
+    // session storage: kept in memory, never written to disk (the keys are sender + subject of the user's mail)
+    chrome.storage.session.get([STORAGE_CACHE_KEY], (data) => {
       const stored = data?.[STORAGE_CACHE_KEY] || {};
       Object.entries(stored).forEach(([k, v]) => {
         if (v && typeof v === "object") {
@@ -58,7 +59,7 @@ export function initEmailGuard() {
           obj[k] = v;
         }
       });
-      chrome.storage.local.set({ [STORAGE_CACHE_KEY]: obj }).catch(() => {});
+      chrome.storage.session.set({ [STORAGE_CACHE_KEY]: obj }).catch(() => {});
     } catch (_) {}
   }
 
@@ -423,7 +424,7 @@ export function initEmailGuard() {
     rowEl.style.position = "relative";
 
     const colors = {
-      scanning:   { bar: "rgba(99,102,241,0.5)",  bg: "transparent" },
+      scanning:   { bar: "rgba(74,127,167,0.5)",  bg: "transparent" },
       safe:       { bar: "rgba(16,185,129,0.4)",   bg: "transparent" },
       suspicious: { bar: "rgba(245,158,11,0.55)",  bg: "rgba(245,158,11,0.04)" },
       phishing:   { bar: "rgba(239,68,68,0.65)",   bg: "rgba(239,68,68,0.06)" },
@@ -452,7 +453,7 @@ export function initEmailGuard() {
       badge.style.cssText = `
         display: inline-flex; align-items: center; gap: 3px;
         padding: 1px 6px; margin-right: 6px; border-radius: 12px;
-        background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+        background: rgba(74,127,167,0.12); border: 1px solid rgba(74,127,167,0.3);
         color: #a5b4fc; font-size: 9px; font-weight: 700;
         font-family: 'Inter', -apple-system, sans-serif;
         animation: aegis-pulse 1.4s ease-in-out infinite;
@@ -833,8 +834,8 @@ export function initEmailGuard() {
     btn.style.cssText = `
       display: inline-flex; align-items: center; gap: 6px;
       padding: 5px 12px; margin-left: 10px;
-      background: linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.18));
-      border: 1px solid rgba(99,102,241,0.4);
+      background: linear-gradient(135deg, rgba(92,147,190,0.18), rgba(74,127,167,0.18));
+      border: 1px solid rgba(74,127,167,0.4);
       border-radius: 8px; color: #a5b4fc;
       font-size: 11px; font-weight: 700; cursor: pointer;
       font-family: 'Inter', -apple-system, sans-serif;
@@ -843,13 +844,13 @@ export function initEmailGuard() {
     btn.innerHTML = `<span>✨</span><span>Analyze Email with AI</span>`;
 
     btn.addEventListener("mouseenter", () => {
-      btn.style.background = "linear-gradient(135deg, rgba(59,130,246,0.3), rgba(139,92,246,0.3))";
-      btn.style.borderColor = "rgba(99,102,241,0.7)";
+      btn.style.background = "linear-gradient(135deg, rgba(92,147,190,0.3), rgba(74,127,167,0.3))";
+      btn.style.borderColor = "rgba(74,127,167,0.7)";
       btn.style.color = "#ffffff";
     });
     btn.addEventListener("mouseleave", () => {
-      btn.style.background = "linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.18))";
-      btn.style.borderColor = "rgba(99,102,241,0.4)";
+      btn.style.background = "linear-gradient(135deg, rgba(92,147,190,0.18), rgba(74,127,167,0.18))";
+      btn.style.borderColor = "rgba(74,127,167,0.4)";
       btn.style.color = "#a5b4fc";
     });
     btn.addEventListener("click", (e) => {

@@ -58,7 +58,7 @@ export default function AuthLoadingOverlay({
             </div>
           </div>
 
-          <h3 className="font-sans text-lg font-bold text-[#0F172A] mb-1">{title}</h3>
+          <h3 className="font-sans text-lg font-bold text-[#0A1931] mb-1">{title}</h3>
           <p className="font-sans text-sm text-slate-400 mb-6">
             Securing your session…
           </p>

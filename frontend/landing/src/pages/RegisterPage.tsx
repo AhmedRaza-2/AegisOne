@@ -201,10 +201,10 @@ function CountrySelector({
         id="country-selector-btn"
         onClick={() => setIsOpen(!isOpen)}
         className={`${selectCls} flex items-center justify-between text-left ${
-          !value ? 'text-[#8CA3B8]' : 'text-[#0A1931] font-medium'
+          !value ? 'text-[#4A6D8C]' : 'text-[#0A1931] font-medium'
         } ${error ? 'border-red-400 ring-2 ring-red-400/20' : ''}`}
       >
-        <span className="truncate">{value || 'Select country...'}</span>
+        <span className="truncate">{value || 'Select country…'}</span>
         <ChevronDown className={`w-4 h-4 text-[#4A6D8C] transition-transform duration-200 shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -212,7 +212,7 @@ function CountrySelector({
         <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-[#E1EBF2] rounded-xl shadow-xl p-3 text-xs space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
           {/* Search bar */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8CA3B8]" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#4A6D8C]" />
             <input
               type="text"
               placeholder="Search country..."
@@ -225,7 +225,7 @@ function CountrySelector({
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-600 p-0.5"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -240,7 +240,7 @@ function CountrySelector({
             className="max-h-64 overflow-y-auto pr-1 space-y-2 custom-scrollbar divide-y divide-slate-100 touch-pan-y"
           >
             {Object.keys(groupedCountries).length === 0 ? (
-              <div className="py-6 text-center text-slate-400 font-medium text-xs">
+              <div className="py-6 text-center text-slate-600 font-medium text-xs">
                 No countries match "{search}"
               </div>
             ) : (
@@ -758,7 +758,7 @@ export default function RegisterPage() {
                   <><Mail className="w-4 h-4" /> Didn't receive it? Resend Email</>
                 )}
               </button>
-              <p className="text-xs text-[#8CA3B8]">
+              <p className="text-xs text-[#4A6D8C]">
                 Already confirmed?{' '}
                 <Link to="/login" className="text-[#4A7FA7] font-semibold hover:text-[#3D6C90]">
                   Sign in to Portal
@@ -776,7 +776,7 @@ export default function RegisterPage() {
       <Header />
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-4 md:py-6 relative z-10">
+      <div role="main" className="flex-1 flex items-center justify-center px-4 py-4 md:py-6 relative z-10">
         {/* Decorative background positioned behind the form area */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden flex justify-center items-center">
           <div className="w-[600px] h-[600px] bg-[#4A7FA7]/5 rounded-full blur-[120px]" />
@@ -811,6 +811,8 @@ export default function RegisterPage() {
                         <input
                           id="org-name"
                           type="text"
+                          aria-label="Organization name"
+                          autoComplete="organization"
                           onBlur={() => touch('name')}
                           className={inputCls + (shown('name') ? ' !border-red-400 !ring-red-200' : '')}
                           placeholder="e.g. ABC Software House"
@@ -821,8 +823,8 @@ export default function RegisterPage() {
                       </Field>
 
                       <Field label="Industry" icon={<Briefcase className="w-3 h-3 text-[#4A6D8C]" />} error={shown('industry') || shown('custom_industry') || undefined}>
-                        <select id="industry" onBlur={() => touch('industry')} className={selectCls + (shown('industry') ? ' !border-red-400 !ring-red-200' : '')} value={form.industry} onChange={set('industry')}>
-                          <option value="">Select industry...</option>
+                        <select id="industry" aria-label="Industry" onBlur={() => touch('industry')} className={selectCls + (shown('industry') ? ' !border-red-400 !ring-red-200' : '')} value={form.industry} onChange={set('industry')}>
+                          <option value="">Select industry…</option>
                           {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
                         </select>
 
@@ -896,7 +898,7 @@ export default function RegisterPage() {
 
                                 <div className="border-t border-[#E1EBF2]/80 pt-2 flex items-baseline justify-between w-full">
                                   <span className="text-sm font-extrabold text-[#0A1931]">${price}<span className="text-[10px] font-normal text-slate-500">/mo</span></span>
-                                  <span className="text-[10px] text-slate-400 font-medium">{billingCycle === 'annual' ? 'Billed annually' : 'Monthly'}</span>
+                                  <span className="text-[10px] text-slate-600 font-medium">{billingCycle === 'annual' ? 'Billed annually' : 'Monthly'}</span>
                                 </div>
                               </button>
                             );
@@ -933,7 +935,7 @@ export default function RegisterPage() {
                       onChange={set('admin_email')}
                     />
                     {!issues.admin_email && mx && mx.state === 'checking' && (
-                      <p className="text-[11px] text-slate-400 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Checking the email domain…</p>
+                      <p className="text-[11px] text-slate-600 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Checking the email domain…</p>
                     )}
                     {!issues.admin_email && mx && mx.state === 'ok' && (
                       <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3" /> Email domain looks good</p>
@@ -970,7 +972,7 @@ export default function RegisterPage() {
                       />
                     </div>
                     {form.country && getDialCode(form.country) && (
-                      <p className="text-[10px] text-slate-400 mt-1">
+                      <p className="text-[10px] text-slate-600 mt-1">
                         Country code <span className="font-semibold text-[#4A6D8C]">{getDialCode(form.country)}</span> attached on left. Enter local number only.
                       </p>
                     )}
@@ -993,7 +995,7 @@ export default function RegisterPage() {
                         onBlur={() => touch('password')}
                         autoFocus
                       />
-                      <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#4A7FA7] transition-colors">
+                      <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-[#4A7FA7] transition-colors">
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -1008,7 +1010,7 @@ export default function RegisterPage() {
                           </div>
                           <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                             {pwRules.map(r => (
-                              <li key={r.label} className={`text-[11px] flex items-center gap-1.5 transition-colors ${!form.password ? 'text-slate-400' : r.ok ? 'text-emerald-600' : 'text-red-500'}`}>
+                              <li key={r.label} className={`text-[11px] flex items-center gap-1.5 transition-colors ${!form.password ? 'text-slate-600' : r.ok ? 'text-emerald-600' : 'text-red-500'}`}>
                                 {r.ok ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <span className="w-3 h-3 shrink-0 rounded-full border border-current inline-block" />}
                                 {r.label}
                               </li>
@@ -1032,7 +1034,7 @@ export default function RegisterPage() {
                         onChange={set('confirm_password')}
                         onBlur={() => touch('confirm_password')}
                       />
-                      <button type="button" onClick={() => setShowConfirm(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#4A7FA7] transition-colors">
+                      <button type="button" onClick={() => setShowConfirm(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-[#4A7FA7] transition-colors">
                         {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -1095,7 +1097,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading || cooldownSeconds > 0}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#4A7FA7] hover:bg-[#3D6C90] disabled:bg-[#4A7FA7]/50 disabled:cursor-not-allowed text-white font-semibold py-[11px] rounded-lg text-sm transition-all shadow-sm"
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#3D6C90] hover:bg-[#2E5580] disabled:bg-[#3D6C90]/50 disabled:cursor-not-allowed text-white font-semibold py-[11px] rounded-lg text-sm transition-all shadow-sm"
                 >
                   {loading ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Creating Organization...</>
@@ -1115,11 +1117,11 @@ export default function RegisterPage() {
           <div className="mt-8 text-center space-y-3">
             <p className="text-sm text-[#4A6D8C]">
               Already registered?{' '}
-              <Link to="/login" className="text-[#4A7FA7] font-semibold hover:text-[#3D6C90] transition-colors">
+              <Link to="/login" className="text-[#3D6C90] font-semibold underline underline-offset-2 hover:text-[#2E5580] transition-colors">
                 Sign In to Portal
               </Link>
             </p>
-            <p className="text-xs text-[#8CA3B8]">
+            <p className="text-xs text-[#4A6D8C]">
               We only store your organization profile. No employee, threat, or internal data ever reaches our servers.
             </p>
           </div>
@@ -1137,11 +1139,11 @@ export default function RegisterPage() {
       {showPrivacyModal && (
         <div className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden text-left">
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div className="bg-[#F6FAFD] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
               <span className="font-sans font-bold text-lg text-[#0A1931]">AegisOne Privacy Commitment</span>
               <button 
                 onClick={() => setShowPrivacyModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+                className="text-slate-600 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1164,10 +1166,10 @@ export default function RegisterPage() {
                 Because AegisOne does not act as a central data processor for your user traffic, using AegisOne greatly simplifies your GDPR, HIPAA, and SOC2 compliance profiles. No "cross-border data transfer" agreements are required for our core perimeter checks.
               </p>
             </div>
-            <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
+            <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowPrivacyModal(false)}
-                className="font-sans text-xs font-bold bg-[#4A7FA7] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept &amp; Close
               </button>
@@ -1180,11 +1182,11 @@ export default function RegisterPage() {
       {showTermsModal && (
         <div className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden text-left">
-            <div className="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div className="bg-[#F6FAFD] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
               <span className="font-sans font-bold text-lg text-[#0A1931]">AegisOne Software Terms of Use</span>
               <button 
                 onClick={() => setShowTermsModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+                className="text-slate-600 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1204,10 +1206,10 @@ export default function RegisterPage() {
                 Our team provides direct support, updates to local AI heuristics, and remote system integration consults for custom Cloud VPC deployments. You can trigger support updates and request revisions directly at araza2125012.pgc@gmail.com.
               </p>
             </div>
-            <div className="bg-[#F8FAFC] border-t border-slate-200 px-6 py-4 flex justify-end">
+            <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowTermsModal(false)}
-                className="font-sans text-xs font-bold bg-[#4A7FA7] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept Terms
               </button>

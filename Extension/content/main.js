@@ -585,6 +585,7 @@
             js_obfuscated: false,
             has_password: document.querySelectorAll('input[type="password"]').length > 0,
             has_email: document.querySelectorAll('input[type="email"]').length > 0,
+            page_title: (document.title || "").slice(0, 200),   // read by the server's page model (AIML/url/page_summary.py)
             visible_text: bodyText,
             headings_text: h1Text,
             links_count: linksCount,

@@ -11,9 +11,32 @@
  */
 
 import { CACHE, STORE_KEYS } from "../utils/constants.js";
+import "../utils/secure-store.js";   // persisted scan results reveal browsing history: stored AES-GCM encrypted
 
 // ── In-memory store ───────────────────────────────────────
 const _memCache = new Map();
+
+// Persisted entries are named by a keyed hash of host+path, never the address itself (a storage key is readable
+// on disk even when its value is encrypted). The salt is random per install and kept in the encrypted store, so
+// the names cannot be reversed by hashing a list of guessed URLs.
+let _saltPromise = null;
+function _salt() {
+  if (!_saltPromise) {
+    _saltPromise = (async () => {
+      const { cache_salt } = await globalThis.AegisSecure.get("cache_salt");
+      if (cache_salt) return cache_salt;
+      const s = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+      await globalThis.AegisSecure.set({ cache_salt: s });
+      return s;
+    })().catch((e) => { _saltPromise = null; throw e; });
+  }
+  return _saltPromise;
+}
+
+async function _storageKey(key) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${await _salt()}|${key}`));
+  return "cache_" + Array.from(new Uint8Array(d).slice(0, 16), (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 /**
  * Generate a normalized cache key from a URL (path-specific, ignoring query/hash).
@@ -43,8 +66,8 @@ export async function getCachedResult(url) {
 
   // Fall back to storage
   try {
-    const data = await chrome.storage.local.get(`cache_${key}`);
-    const entry = data[`cache_${key}`];
+    const sk = await _storageKey(key);
+    const entry = (await globalThis.AegisSecure.get(sk))[sk];
     if (entry && !_isExpired(entry)) {
       _memCache.set(key, entry); // Warm memory cache
       return entry;
@@ -73,7 +96,7 @@ export async function setCachedResult(url, result) {
 
   // Persist to storage (fire-and-forget)
   try {
-    await chrome.storage.local.set({ [`cache_${key}`]: entry });
+    await globalThis.AegisSecure.set({ [await _storageKey(key)]: entry });
   } catch (_) { /* quota may be full */ }
 }
 
@@ -84,7 +107,7 @@ export function invalidateDomain(url) {
   const key = getCacheKey(url);
   if (!key) return;
   _memCache.delete(key);
-  chrome.storage.local.remove(`cache_${key}`).catch(() => {});
+  _storageKey(key).then((sk) => chrome.storage.local.remove(sk)).catch(() => {});
 }
 
 /**
@@ -111,8 +134,13 @@ export function clearTabCache(tabId) {
 export async function clearAllCache() {
   _memCache.clear();
   _tabCache.clear();
+  // Only the scan-result entries. chrome.storage.local also holds the server address, the (encrypted)
+  // sign-in tokens, the device id and the user's settings - clearing everything here signed users out and
+  // forgot a configured server on every browser start.
   try {
-    await chrome.storage.local.clear();
+    const all = await chrome.storage.local.get(null);
+    const keys = Object.keys(all).filter((k) => k.startsWith("cache_") && k !== "cache_salt");
+    if (keys.length) await chrome.storage.local.remove(keys);
   } catch (_) {}
 }
 

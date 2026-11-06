@@ -11,12 +11,12 @@ const TOKEN = {
   bgCard:       '#FFFFFF',
   borderSubtle: '#E1EBF2',
   borderStrong: '#C7DAE8',
-  blue600:      '#4A7FA7',
+  blue600:      '#3D6C90',
   blue700:      '#3D6C90',
   navy800:      '#1A3D63',
   textPrimary:  '#0A1931',
   textSecondary:'#4A6D8C',
-  textMuted:    '#8CA3B8',
+  textMuted:    '#4A6D8C',
   success:      '#2FA97E',
   danger:       '#D65C5C',
   warning:      '#D9A441',
@@ -73,7 +73,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col font-sans" style={{ background: TOKEN.bgCanvas, color: TOKEN.textPrimary }}>
       <Header />
 
-      <div className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
+      <div role="main" className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
         {/* Layered background glows */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[600px] h-[500px] rounded-full opacity-50"
@@ -153,7 +153,6 @@ export default function LoginPage() {
                       onClick={() => setIsForgotPassword(true)}
                       className="text-xs font-semibold transition-colors"
                       style={{ color: TOKEN.blue600 }}
-                      tabIndex={-1}
                     >
                       Forgot password?
                     </button>
@@ -173,10 +172,11 @@ export default function LoginPage() {
                     />
                     <button
                       type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
                       onClick={() => setShowPassword(p => !p)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
                       style={{ color: TOKEN.textMuted }}
-                      tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -245,7 +245,7 @@ export default function LoginPage() {
           <div className="mt-7 text-center space-y-3">
             <p className="text-sm" style={{ color: TOKEN.textSecondary }}>
               New organization?{' '}
-              <Link to="/register" className="font-semibold transition-colors" style={{ color: TOKEN.blue600 }}>
+              <Link to="/register" className="font-semibold underline underline-offset-2 transition-colors" style={{ color: TOKEN.blue600 }}>
                 Register Now
               </Link>
             </p>

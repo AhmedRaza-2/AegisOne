@@ -631,7 +631,7 @@ export default function App() {
   ];
 
   return (
-    <div className={`flex h-screen overflow-hidden bg-[#F8FAFC] dark:bg-slate-900 text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
+    <div className={`flex h-screen overflow-hidden bg-[#F6FAFD] dark:bg-slate-900 text-[#0A1931] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
 
       {toast.visible && (
         <div className="fixed bottom-4 right-4 z-[999] animate-in slide-in-from-bottom-2 fade-in duration-300">
@@ -663,7 +663,7 @@ export default function App() {
       <aside className="w-64 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex-col hidden lg:flex shrink-0 z-10 transition-colors">
         <div className="h-20 flex flex-col justify-center px-6 shrink-0 border-b border-slate-200 dark:border-slate-800">
           <div className="flex flex-col">
-            <span className="text-xl font-bold tracking-tight text-[#0A5ED6] dark:text-[#4F84F8]">AegisOne</span>
+            <span className="text-xl font-bold tracking-tight text-[#3D6C90] dark:text-[#5C93BE]">AegisOne</span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">Setup Engine</span>
           </div>
         </div>
@@ -671,11 +671,11 @@ export default function App() {
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/50">
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall Progress</span>
-            <span className="text-xs font-bold text-[#0A5ED6] dark:text-[#4F84F8]">{Math.round((step / 7) * 100)}%</span>
+            <span className="text-xs font-bold text-[#3D6C90] dark:text-[#5C93BE]">{Math.round((step / 7) * 100)}%</span>
           </div>
           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#0A5ED6] dark:bg-[#4F84F8] transition-all duration-500 ease-out"
+              className="h-full bg-[#3D6C90] dark:bg-[#5C93BE] transition-all duration-500 ease-out"
               style={{ width: `${Math.round((step / 7) * 100)}%` }}
             />
           </div>
@@ -691,14 +691,14 @@ export default function App() {
                 <div
                   key={s.num}
                   className={`w-full flex items-center gap-3 px-6 py-3 text-[13px] font-medium transition-all ${isActive
-                    ? "bg-slate-100 dark:bg-slate-800/50 text-[#0F172A] dark:text-white border-l-2 border-[#0A5ED6] dark:border-[#4F84F8]"
+                    ? "bg-slate-100 dark:bg-slate-800/50 text-[#0A1931] dark:text-white border-l-2 border-[#3D6C90] dark:border-[#5C93BE]"
                     : isPast
-                      ? "text-[#0F172A] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 border-l-2 border-transparent"
+                      ? "text-[#0A1931] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 border-l-2 border-transparent"
                       : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/30 border-l-2 border-transparent"
                     }`}
                 >
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-all ${isPast ? 'bg-emerald-500 text-white' :
-                    isActive ? 'bg-[#0A5ED6] dark:bg-[#4F84F8] text-white' :
+                    isActive ? 'bg-[#3D6C90] dark:bg-[#5C93BE] text-white' :
                       'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                     }`}>
                     {isPast ? <Check className="w-3 h-3" /> : s.num}
@@ -742,14 +742,14 @@ export default function App() {
             {step === 1 && (
               <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-16">
                 <div className="lg:col-span-1">
-                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Organization Information</h2>
+                  <h2 className="text-2xl font-bold text-[#0A1931] dark:text-white mb-2">Organization Information</h2>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">Let's verify your company's core identity imported from your Docker deployment command.</p>
                 </div>
 
                 <div className="lg:col-span-2">
                   {!configLoaded ? (
                     <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                      <Loader2 className="w-8 h-8 text-[#0A5ED6] animate-spin" />
+                      <Loader2 className="w-8 h-8 text-[#3D6C90] animate-spin" />
                       <p className="text-sm text-slate-500 font-semibold animate-pulse">Reading environment variables from Docker container...</p>
                     </div>
                   ) : (
@@ -769,7 +769,7 @@ export default function App() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Timezone</label>
-                          <select value={timezone} onChange={e => setTimezone(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:text-slate-200 rounded-xl px-4 py-3 text-sm focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] outline-none">
+                          <select value={timezone} onChange={e => setTimezone(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:text-slate-200 rounded-xl px-4 py-3 text-sm focus:border-[#3D6C90] dark:focus:border-[#5C93BE] outline-none">
                             <option>UTC+00:00 (GMT)</option>
                             <option>UTC+05:00 (PKT)</option>
                             <option>UTC-05:00 (EST)</option>
@@ -778,7 +778,7 @@ export default function App() {
                       </div>
 
                       <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                        <button onClick={handleNextStep} disabled={loading} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
+                        <button onClick={handleNextStep} disabled={loading} className="flex items-center gap-2 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md">
                           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}
                         </button>
                       </div>
@@ -792,14 +792,14 @@ export default function App() {
             {step === 2 && (
               <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-16">
                 <div className="lg:col-span-1">
-                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Import Employees First</h2>
+                  <h2 className="text-2xl font-bold text-[#0A1931] dark:text-white mb-2">Import Employees First</h2>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">Upload employee.csv and the setup will infer departments automatically, so you can edit structure after the import instead of building it twice.</p>
                 </div>
 
                 <div className="lg:col-span-2 flex flex-col justify-center">
                   <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                    <button onClick={() => setStep(1)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
-                    <button onClick={handleNextStep} disabled={loading || employees.length === 0} className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50">
+                    <button onClick={() => setStep(1)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0A1931] dark:hover:text-white text-sm">Back</button>
+                    <button onClick={handleNextStep} disabled={loading || employees.length === 0} className="flex items-center gap-2 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50">
                       {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Review Structure <ArrowRight className="w-4 h-4" /></>}
                     </button>
                   </div>
@@ -811,16 +811,16 @@ export default function App() {
             {step === 3 && (
               <div className="animate-fadeIn space-y-8">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Review and Edit Structure</h2>
+                  <h2 className="text-2xl font-bold text-[#0A1931] dark:text-white mb-2">Review and Edit Structure</h2>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">Drag employees into departments and rename departments inline.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-1 bg-blue-50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6">
                     <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm mb-4">
-                      <FileSpreadsheet className="w-7 h-7 text-blue-600 dark:text-[#4F84F8]" />
+                      <FileSpreadsheet className="w-7 h-7 text-blue-600 dark:text-[#5C93BE]" />
                     </div>
-                    <h3 className="font-bold text-[#0F172A] dark:text-white mb-2">1. Upload employee.csv</h3>
+                    <h3 className="font-bold text-[#0A1931] dark:text-white mb-2">1. Upload employee.csv</h3>
                     <p className="text-sm text-blue-800 dark:text-slate-300 mb-5">The upload step infers departments automatically, so you only edit what the CSV actually contains.</p>
                     <button onClick={handleDownloadTemplate} className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-slate-200 font-bold px-4 py-2.5 rounded-lg hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors text-sm w-full cursor-pointer shadow-sm mb-4">
                       <Download className="w-4 h-4" /> Download Template
@@ -832,7 +832,7 @@ export default function App() {
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-slate-900 dark:bg-[#0A5ED6] text-white font-bold px-4 py-2.5 rounded-lg hover:bg-black dark:hover:bg-[#0B63E0] transition-colors text-sm">
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-slate-900 dark:bg-[#3D6C90] text-white font-bold px-4 py-2.5 rounded-lg hover:bg-black dark:hover:bg-[#3D6C90] transition-colors text-sm">
                       {employees.length > 0 ? 'Replace CSV File' : 'Select CSV File'}
                     </button>
                   </div>
@@ -840,13 +840,13 @@ export default function App() {
                   <div className="lg:col-span-2 space-y-4">
                     <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-[#0F172A] dark:text-white">Departments</h3>
+                        <h3 className="font-bold text-[#0A1931] dark:text-white">Departments</h3>
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-slate-500 dark:text-slate-400">{departments.length} inferred departments</span>
                           <button onClick={() => setIsMergeModalOpen(true)} className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2.5 py-1.5 rounded-md transition-colors" disabled={departments.length < 2}>
                             Merge
                           </button>
-                          <button onClick={handleAddDepartment} className="flex items-center gap-1 text-xs font-bold text-[#0A5ED6] dark:text-[#4F84F8] hover:text-[#0B63E0] dark:hover:text-[#6A96F9] bg-[#0A5ED6]/10 dark:bg-[#4F84F8]/10 hover:bg-[#0A5ED6]/20 dark:hover:bg-[#4F84F8]/20 px-2.5 py-1.5 rounded-md transition-colors">
+                          <button onClick={handleAddDepartment} className="flex items-center gap-1 text-xs font-bold text-[#3D6C90] dark:text-[#5C93BE] hover:text-[#3D6C90] dark:hover:text-[#6A96F9] bg-[#3D6C90]/10 dark:bg-[#5C93BE]/10 hover:bg-[#3D6C90]/20 dark:hover:bg-[#5C93BE]/20 px-2.5 py-1.5 rounded-md transition-colors">
                             <Plus className="w-3.5 h-3.5" /> Add Dept
                           </button>
                           <button
@@ -873,13 +873,13 @@ export default function App() {
                       <div className="flex justify-between items-center bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700 mb-4">
                         <button
                           onClick={() => setStructureViewMode('visual')}
-                          className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${structureViewMode === 'visual' ? 'bg-[#0A5ED6] text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                          className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${structureViewMode === 'visual' ? 'bg-[#3D6C90] text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
                         >
                           <ListFilter className="w-4 h-4" /> Visual Mode
                         </button>
                         <button
                           onClick={() => setStructureViewMode('table')}
-                          className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${structureViewMode === 'table' ? 'bg-[#0A5ED6] text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                          className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${structureViewMode === 'table' ? 'bg-[#3D6C90] text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
                         >
                           <Table className="w-4 h-4" /> Table Mode
                         </button>
@@ -894,7 +894,7 @@ export default function App() {
                               placeholder="Search employees..."
                               value={visualSearch}
                               onChange={e => setVisualSearch(e.target.value)}
-                              className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#0A5ED6] dark:text-white transition-colors"
+                              className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#3D6C90] dark:text-white transition-colors"
                             />
                           </div>
 
@@ -986,7 +986,7 @@ export default function App() {
                                   <input
                                     value={dept.name}
                                     onChange={(e) => renameDepartment(dept.id, e.target.value)}
-                                    className="w-64 max-w-[200px] sm:max-w-xs bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-[#0F172A] dark:text-white rounded-lg px-2 py-1 text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] transition-all"
+                                    className="w-64 max-w-[200px] sm:max-w-xs bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-[#0A1931] dark:text-white rounded-lg px-2 py-1 text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#3D6C90] dark:focus:border-[#5C93BE] transition-all"
                                     placeholder="Department Name"
                                   />
                                   <span className="font-mono text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md">{dept.code}</span>
@@ -1009,7 +1009,7 @@ export default function App() {
                                     }}
                                     className="flex items-center gap-2 cursor-grab rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 pr-3 shadow-sm hover:shadow-md transition-shadow select-none"
                                   >
-                                    <div className="w-6 h-6 rounded-full bg-[#0A5ED6]/10 text-[#0A5ED6] dark:bg-[#4F84F8]/20 dark:text-[#4F84F8] flex items-center justify-center text-[10px] font-bold shrink-0">
+                                    <div className="w-6 h-6 rounded-full bg-[#3D6C90]/10 text-[#3D6C90] dark:bg-[#5C93BE]/20 dark:text-[#5C93BE] flex items-center justify-center text-[10px] font-bold shrink-0">
                                       {(emp.firstName?.[0] || 'U')}{(emp.lastName?.[0] || '')}
                                     </div>
                                     {editingEmployeeId === emp.id ? (
@@ -1055,9 +1055,9 @@ export default function App() {
                           {departments.length === 0 && (
                             <div className="flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
                               <div className="w-12 h-12 bg-blue-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3">
-                                <FileSpreadsheet className="w-6 h-6 text-[#0A5ED6] dark:text-[#4F84F8]" />
+                                <FileSpreadsheet className="w-6 h-6 text-[#3D6C90] dark:text-[#5C93BE]" />
                               </div>
-                              <h4 className="font-bold text-[#0F172A] dark:text-white mb-1">No Departments Yet</h4>
+                              <h4 className="font-bold text-[#0A1931] dark:text-white mb-1">No Departments Yet</h4>
                               <p className="text-sm text-slate-500 dark:text-slate-400">Upload your employee CSV file, and we will automatically create and map your departments.</p>
                             </div>
                           )}
@@ -1075,12 +1075,12 @@ export default function App() {
                       />
                     ) : (
                       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-                        <h3 className="font-bold text-[#0F172A] dark:text-white mb-3">Employees</h3>
+                        <h3 className="font-bold text-[#0A1931] dark:text-white mb-3">Employees</h3>
                         <div className="max-h-[260px] overflow-auto space-y-2">
                           {employees.map(emp => (
                             <div key={emp.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-950">
                               <div>
-                                <p className="font-semibold text-sm text-[#0F172A] dark:text-slate-200">{emp.firstName} {emp.lastName}</p>
+                                <p className="font-semibold text-sm text-[#0A1931] dark:text-slate-200">{emp.firstName} {emp.lastName}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{emp.email} • {emp.role}</p>
                               </div>
                               {emp.role.toLowerCase() === 'admin' ? (
@@ -1104,8 +1104,8 @@ export default function App() {
                 </div>
 
                 {/* Live Validation Summary & Continue Button */}
-                <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center sticky bottom-0 bg-[#f8fafc] dark:bg-[#0f172a] pb-6 z-20">
-                  <button onClick={() => setStep(2)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center sticky bottom-0 bg-[#F6FAFD] dark:bg-[#0A1931] pb-6 z-20">
+                  <button onClick={() => setStep(2)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0A1931] dark:hover:text-white text-sm">Back</button>
                   <div className="flex items-center gap-6">
                     {(() => {
                       const unassigned = employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length;
@@ -1135,7 +1135,7 @@ export default function App() {
                     <button
                       onClick={() => setStep(4)}
                       disabled={employees.filter(e => e.departmentCode === 'NONE' && e.role.toLowerCase() !== 'admin').length > 0}
-                      className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Continue to Validation <ArrowRight className="w-4 h-4" />
                     </button>
@@ -1147,7 +1147,7 @@ export default function App() {
                   <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl w-full max-w-md animate-in slide-in-from-bottom-4">
                       <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-bold text-lg text-[#0F172A] dark:text-white">Merge Departments</h3>
+                        <h3 className="font-bold text-lg text-[#0A1931] dark:text-white">Merge Departments</h3>
                         <button onClick={() => setIsMergeModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                           <X className="w-5 h-5" />
                         </button>
@@ -1195,7 +1195,7 @@ export default function App() {
                         <button
                           onClick={handleMergeDepartments}
                           disabled={!mergeSourceCode || !mergeTargetCode}
-                          className="px-4 py-2 text-sm font-bold bg-[#0A5ED6] text-white rounded-lg hover:bg-[#0B63E0] disabled:opacity-50"
+                          className="px-4 py-2 text-sm font-bold bg-[#3D6C90] text-white rounded-lg hover:bg-[#3D6C90] disabled:opacity-50"
                         >
                           Merge
                         </button>
@@ -1211,7 +1211,7 @@ export default function App() {
               <div className="animate-fadeIn space-y-6">
                 <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                   <div>
-                    <h3 className="text-lg font-bold text-[#0F172A] dark:text-white">Preview Import</h3>
+                    <h3 className="text-lg font-bold text-[#0A1931] dark:text-white">Preview Import</h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Review data integrity before writing to PostgreSQL.</p>
                   </div>
                   <div className="flex gap-6 text-center">
@@ -1279,7 +1279,7 @@ export default function App() {
                                   />
                                 ) : emp.employeeId}
                               </td>
-                              <td className="px-4 py-3 font-semibold text-[#0F172A] dark:text-slate-200">
+                              <td className="px-4 py-3 font-semibold text-[#0A1931] dark:text-slate-200">
                                 {isEditing ? (
                                   <div className="flex gap-1">
                                     <input
@@ -1380,11 +1380,11 @@ export default function App() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <button onClick={() => { setPreviewMode(false); setStep(3); }} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                  <button onClick={() => { setPreviewMode(false); setStep(3); }} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0A1931] dark:hover:text-white text-sm">Back</button>
                   <button
                     onClick={handleNextStep}
                     disabled={invalidEmployees.length > 0 || validEmployees.length === 0 || loading}
-                    className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50"
+                    className="flex items-center gap-2 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Import {validEmployees.length} Valid Employees <ArrowRight className="w-4 h-4" /></>}
                   </button>
@@ -1396,7 +1396,7 @@ export default function App() {
             {step === 5 && (
               <div className="animate-fadeIn space-y-8">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2">Review Department Managers</h2>
+                  <h2 className="text-2xl font-bold text-[#0A1931] dark:text-white mb-2">Review Department Managers</h2>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">We have automatically selected managers based on your imported data. Review them below and click Save. Managers have access to department-level threat reports.</p>
                 </div>
 
@@ -1409,12 +1409,12 @@ export default function App() {
                     return (
                       <div key={dept.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                          <h4 className="font-bold text-[#0F172A] dark:text-white">{dept.name}</h4>
+                          <h4 className="font-bold text-[#0A1931] dark:text-white">{dept.name}</h4>
                           <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-500 dark:text-slate-300">{dept.code}</span>
                         </div>
                         {potentialManagers.length > 0 ? (
                           <select
-                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#0A5ED6] dark:focus:border-[#4F84F8] outline-none cursor-pointer"
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#3D6C90] dark:focus:border-[#5C93BE] outline-none cursor-pointer"
                             value={dept.leadId || defaultManager?.id || ""}
                             onChange={(e) => {
                               setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: e.target.value } : d));
@@ -1435,7 +1435,7 @@ export default function App() {
                                 <span className="text-slate-400 dark:text-slate-500 text-xs mb-2">No managers found in this department.</span>
                                 <button
                                   onClick={() => setDepartments(departments.map(d => d.id === dept.id ? { ...d, leadId: 'SKIP' } : d))}
-                                  className="text-xs font-bold text-[#0A5ED6] dark:text-[#4F84F8] hover:underline"
+                                  className="text-xs font-bold text-[#3D6C90] dark:text-[#5C93BE] hover:underline"
                                 >
                                   Skip — assign later
                                 </button>
@@ -1449,7 +1449,7 @@ export default function App() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <button onClick={() => setStep(4)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                  <button onClick={() => setStep(4)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0A1931] dark:hover:text-white text-sm">Back</button>
                   <button
                     onClick={() => {
                       // Commit any auto-selected managers to state before proceeding
@@ -1468,7 +1468,7 @@ export default function App() {
                       generatePasswordsAndMails();
                     }}
                     disabled={loading}
-                    className="flex items-center gap-2 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md"
+                    className="flex items-center gap-2 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold px-8 py-3 rounded-xl transition-all shadow-md"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Save Assignments <ArrowRight className="w-4 h-4" /></>}
                   </button>
@@ -1479,7 +1479,7 @@ export default function App() {
             {/* STEP 6: ACCOUNT GENERATION & SECURITY */}
             {step === 6 && (
               <div className="animate-fadeIn space-y-8 text-center py-4">
-                <h2 className="text-3xl font-bold text-[#0F172A] dark:text-white mb-4">Generate Secure Accounts</h2>
+                <h2 className="text-3xl font-bold text-[#0A1931] dark:text-white mb-4">Generate Secure Accounts</h2>
                 <p className="text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed mb-8">
                   AegisOne will generate secure 14-character passwords for {validEmployees.length} employees and dispatch welcome emails containing temporary credentials.
                 </p>
@@ -1503,7 +1503,7 @@ export default function App() {
                         value={smtpUser}
                         onChange={(e) => setSmtpUser(e.target.value)}
                         placeholder="youremail@gmail.com"
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#3D6C90] dark:focus:border-[#5C93BE]"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1514,7 +1514,7 @@ export default function App() {
                           value={smtpPass}
                           onChange={(e) => setSmtpPass(e.target.value)}
                           placeholder="••••••••••••••••"
-                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#3D6C90] dark:focus:border-[#5C93BE]"
                         />
                         <button
                           type="button"
@@ -1534,7 +1534,7 @@ export default function App() {
                           value={smtpHost}
                           onChange={(e) => setSmtpHost(e.target.value)}
                           placeholder="smtp.gmail.com"
-                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#3D6C90] dark:focus:border-[#5C93BE]"
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -1544,7 +1544,7 @@ export default function App() {
                           value={smtpPort}
                           onChange={(e) => setSmtpPort(e.target.value)}
                           placeholder="587"
-                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0A5ED6] dark:focus:border-[#4F84F8]"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 dark:text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#3D6C90] dark:focus:border-[#5C93BE]"
                         />
                       </div>
                     </div>
@@ -1553,7 +1553,7 @@ export default function App() {
                 </div>
 
                 <div className="pt-8 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <button onClick={() => setStep(5)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0F172A] dark:hover:text-white text-sm">Back</button>
+                  <button onClick={() => setStep(5)} className="text-slate-500 dark:text-slate-400 font-semibold hover:text-[#0A1931] dark:hover:text-white text-sm">Back</button>
                   <div className="flex items-center gap-4">
                     {(!smtpUser || !smtpPass || !smtpHost || !smtpPort) && (
                       <span className="text-xs font-bold text-red-500 hidden sm:flex items-center gap-1">
@@ -1606,7 +1606,7 @@ export default function App() {
                         }
                       }}
                       disabled={loading || !smtpUser || !smtpPass || !smtpHost || !smtpPort}
-                      className="inline-flex items-center gap-2 bg-[#0F172A] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 text-white font-bold px-10 py-4 rounded-xl transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-2 bg-[#0A1931] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 text-white font-bold px-10 py-4 rounded-xl transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Executing Security Protocol...</> : <><ShieldCheck className="w-5 h-5" /> Execute & Send Welcome Emails</>}
                     </button>
@@ -1620,7 +1620,7 @@ export default function App() {
               <div className="animate-fadeIn space-y-8">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-2 flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-[#0A1931] dark:text-white mb-2 flex items-center gap-2">
                       <Activity className="w-6 h-6 text-emerald-500" /> Email Dispatch Status
                     </h2>
                     {dispatchDone ? (
@@ -1648,7 +1648,7 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Total Employees</p>
-                    <p className="text-2xl font-bold text-[#0F172A] dark:text-white">{validEmployees.length}</p>
+                    <p className="text-2xl font-bold text-[#0A1931] dark:text-white">{validEmployees.length}</p>
                   </div>
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Emails Sent</p>
@@ -1682,7 +1682,7 @@ export default function App() {
                           return (
                             <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                               <td className="px-6 py-4">
-                                <p className="font-semibold text-[#0F172A] dark:text-slate-200">{emp.firstName} {emp.lastName}</p>
+                                <p className="font-semibold text-[#0A1931] dark:text-slate-200">{emp.firstName} {emp.lastName}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{emp.email}</p>
                                 {sent === false && result?.error && (
                                   <p className="text-[11px] text-red-500 mt-1 break-all">{result.error}</p>

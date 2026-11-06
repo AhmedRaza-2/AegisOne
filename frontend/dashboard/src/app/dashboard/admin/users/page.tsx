@@ -10,7 +10,7 @@ function getRoleBadge(role: string) {
   switch (role) {
     case "global_admin":
     case "super_admin":
-      return { label: "Platform Head", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" };
+      return { label: "Platform Head", color: "bg-brand-500/10 text-brand-600 dark:text-brand-400" };
     case "admin":
       return { label: "Admin", color: "bg-red-500/10 text-red-600 dark:text-red-400" };
     case "manager":
@@ -110,7 +110,7 @@ export default function UsersPage() {
         const names = fullName.split(' ');
         fetch(`${getApiBaseUrl()}/setup/execute`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("aegis_access_token")}` },
           body: JSON.stringify({
             employees: [{
               firstName: names[0],

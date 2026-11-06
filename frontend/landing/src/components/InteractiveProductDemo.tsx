@@ -153,7 +153,7 @@ export default function InteractiveProductDemo() {
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="AegisOne Logo" className="w-9 h-9 object-contain shrink-0" />
             <div className="flex flex-col">
-              <span className="text-[17px] font-bold tracking-tight text-[#0A5ED6] leading-tight">AegisOne</span>
+              <span className="text-[17px] font-bold tracking-tight text-[#3D6C90] leading-tight">AegisOne</span>
               <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Enterprise Portal</span>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function InteractiveProductDemo() {
                   onClick={() => setActiveTab(item.id as SidebarTab)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all relative group cursor-pointer ${
                     activeTab === item.id || (activeTab === 'admin' && item.id === 'admin')
-                      ? "bg-slate-100 text-[#0A5ED6] font-semibold shadow-sm"
+                      ? "bg-slate-100 text-[#3D6C90] font-semibold shadow-sm"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
@@ -198,7 +198,7 @@ export default function InteractiveProductDemo() {
                   onClick={() => setActiveTab(item.id as SidebarTab)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all relative group cursor-pointer ${
                     activeTab === item.id
-                      ? "bg-slate-100 text-[#0A5ED6] font-semibold shadow-sm"
+                      ? "bg-slate-100 text-[#3D6C90] font-semibold shadow-sm"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
@@ -218,7 +218,7 @@ export default function InteractiveProductDemo() {
 
         <div className="p-4 shrink-0 mt-auto border-t border-slate-200 relative bg-slate-50/50">
           <div className="flex items-center gap-3 p-2 -m-2 rounded-lg transition-colors">
-            <div className="w-9 h-9 rounded-full bg-[#0A5ED6] flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-9 h-9 rounded-full bg-[#3D6C90] flex items-center justify-center overflow-hidden shrink-0">
               <span className="text-sm font-bold text-white">DU</span>
             </div>
             <div className="flex flex-col min-w-0 flex-1 text-left">
@@ -239,7 +239,7 @@ export default function InteractiveProductDemo() {
             <div className="flex md:hidden items-center gap-2 min-w-0">
               <img src="/logo.png" alt="AegisOne" className="w-8 h-8 object-contain shrink-0" />
               <div className="min-w-0">
-                <div className="text-sm font-bold text-[#0A5ED6] leading-tight">AegisOne</div>
+                <div className="text-sm font-bold text-[#3D6C90] leading-tight">AegisOne</div>
                 <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 truncate">Interactive demo</div>
               </div>
             </div>
@@ -247,14 +247,15 @@ export default function InteractiveProductDemo() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search logs, threats, endpoints..."
-                className="w-full bg-slate-100 border border-transparent rounded-full pl-9 pr-4 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-[#0A5ED6] transition-colors"
+                placeholder="Search logs, threats, endpoints…"
+                aria-label="Search logs, threats and endpoints"
+                className="w-full bg-slate-100 border border-transparent rounded-full pl-9 pr-4 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-[#3D6C90] transition-colors"
               />
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-3">
             <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-500 mr-2">
-              System Status: <span className="flex items-center gap-1.5 text-slate-900"><span className="w-1.5 h-1.5 rounded-full bg-[#0A5ED6] animate-pulse shadow-[0_0_8px_#0A5ED6]"></span> Operational</span>
+              System Status: <span className="flex items-center gap-1.5 text-slate-900"><span className="w-1.5 h-1.5 rounded-full bg-[#3D6C90] animate-pulse shadow-[0_0_8px_#3D6C90]"></span> Operational</span>
             </div>
             <div className="hidden sm:block h-5 w-px bg-slate-200 mx-1"></div>
             
@@ -300,7 +301,7 @@ export default function InteractiveProductDemo() {
                     <button onClick={() => setNotificationsOpen(false)} className="flex-1 py-1.5 text-xs text-center font-medium text-slate-500 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
                       Mark all read
                     </button>
-                    <button onClick={() => { setNotificationsOpen(false); setActiveTab('communication'); }} className="flex-1 py-1.5 text-xs text-center font-bold text-[#0A5ED6] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer">
+                    <button onClick={() => { setNotificationsOpen(false); setActiveTab('communication'); }} className="flex-1 py-1.5 text-xs text-center font-bold text-[#3D6C90] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer">
                       Open Inbox
                     </button>
                   </div>
@@ -310,6 +311,7 @@ export default function InteractiveProductDemo() {
             
             <div className="relative">
               <button 
+                aria-label="System activity"
                 onClick={() => {
                   setActivityOpen(!activityOpen);
                   setNotificationsOpen(false);
@@ -353,6 +355,7 @@ export default function InteractiveProductDemo() {
             
             <div className="relative">
               <button 
+                aria-label="Settings"
                 onClick={() => {
                   setSettingsOpen(!settingsOpen);
                   setNotificationsOpen(false);
@@ -368,16 +371,16 @@ export default function InteractiveProductDemo() {
                   <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
                     <div className="text-sm font-bold text-slate-900 truncate">Demo User</div>
                     <div className="text-[10px] text-slate-500 truncate uppercase tracking-wider font-medium mt-0.5">Admin • IT</div>
-                    <div className="text-[10px] text-[#0A5ED6] font-medium truncate mt-1">admin@aegisone.com</div>
+                    <div className="text-[10px] text-[#3D6C90] font-medium truncate mt-1">admin@aegisone.com</div>
                   </div>
                   <div className="py-1">
-                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:text-[#0A5ED6] hover:bg-slate-50 transition-colors text-left cursor-not-allowed">
+                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:text-[#3D6C90] hover:bg-slate-50 transition-colors text-left cursor-not-allowed">
                       <Sun className="w-4 h-4" /> Light Mode (Demo)
                     </button>
-                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:text-[#0A5ED6] hover:bg-slate-50 transition-colors text-left cursor-not-allowed">
+                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:text-[#3D6C90] hover:bg-slate-50 transition-colors text-left cursor-not-allowed">
                       <Key className="w-4 h-4" /> Reset Password
                     </button>
-                    <button onClick={() => { setSettingsOpen(false); setActiveTab('setup'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:text-[#0A5ED6] hover:bg-slate-50 transition-colors text-left cursor-pointer">
+                    <button onClick={() => { setSettingsOpen(false); setActiveTab('setup'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:text-[#3D6C90] hover:bg-slate-50 transition-colors text-left cursor-pointer">
                       <UserCog className="w-4 h-4" /> Account Settings
                     </button>
                   </div>
@@ -401,7 +404,7 @@ export default function InteractiveProductDemo() {
               onClick={() => setActiveTab(item.id as SidebarTab)}
               className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
                 activeTab === item.id
-                  ? 'bg-[#0A5ED6] text-white shadow-sm'
+                  ? 'bg-[#3D6C90] text-white shadow-sm'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -412,7 +415,7 @@ export default function InteractiveProductDemo() {
         </nav>
 
         {/* Scrollable Area */}
-        <main className={`p-3 sm:p-6 md:p-8 relative ${isModalOpen ? 'flex-1 min-h-0 overflow-y-auto custom-scrollbar' : 'flex-none overflow-visible'}`}>
+        <div className={`p-3 sm:p-6 md:p-8 relative ${isModalOpen ? 'flex-1 min-h-0 overflow-y-auto custom-scrollbar' : 'flex-none overflow-visible'}`}>
           
           {liveAlert && (
             <div className="mb-6 p-3 sm:p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
@@ -458,7 +461,7 @@ export default function InteractiveProductDemo() {
                         onClick={() => setTimeRange(item.value as TimeRange)}
                         className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                           timeRange === item.value
-                            ? "bg-[#0A5ED6] text-white shadow-sm"
+                            ? "bg-[#3D6C90] text-white shadow-sm"
                             : "text-slate-600 hover:text-slate-900 hover:bg-white"
                         }`}
                       >
@@ -471,7 +474,7 @@ export default function InteractiveProductDemo() {
                     onClick={handleRefresh}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 shadow-sm transition-all cursor-pointer"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#0A5ED6]' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#3D6C90]' : ''}`} />
                     <span>Refresh</span>
                   </button>
                 </div>
@@ -482,7 +485,7 @@ export default function InteractiveProductDemo() {
                 {[
                   { label: "Total Employees", value: metrics.employees, icon: Users, color: "text-blue-600" },
                   { label: "Active Devices", value: metrics.employees, icon: Activity, color: "text-emerald-600" },
-                  { label: "Total Scans", value: metrics.scans, icon: BarChart3, color: "text-[#0A5ED6]" },
+                  { label: "Total Scans", value: metrics.scans, icon: BarChart3, color: "text-[#3D6C90]" },
                   { label: "Threats Blocked", value: metrics.threats, icon: Shield, color: "text-rose-600" },
                   { label: "Open Incidents", value: metrics.incidents, icon: AlertTriangle, color: "text-amber-500" },
                 ].map((s) => (
@@ -498,21 +501,21 @@ export default function InteractiveProductDemo() {
               <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-900">
-                      <Building2 className="w-4 h-4 text-[#0A5ED6]" /> Department Breakdown &amp; Threat Telemetry
-                    </h3>
+                    <h2 className="mb-0 text-sm font-semibold flex items-center gap-2 text-slate-900">
+                      <Building2 className="w-4 h-4 text-[#3D6C90]" /> Department Breakdown &amp; Threat Telemetry
+                    </h2>
                     <p className="text-xs text-slate-500 mt-0.5">Click any department card to view full employee security analytics &amp; audit details</p>
                   </div>
-                  <button className="text-xs text-[#0A5ED6] font-semibold flex items-center gap-1 hover:underline cursor-pointer">
+                  <button className="text-xs text-[#3D6C90] font-semibold flex items-center gap-1 hover:underline cursor-pointer">
                     View Full Analytics →
                   </button>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {departments.map((dept) => (
-                    <div key={dept.id} className="p-4 rounded-xl bg-slate-50/50 border border-slate-200/80 hover:border-[#0A5ED6]/50 hover:shadow-md transition-all cursor-pointer block space-y-3 group min-w-0">
+                    <div key={dept.id} className="p-4 rounded-xl bg-slate-50/50 border border-slate-200/80 hover:border-[#3D6C90]/50 hover:shadow-md transition-all cursor-pointer block space-y-3 group min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-bold text-slate-900 group-hover:text-[#0A5ED6] transition-colors">{dept.name}</span>
+                        <span className="text-sm font-bold text-slate-900 group-hover:text-[#3D6C90] transition-colors">{dept.name}</span>
                         <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 shrink-0 border border-blue-100">{dept.members} members</span>
                       </div>
                       <p className="text-xs text-slate-500 truncate border-b border-slate-200/60 pb-2">
@@ -541,7 +544,7 @@ export default function InteractiveProductDemo() {
               <div className="grid lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-2 p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-slate-900">
-                    <TrendingUp className="w-4 h-4 text-[#0A5ED6]" /> Threat Trends ({timeRange})
+                    <TrendingUp className="w-4 h-4 text-[#3D6C90]" /> Threat Trends ({timeRange})
                   </h3>
                   <div className="h-60 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -550,10 +553,10 @@ export default function InteractiveProductDemo() {
                           <linearGradient id="colorSafe" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                           <linearGradient id="colorThreat" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E1EBF2" />
                         <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} dy={10} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                        <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                        <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E1EBF2', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                         <Area type="monotone" dataKey="safe" stroke="#10b981" fillOpacity={1} fill="url(#colorSafe)" strokeWidth={2} name="Safe Scans" />
                         <Area type="monotone" dataKey="threats" stroke="#f43f5e" fillOpacity={1} fill="url(#colorThreat)" strokeWidth={2} name="Threats" />
                       </AreaChart>
@@ -563,7 +566,7 @@ export default function InteractiveProductDemo() {
 
                 <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col">
                   <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-slate-900">
-                    <Building2 className="w-4 h-4 text-[#0A5ED6]" /> Top Threat Types
+                    <Building2 className="w-4 h-4 text-[#3D6C90]" /> Top Threat Types
                   </h3>
                   <div className="flex-1 space-y-4 pt-2">
                     {[
@@ -590,9 +593,9 @@ export default function InteractiveProductDemo() {
               <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-900">
-                    <Activity className="w-4 h-4 text-[#0A5ED6]" /> AI Inference Engine Nodes
+                    <Activity className="w-4 h-4 text-[#3D6C90]" /> AI Inference Engine Nodes
                   </h3>
-                  <button className="text-xs text-[#0A5ED6] font-semibold hover:underline cursor-pointer">Details →</button>
+                  <button className="text-xs text-[#3D6C90] font-semibold hover:underline cursor-pointer">Details →</button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   {[
@@ -602,7 +605,7 @@ export default function InteractiveProductDemo() {
                     { name: 'image', icon: Image, online: false },
                     { name: 'attachment', icon: Cpu, online: true },
                   ].map((node) => (
-                    <div key={node.name} className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#0A5ED6]/30 transition-all cursor-default">
+                    <div key={node.name} className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#3D6C90]/30 transition-all cursor-default">
                       <div className="flex items-center gap-2 mb-2">
                         <node.icon className="w-4 h-4 text-slate-500" />
                         <span className="text-sm font-semibold text-slate-800 uppercase">{node.name}</span>
@@ -631,13 +634,13 @@ export default function InteractiveProductDemo() {
                     type="text"
                     value={scanInputUrl}
                     onChange={(e) => setScanInputUrl(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0A5ED6]"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3D6C90]"
                     placeholder="Enter URL to scan..."
                   />
                   <button
                     onClick={handleRunUrlScan}
                     disabled={isScanningUrl || !scanInputUrl}
-                    className="px-6 py-2.5 rounded-xl bg-[#0A5ED6] text-white font-bold text-sm shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors cursor-pointer"
+                    className="px-6 py-2.5 rounded-xl bg-[#3D6C90] text-white font-bold text-sm shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     {isScanningUrl ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4" />}
                     {isScanningUrl ? 'Scanning...' : 'Scan URL'}
@@ -699,7 +702,7 @@ export default function InteractiveProductDemo() {
                       </div>
                       <div className="text-right">
                         <div className="text-xs font-semibold text-slate-500">{email.time}</div>
-                        <button className="mt-2 text-xs font-bold text-[#0A5ED6] hover:underline cursor-pointer">Inspect</button>
+                        <button className="mt-2 text-xs font-bold text-[#3D6C90] hover:underline cursor-pointer">Inspect</button>
                       </div>
                     </div>
                   ))}
@@ -722,7 +725,7 @@ export default function InteractiveProductDemo() {
                   <div key={dept.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="font-bold text-slate-900">{dept.name}</h3>
-                      <span className="px-2 py-1 rounded bg-blue-50 text-[#0A5ED6] text-xs font-bold">{dept.members} Users</span>
+                      <span className="px-2 py-1 rounded bg-blue-50 text-[#3D6C90] text-xs font-bold">{dept.members} Users</span>
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
@@ -795,7 +798,7 @@ export default function InteractiveProductDemo() {
               <div className="flex justify-between items-center">
                 <div>
                   <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900">
-                    <BarChart3 className="w-6 h-6 text-[#0A5ED6]" /> Enterprise Analytics
+                    <BarChart3 className="w-6 h-6 text-[#3D6C90]" /> Enterprise Analytics
                   </h1>
                   <p className="text-sm text-slate-500 mt-1">Real-time security telemetry and department risk matrix</p>
                 </div>
@@ -830,10 +833,10 @@ export default function InteractiveProductDemo() {
                 <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-slate-500">Protected Employees</span>
-                    <Users className="w-4 h-4 text-purple-500" />
+                    <Users className="w-4 h-4 text-blue-500" />
                   </div>
                   <p className="text-2xl font-bold text-slate-900">156</p>
-                  <p className="text-[11px] text-purple-400 mt-1 font-medium">Active Credentials</p>
+                  <p className="text-[11px] text-blue-400 mt-1 font-medium">Active Credentials</p>
                 </div>
               </div>
 
@@ -841,7 +844,7 @@ export default function InteractiveProductDemo() {
               <div className="grid lg:grid-cols-2 gap-5">
                 <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-slate-900">
-                    <TrendingUp className="w-4 h-4 text-[#0A5ED6]" /> Organization Scan Velocity
+                    <TrendingUp className="w-4 h-4 text-[#3D6C90]" /> Organization Scan Velocity
                   </h3>
                   <ResponsiveContainer width="100%" height={230}>
                     <AreaChart data={trendData}>
@@ -849,7 +852,7 @@ export default function InteractiveProductDemo() {
                         <linearGradient id="colorPhishing" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient>
                         <linearGradient id="colorSafe" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E1EBF2" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} />
                       <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
@@ -861,7 +864,7 @@ export default function InteractiveProductDemo() {
 
                 <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-slate-900">
-                    <BarChart3 className="w-4 h-4 text-[#0A5ED6]" /> Department Scans & Threats
+                    <BarChart3 className="w-4 h-4 text-[#3D6C90]" /> Department Scans & Threats
                   </h3>
                   <ResponsiveContainer width="100%" height={230}>
                     <BarChart data={[
@@ -869,7 +872,7 @@ export default function InteractiveProductDemo() {
                       { name: "DevOps", scans: 2100, threats: 12 },
                       { name: "Web", scans: 800, threats: 3 }
                     ]}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E1EBF2" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} />
                       <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
@@ -886,7 +889,7 @@ export default function InteractiveProductDemo() {
                   <h3 className="font-bold text-slate-900">Employee Telemetry</h3>
                   <div className="relative w-64">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input type="text" placeholder="Search employee..." className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-[#0A5ED6]" />
+                    <input type="text" placeholder="Search employee..." className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-[#3D6C90]" />
                   </div>
                 </div>
                 <table className="w-full text-left text-xs">
@@ -909,7 +912,7 @@ export default function InteractiveProductDemo() {
                       <tr key={i} className="hover:bg-slate-50 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 text-[#0A5ED6] font-bold flex items-center justify-center shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-[#3D6C90] font-bold flex items-center justify-center shrink-0">
                               {u.name.charAt(0)}
                             </div>
                             <div>
@@ -919,7 +922,7 @@ export default function InteractiveProductDemo() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : u.role === 'manager' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-[#0A5ED6]'}`}>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.role === 'admin' ? 'bg-blue-100 text-blue-700' : u.role === 'manager' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-[#3D6C90]'}`}>
                             {u.role}
                           </span>
                         </td>
@@ -947,11 +950,11 @@ export default function InteractiveProductDemo() {
               <div className="w-full lg:w-80 max-h-72 lg:max-h-none flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden shrink-0">
                 <div className="p-4 border-b border-slate-100">
                   <h2 className="font-bold text-slate-900 flex items-center gap-2 mb-4">
-                    <MessageSquare className="w-5 h-5 text-[#0A5ED6]" /> Secure Messages
+                    <MessageSquare className="w-5 h-5 text-[#3D6C90]" /> Secure Messages
                   </h2>
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input type="text" placeholder="Search contacts..." className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#0A5ED6]" />
+                    <input type="text" placeholder="Search contacts..." className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#3D6C90]" />
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -963,7 +966,7 @@ export default function InteractiveProductDemo() {
                     <div key={i} className={`p-4 border-b border-slate-50 cursor-pointer transition-colors ${i === 0 ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`}>
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <div className="w-10 h-10 rounded-full bg-blue-100 text-[#0A5ED6] font-bold flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 text-[#3D6C90] font-bold flex items-center justify-center shrink-0">
                             {contact.name.charAt(0)}
                           </div>
                           {contact.active && <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></div>}
@@ -985,7 +988,7 @@ export default function InteractiveProductDemo() {
               <div className="flex-1 min-h-[520px] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 text-[#0A5ED6] font-bold flex items-center justify-center">A</div>
+                    <div className="w-10 h-10 rounded-full bg-blue-100 text-[#3D6C90] font-bold flex items-center justify-center">A</div>
                     <div>
                       <h3 className="font-bold text-slate-900">Ahmed Raza</h3>
                       <p className="text-xs text-emerald-500 font-medium flex items-center gap-1">
@@ -1006,7 +1009,7 @@ export default function InteractiveProductDemo() {
                   </div>
 
                   <div className="flex gap-3 max-w-[80%]">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-[#0A5ED6] font-bold flex items-center justify-center shrink-0 text-xs">A</div>
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-[#3D6C90] font-bold flex items-center justify-center shrink-0 text-xs">A</div>
                     <div>
                       <div className="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none shadow-sm text-sm text-slate-700">
                         Hey, did you see the new threat alert from the HR department?
@@ -1016,9 +1019,9 @@ export default function InteractiveProductDemo() {
                   </div>
 
                   <div className="flex gap-3 max-w-[80%] ml-auto flex-row-reverse">
-                    <div className="w-8 h-8 rounded-full bg-[#0A5ED6] text-white font-bold flex items-center justify-center shrink-0 text-xs">Y</div>
+                    <div className="w-8 h-8 rounded-full bg-[#3D6C90] text-white font-bold flex items-center justify-center shrink-0 text-xs">Y</div>
                     <div>
-                      <div className="bg-[#0A5ED6] text-white p-3 rounded-2xl rounded-tr-none shadow-sm text-sm">
+                      <div className="bg-[#3D6C90] text-white p-3 rounded-2xl rounded-tr-none shadow-sm text-sm">
                         Yes, I'm looking into it right now. The AI scanner automatically quarantined the suspicious attachments.
                       </div>
                       <span className="text-[10px] text-slate-400 mt-1 block text-right">10:45 AM</span>
@@ -1026,7 +1029,7 @@ export default function InteractiveProductDemo() {
                   </div>
                   
                   <div className="flex gap-3 max-w-[80%]">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-[#0A5ED6] font-bold flex items-center justify-center shrink-0 text-xs">A</div>
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-[#3D6C90] font-bold flex items-center justify-center shrink-0 text-xs">A</div>
                     <div>
                       <div className="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none shadow-sm text-sm text-slate-700">
                         Excellent. Please check the latest scan results to make sure nothing else was compromised.
@@ -1039,8 +1042,8 @@ export default function InteractiveProductDemo() {
                 <div className="p-4 border-t border-slate-100 bg-white">
                   <div className="flex items-center gap-2">
                     <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"><Paperclip className="w-5 h-5" /></button>
-                    <input type="text" placeholder="Type a secure message..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-[#0A5ED6]" />
-                    <button className="p-2.5 bg-[#0A5ED6] text-white hover:bg-blue-600 rounded-xl transition-colors shadow-sm"><Send className="w-4 h-4" /></button>
+                    <input type="text" placeholder="Type a secure message..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-[#3D6C90]" />
+                    <button className="p-2.5 bg-[#3D6C90] text-white hover:bg-blue-600 rounded-xl transition-colors shadow-sm"><Send className="w-4 h-4" /></button>
                   </div>
                 </div>
               </div>
@@ -1052,7 +1055,7 @@ export default function InteractiveProductDemo() {
             <div className="space-y-6 animate-in fade-in duration-300 max-w-4xl mx-auto mt-8">
               <div className="text-center mb-10">
                 <div className="w-20 h-20 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-4 border-4 border-blue-50/50">
-                  <Puzzle className="w-10 h-10 text-[#0A5ED6]" />
+                  <Puzzle className="w-10 h-10 text-[#3D6C90]" />
                 </div>
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <User className="w-4 h-4 text-blue-500" />
@@ -1084,7 +1087,7 @@ export default function InteractiveProductDemo() {
                 </div>
 
                 <div className="flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-2xl">
-                  <Database className="w-8 h-8 text-purple-500 mb-3" />
+                  <Database className="w-8 h-8 text-blue-500 mb-3" />
                   <div className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Local Database</div>
                   <div className="text-xl font-bold text-slate-900">Synced</div>
                 </div>
@@ -1099,7 +1102,7 @@ export default function InteractiveProductDemo() {
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 md:p-8 mt-8">
                 <div className="flex flex-col gap-6">
                   <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
-                    <div className="p-2.5 bg-blue-100 rounded-lg text-[#0A5ED6]">
+                    <div className="p-2.5 bg-blue-100 rounded-lg text-[#3D6C90]">
                       <Puzzle className="w-6 h-6" />
                     </div>
                     <div>
@@ -1116,7 +1119,7 @@ export default function InteractiveProductDemo() {
                       { step: 4, title: "Load Unpacked", desc: <>Enable <strong>\"Developer Mode\"</strong> in the top-right. Click <strong>\"Load unpacked\"</strong> and select the extracted folder.</> },
                     ].map(({ step, title, desc }) => (
                       <div key={step} className="flex flex-col bg-white border border-slate-200 p-5 rounded-xl space-y-3">
-                        <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0A5ED6] text-white font-bold text-xs shrink-0">{step}</div>
+                        <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#3D6C90] text-white font-bold text-xs shrink-0">{step}</div>
                         <h4 className="font-bold text-sm text-slate-900">{title}</h4>
                         <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
                       </div>
@@ -1124,7 +1127,7 @@ export default function InteractiveProductDemo() {
                   </div>
 
                   <div className="pt-4 flex flex-wrap gap-4 border-t border-slate-200 mt-2">
-                    <button className="inline-flex items-center gap-2 bg-[#0A5ED6] hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors shadow-md">
+                    <button className="inline-flex items-center gap-2 bg-[#3D6C90] hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors shadow-md">
                       <Download className="w-4 h-4" /> Download Extension ZIP
                     </button>
                     <button className="inline-flex items-center gap-1.5 border border-slate-200 text-slate-600 hover:bg-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors">
@@ -1142,7 +1145,7 @@ export default function InteractiveProductDemo() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900">
-                    <ClipboardList className="w-6 h-6 text-[#0A5ED6]" /> System Audit Trail
+                    <ClipboardList className="w-6 h-6 text-[#3D6C90]" /> System Audit Trail
                   </h1>
                   <p className="text-sm text-slate-500 mt-1">
                     Immutable operational and administrative activity logs for your organization.
@@ -1155,7 +1158,7 @@ export default function InteractiveProductDemo() {
                     <input
                       type="text"
                       placeholder="Filter logs by actor, action..."
-                      className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A5ED6]"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#3D6C90]"
                     />
                   </div>
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 shrink-0">
@@ -1186,7 +1189,7 @@ export default function InteractiveProductDemo() {
                       {[
                         { timestamp: "2026-09-15 10:45:12", actor: "Ahmed Raza", action: "policy.updated", module: "Security", target: "Global Default", result: "success", color: "bg-blue-100 text-blue-700" },
                         { timestamp: "2026-09-15 10:42:05", actor: "System", action: "incident.assigned", module: "Threats", target: "INC-2041", result: "success", color: "bg-amber-100 text-amber-700" },
-                        { timestamp: "2026-09-15 10:15:30", actor: "Muhid Khan", action: "user.role_changed", module: "IAM", target: "john@aegisone.com", result: "success", color: "bg-purple-100 text-purple-700" },
+                        { timestamp: "2026-09-15 10:15:30", actor: "Muhid Khan", action: "user.role_changed", module: "IAM", target: "john@aegisone.com", result: "success", color: "bg-blue-100 text-blue-700" },
                         { timestamp: "2026-09-15 09:30:00", actor: "System", action: "user.deactivated", module: "IAM", target: "old_employee@aegisone.com", result: "success", color: "bg-rose-100 text-rose-700" },
                         { timestamp: "2026-09-15 08:00:12", actor: "Admin", action: "user.created", module: "IAM", target: "new_hire@aegisone.com", result: "success", color: "bg-emerald-100 text-emerald-700" }
                       ].map((l, i) => (
@@ -1220,7 +1223,7 @@ export default function InteractiveProductDemo() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
                 <div>
                   <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    <Settings className="w-6 h-6 text-[#0A5ED6]" /> Organization Setup
+                    <Settings className="w-6 h-6 text-[#3D6C90]" /> Organization Setup
                   </h1>
                   <p className="text-sm text-slate-500 mt-1">Configure your company structure, departments, and security policies.</p>
                 </div>
@@ -1244,7 +1247,7 @@ export default function InteractiveProductDemo() {
                       { num: 4, title: 'Security' },
                       { num: 5, title: 'Rollout' }
                     ].map((s) => (
-                      <div key={s.num} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${s.num === 1 ? 'bg-[#0A5ED6] text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                      <div key={s.num} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${s.num === 1 ? 'bg-[#3D6C90] text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
                         {s.num === 1 ? <span>{s.num}.</span> : <Check className="w-3.5 h-3.5" />}
                         <span>{s.title}</span>
                       </div>
@@ -1252,7 +1255,7 @@ export default function InteractiveProductDemo() {
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#0A5ED6] h-full rounded-full" style={{ width: '100%' }}></div>
+                  <div className="bg-[#3D6C90] h-full rounded-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
 
@@ -1301,7 +1304,7 @@ export default function InteractiveProductDemo() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                     <div>
                       <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-[#0A5ED6]" /> Company Identity Details
+                        <Building2 className="w-5 h-5 text-[#3D6C90]" /> Company Identity Details
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">These parameters establish your organization's tenant configuration.</p>
                     </div>
@@ -1340,7 +1343,7 @@ export default function InteractiveProductDemo() {
               </div>
             </div>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );
@@ -1357,13 +1360,13 @@ export default function InteractiveProductDemo() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 max-w-full">
-          <button aria-label="Open fullscreen demo" onClick={() => setIsModalOpen(true)} className="px-3 sm:px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
-            <Monitor className="w-3.5 h-3.5 text-[#0A5ED6]" /> <span className="hidden sm:inline">Fullscreen Modal</span>
+          <button aria-label="Fullscreen Modal" onClick={() => setIsModalOpen(true)} className="px-3 sm:px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+            <Monitor className="w-3.5 h-3.5 text-[#3D6C90]" /> <span className="hidden sm:inline">Fullscreen Modal</span>
           </button>
           <button onClick={handleSimulateAttack} className="px-3 sm:px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap">
             <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> <span className="hidden min-[390px]:inline">Trigger Alert</span><span className="min-[390px]:hidden">Alert</span>
           </button>
-          <a href="/login" className="px-3 sm:px-4 py-2 rounded-xl bg-[#0A5ED6] hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
+          <a href="/login" className="px-3 sm:px-4 py-2 rounded-xl bg-[#3D6C90] hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <span>Open App</span> <ArrowRight className="w-3.5 h-3.5" />
           </a>
         </div>
@@ -1380,7 +1383,7 @@ export default function InteractiveProductDemo() {
           {/* Top Bar for Modal */}
           <div className="px-3 sm:px-6 py-3.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <Shield className="w-5 h-5 text-[#0A5ED6]" />
+              <Shield className="w-5 h-5 text-[#3D6C90]" />
               <span className="font-bold text-xs sm:text-sm text-white truncate">AegisOne Unified Shield — Live Interactive Sandbox</span>
             </div>
             <button aria-label="Close fullscreen demo" onClick={() => setIsModalOpen(false)} className="px-2.5 sm:px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-bold flex items-center gap-2 shrink-0">

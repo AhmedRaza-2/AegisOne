@@ -29,16 +29,16 @@ export default function SiteHeader() {
             initial={{ y: -100 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`fixed top-0 w-full left-0 right-0 z-50 border-b transition-all duration-700 ease-in-out ${
+            className={`fixed top-0 w-full left-0 right-0 z-50 border-b transition-[padding,background-color,border-color] duration-500 ease-out ${
                 isScrolled
                     ? "px-3 sm:px-6 pt-2 lg:pt-3 pb-0 bg-transparent border-transparent"
-                    : "px-3 sm:px-6 py-3 bg-white/80 border-zinc-100"
+                    : "px-3 sm:px-6 py-3 bg-white/90 backdrop-blur border-[#E1EBF2]"
             }`}
         >
             <div
-                className={`relative mx-auto border transition-all duration-700 ease-in-out ${
+                className={`relative mx-auto border transition-[max-width,padding,background-color,border-color,box-shadow,border-radius] duration-500 ease-out ${
                     isScrolled
-                        ? "max-w-6xl rounded-full bg-gradient-to-r from-[#4A7FA7]/80 to-[#1A3D63]/80 backdrop-blur-xl shadow-xl shadow-[#1A3D63]/20 border-white/10 px-3.5 lg:px-6 py-2.5"
+                        ? "max-w-6xl rounded-full bg-[#0A1931]/95 backdrop-blur-xl shadow-lg shadow-[#0A1931]/20 border-white/10 px-3.5 lg:px-6 py-2.5"
                         : "max-w-7xl rounded-none bg-transparent shadow-none border-transparent px-0 py-0"
                 }`}
             >
@@ -52,6 +52,7 @@ export default function SiteHeader() {
                         <img
                             src="/logo.png"
                             alt="AegisOne Logo"
+                            width={36} height={36}
                             className="h-8 sm:h-9 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform duration-200 drop-shadow-xs"
                         />
                         <div className="flex flex-col text-left">
@@ -73,14 +74,14 @@ export default function SiteHeader() {
                     </a>
 
                     {/* Desktop Navigation */}
-                    <nav id="desktop-nav" className="hidden lg:flex items-center gap-0.5 xl:gap-1">
+                    <nav id="desktop-nav" aria-label="Primary" className="hidden lg:flex items-center gap-0.5 xl:gap-1">
                         {navLinks.map((link, index) => (
                             <a
                                 key={index}
                                 href={link.href}
                                 className={`px-2.5 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors duration-500 ${
                                     isScrolled
-                                        ? "text-blue-100/80 hover:text-white hover:bg-white/10"
+                                        ? "text-[#B3CFE5] hover:text-white hover:bg-white/10"
                                         : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/70"
                                 }`}
                             >
@@ -95,7 +96,7 @@ export default function SiteHeader() {
                             href="/login"
                             className={`text-sm font-medium px-3 py-2 rounded-lg whitespace-nowrap transition-colors duration-500 ${
                                 isScrolled
-                                    ? "text-blue-100/80 hover:text-white"
+                                    ? "text-[#B3CFE5] hover:text-white"
                                     : "text-zinc-600 hover:text-zinc-950"
                             }`}
                         >
@@ -106,11 +107,11 @@ export default function SiteHeader() {
                             className={`text-sm font-semibold px-4 py-2 rounded-full shadow-xs whitespace-nowrap shrink-0 transition-colors duration-500 flex items-center gap-1.5 ${
                                 isScrolled
                                     ? "bg-white text-[#1A3D63] hover:bg-blue-50"
-                                    : "bg-[#0A5ED6] hover:bg-[#0952be] text-white rounded-lg"
+                                    : "bg-[#3D6C90] hover:bg-[#2E5580] text-white rounded-lg"
                             }`}
                         >
                             <span>Book Demo</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
+                            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                         </a>
                     </div>
 
@@ -134,6 +135,8 @@ export default function SiteHeader() {
                             }`}
                             onClick={() => setIsOpen(!isOpen)}
                             aria-label="Toggle navigation menu"
+                            aria-expanded={isOpen}
+                            aria-controls="mobile-nav"
                             id="mobile-nav-toggle"
                         >
                             {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -150,6 +153,7 @@ export default function SiteHeader() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
+                        id="mobile-nav"
                         className="lg:hidden mt-2 pt-3 border border-slate-200 bg-white backdrop-blur-xl rounded-xl p-3 shadow-lg text-left"
                     >
                         <div className="flex flex-col gap-1">
@@ -169,7 +173,7 @@ export default function SiteHeader() {
                             <a
                                 href="/register"
                                 onClick={() => setIsOpen(false)}
-                                className="w-full text-center text-sm font-semibold bg-[#0A5ED6] hover:bg-[#0952be] text-white py-2.5 rounded-lg shadow-xs transition-colors"
+                                className="w-full text-center text-sm font-semibold bg-[#3D6C90] hover:bg-[#2E5580] text-white py-2.5 rounded-lg shadow-xs transition-colors"
                             >
                                 Get Started
                             </a>

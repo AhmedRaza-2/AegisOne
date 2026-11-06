@@ -535,7 +535,7 @@ function _injectStyles() {
       display: none;
       width: 42px; height: 42px;
       background: rgba(15, 23, 42, 0.94);
-      border: 1.5px solid #3b82f6;
+      border: 1.5px solid #5C93BE;
       border-radius: 50%;
       align-items: center; justify-content: center;
       font-size: 18px;
@@ -625,7 +625,7 @@ function _injectStyles() {
       cursor: move !important;
     }
     .aegis-brand { display: flex !important; align-items: center !important; gap: 6px !important; }
-    .aegis-shield-icon { font-size: 13px !important; filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5)); }
+    .aegis-shield-icon { font-size: 13px !important; filter: drop-shadow(0 0 6px rgba(92,147,190, 0.5)); }
     .aegis-brand-name { font-weight: 700 !important; font-size: 12px !important; color: #f8fafc !important; letter-spacing: -0.2px !important; }
     .aegis-header-controls { display: flex !important; gap: 3px !important; }
     .aegis-ctrl-btn {
@@ -648,7 +648,7 @@ function _injectStyles() {
     .aegis-status.caution { border-color: rgba(251,191,36,0.3) !important; background: rgba(251,191,36,0.1) !important; }
     .aegis-status.warning { border-color: rgba(249,115,22,0.35) !important; background: rgba(249,115,22,0.12) !important; }
     .aegis-status.danger  { border-color: rgba(239,68,68,0.4) !important; background: rgba(239,68,68,0.14) !important; }
-    .aegis-status.scanning{ border-color: rgba(99,102,241,0.3) !important; background: rgba(99,102,241,0.1) !important; }
+    .aegis-status.scanning{ border-color: rgba(74,127,167,0.3) !important; background: rgba(74,127,167,0.1) !important; }
 
     .aegis-s-icon { font-size: 15px !important; flex-shrink: 0 !important; }
     .aegis-s-title { font-weight: 700 !important; font-size: 11.5px !important; color: #f8fafc !important; letter-spacing: -0.1px !important; }
@@ -668,7 +668,7 @@ function _injectStyles() {
     .aegis-actions.hidden { display: none !important; }
     .aegis-btn-primary {
       flex: 1.2 !important; padding: 6px 8px !important; font-size: 10.5px !important; font-weight: 700 !important;
-      background: linear-gradient(135deg, #4f46e5, #9333ea) !important;
+      background: linear-gradient(135deg, #3D6C90, #9333ea) !important;
       color: #ffffff !important; border: none !important; border-radius: 7px !important; cursor: pointer !important;
       transition: all 0.2s !important; font-family: inherit !important;
       box-shadow: 0 3px 10px rgba(124, 58, 237, 0.35) !important;

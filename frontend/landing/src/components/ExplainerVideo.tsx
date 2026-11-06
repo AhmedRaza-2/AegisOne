@@ -75,16 +75,16 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
   return (
     <section id="how-it-works" className="min-h-[90dvh] flex flex-col justify-center py-20 bg-slate-950 text-white relative overflow-hidden border-t border-b border-slate-900">
       {/* Decorative cyber grid lines */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] opacity-25 pointer-events-none" />
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#0A5ED6]/10 rounded-full filter blur-[100px] pointer-events-none" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0A1931_1px,transparent_1px),linear-gradient(to_bottom,#0A1931_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] opacity-25 pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#3D6C90]/10 rounded-full filter blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full filter blur-[100px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
 
         {/* Header Block */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
-          <div className="inline-flex items-center gap-2 bg-[#0A5ED6]/15 border border-[#0A5ED6]/30 px-3.5 py-1.5 rounded-full">
-            <Tv className="w-3.5 h-3.5 text-[#0A5ED6]" />
+          <div className="inline-flex items-center gap-2 bg-[#3D6C90]/15 border border-[#3D6C90]/30 px-3.5 py-1.5 rounded-full">
+            <Tv className="w-3.5 h-3.5 text-[#3D6C90]" />
             <span className="font-sans text-xs font-semibold uppercase tracking-wider text-blue-400">
               Interactive 3D Simulation
             </span>
@@ -141,7 +141,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 <div className="flex items-center gap-4">
                   <button
                     onClick={togglePlay}
-                    className="w-10 h-10 rounded-full bg-[#0A5ED6] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-[#3D6C90] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
                     title={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}

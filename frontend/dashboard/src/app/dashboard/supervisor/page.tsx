@@ -13,7 +13,7 @@ const fadeUp = {
 };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
-const COLORS = ["#ef4444", "#f59e0b", "#8b5cf6", "#22c55e"];
+const COLORS = ["#ef4444", "#f59e0b", "#5C93BE", "#22c55e"];
 
 export default function SupervisorDashboard() {
   const { user, theme, logout } = useAuth();
@@ -79,7 +79,7 @@ export default function SupervisorDashboard() {
   const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
   const tooltipBg = isDark ? "#1e293b" : "#ffffff";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  const tooltipColor = isDark ? "#ffffff" : "#0f172a";
+  const tooltipColor = isDark ? "#ffffff" : "#0A1931";
 
   // Use real data where possible
   const totalEmployees = realStats ? realStats.total_users : 0;
@@ -140,7 +140,7 @@ export default function SupervisorDashboard() {
     return Object.keys(types).map(k => ({
       name: k,
       value: types[k],
-      color: colorMap[k] || "#8b5cf6"
+      color: colorMap[k] || "#5C93BE"
     })).filter(d => d.value > 0);
   }, [realStats]);
 
@@ -154,7 +154,7 @@ export default function SupervisorDashboard() {
     return [
       { label: "Employees", value: totalEmployees, icon: Users, color: "text-blue-600 dark:text-blue-400", sub: "Active in Dept" },
       { label: "Protected Devices", value: protectedDevices, icon: ShieldCheck, color: "text-emerald-600 dark:text-emerald-400", sub: "AegisOne Active" },
-      { label: "Total Scanned", value: totalScansVal.toLocaleString(), icon: Scan, color: "text-indigo-600 dark:text-indigo-400", sub: `${timeRange.toUpperCase()} Dept Activity` },
+      { label: "Total Scanned", value: totalScansVal.toLocaleString(), icon: Scan, color: "text-brand-600 dark:text-brand-400", sub: `${timeRange.toUpperCase()} Dept Activity` },
       { label: blockLabel, value: blockedVal.toLocaleString(), icon: ShieldAlert, color: "text-amber-600 dark:text-amber-400", sub: blockSub },
       { label: "High Risk", value: employeeRisk.filter(e => e.riskScore > 50).length, icon: AlertTriangle, color: "text-red-600 dark:text-red-400", sub: "Needs Attention" },
       { label: "Security Score", value: `${avgSecurityScore}/100`, icon: BarChart3, color: "text-brand-600 dark:text-brand-400", sub: avgSecurityScore >= 80 ? "Good Standing" : "Needs Attention" },
@@ -197,7 +197,7 @@ export default function SupervisorDashboard() {
               <button
                 key={t.id}
                 onClick={() => setTimeRange(t.id as any)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#5C93BE] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
               >
                 {t.label}
               </button>
@@ -231,8 +231,8 @@ export default function SupervisorDashboard() {
             <AreaChart data={threatTrendsData}>
               <defs>
                 <linearGradient id="gradScans" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4F84F8" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#4F84F8" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#5C93BE" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#5C93BE" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gradBlocked" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
@@ -243,7 +243,7 @@ export default function SupervisorDashboard() {
               <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, fontSize: 12, color: tooltipColor }} labelStyle={{ color: tooltipColor }} />
-              <Area type="monotone" dataKey="scans" name="Total Scans" stroke="#4F84F8" fill="url(#gradScans)" strokeWidth={2} />
+              <Area type="monotone" dataKey="scans" name="Total Scans" stroke="#5C93BE" fill="url(#gradScans)" strokeWidth={2} />
               <Area type="monotone" dataKey="threats" name="Blocked Threats" stroke="#ef4444" fill="url(#gradBlocked)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -361,7 +361,7 @@ export default function SupervisorDashboard() {
                     <p className="text-sm text-surface-800 dark:text-surface-200 truncate">{inc.incident_id} · <span className="capitalize">{(inc.report_type || "").replace("_", " ")}</span></p>
                     <p className="text-[10px] text-surface-500 truncate first-letter:uppercase">{inc.evidence?.findings?.[0] || inc.detection_event_ref || "No details recorded"}</p>
                   </div>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${inc.status === "open" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : inc.status === "investigating" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : inc.status === "resolved" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : inc.status === "escalated" ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" : "bg-surface-200 text-surface-700 dark:bg-surface-700 dark:text-surface-400"}`}>{inc.status.replace("_", " ")}</span>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${inc.status === "open" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : inc.status === "investigating" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : inc.status === "resolved" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : inc.status === "escalated" ? "bg-brand-500/10 text-brand-600 dark:text-brand-400" : "bg-surface-200 text-surface-700 dark:bg-surface-700 dark:text-surface-400"}`}>{inc.status.replace("_", " ")}</span>
                 </div>
               );
             })

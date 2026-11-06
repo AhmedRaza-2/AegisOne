@@ -128,7 +128,7 @@ function SidebarContent({
 
         {item.label === "Communication" && unreadCount > 0 && (
           collapsed ? (
-            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-[#141A29]"></div>
+            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-[#0F2038]"></div>
           ) : (
             <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-sm">
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -146,7 +146,7 @@ function SidebarContent({
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="AegisOne Logo" className="w-9 h-9 object-contain shrink-0" />
             <div className="flex flex-col">
-              <span className="text-[17px] font-bold tracking-tight text-brand-600 dark:text-[#4F84F8] leading-tight">AegisOne</span>
+              <span className="text-[17px] font-bold tracking-tight text-brand-600 dark:text-[#5C93BE] leading-tight">AegisOne</span>
               <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest font-semibold">{roleBadge?.label || "Enterprise"} Portal</span>
             </div>
           </div>
@@ -479,7 +479,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex items-center justify-center">
+      <div className="min-h-screen bg-surface-50 dark:bg-[#0A1931] flex items-center justify-center">
         <Shield className="w-8 h-8 text-brand-500 animate-pulse" />
       </div>
     );
@@ -497,9 +497,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogout = () => { logout(); router.replace("/login"); };
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-[#0F1423] flex transition-colors duration-300 font-sans">
+    <div className="min-h-screen bg-surface-50 dark:bg-[#0A1931] flex transition-colors duration-300 font-sans">
       <aside
-        className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#141A29] shrink-0 h-screen sticky top-0 z-50 ${isDragging ? '' : 'transition-all duration-300'}`}
+        className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#0F2038] shrink-0 h-screen sticky top-0 z-50 ${isDragging ? '' : 'transition-all duration-300'}`}
         style={{ width: collapsed ? 80 : sidebarWidth }}
       >
         <SidebarContent
@@ -525,35 +525,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }}
           />
         )}
-        <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#1A2133] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-30 shadow-sm">
+        <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-white dark:bg-[#14284A] border border-surface-200 dark:border-white/[0.1] flex items-center justify-center text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors z-30 shadow-sm">
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </aside>
 
       <div className="flex-1 flex flex-col min-h-screen">
-        <header className="h-16 border-b border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#0F1423] flex items-center justify-between px-6 sticky top-0 z-30 transition-colors duration-300">
+        <header className="h-16 border-b border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#0A1931] flex items-center justify-between px-6 sticky top-0 z-30 transition-colors duration-300">
           <div className="flex-1 flex items-center">
-            <button onClick={() => setMobileOpen(true)} className="md:hidden mr-4 p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04]">
+            <button onClick={() => setMobileOpen(true)} aria-label="Open navigation menu" className="md:hidden mr-4 p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04]">
               <Menu className="w-5 h-5 text-surface-500 dark:text-surface-400" />
             </button>
             <div className="relative w-full max-w-md hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
               <input
                 type="text"
-                placeholder="Search logs, threats, endpoints..."
-                className="w-full bg-surface-100 dark:bg-[#141A29] border border-transparent dark:border-transparent rounded-full pl-9 pr-4 py-2 text-sm text-surface-900 dark:text-white placeholder:text-surface-500 focus:outline-none focus:border-brand-500 dark:focus:ring-1 dark:focus:ring-brand-500/50 transition-colors"
+                placeholder="Search logs, threats, endpoints…" aria-label="Search logs, threats and endpoints" autoComplete="off" spellCheck={false}
+                className="w-full bg-surface-100 dark:bg-[#0F2038] border border-transparent dark:border-transparent rounded-full pl-9 pr-4 py-2 text-sm text-surface-900 dark:text-white placeholder:text-surface-500 focus:outline-none focus:border-brand-500 dark:focus:ring-1 dark:focus:ring-brand-500/50 transition-colors"
               />
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-surface-500 dark:text-surface-400 mr-2">
-              System Status: <span className={`flex items-center gap-1.5 ${apiOffline ? 'text-red-500' : 'text-surface-900 dark:text-white'}`}><span className={`w-1.5 h-1.5 rounded-full ${apiOffline ? 'bg-red-500' : 'bg-[#4F84F8] animate-pulse shadow-[0_0_8px_#4F84F8]'}`}></span> {apiOffline ? 'Offline' : 'Operational'}</span>
+              System Status: <span className={`flex items-center gap-1.5 ${apiOffline ? 'text-red-500' : 'text-surface-900 dark:text-white'}`}><span className={`w-1.5 h-1.5 rounded-full ${apiOffline ? 'bg-red-500' : 'bg-[#5C93BE] animate-pulse shadow-[0_0_8px_#5C93BE]'}`}></span> {apiOffline ? 'Offline' : 'Operational'}</span>
             </div>
             <div className="hidden sm:block h-5 w-px bg-surface-200 dark:bg-white/[0.1] mx-1"></div>
 
             <div className="relative" ref={notificationsRef}>
               <button
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
+                aria-label={bellCount > 0 ? `Notifications, ${bellCount} unread` : "Notifications"} aria-expanded={notificationsOpen}
                 className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center"
               >
                 <Bell className="w-4 h-4" />
@@ -651,7 +652,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
             </div>
             <div className="relative" ref={activityRef}>
-              <button onClick={() => setActivityOpen(!activityOpen)} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center">
+              <button onClick={() => setActivityOpen(!activityOpen)} aria-label="System activity" aria-expanded={activityOpen} className="text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors relative flex items-center justify-center">
                 <Activity className="w-4 h-4" />
               </button>
 
@@ -693,7 +694,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <button
                 onClick={() => setSettingsOpen(!settingsOpen)}
                 className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-surface-100 dark:hover:bg-white/[0.04] text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors"
-                title="Settings"
+                title="Settings" aria-label="Settings and account" aria-expanded={settingsOpen}
               >
                 <Settings className="w-5 h-5" />
               </button>
@@ -707,20 +708,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="text-[10px] text-surface-500 dark:text-surface-400 truncate uppercase tracking-wider font-medium mt-0.5">
                       {roleBadge?.label || user?.role || "Role"}{(user?.role === "admin" || user?.role === "super_admin") ? "" : (user?.department ? ` • ${user.department}` : "")}
                     </div>
-                    <div className="text-[10px] text-brand-600 dark:text-[#4F84F8] font-medium truncate mt-1">
+                    <div className="text-[10px] text-brand-600 dark:text-[#5C93BE] font-medium truncate mt-1">
                       {user?.email || "No email available"}
                     </div>
                   </div>
                   <div className="py-1">
-                    <button onClick={() => { toggleTheme(); setSettingsOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#4F84F8] dark:hover:bg-white/[0.04] transition-colors text-left">
+                    <button onClick={() => { toggleTheme(); setSettingsOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#5C93BE] dark:hover:bg-white/[0.04] transition-colors text-left">
                       {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                       {theme === "dark" ? "Light Mode" : "Dark Mode"}
                     </button>
-                    <button onClick={handlePasswordReset} disabled={resetting} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#4F84F8] dark:hover:bg-white/[0.04] transition-colors text-left disabled:opacity-50">
+                    <button onClick={handlePasswordReset} disabled={resetting} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#5C93BE] dark:hover:bg-white/[0.04] transition-colors text-left disabled:opacity-50">
                       <Key className="w-4 h-4" />
                       {resetting ? "Sending..." : "Reset Password"}
                     </button>
-                    <button onClick={() => { setSettingsOpen(false); router.push(user?.role === 'super_admin' || user?.role === 'admin' ? '/dashboard/admin/settings' : (user?.role === 'manager' || user?.role === 'department_admin' || user?.role === 'office_admin' ? '/dashboard/supervisor/settings' : '/dashboard/employee/settings')); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#4F84F8] dark:hover:bg-white/[0.04] transition-colors text-left">
+                    <button onClick={() => { setSettingsOpen(false); router.push(user?.role === 'super_admin' || user?.role === 'admin' ? '/dashboard/admin/settings' : (user?.role === 'manager' || user?.role === 'department_admin' || user?.role === 'office_admin' ? '/dashboard/supervisor/settings' : '/dashboard/employee/settings')); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:text-brand-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:text-[#5C93BE] dark:hover:bg-white/[0.04] transition-colors text-left">
                       <UserCog className="w-4 h-4" />
                       Account Settings
                     </button>

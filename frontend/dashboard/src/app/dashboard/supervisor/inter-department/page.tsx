@@ -37,13 +37,13 @@ export default function InterDepartmentPage() {
       </motion.div>
 
       <motion.div variants={fadeUp} className="flex gap-2 p-1 bg-surface-100 dark:bg-surface-900 rounded-lg w-fit">
-        <button onClick={() => setActiveTab("requests")} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "requests" ? "bg-white dark:bg-[#1A2133] text-surface-900 dark:text-white shadow-sm" : "text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}>
+        <button onClick={() => setActiveTab("requests")} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "requests" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}>
           <div className="flex items-center gap-2"><ArrowRightLeft className="w-4 h-4" /> Department Requests</div>
         </button>
-        <button onClick={() => setActiveTab("escalations")} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "escalations" ? "bg-white dark:bg-[#1A2133] text-surface-900 dark:text-white shadow-sm" : "text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}>
+        <button onClick={() => setActiveTab("escalations")} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "escalations" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}>
           <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Escalation Queue</div>
         </button>
-        <button onClick={() => setActiveTab("notes")} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "notes" ? "bg-white dark:bg-[#1A2133] text-surface-900 dark:text-white shadow-sm" : "text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}>
+        <button onClick={() => setActiveTab("notes")} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "notes" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}>
           <div className="flex items-center gap-2"><FileText className="w-4 h-4" /> Shared Notes</div>
         </button>
       </motion.div>

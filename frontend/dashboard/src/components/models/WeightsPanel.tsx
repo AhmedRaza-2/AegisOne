@@ -62,7 +62,7 @@ export function WeightsPanel({ onChange }: { onChange?: () => void }) {
     <div className="stat-card space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Server className="w-4 h-4 text-purple-500" /> Improved URL model weights (trained on this server)</h2>
+          <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Server className="w-4 h-4 text-brand-500" /> Improved URL model weights (trained on this server)</h2>
           <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 max-w-2xl">
             Fine-tunes the URL model&apos;s decision layers on your verified incidents. Training runs on your AegisOne server, never on a laptop. The result goes live only if it
             beats the current model on data it has never seen without adding false alarms. Sharing the result with AegisOne is optional, and only the small weights file leaves your network.

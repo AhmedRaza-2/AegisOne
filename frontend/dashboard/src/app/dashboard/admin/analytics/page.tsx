@@ -93,7 +93,7 @@ export default function AdminAnalyticsPage() {
   const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
   const tooltipBg = isDark ? "#1e293b" : "#ffffff";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  const tooltipColor = isDark ? "#ffffff" : "#0f172a";
+  const tooltipColor = isDark ? "#ffffff" : "#0A1931";
 
   // Filtered list of users for department member breakdown
   const filteredUsers = userList.filter((u) => {
@@ -194,10 +194,10 @@ export default function AdminAnalyticsPage() {
         <div className="stat-card">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-surface-500">Protected Employees</span>
-            <Users className="w-4 h-4 text-purple-500" />
+            <Users className="w-4 h-4 text-brand-500" />
           </div>
           <p className="text-2xl font-bold text-surface-900 dark:text-white">{userList.length}</p>
-          <p className="text-[11px] text-purple-400 mt-1 font-medium">Active Credentials</p>
+          <p className="text-[11px] text-brand-400 mt-1 font-medium">Active Credentials</p>
         </div>
       </motion.div>
 
@@ -214,7 +214,7 @@ export default function AdminAnalyticsPage() {
             onClick={() => updateSelectedDept("all")}
             className={`p-4 rounded-2xl border text-left transition-all ${selectedDeptId === "all"
                 ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
-                : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+                : "bg-white dark:bg-[#0F2038] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
               }`}
           >
             <div className="flex items-center justify-between mb-1">
@@ -233,7 +233,7 @@ export default function AdminAnalyticsPage() {
                 onClick={() => updateSelectedDept(dept.id)}
                 className={`p-4 rounded-2xl border text-left transition-all ${isSelected
                     ? "bg-brand-50/60 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-500/50 shadow-sm"
-                    : "bg-white dark:bg-[#141A29] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
+                    : "bg-white dark:bg-[#0F2038] border-surface-200 dark:border-white/[0.06] text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-white/[0.02]"
                   }`}
               >
                 <div className="flex items-start justify-between mb-1 gap-2">
@@ -367,7 +367,7 @@ export default function AdminAnalyticsPage() {
                     </td>
                     <td className="py-3 px-2">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${u.role === "admin" || u.role === "super_admin"
-                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                          ? "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
                           : u.role === "manager" || u.role === "department_admin"
                             ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                             : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"

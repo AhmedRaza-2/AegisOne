@@ -185,7 +185,7 @@ body {
     border-radius: var(--radius-md);
     border: none; cursor: pointer;
     box-shadow: 0 1px 2px rgba(10,25,49,0.10), 0 4px 12px rgba(74,127,167,0.30);
-    transition: all 180ms ease;
+    transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, opacity 180ms ease;
     width: 100%;
   }
   .btn-primary:hover {
@@ -233,5 +233,38 @@ body {
     font-family: 'Inter', sans-serif;
     font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
     border: 1px solid transparent;
+  }
+}
+
+/* ─── Interaction polish (web-interface-guidelines pass) ─────────────────── */
+/* Visible keyboard focus on every control; inputs keep their own border treatment. */
+a:focus-visible, button:focus-visible, summary:focus-visible,
+[role="button"]:focus-visible, [role="tab"]:focus-visible, [tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--blue-500) !important;
+  outline-offset: 2px;
+}
+.dark a:focus-visible, .dark button:focus-visible, .dark summary:focus-visible,
+.dark [role="button"]:focus-visible, .dark [role="tab"]:focus-visible {
+  outline-color: var(--sky-300) !important;
+}
+
+/* `transition: all` animates layout properties; limit it to what actually changes. */
+.transition-all {
+  transition-property: color, background-color, border-color, fill, stroke, opacity, box-shadow, transform, width, height;
+}
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+
+button, a, [role="button"], select, summary { touch-action: manipulation; }
+h1, h2, h3 { text-wrap: balance; }
+.tabular, table, [data-numeric] { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

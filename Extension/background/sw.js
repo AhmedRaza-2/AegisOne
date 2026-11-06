@@ -23,6 +23,11 @@ import { getEvents, storeEvent } from "./event-store.js";
 import { startSync, flushNow, fetchOrgPolicy, ensureDeviceId } from "./sync.js";
 import { enqueue, cancelKey } from "./requestQueue.js";
 
+// Content scripts keep short-lived caches (e-mail verdicts keyed by sender + subject) in session storage, which
+// lives in memory and is never written to disk. Session storage is service-worker-only unless opened up here;
+// nothing else is stored there.
+chrome.storage.session.setAccessLevel?.({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" })?.catch?.(() => {});
+
 // ── Global State ──────────────────────────────────────────
 let SHIELD_ENABLED = true;
 const _sessionAllowedUrls = new Set();
@@ -920,7 +925,7 @@ function _setBadge(tabId, state, score = null) {
     safe: { text: "✓", color: "#10b981" },
     warning: { text: "⚠", color: "#f59e0b" },
     danger: { text: "⚠", color: "#ef4444" },
-    scanning: { text: "...", color: "#6366f1" },
+    scanning: { text: "...", color: "#4A7FA7" },
     unknown: { text: "?", color: "#64748b" },
   };
   const cfg = configs[state] || configs.unknown;

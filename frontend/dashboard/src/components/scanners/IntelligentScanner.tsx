@@ -97,25 +97,25 @@ export function IntelligentScanner() {
   };
 
   return (
-    <div className="p-6 md:p-8 rounded-3xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] shadow-xl w-full">
+    <div className="p-6 md:p-8 rounded-3xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] shadow-xl w-full">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-surface-900 dark:text-white flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-[#4F84F8]" /> Intelligent Scanner
+            <Sparkles className="w-6 h-6 text-[#5C93BE]" /> Intelligent Scanner
           </h2>
           <p className="text-sm text-surface-500 mt-1">Paste text, URLs, or drop files. AegisOne will auto-detect and route them.</p>
         </div>
         
-        <div className="flex items-center bg-surface-100 dark:bg-[#141A29] rounded-xl p-1 border border-surface-200 dark:border-white/[0.04]">
+        <div className="flex items-center bg-surface-100 dark:bg-[#0F2038] rounded-xl p-1 border border-surface-200 dark:border-white/[0.04]">
           <button
             onClick={() => setMode('intelligent')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${mode === 'intelligent' ? 'bg-[#4F84F8] text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${mode === 'intelligent' ? 'bg-[#5C93BE] text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200'}`}
           >
             <ShieldCheck className="w-4 h-4" /> Local AI
           </button>
           <button
             onClick={() => setMode('cloud')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${mode === 'cloud' ? 'bg-[#4F84F8] text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${mode === 'cloud' ? 'bg-[#5C93BE] text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200'}`}
           >
             <Cloud className="w-4 h-4" /> Cloud Deep Scan
           </button>
@@ -128,7 +128,7 @@ export function IntelligentScanner() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Paste suspicious text or URLs here..."
-            className="w-full h-40 bg-surface-50 dark:bg-[#0B0F19] border border-surface-200 dark:border-white/[0.1] rounded-2xl p-4 text-sm focus:outline-none focus:border-[#4F84F8]/50 text-surface-900 dark:text-white resize-none"
+            className="w-full h-40 bg-surface-50 dark:bg-[#071426] border border-surface-200 dark:border-white/[0.1] rounded-2xl p-4 text-sm focus:outline-none focus:border-[#5C93BE]/50 text-surface-900 dark:text-white resize-none"
           />
         </div>
 
@@ -136,12 +136,12 @@ export function IntelligentScanner() {
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className="w-full h-40 bg-surface-50 dark:bg-[#0B0F19] border-2 border-dashed border-surface-200 dark:border-white/[0.1] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-[#4F84F8]/50 hover:bg-[#4F84F8]/5 transition-all text-center p-4"
+          className="w-full h-40 bg-surface-50 dark:bg-[#071426] border-2 border-dashed border-surface-200 dark:border-white/[0.1] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-[#5C93BE]/50 hover:bg-[#5C93BE]/5 transition-all text-center p-4"
         >
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
           {file ? (
             <>
-              {file.type.startsWith('image/') ? <ImageIcon className="w-8 h-8 text-[#4F84F8] mb-2" /> : <FileText className="w-8 h-8 text-[#4F84F8] mb-2" />}
+              {file.type.startsWith('image/') ? <ImageIcon className="w-8 h-8 text-[#5C93BE] mb-2" /> : <FileText className="w-8 h-8 text-[#5C93BE] mb-2" />}
               <span className="text-sm font-bold text-surface-900 dark:text-white truncate max-w-[200px]">{file.name}</span>
               <span className="text-xs text-surface-500 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
             </>
@@ -159,7 +159,7 @@ export function IntelligentScanner() {
         <button
           onClick={handleScan}
           disabled={loading || (!input.trim() && !file)}
-          className="w-full py-4 bg-[#4F84F8] disabled:opacity-50 text-white rounded-2xl font-bold text-sm hover:bg-[#3D6CE5] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#4F84F8]/20 disabled:shadow-none hover:shadow-[#4F84F8]/40"
+          className="w-full py-4 bg-[#5C93BE] disabled:opacity-50 text-white rounded-2xl font-bold text-sm hover:bg-[#3D6C90] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#5C93BE]/20 disabled:shadow-none hover:shadow-[#5C93BE]/40"
         >
           {loading ? <Activity className="w-5 h-5 animate-spin" /> : 'Run Intelligent Scan'}
         </button>

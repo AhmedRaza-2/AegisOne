@@ -23,7 +23,7 @@ const HeroSection = ({ onSelectPlan }) => {
     };
 
     return (
-        <section className="relative overflow-hidden px-4 min-h-svh bg-[#F8FAFC] md:bg-gradient">
+        <section className="relative overflow-hidden px-4 min-h-svh bg-[#F6FAFD] md:bg-gradient">
             {/* Modern Cyber Grid, Radar Rings & Ambient Glow Background */}
             <HeroBackground />
 
@@ -35,7 +35,7 @@ const HeroSection = ({ onSelectPlan }) => {
                     transition={{ duration: 0.8, delay: 0.2 }}
                     className="mt-4 md:mt-10 inline-flex items-center gap-2 px-3.5 py-2 text-[11px] sm:text-xs font-medium rounded-full border border-slate-200 md:border-gradient-border bg-white text-slate-600 md:bg-white/50 md:text-zinc-700 shadow-sm md:shadow-2xs"
                 >
-                    <Sparkles className="w-3.5 h-3.5 text-[#0A5ED6]" />
+                    <Sparkles className="w-3.5 h-3.5 text-[#3D6C90]" aria-hidden="true" />
                     <span>Real-time protection for your entire team</span>
                 </motion.div>
 
@@ -45,10 +45,10 @@ const HeroSection = ({ onSelectPlan }) => {
                     transition={{ duration: 0.8, delay: 0.6 }}
                     className="max-w-[22rem] sm:max-w-3xl text-[1.75rem] sm:text-4xl md:text-5xl lg:text-6xl leading-[1.08] tracking-[-0.025em]"
                 >
-                    STOP PHISHING AT THE SOURCE WITH
+                    <span className="font-semibold">Stop phishing at the source</span>
                     <br />
-                    <span className="text-gradient bg-clip-text text-transparent">
-                        AEGISONE
+                    <span className="text-gradient bg-clip-text text-transparent font-semibold">
+                        with AegisOne
                     </span>
                 </motion.h1>
 
@@ -58,7 +58,7 @@ const HeroSection = ({ onSelectPlan }) => {
                     transition={{ duration: 0.8, delay: 0.8 }}
                     className="text-sm sm:text-xl max-w-[22rem] sm:max-w-3xl text-slate-600 leading-6 sm:leading-relaxed"
                 >
-                    Empower your team to browse with complete confidence. AegisOne blocks phishing links, fake login screens, and deceptive downloads in real time — with zero browser slowdowns and 100% privacy.
+                    Empower your team to browse with complete confidence. AegisOne blocks phishing links, fake login screens, and deceptive downloads in real time — with no browser slowdowns, scored on your own server so browsing data never leaves your network.
                 </motion.p>
 
                 <motion.div
@@ -92,22 +92,25 @@ const HeroSection = ({ onSelectPlan }) => {
                     className="grid my-3 md:my-4 max-w-5xl w-full grid-cols-2 md:grid-cols-4 gap-px md:gap-6 text-xs sm:text-base bg-slate-200 md:bg-transparent border border-slate-200 md:border-x-0 md:border-y md:border-zinc-200/60 rounded-2xl md:rounded-none overflow-hidden md:overflow-visible p-px md:px-0 md:py-6"
                 >
                     <div className="text-center bg-white p-4 sm:p-5 md:p-0 md:bg-transparent">
-                        <h2 className="hero-counter text-xl sm:text-3xl font-bold text-slate-900">99.8%</h2>
-                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Threat Prevention</p>
+                        <h2 className="hero-counter text-xl sm:text-3xl font-bold text-slate-900">93%</h2>
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Phishing Links Caught*</p>
                     </div>
                     <div className="text-center bg-white p-4 sm:p-5 md:p-0 md:bg-transparent">
-                        <h2 className="hero-counter primary-gradient text-xl sm:text-3xl font-bold text-[#0A5ED6]">Zero</h2>
-                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Productivity Loss</p>
+                        <h2 className="hero-counter primary-gradient text-xl sm:text-3xl font-bold text-[#3D6C90]">0.8%</h2>
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium">False Alarms on Everyday Pages</p>
                     </div>
                     <div className="text-center bg-white p-4 sm:p-5 md:p-0 md:bg-transparent">
-                        <h2 className="hero-counter primary-gradient text-xl sm:text-3xl font-bold text-[#0A5ED6]">&lt; 15m</h2>
-                        <p className="text-xs sm:text-sm text-slate-500 font-medium">To Deploy Company-Wide</p>
+                        <h2 className="hero-counter primary-gradient text-xl sm:text-3xl font-bold text-[#3D6C90]">&lt; 200 ms</h2>
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Verdict per Link, on CPU</p>
                     </div>
                     <div className="text-center bg-white p-4 sm:p-5 md:p-0 md:bg-transparent">
-                        <h2 className="hero-counter primary-gradient text-xl sm:text-3xl font-bold text-[#0A5ED6]">100%</h2>
-                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Data Sovereignty</p>
+                        <h2 className="hero-counter primary-gradient text-xl sm:text-3xl font-bold text-[#3D6C90]">On-prem</h2>
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Your Data Stays on Your Server</p>
                     </div>
                 </motion.div>
+                <p className="-mt-1 max-w-3xl text-[11px] sm:text-xs text-slate-500">
+                    *Held-out PhreshPhish test set (168,060 URLs) at a 1% false-alarm budget; 0.8% measured on 2,000 ordinary web pages.
+                </p>
 
                 {/* Interactive Real-Time Product Dashboard Sandbox */}
                 <motion.div

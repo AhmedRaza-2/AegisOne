@@ -166,7 +166,7 @@ export default function ReportsPage() {
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs font-medium text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
+            className="px-3 py-2 bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] rounded-xl text-xs font-medium text-surface-900 dark:text-white focus:outline-none focus:border-brand-500"
           >
             {RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>

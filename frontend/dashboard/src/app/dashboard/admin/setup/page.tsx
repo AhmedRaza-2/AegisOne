@@ -469,7 +469,7 @@ export default function AdminSetupPage() {
   const progressPercentage = isSetupCompleted && !isEditingSetup ? 100 : Math.min(100, Math.round((step / 5) * 100));
 
   return (
-    <div className={`space-y-5 bg-transparent text-[#0F172A] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
+    <div className={`space-y-5 bg-transparent text-[#0A1931] dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 ${isDark ? 'dark' : ''}`}>
 
       {toast && (
         <div role="status" className={`fixed bottom-24 right-6 z-[999] px-4 py-3 rounded-xl shadow-2xl text-xs font-bold text-white flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
@@ -503,10 +503,10 @@ export default function AdminSetupPage() {
           </div>
 
           {/* Stepper Header with Horizontal Progress Bar */}
-          <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white">Organization Setup Engine</h3>
+                <h3 className="text-base font-extrabold text-[#0A1931] dark:text-white">Organization Setup Engine</h3>
                 <p className="text-xs text-slate-500">Step {Math.min(5, step)} of 5 — Completed ({progressPercentage}%)</p>
               </div>
 
@@ -522,7 +522,7 @@ export default function AdminSetupPage() {
                       onClick={() => {
                         navigateToStep(s.num);
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${isActive ? 'bg-[#0A5ED6] text-white shadow-sm' : isCompleted ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${isActive ? 'bg-[#3D6C90] text-white shadow-sm' : isCompleted ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
                     >
                       {isCompleted ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <span>{s.num}.</span>}
                       <span>{s.title}</span>
@@ -535,7 +535,7 @@ export default function AdminSetupPage() {
             {/* Top Horizontal Progress Bar */}
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
               <div
-                className="bg-[#0A5ED6] dark:bg-[#4F84F8] h-full transition-all duration-500 ease-out rounded-full"
+                className="bg-[#3D6C90] dark:bg-[#5C93BE] h-full transition-all duration-500 ease-out rounded-full"
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
@@ -548,7 +548,7 @@ export default function AdminSetupPage() {
             {step === 1 && (
               <div id="setup-step-1" tabIndex={-1} className="space-y-5 animate-fadeIn">
                 <div>
-                  <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1 font-display tracking-tight">Organization Profile & Environment</h2>
+                  <h2 className="text-xl font-extrabold text-[#0A1931] dark:text-white mb-1 font-display tracking-tight">Organization Profile & Environment</h2>
                   <p className="text-slate-500 dark:text-slate-400 text-xs">Verify your company profile and deployment environment parameters before structuring your departments.</p>
                 </div>
 
@@ -560,7 +560,7 @@ export default function AdminSetupPage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Organization</p>
-                      <p className="text-sm font-extrabold text-[#0F172A] dark:text-white truncate">{orgName || "INARA"}</p>
+                      <p className="text-sm font-extrabold text-[#0A1931] dark:text-white truncate">{orgName || "INARA"}</p>
                       <span className="text-[11px] font-medium text-[#4A7FA7] dark:text-[#B3CFE5]">{industry || "Cybersecurity"}</span>
                     </div>
                   </div>
@@ -582,18 +582,18 @@ export default function AdminSetupPage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Admin Account</p>
-                      <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate">{employees.find(e => e.role.toLowerCase() === 'admin')?.email || 'Not configured'}</p>
+                      <p className="text-xs font-bold text-[#0A1931] dark:text-white truncate">{employees.find(e => e.role.toLowerCase() === 'admin')?.email || 'Not configured'}</p>
                       <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5"><CheckCircle2 className="w-3 h-3" /> Credentials Provisioned</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Form Card */}
-                <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 md:p-8 shadow-sm space-y-6">
+                <div className="bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 md:p-8 shadow-sm space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.08] pb-4">
                     <div>
-                      <h3 className="text-base font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-[#0A5ED6] dark:text-[#4F84F8]" /> Company Identity Details
+                      <h3 className="text-base font-bold text-[#0A1931] dark:text-white flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-[#3D6C90] dark:text-[#5C93BE]" /> Company Identity Details
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">These parameters establish your organization's tenant configuration across all security modules.</p>
                     </div>
@@ -612,7 +612,7 @@ export default function AdminSetupPage() {
                         value={orgName}
                         onChange={e => setOrgName(e.target.value)}
                         placeholder="INARA"
-                        className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6] disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0A1931] dark:text-white font-semibold outline-none focus:border-[#3D6C90] disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -625,7 +625,7 @@ export default function AdminSetupPage() {
                         value={industry}
                         onChange={e => setIndustry(e.target.value)}
                         placeholder="e.g. Technology / Information Systems"
-                        className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0F172A] dark:text-white font-semibold outline-none focus:border-[#0A5ED6] disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-sm text-[#0A1931] dark:text-white font-semibold outline-none focus:border-[#3D6C90] disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -635,7 +635,7 @@ export default function AdminSetupPage() {
                         disabled={isSetupCompleted && !isEditingSetup}
                         value={timezone}
                         onChange={e => setTimezone(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] text-[#0F172A] dark:text-white rounded-xl px-4 py-3 text-sm font-semibold outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] text-[#0A1931] dark:text-white rounded-xl px-4 py-3 text-sm font-semibold outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <option value="UTC+00:00 (GMT - Universal Time)">UTC+00:00 (GMT - Universal Time)</option>
                         <option value="UTC+05:00 (PKT - Pakistan Standard Time)">UTC+05:00 (PKT - Pakistan Standard Time)</option>
@@ -645,7 +645,7 @@ export default function AdminSetupPage() {
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Default Security Policy</label>
-                      <div className="bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl p-3 flex items-center justify-between text-xs font-semibold">
+                      <div className="bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-xl p-3 flex items-center justify-between text-xs font-semibold">
                         <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                           <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Strict Real-time Scanning
                         </span>
@@ -659,7 +659,7 @@ export default function AdminSetupPage() {
                     <button
                       disabled={!isStep1Valid}
                       onClick={() => navigateToStep(2)}
-                      className="px-8 py-3.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm transition-all shadow-lg flex items-center gap-2 disabled:opacity-50"
+                      className="px-8 py-3.5 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold rounded-xl text-sm transition-all shadow-lg flex items-center gap-2 disabled:opacity-50"
                     >
                       Verify & Continue <ChevronRight className="w-4 h-4" />
                     </button>
@@ -671,7 +671,7 @@ export default function AdminSetupPage() {
             {/* STEP 2: REVIEW & EDIT STRUCTURE */}
             {step === 2 && (
               <div id="setup-step-2" tabIndex={-1} className="space-y-6 animate-fadeIn">
-                <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 flex flex-col gap-4 shadow-sm">
+                <div className="bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 flex flex-col gap-4 shadow-sm">
 
                   {/* Instruction Header Banner */}
                   <div className="px-3.5 py-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/40 flex items-center justify-between text-xs text-blue-900 dark:text-blue-200 font-medium">
@@ -683,7 +683,7 @@ export default function AdminSetupPage() {
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white shrink-0">Organization Hierarchy</h3>
+                      <h3 className="text-base font-extrabold text-[#0A1931] dark:text-white shrink-0">Organization Hierarchy</h3>
                       <span className="text-xs font-bold px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-800 shrink-0">
                         {departments.length} Departments • {employees.length} Members
                       </span>
@@ -696,7 +696,7 @@ export default function AdminSetupPage() {
                           type="button"
                           onClick={() => setStructureViewMode('table')}
                           className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${structureViewMode === 'table'
-                            ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
+                            ? 'bg-white dark:bg-[#0F2038] text-blue-600 dark:text-blue-400 shadow-sm'
                             : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                             }`}
                         >
@@ -706,7 +706,7 @@ export default function AdminSetupPage() {
                           type="button"
                           onClick={() => setStructureViewMode('visual')}
                           className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${structureViewMode === 'visual'
-                            ? 'bg-white dark:bg-[#141A29] text-blue-600 dark:text-blue-400 shadow-sm'
+                            ? 'bg-white dark:bg-[#0F2038] text-blue-600 dark:text-blue-400 shadow-sm'
                             : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                             }`}
                         >
@@ -748,7 +748,7 @@ export default function AdminSetupPage() {
                         <UserPlus className="w-3.5 h-3.5" /> Add Employee
                       </button>
 
-                      <button onClick={() => setIsAddDeptModalOpen(true)} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-indigo-100">
+                      <button onClick={() => setIsAddDeptModalOpen(true)} className="px-3 py-1.5 bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800 font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-brand-100">
                         <Plus className="w-3.5 h-3.5" /> Add Dept
                       </button>
                     </div>
@@ -763,7 +763,7 @@ export default function AdminSetupPage() {
                     value={visualSearch}
                     onChange={e => setVisualSearch(e.target.value)}
                     placeholder="Filter by name, email, department, or role..."
-                    className="w-full bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-sm font-medium transition-all duration-300"
+                    className="w-full bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-sm font-medium transition-all duration-300"
                   />
                 </div>
 
@@ -785,7 +785,7 @@ export default function AdminSetupPage() {
                               key={emp.id}
                               draggable
                               onDragStart={() => setDraggedEmployeeId(emp.id)}
-                              className="flex items-center gap-2 bg-white dark:bg-[#141A29] border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-1.5 shadow-sm cursor-grab active:cursor-grabbing text-xs font-bold text-slate-800 dark:text-white hover:border-amber-500"
+                              className="flex items-center gap-2 bg-white dark:bg-[#0F2038] border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-1.5 shadow-sm cursor-grab active:cursor-grabbing text-xs font-bold text-slate-800 dark:text-white hover:border-amber-500"
                             >
                               <span>{emp.firstName} {emp.lastName}</span>
                               <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 font-bold uppercase">{emp.role}</span>
@@ -804,7 +804,7 @@ export default function AdminSetupPage() {
                         return (
                           <div
                             key={dept.id}
-                            className="bg-white dark:bg-[#141A29] border-2 border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 shadow-sm hover:border-blue-400 transition-all flex flex-col justify-between"
+                            className="bg-white dark:bg-[#0F2038] border-2 border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 shadow-sm hover:border-blue-400 transition-all flex flex-col justify-between"
                             onDragOver={e => e.preventDefault()}
                             onDrop={() => {
                               if (draggedEmployeeId) {
@@ -821,7 +821,7 @@ export default function AdminSetupPage() {
                                     const newName = e.target.value;
                                     setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, name: newName } : d));
                                   }}
-                                  className="w-full bg-transparent text-[#0F172A] dark:text-white text-base font-extrabold outline-none focus:bg-slate-50 dark:focus:bg-slate-800 rounded px-1"
+                                  className="w-full bg-transparent text-[#0A1931] dark:text-white text-base font-extrabold outline-none focus:bg-slate-50 dark:focus:bg-slate-800 rounded px-1"
                                 />
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <span className="font-mono text-xs font-bold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-lg border border-blue-200">
@@ -846,7 +846,7 @@ export default function AdminSetupPage() {
                                   <div
                                     draggable
                                     onDragStart={() => setDraggedEmployeeId(manager.id)}
-                                    className="relative flex items-center justify-between gap-2 bg-gradient-to-r from-blue-50 to-indigo-50/30 dark:from-blue-950/40 dark:to-[#141A29] border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing"
+                                    className="relative flex items-center justify-between gap-2 bg-gradient-to-r from-blue-50 to-brand-50/30 dark:from-blue-950/40 dark:to-[#0F2038] border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing"
                                   >
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5">
@@ -883,7 +883,7 @@ export default function AdminSetupPage() {
                                         key={emp.id}
                                         draggable
                                         onDragStart={() => setDraggedEmployeeId(emp.id)}
-                                        className="flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing bg-slate-50 dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-xl p-2"
+                                        className="flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing bg-slate-50 dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-xl p-2"
                                       >
                                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{emp.firstName} {emp.lastName}</span>
                                         <select
@@ -892,7 +892,7 @@ export default function AdminSetupPage() {
                                             const newRole = e.target.value === 'manager' ? 'Manager' : 'Employee';
                                             setEmployees(prev => prev.map(item => item.id === emp.id ? { ...item, role: newRole } : item));
                                           }}
-                                          className="text-[10px] font-bold bg-white dark:bg-[#0F1423] border border-slate-200 rounded px-1.5 py-0.5 outline-none cursor-pointer"
+                                          className="text-[10px] font-bold bg-white dark:bg-[#0A1931] border border-slate-200 rounded px-1.5 py-0.5 outline-none cursor-pointer"
                                         >
                                           <option value="employee">Employee</option>
                                           <option value="manager">Manager</option>
@@ -912,11 +912,11 @@ export default function AdminSetupPage() {
 
                 {/* VIEW 2: HIGH-CAPACITY EDITABLE TABULAR VIEW */}
                 {structureViewMode === 'table' && (
-                  <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto max-h-[520px] custom-scrollbar">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-10">
-                          <tr className="bg-slate-100 dark:bg-[#0F1423] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                          <tr className="bg-slate-100 dark:bg-[#0A1931] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
                             <th className="py-3 px-4">EMPLOYEE NUMBER / ID</th>
                             <th className="py-3 px-4">NAME</th>
                             <th className="py-3 px-4">EMAIL</th>
@@ -994,7 +994,7 @@ export default function AdminSetupPage() {
                                 </td>
                                 <td className="py-2.5 px-4">
                                   {emp.role.toLowerCase() === 'admin' ? (
-                                    <span className="px-2 py-1 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 rounded font-bold text-[11px]">Organization</span>
+                                    <span className="px-2 py-1 bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 rounded font-bold text-[11px]">Organization</span>
                                   ) : (
                                     <select
                                       value={emp.departmentCode}
@@ -1013,7 +1013,7 @@ export default function AdminSetupPage() {
                                 </td>
                                 <td className="py-2.5 px-4">
                                   {emp.role.toLowerCase() === 'admin' ? (
-                                    <span className="px-2 py-1 bg-purple-600 text-white rounded font-bold text-[10px] uppercase">Admin</span>
+                                    <span className="px-2 py-1 bg-brand-600 text-white rounded font-bold text-[10px] uppercase">Admin</span>
                                   ) : (
                                     <select
                                       value={emp.role.toLowerCase()}
@@ -1052,7 +1052,7 @@ export default function AdminSetupPage() {
 
                 <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
                   <button onClick={() => navigateToStep(1)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
-                  <button onClick={() => navigateToStep(3)} className="px-8 py-3.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Verify & Continue <ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => navigateToStep(3)} className="px-8 py-3.5 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2">Verify & Continue <ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
             )}
@@ -1064,9 +1064,9 @@ export default function AdminSetupPage() {
 
               return (
                 <div id="setup-step-3" tabIndex={-1} className="space-y-6 animate-fadeIn">
-                  <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                  <div className="bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <h2 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1">Preview Import & Verification</h2>
+                      <h2 className="text-xl font-extrabold text-[#0A1931] dark:text-white mb-1">Preview Import & Verification</h2>
                       <p className="text-xs text-slate-500">Review data integrity and department manager assignments before writing to PostgreSQL.</p>
                     </div>
                     <div className="flex items-center gap-4 text-center">
@@ -1086,11 +1086,11 @@ export default function AdminSetupPage() {
                   </div>
 
                   {/* Data Verification Table (Scrollable after 10 items) */}
-                  <div id="setup-validation-results" tabIndex={-1} className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
+                  <div id="setup-validation-results" tabIndex={-1} className="bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-10">
-                          <tr className="bg-slate-50 dark:bg-[#0F1423] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          <tr className="bg-slate-50 dark:bg-[#0A1931] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                             <th className="py-3 px-4">EMPLOYEE NUMBER / ID</th>
                             <th className="py-3 px-4">NAME</th>
                             <th className="py-3 px-4">EMAIL</th>
@@ -1110,10 +1110,10 @@ export default function AdminSetupPage() {
                             return (
                               <tr key={emp.id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isRowInvalid ? 'bg-red-50/20 dark:bg-red-950/20' : ''}`}>
                                 <td className="py-3 px-4 font-mono font-bold text-slate-500">{emp.employeeId || 'N/A'}</td>
-                                <td className="py-3 px-4 font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                                <td className="py-3 px-4 font-bold text-[#0A1931] dark:text-white flex items-center gap-2">
                                   {emp.firstName} {emp.lastName}
                                   {emp.role.toLowerCase() === 'admin' && (
-                                    <span className="px-1.5 py-0.2 bg-purple-600 text-white rounded text-[9px] font-bold uppercase">Admin</span>
+                                    <span className="px-1.5 py-0.2 bg-brand-600 text-white rounded text-[9px] font-bold uppercase">Admin</span>
                                   )}
                                   {emp.role.toLowerCase() === 'manager' && (
                                     <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded text-[9px] font-bold uppercase">Manager</span>
@@ -1152,7 +1152,7 @@ export default function AdminSetupPage() {
                         navigateToStep(4);
                       }}
                       disabled={errorCount > 0}
-                      className={`px-8 py-3.5 font-bold rounded-xl text-sm shadow-lg flex items-center gap-2 transition-all ${errorCount > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-[#0A5ED6] hover:bg-[#0B63E0] text-white'}`}
+                      className={`px-8 py-3.5 font-bold rounded-xl text-sm shadow-lg flex items-center gap-2 transition-all ${errorCount > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-[#3D6C90] hover:bg-[#3D6C90] text-white'}`}
                     >
                       Import {validCount} Valid Employees <ChevronRight className="w-4 h-4" />
                     </button>
@@ -1166,33 +1166,33 @@ export default function AdminSetupPage() {
               <div id="setup-step-4" tabIndex={-1} className="space-y-6 animate-fadeIn">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-1">Security & SMTP Credentials</h2>
+                    <h2 className="text-2xl font-bold text-[#0A1931] dark:text-white mb-1">Security & SMTP Credentials</h2>
                     <p className="text-sm text-slate-500">Configure outbound SMTP credentials to dispatch user welcome packages.</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleTestSmtp}
                     disabled={testingSmtp}
-                    className="px-5 py-2.5 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md hover:shadow-lg disabled:opacity-50 shrink-0"
+                    className="px-5 py-2.5 bg-[#3D6C90] hover:bg-[#3D6C90] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md hover:shadow-lg disabled:opacity-50 shrink-0"
                   >
                     {testingSmtp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4 text-white" />}
                     {testingSmtp ? "Testing Connection..." : "Test SMTP Connection"}
                   </button>
                 </div>
 
-                <div className="bg-white dark:bg-[#141A29] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-sm">
+                <div className="bg-white dark:bg-[#0F2038] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-sm">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="setup-guide-smtp_host" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Host</label>
-                      <input id="setup-guide-smtp_host" type="text" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
+                      <input id="setup-guide-smtp_host" type="text" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0A1931] border rounded-xl text-sm mt-1" />
                     </div>
                     <div>
                       <label htmlFor="setup-guide-smtp_port" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP Port</label>
-                      <input id="setup-guide-smtp_port" type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border rounded-xl text-sm mt-1" />
+                      <input id="setup-guide-smtp_port" type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0A1931] border rounded-xl text-sm mt-1" />
                     </div>
                     <div>
                       <label htmlFor="setup-guide-smtp_username" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Sender Email / Username</label>
-                      <input id="setup-guide-smtp_username" type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="e.g. admin@company.com" className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-medium mt-1 outline-none focus:border-[#0A5ED6]" />
+                      <input id="setup-guide-smtp_username" type="email" value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="e.g. admin@company.com" className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-medium mt-1 outline-none focus:border-[#3D6C90]" />
                     </div>
                     <div>
                       <label htmlFor="setup-guide-smtp_password" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">SMTP App Password</label>
@@ -1203,7 +1203,7 @@ export default function AdminSetupPage() {
                           value={smtpPass}
                           onChange={e => setSmtpPass(e.target.value)}
                           placeholder="Enter 16-character App Password"
-                          className="w-full px-4 py-2.5 pr-11 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-semibold outline-none focus:border-[#0A5ED6]"
+                          className="w-full px-4 py-2.5 pr-11 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-semibold outline-none focus:border-[#3D6C90]"
                         />
                         <button
                           type="button"
@@ -1229,7 +1229,7 @@ export default function AdminSetupPage() {
 
                 <div className="flex justify-between pt-6 border-t border-slate-200 dark:border-white/[0.08]">
                   <button onClick={() => navigateToStep(3)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm">Back</button>
-                  <button onClick={() => navigateToStep(5)} disabled={!canNavigateToStep(5)} className="px-8 py-3.5 bg-[#0A5ED6] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2 disabled:opacity-50">Continue to Rollout <ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => navigateToStep(5)} disabled={!canNavigateToStep(5)} className="px-8 py-3.5 bg-[#3D6C90] text-white font-bold rounded-xl text-sm shadow-lg flex items-center gap-2 disabled:opacity-50">Continue to Rollout <ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
             )}
@@ -1240,7 +1240,7 @@ export default function AdminSetupPage() {
                 <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
                   <ShieldCheck className="w-10 h-10" />
                 </div>
-                <h2 className="text-3xl font-extrabold text-[#0F172A] dark:text-white">Send Credentials to All Employees</h2>
+                <h2 className="text-3xl font-extrabold text-[#0A1931] dark:text-white">Send Credentials to All Employees</h2>
                 <p className="text-sm text-slate-500 max-w-md mx-auto">Create employee accounts and send welcome packages. Each employee must then install and connect the browser extension.</p>
 
                 <div className="pt-6">
@@ -1248,7 +1248,7 @@ export default function AdminSetupPage() {
                     <div role="status" className="mx-auto max-w-lg rounded-2xl border border-amber-300 bg-amber-50 p-5 text-left text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
                       <p className="font-bold">Delivery status could not be confirmed</p>
                       <p className="mt-2">Accounts may already have been provisioned. Check existing accounts and email delivery before repeating dispatch.</p>
-                      <button type="button" onClick={() => router.push('/dashboard/admin')} className="mt-4 rounded-lg bg-[#0A5ED6] px-4 py-2 font-bold text-white">Go to Admin Dashboard</button>
+                      <button type="button" onClick={() => router.push('/dashboard/admin')} className="mt-4 rounded-lg bg-[#3D6C90] px-4 py-2 font-bold text-white">Go to Admin Dashboard</button>
                     </div>
                   ) : dispatchDone ? (
                     <div className="space-y-5 max-w-lg mx-auto">
@@ -1261,7 +1261,7 @@ export default function AdminSetupPage() {
                           <p className="text-xs text-amber-700 dark:text-amber-400">
                             Accounts were created in the database, but {dispatchSummary.failedCount} email(s) could not be delivered. Review your email service settings and delivery results.
                           </p>
-                          <div className="bg-white dark:bg-[#0F1423] p-3 rounded-xl border border-amber-200 dark:border-amber-800/40 max-h-40 overflow-y-auto space-y-1.5 text-xs font-mono">
+                          <div className="bg-white dark:bg-[#0A1931] p-3 rounded-xl border border-amber-200 dark:border-amber-800/40 max-h-40 overflow-y-auto space-y-1.5 text-xs font-mono">
                             {dispatchResults.map((r, i) => (
                               <div key={i} className="flex items-center justify-between">
                                 <span className="truncate text-slate-700 dark:text-slate-300">{r.email}</span>
@@ -1293,7 +1293,7 @@ export default function AdminSetupPage() {
                       <div className="pt-4">
                         <button
                           onClick={() => router.push('/dashboard/admin')}
-                          className="w-full px-8 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-extrabold rounded-xl text-base shadow-xl transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
+                          className="w-full px-8 py-4 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-extrabold rounded-xl text-base shadow-xl transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
                         >
                           Go to Admin Dashboard <ChevronRight className="w-5 h-5" />
                         </button>
@@ -1311,7 +1311,7 @@ export default function AdminSetupPage() {
                       <button
                         disabled={executing}
                         onClick={handleExecuteDispatch}
-                        className="px-10 py-4 bg-[#0A5ED6] hover:bg-[#0B63E0] text-white font-bold rounded-xl text-base transition-all shadow-xl flex items-center gap-2 disabled:opacity-50"
+                        className="px-10 py-4 bg-[#3D6C90] hover:bg-[#3D6C90] text-white font-bold rounded-xl text-base transition-all shadow-xl flex items-center gap-2 disabled:opacity-50"
                       >
                         {executing ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                         {executing ? 'Executing Dispatch...' : 'Start Dispatch & Provision Accounts'}
@@ -1331,14 +1331,14 @@ export default function AdminSetupPage() {
       {isAddDeptModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4" style={{ zIndex: 9999 }}>
-            <div className="bg-white dark:bg-[#141A29] p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
-              <h4 className="text-base font-bold text-[#0F172A] dark:text-white">Add New Department</h4>
+            <div className="bg-white dark:bg-[#0F2038] p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
+              <h4 className="text-base font-bold text-[#0A1931] dark:text-white">Add New Department</h4>
               <input
                 type="text"
                 value={newDeptNameInput}
                 onChange={e => setNewDeptNameInput(e.target.value)}
                 placeholder="Department Name"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 rounded-xl text-sm"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 rounded-xl text-sm"
               />
               <div className="flex justify-end gap-2">
                 <button onClick={() => setIsAddDeptModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
@@ -1353,28 +1353,28 @@ export default function AdminSetupPage() {
       {isAddEmpModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4" style={{ zIndex: 9999 }}>
-            <div className="bg-white dark:bg-[#141A29] p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-2xl">
-              <h4 className="text-base font-bold text-[#0F172A] dark:text-white">Add New Employee</h4>
+            <div className="bg-white dark:bg-[#0F2038] p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-2xl">
+              <h4 className="text-base font-bold text-[#0A1931] dark:text-white">Add New Employee</h4>
 
               <input
                 type="text"
                 placeholder="Employee ID (Optional, e.g. EMP102)"
                 value={newEmpCustomId}
                 onChange={e => setNewEmpCustomId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-semibold"
               />
 
               <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="First Name *" value={newEmpFirstName} onChange={e => setNewEmpFirstName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm" />
-                <input type="text" placeholder="Last Name" value={newEmpLastName} onChange={e => setNewEmpLastName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm" />
+                <input type="text" placeholder="First Name *" value={newEmpFirstName} onChange={e => setNewEmpFirstName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm" />
+                <input type="text" placeholder="Last Name" value={newEmpLastName} onChange={e => setNewEmpLastName(e.target.value)} className="px-3 py-2 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm" />
               </div>
 
-              <input type="email" placeholder="Email Address *" value={newEmpEmail} onChange={e => setNewEmpEmail(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-mono" />
+              <input type="email" placeholder="Email Address *" value={newEmpEmail} onChange={e => setNewEmpEmail(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-mono" />
 
               <div className="space-y-3">
                 <div>
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Role Assignment</label>
-                  <select value={newEmpRole} onChange={e => setNewEmpRole(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-bold text-slate-800 dark:text-white">
+                  <select value={newEmpRole} onChange={e => setNewEmpRole(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-bold text-slate-800 dark:text-white">
                     <option value="Employee">Employee Role</option>
                     <option value="Manager">Manager Role</option>
                   </select>
@@ -1382,7 +1382,7 @@ export default function AdminSetupPage() {
 
                 <div>
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Department Assignment</label>
-                  <select value={newEmpDeptCode} onChange={e => setNewEmpDeptCode(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0F1423] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-semibold truncate">
+                  <select value={newEmpDeptCode} onChange={e => setNewEmpDeptCode(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0A1931] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm font-semibold truncate">
                     <option value="">Unassigned (Select Department Later)</option>
                     {departments.map(d => <option key={d.code} value={d.code}>{d.name} ({d.code})</option>)}
                   </select>
@@ -1453,7 +1453,7 @@ export default function AdminSetupPage() {
       {showReconfigureConfirm && (
         <ModalPortal>
           <div className="fixed inset-0 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-fadeIn" style={{ zIndex: 9999 }}>
-            <div className="bg-white dark:bg-[#0F172A] border border-red-200 dark:border-red-900/60 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl relative text-center">
+            <div className="bg-white dark:bg-[#0A1931] border border-red-200 dark:border-red-900/60 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl relative text-center">
               <button
                 type="button"
                 onClick={() => setShowReconfigureConfirm(false)}
@@ -1467,7 +1467,7 @@ export default function AdminSetupPage() {
               </div>
 
               <div className="space-y-1.5">
-                <h3 className="text-lg font-extrabold text-[#0F172A] dark:text-white">
+                <h3 className="text-lg font-extrabold text-[#0A1931] dark:text-white">
                   Are you sure you want to Re-Configure?
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">

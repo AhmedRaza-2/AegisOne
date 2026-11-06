@@ -7,7 +7,7 @@ const reviews = [
         name: "Sarah Jenkins",
         role: "CISO, FinSafe Technologies",
         initials: "SJ",
-        gradient: "from-purple-500 to-indigo-500",
+        gradient: "from-[#4A7FA7] to-[#1A3D63]",
         rating: 5,
         comment: "AegisOne's real-time Page Content AI and OCR scanner blocked three sophisticated brand impersonation attacks on our team within the first week. A game-changer for enterprise security."
     },
@@ -15,7 +15,7 @@ const reviews = [
         name: "David Chen",
         role: "Lead Security Engineer, CloudFlow",
         initials: "DC",
-        gradient: "from-blue-500 to-cyan-500",
+        gradient: "from-[#5C93BE] to-[#24466E]",
         rating: 5,
         comment: "The Explainable AI feature is brilliant. Instead of a generic 'BLOCKED' screen, users get a clear natural-language explanation of why a URL was flagged. Support tickets dropped 45%."
     },
@@ -23,7 +23,7 @@ const reviews = [
         name: "Elena Rostova",
         role: "Director of IT Security, HealthGate",
         initials: "ER",
-        gradient: "from-teal-500 to-emerald-500",
+        gradient: "from-[#4A7FA7] to-[#0A1931]",
         rating: 5,
         comment: "Unlike other tools that compromise privacy, AegisOne's Privacy-First Sync keeps employees' raw web history secure while still providing robust threat telemetry on the dashboard."
     },
@@ -31,7 +31,7 @@ const reviews = [
         name: "Marcus Vance",
         role: "Principal DevOps Architect, Securify",
         initials: "MV",
-        gradient: "from-violet-500 to-fuchsia-500",
+        gradient: "from-[#5C93BE] to-[#1A3D63]",
         rating: 5,
         comment: "Integrating AegisOne with our existing RBAC setup was seamless. The isolated admin and supervisor dashboards made policy orchestration effortless from day one."
     },
@@ -39,7 +39,7 @@ const reviews = [
         name: "Aiko Tanaka",
         role: "Cyber Threat Intelligence Lead, Vertex Labs",
         initials: "AT",
-        gradient: "from-rose-500 to-pink-500",
+        gradient: "from-[#3D6C90] to-[#0A1931]",
         rating: 5,
         comment: "The Attachment Orchestrator scanner is incredibly fast. Inspecting ZIPs and PDFs before they hit local storage has stopped multiple payload executions at the boundary."
     },
@@ -47,7 +47,7 @@ const reviews = [
         name: "Oliver Bennett",
         role: "Security Compliance Auditor, Apex Retail",
         initials: "OB",
-        gradient: "from-amber-500 to-orange-500",
+        gradient: "from-[#4A7FA7] to-[#24466E]",
         rating: 5,
         comment: "AegisOne eliminated the blind spot in our remote team's browsing. Typosquatting checks and redirect-chain parsing work flawlessly without any noticeable performance degradation."
     }
@@ -64,18 +64,21 @@ const SectionReviews = () => {
                     heading="Trusted by Teams & Leaders"
                     content="See how organizations keep employees safe from scams without slowing down their workday"
                 />
+                <p className="mt-2 text-center text-xs text-zinc-500">
+                    Sample feedback written to illustrate typical use — these are not endorsements from named customers.
+                </p>
             </div>
 
             {/* Marquee wrapper — overflow hidden, no user scroll needed */}
             <div className="relative w-full overflow-hidden">
                 {/* Fade edges */}
                 <div className="pointer-events-none absolute left-0 top-0 h-full w-24 z-10"
-                    style={{ background: 'linear-gradient(to right, #fff 0%, transparent 100%)' }} />
+                    style={{ background: 'linear-gradient(to right, #F6FAFD 0%, transparent 100%)' }} />
                 <div className="pointer-events-none absolute right-0 top-0 h-full w-24 z-10"
-                    style={{ background: 'linear-gradient(to left, #fff 0%, transparent 100%)' }} />
+                    style={{ background: 'linear-gradient(to left, #F6FAFD 0%, transparent 100%)' }} />
 
                 {/* Auto-scrolling track */}
-                <div className="marquee-track flex gap-5 py-4" style={{ width: 'max-content' }}>
+                <div className="marquee-track flex gap-5 py-4 hover:[animation-play-state:paused]" style={{ width: 'max-content' }}>
                     {track.map((reviewer, index) => (
                         <div
                             key={index}

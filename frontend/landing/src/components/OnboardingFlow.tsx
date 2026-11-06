@@ -72,15 +72,15 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
   };
 
   return (
-    <section id="deployment" className="min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#F8FAFC] border-b border-[#E2E8F0]">
+    <section id="deployment" className="min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#F6FAFD] border-b border-[#E1EBF2]">
       <div className="max-w-7xl mx-auto px-6">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-[#0F172A]">
+          <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-[#0A1931]">
             Easy 4-Step Setup for Your Business
           </h2>
-          <p className="font-sans text-base text-[#45464D] leading-relaxed">
+          <p className="font-sans text-base text-[#4A6D8C] leading-relaxed">
             Set up complete local link protection across all office devices in just a few days, without needing complex IT experts or expensive cloud fees.
           </p>
         </div>
@@ -91,7 +91,7 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
           {/* Vertical Timeline Left (8 cols on large screens) */}
           <div className="lg:col-span-7 relative">
             {/* Central line */}
-            <div className="absolute left-6 md:left-1/2 top-4 bottom-4 w-0.5 bg-[#E2E8F0] -translate-x-1/2" />
+            <div className="absolute left-6 md:left-1/2 top-4 bottom-4 w-0.5 bg-[#E1EBF2] -translate-x-1/2" />
 
             {/* Phases */}
             <div className="space-y-12">
@@ -111,8 +111,8 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
                     <div 
                       className={`absolute left-6 md:left-1/2 -translate-x-1/2 z-10 w-12 h-12 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 ${
                         isActive 
-                          ? 'bg-[#0A5ED6] text-white border-[#0A5ED6] shadow-md shadow-blue-300' 
-                          : 'bg-white text-slate-400 border-slate-300 hover:border-[#0A5ED6] hover:text-[#0A5ED6]'
+                          ? 'bg-[#3D6C90] text-white border-[#3D6C90] shadow-md shadow-blue-300' 
+                          : 'bg-white text-slate-400 border-slate-300 hover:border-[#3D6C90] hover:text-[#3D6C90]'
                       }`}
                       onClick={() => setActiveTab(phase.num)}
                     >
@@ -128,17 +128,17 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
                         onClick={() => setActiveTab(phase.num)}
                         className={`p-6 rounded-xl border transition-all duration-300 text-left cursor-pointer ${
                           isActive 
-                            ? 'bg-white border-[#0A5ED6] shadow-md scale-[1.02]' 
+                            ? 'bg-white border-[#3D6C90] shadow-md scale-[1.02]' 
                             : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
                         }`}
                       >
-                        <span className="font-mono text-xs font-bold text-[#0A5ED6] block mb-1">
+                        <span className="font-mono text-xs font-bold text-[#3D6C90] block mb-1">
                           {phase.tagline}
                         </span>
-                        <h3 className="font-sans font-bold text-lg text-[#0F172A] mb-2">
+                        <h3 className="font-sans font-bold text-lg text-[#0A1931] mb-2">
                           {phase.title}
                         </h3>
-                        <p className="font-sans text-sm text-[#45464D] leading-relaxed">
+                        <p className="font-sans text-sm text-[#4A6D8C] leading-relaxed">
                           {phase.description}
                         </p>
                       </div>
@@ -189,7 +189,7 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
                 <button
                   id={`btn-console-phase-${activeTab}`}
                   onClick={() => onSelectPhase(activeTab)}
-                  className="font-sans w-full text-center text-sm font-semibold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer"
+                  className="font-sans w-full text-center text-sm font-semibold bg-[#3D6C90] hover:bg-[#3D6C90] text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer"
                 >
                   <Play className="w-4 h-4" />
                   {phases[activeTab - 1].demo.actionText}
@@ -210,7 +210,7 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
           <button
             id="btn-start-onboarding-today"
             onClick={onStartOnboarding}
-            className="font-sans text-base font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] px-8 py-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 inline-flex items-center gap-2 cursor-pointer"
+            className="font-sans text-base font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] px-8 py-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 inline-flex items-center gap-2 cursor-pointer"
           >
             Start Onboarding Today
             <ArrowRight className="w-5 h-5" />

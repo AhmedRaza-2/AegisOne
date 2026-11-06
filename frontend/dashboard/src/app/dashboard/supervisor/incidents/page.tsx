@@ -14,7 +14,7 @@ function authHeaders() {
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   investigating: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  escalated: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  escalated: "bg-brand-500/10 text-brand-600 dark:text-brand-400",
   resolved: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   false_positive: "bg-surface-200 text-surface-600 dark:bg-surface-800 dark:text-surface-400",
 };
@@ -172,7 +172,7 @@ export default function IncidentsPage() {
                 <div className="flex items-center justify-center py-10"><Activity className="w-5 h-5 text-brand-400 animate-spin" /></div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-surface-50 dark:bg-[#141A29] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl">
+                  <div className="bg-surface-50 dark:bg-[#0F2038] border border-surface-100 dark:border-white/[0.04] p-4 rounded-2xl">
                     <span className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Detection reference</span>
                     <p className="text-sm text-surface-800 dark:text-surface-300 font-mono break-all mt-1.5">
                       {detail.incident?.detection_event_ref || "—"}
@@ -208,7 +208,7 @@ export default function IncidentsPage() {
                       rows={3}
                       maxLength={10000}
                       placeholder="Add context before resolving or escalating..."
-                      className="w-full px-3 py-2 bg-surface-50 dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 resize-none"
+                      className="w-full px-3 py-2 bg-surface-50 dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-500/50 resize-none"
                     />
                   </div>
 
@@ -219,7 +219,7 @@ export default function IncidentsPage() {
                     <button disabled={acting} onClick={() => triage("resolve")} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition-all disabled:opacity-50">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Resolve
                     </button>
-                    <button disabled={acting} onClick={() => triage("escalate")} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 text-xs font-bold transition-all disabled:opacity-50">
+                    <button disabled={acting} onClick={() => triage("escalate")} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-brand-500/30 bg-brand-500/10 text-brand-600 dark:text-brand-400 hover:bg-brand-500/20 text-xs font-bold transition-all disabled:opacity-50">
                       <ArrowUpCircle className="w-3.5 h-3.5" /> Escalate to Admin
                     </button>
                   </div>

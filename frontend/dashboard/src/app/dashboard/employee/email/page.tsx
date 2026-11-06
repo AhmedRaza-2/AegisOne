@@ -93,15 +93,15 @@ export default function EmployeeEmailSecurityPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* ── Top Header ────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#141A29] p-6 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#0F2038] p-6 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="p-3.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400">
+          <div className="p-3.5 bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 rounded-xl text-brand-600 dark:text-brand-400">
             <Mail className="w-7 h-7" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white tracking-tight flex items-center gap-2">
               Email Security Hub
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-300 font-semibold">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 text-brand-600 dark:text-brand-300 font-semibold">
                 Personal Telemetry
               </span>
             </h1>
@@ -119,7 +119,7 @@ export default function EmployeeEmailSecurityPage() {
               onClick={() => { setPeriod(p); setVisibleCount(50); }}
               className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 period === p
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                  ? "bg-brand-600 text-white shadow-md shadow-brand-600/30"
                   : "text-surface-600 dark:text-slate-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-200 dark:hover:bg-slate-900"
               }`}
             >
@@ -131,7 +131,7 @@ export default function EmployeeEmailSecurityPage() {
             className="p-1.5 text-surface-500 dark:text-slate-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-200 dark:hover:bg-slate-900 rounded-lg transition-all ml-1"
             title="Refresh Data"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-indigo-600 dark:text-indigo-400" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-brand-600 dark:text-brand-400" : ""}`} />
           </button>
         </div>
       </div>
@@ -140,10 +140,10 @@ export default function EmployeeEmailSecurityPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Emails Scanned */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="bg-white dark:bg-[#141A29] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
+          className="bg-white dark:bg-[#0F2038] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-surface-500 dark:text-slate-400">Total Scanned</span>
-            <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-indigo-600 dark:text-indigo-400">
+            <div className="p-2 bg-brand-50 dark:bg-brand-500/10 rounded-lg text-brand-600 dark:text-brand-400">
               <Mail className="w-4 h-4" />
             </div>
           </div>
@@ -155,7 +155,7 @@ export default function EmployeeEmailSecurityPage() {
 
         {/* Phishing Blocked */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-[#141A29] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
+          className="bg-white dark:bg-[#0F2038] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-surface-500 dark:text-slate-400">Phishing Blocked</span>
             <div className="p-2 bg-red-50 dark:bg-red-500/10 rounded-lg text-red-600 dark:text-red-400">
@@ -170,7 +170,7 @@ export default function EmployeeEmailSecurityPage() {
 
         {/* Threat Rate */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="bg-white dark:bg-[#141A29] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
+          className="bg-white dark:bg-[#0F2038] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-surface-500 dark:text-slate-400">Threat Rate</span>
             <div className="p-2 bg-amber-50 dark:bg-amber-500/10 rounded-lg text-amber-600 dark:text-amber-400">
@@ -185,7 +185,7 @@ export default function EmployeeEmailSecurityPage() {
 
         {/* Avg Risk Index */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-[#141A29] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
+          className="bg-white dark:bg-[#0F2038] p-5 rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-surface-500 dark:text-slate-400">Avg Risk Index</span>
             <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg text-emerald-600 dark:text-emerald-400">
@@ -201,7 +201,7 @@ export default function EmployeeEmailSecurityPage() {
       </div>
 
       {/* ── Main Scan Table Section ──────────────────────────────── */}
-      <div className="bg-white dark:bg-[#141A29] rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-[#0F2038] rounded-xl border border-surface-200 dark:border-white/[0.04] shadow-sm overflow-hidden">
         {/* Table Filter Header */}
         <div className="p-5 border-b border-surface-200 dark:border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
@@ -217,7 +217,7 @@ export default function EmployeeEmailSecurityPage() {
               placeholder="Search by subject or verdict..."
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setVisibleCount(50); }}
-              className="w-full bg-surface-50 dark:bg-slate-950/80 border border-surface-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-surface-900 dark:text-white placeholder-surface-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="w-full bg-surface-50 dark:bg-slate-950/80 border border-surface-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-surface-900 dark:text-white placeholder-surface-400 dark:placeholder-slate-500 focus:outline-none focus:border-brand-500"
             />
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function EmployeeEmailSecurityPage() {
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-surface-500 dark:text-slate-500">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500 dark:text-indigo-400" />
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-brand-500 dark:text-brand-400" />
                     Loading Email Security Records...
                   </td>
                 </tr>
@@ -283,7 +283,7 @@ export default function EmployeeEmailSecurityPage() {
                             href={gmailLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-bold text-surface-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors line-clamp-1 max-w-md block"
+                            className="font-bold text-surface-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 transition-colors line-clamp-1 max-w-md block"
                             title={emailSubject}
                           >
                             {emailSubject}
@@ -305,7 +305,7 @@ export default function EmployeeEmailSecurityPage() {
                             href={gmailLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
+                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-brand-600 dark:text-brand-400 hover:underline mt-1"
                           >
                             Open Email <ArrowUpRight className="w-3 h-3" />
                           </a>
@@ -336,7 +336,7 @@ export default function EmployeeEmailSecurityPage() {
                       <td className="py-3.5 px-4 text-right">
                         <button
                           onClick={() => setSelectedScan(scan)}
-                          className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/40 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1.5"
+                          className="px-3 py-1.5 bg-brand-50 dark:bg-brand-600/20 hover:bg-brand-100 dark:hover:bg-brand-600/40 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1.5"
                         >
                           <Eye className="w-3.5 h-3.5" /> View XAI
                         </button>
@@ -354,7 +354,7 @@ export default function EmployeeEmailSecurityPage() {
           <div className="p-4 border-t border-surface-200 dark:border-slate-800 text-center bg-surface-50 dark:bg-slate-900/40">
             <button
               onClick={() => setVisibleCount(prev => prev + 50)}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 inline-flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all shadow-md shadow-brand-600/20 inline-flex items-center gap-2"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Load More</span>
@@ -374,7 +374,7 @@ export default function EmployeeEmailSecurityPage() {
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
               onClick={e => e.stopPropagation()}
-              className="bg-white dark:bg-[#0b0f19] border border-surface-200 dark:border-indigo-500/30 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl text-surface-900 dark:text-white relative overflow-hidden"
+              className="bg-white dark:bg-[#071426] border border-surface-200 dark:border-brand-500/30 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl text-surface-900 dark:text-white relative overflow-hidden"
             >
               {/* Top Decorative Glow */}
               <div className={`absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 ${
@@ -388,7 +388,7 @@ export default function EmployeeEmailSecurityPage() {
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-surface-200 dark:border-slate-800/80 pb-4 relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400">
+                  <div className="p-2.5 bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 rounded-xl text-brand-600 dark:text-brand-400">
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
@@ -451,7 +451,7 @@ export default function EmployeeEmailSecurityPage() {
 
               {/* Neural Risk Factors & Evidence */}
               <div className="space-y-3 relative z-10">
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>Flagged Risk Indicators & Model Evidence</span>
                 </span>
@@ -488,7 +488,7 @@ export default function EmployeeEmailSecurityPage() {
                 </div>
                 <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-slate-950/60 border border-surface-200 dark:border-slate-800/80 text-center">
                   <span className="text-[10px] font-bold uppercase text-surface-400 dark:text-slate-500 block">Threat Type</span>
-                  <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 mt-1 block uppercase">
+                  <span className="text-xs font-extrabold text-brand-600 dark:text-brand-400 mt-1 block uppercase">
                     {selectedScan.verdict || "Email"}
                   </span>
                 </div>
@@ -507,7 +507,7 @@ export default function EmployeeEmailSecurityPage() {
                     href={selectedScan.thread_url || selectedScan.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-brand-600/30 flex items-center justify-center gap-1.5"
                   >
                     <span>Open Email in Webmail</span>
                     <ArrowUpRight className="w-4 h-4" />

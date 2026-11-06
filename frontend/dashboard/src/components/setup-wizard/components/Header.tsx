@@ -31,7 +31,7 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
   };
 
   return (
-    <header id="header-root" className="sticky top-0 z-50 bg-[#F8FAFC]/90 backdrop-blur-md border-b border-[#E2E8F0] px-6 py-4 transition-all duration-300">
+    <header id="header-root" className="sticky top-0 z-50 bg-[#F6FAFD]/90 backdrop-blur-md border-b border-[#E1EBF2] px-6 py-4 transition-all duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo */}
         <div 
@@ -44,12 +44,12 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
         >
           {/* Custom generated precise vector logo icon matching screenshot */}
           <svg className="w-6 h-6 shrink-0 transition-transform duration-200 group-hover:scale-105" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="24" height="24" rx="6" fill="#0F172A"/>
-            <path d="M12 5.5L6.5 7.5V11.5C6.5 14.85 8.85 17.95 12 18.5C15.15 17.95 17.5 14.85 17.5 11.5V7.5L12 5.5Z" fill="#0A5ED6"/>
+            <rect width="24" height="24" rx="6" fill="#0A1931"/>
+            <path d="M12 5.5L6.5 7.5V11.5C6.5 14.85 8.85 17.95 12 18.5C15.15 17.95 17.5 14.85 17.5 11.5V7.5L12 5.5Z" fill="#3D6C90"/>
             <path d="M11.5 8H12.5V14.5H11.5V8ZM12 16C11.5 16 11.25 15.75 11.25 15.25C11.25 14.75 11.5 14.5 12 14.5C12.5 14.5 12.75 14.75 12.75 15.25C12.75 15.75 12.5 16 12 16Z" fill="white"/>
           </svg>
-          <span className="font-sans font-bold text-xl text-[#0F172A] tracking-tight">
-            Aegis<span className="text-[#0A5ED6]">One</span>
+          <span className="font-sans font-bold text-xl text-[#0A1931] tracking-tight">
+            Aegis<span className="text-[#3D6C90]">One</span>
           </span>
         </div>
 
@@ -60,7 +60,7 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
               key={item.id}
               id={`nav-item-${item.id}`}
               onClick={() => handleNavClick(item.id)}
-              className="font-sans text-sm font-medium text-[#45464D] hover:text-[#0F172A] transition-colors duration-200 cursor-pointer"
+              className="font-sans text-sm font-medium text-[#4A6D8C] hover:text-[#0A1931] transition-colors duration-200 cursor-pointer"
             >
               {item.label}
             </button>
@@ -74,8 +74,8 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
             onClick={onOpenDashboard}
             className={`font-sans text-sm font-medium transition-colors duration-200 cursor-pointer ${
               isDashboardOpen 
-                ? 'text-[#0A5ED6] hover:text-blue-700 font-semibold' 
-                : 'text-[#45464D] hover:text-[#0F172A]'
+                ? 'text-[#3D6C90] hover:text-blue-700 font-semibold' 
+                : 'text-[#4A6D8C] hover:text-[#0A1931]'
             }`}
           >
             {isDashboardOpen ? 'Landing Page' : 'Login'}
@@ -83,7 +83,7 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
           <button
             id="nav-btn-setup"
             onClick={onRequestSetup}
-            className="font-sans text-sm font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] px-5 py-2.5 rounded-lg shadow-xs transition-all duration-200 cursor-pointer"
+            className="font-sans text-sm font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] px-5 py-2.5 rounded-lg shadow-xs transition-all duration-200 cursor-pointer"
           >
             Request Setup
           </button>
@@ -94,14 +94,14 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
           <button
             id="mobile-nav-btn-dashboard"
             onClick={onOpenDashboard}
-            className="font-sans text-xs font-semibold px-2.5 py-1.5 rounded-md bg-slate-100 text-[#0F172A]"
+            className="font-sans text-xs font-semibold px-2.5 py-1.5 rounded-md bg-slate-100 text-[#0A1931]"
           >
             {isDashboardOpen ? 'Landing' : 'Login'}
           </button>
           <button
             id="mobile-menu-trigger"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-1.5 text-[#0F172A] hover:bg-slate-100 rounded-md transition-colors"
+            className="p-1.5 text-[#0A1931] hover:bg-slate-100 rounded-md transition-colors"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -110,13 +110,13 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
 
       {/* Mobile Navigation Dropdown */}
       {mobileMenuOpen && (
-        <div id="mobile-nav-dropdown" className="md:hidden mt-4 pt-4 border-t border-[#E2E8F0] flex flex-col gap-4 animate-fadeIn">
+        <div id="mobile-nav-dropdown" className="md:hidden mt-4 pt-4 border-t border-[#E1EBF2] flex flex-col gap-4 animate-fadeIn">
           {navItems.map((item) => (
             <button
               key={item.id}
               id={`mobile-nav-item-${item.id}`}
               onClick={() => handleNavClick(item.id)}
-              className="font-sans text-left text-sm font-medium text-[#45464D] hover:text-[#0F172A] py-1"
+              className="font-sans text-left text-sm font-medium text-[#4A6D8C] hover:text-[#0A1931] py-1"
             >
               {item.label}
             </button>
@@ -128,7 +128,7 @@ export default function Header({ onRequestSetup, onOpenDashboard, onScrollTo, is
               setMobileMenuOpen(false);
               onRequestSetup();
             }}
-            className="font-sans w-full text-center text-sm font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] py-2.5 rounded-lg"
+            className="font-sans w-full text-center text-sm font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] py-2.5 rounded-lg"
           >
             Request Setup
           </button>

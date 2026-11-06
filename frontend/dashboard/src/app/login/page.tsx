@@ -223,6 +223,7 @@ export default function LoginPage() {
 
   return (
     <div
+      role="main"
       className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden transition-colors duration-300"
       style={{ background: "var(--bg-canvas)" }}
     >
@@ -281,11 +282,14 @@ export default function LoginPage() {
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
+                <label htmlFor="otp-code" className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
                   6-Digit Verification Code
                 </label>
                 <input
+                  id="otp-code"
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   value={otp}
                   onChange={e => setOtp(e.target.value)}
                   placeholder="123456"
@@ -318,19 +322,21 @@ export default function LoginPage() {
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>New Password</label>
+                <label htmlFor="new-password" className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>New Password</label>
                 <div className="relative">
                   <input
+                    id="new-password"
+                    autoComplete="new-password"
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Enter your new password"
+                    placeholder="Enter your new password…"
                     required
                     minLength={8}
                     maxLength={512}
                     className="input-premium pr-11"
                   />
-                  <button type="button" onClick={() => setShowNewPassword(!showNewPassword)}
+                  <button type="button" aria-label={showNewPassword ? "Hide new password" : "Show new password"} aria-pressed={showNewPassword} onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
                     style={{ color: "var(--text-muted)" }}>
                     {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -338,9 +344,11 @@ export default function LoginPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Confirm New Password</label>
+                <label htmlFor="confirm-new-password" className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Confirm New Password</label>
                 <div className="relative">
                   <input
+                    id="confirm-new-password"
+                    autoComplete="new-password"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmNewPassword}
                     onChange={e => setConfirmNewPassword(e.target.value)}
@@ -350,7 +358,7 @@ export default function LoginPage() {
                     maxLength={512}
                     className="input-premium pr-11"
                   />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  <button type="button" aria-label={showConfirmPassword ? "Hide confirmation" : "Show confirmation"} aria-pressed={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
                     style={{ color: "var(--text-muted)" }}>
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -390,19 +398,21 @@ export default function LoginPage() {
 
               {creatingAdministrator && (
                 <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Administrator name</label>
-                  <input type="text" autoComplete="name" value={fullName} onChange={event => setFullName(event.target.value)}
+                  <label htmlFor="admin-name" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Administrator name</label>
+                  <input id="admin-name" type="text" autoComplete="name" value={fullName} onChange={event => setFullName(event.target.value)}
                     maxLength={255} required className="input-premium" />
                 </div>
               )}
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Email address</label>
+                <label htmlFor="login-email" className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Email address</label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
                   <input
+                    id="login-email"
                     type="email"
+                    spellCheck={false}
                     autoComplete="username"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -416,10 +426,11 @@ export default function LoginPage() {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Password</label>
+                <label htmlFor="login-password" className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
                   <input
+                    id="login-password"
                     type={showPassword ? "text" : "password"}
                     autoComplete={creatingAdministrator ? 'new-password' : 'current-password'}
                     minLength={creatingAdministrator ? 8 : undefined}
@@ -430,7 +441,7 @@ export default function LoginPage() {
                     required
                     className="input-premium pl-10 pr-11"
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
                     style={{ color: "var(--text-muted)" }}>
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -441,8 +452,8 @@ export default function LoginPage() {
               {creatingAdministrator && (
                 <div>
                   <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>Use at least eight characters with uppercase, lowercase and a number.</p>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Confirm password</label>
-                  <input type="password" autoComplete="new-password" value={confirmPassword}
+                  <label htmlFor="confirm-password" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Confirm password</label>
+                  <input id="confirm-password" type="password" autoComplete="new-password" value={confirmPassword}
                     onChange={event => setConfirmPassword(event.target.value)} minLength={8} maxLength={512} required className="input-premium" />
                 </div>
               )}

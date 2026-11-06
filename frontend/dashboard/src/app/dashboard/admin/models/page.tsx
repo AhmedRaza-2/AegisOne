@@ -249,7 +249,7 @@ export default function ModelsPage() {
       {/* Jobs */}
       <motion.div variants={fadeUp} id="jobs-section" className="stat-card scroll-mt-24">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2"><FlaskConical className="w-4 h-4 text-purple-500" /> Retraining jobs</h2>
+          <h2 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2"><FlaskConical className="w-4 h-4 text-brand-500" /> Retraining jobs</h2>
           {hasActiveJob && <span className="text-[11px] text-blue-500 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> updating live</span>}
         </div>
         {jobs.length === 0 ? (

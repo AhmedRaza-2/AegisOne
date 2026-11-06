@@ -65,7 +65,7 @@ export default function ManagerBrowserExtensionPage() {
         </div>
 
         <div className="stat-card flex flex-col items-center justify-center text-center p-6 bg-surface-50 dark:bg-white/[0.02]">
-          <Database className="w-8 h-8 text-purple-500 mb-3" />
+          <Database className="w-8 h-8 text-brand-500 mb-3" />
           <div className="text-xs text-surface-500 uppercase tracking-wider font-bold mb-1">Local Database</div>
           <div className="text-xl font-bold text-surface-900 dark:text-white">{status.database || 'Synced'}</div>
         </div>

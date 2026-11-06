@@ -123,7 +123,7 @@ export default function Header({ onScrollTo }: HeaderProps) {
               </Link>
               <Link
                 to="/register"
-                className="font-sans text-sm font-semibold bg-[#4A7FA7] hover:bg-[#3D6C90] text-white px-5 py-2.5 rounded-lg shadow-xs transition-all duration-200"
+                className="font-sans text-sm font-semibold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-5 py-2.5 rounded-lg shadow-xs transition-all duration-200"
               >
                 Register Org
               </Link>

@@ -63,7 +63,7 @@ export default function AdminDashboard() {
   const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
   const tooltipBg = isDark ? "#1e293b" : "#ffffff";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  const tooltipColor = isDark ? "#ffffff" : "#0f172a";
+  const tooltipColor = isDark ? "#ffffff" : "#0A1931";
 
   const modelIcons: Record<string, typeof Mail> = { email: Mail, url: Globe, text: FileText, image: Image, document: FileText, attachment: Cpu };
 
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
                   <YAxis hide allowDecimals={false} />
                   <Tooltip
                     cursor={{ fill: "rgba(245,158,11,0.08)" }}
-                    contentStyle={{ background: theme === "dark" ? "#141A29" : "#fff", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 8, fontSize: 11 }}
+                    contentStyle={{ background: theme === "dark" ? "#0F2038" : "#fff", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 8, fontSize: 11 }}
                   />
                   <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={28} />
                 </BarChart>

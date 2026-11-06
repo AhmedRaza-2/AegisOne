@@ -80,16 +80,16 @@ export default function ModelHubPanel() {
   if (!connected) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-xl">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Layers className="w-5 h-5 text-[#0A5ED6]" /> Model Hub</h2>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Layers className="w-5 h-5 text-[#3D6C90]" /> Model Hub</h2>
         <p className="text-xs text-slate-500 mt-1 mb-4">Connect to the AegisOne Model Hub to review improved model weights submitted by customer organizations.</p>
         <label className="block text-xs font-semibold text-slate-600 mb-1">Hub URL</label>
         <input value={hub} onChange={e => setHub(e.target.value)} placeholder="https://hub.example.com:8443"
-          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-[#0A5ED6]" />
+          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-[#3D6C90]" />
         <label className="block text-xs font-semibold text-slate-600 mb-1">Vendor admin key</label>
         <input type="password" value={key} onChange={e => setKey(e.target.value)} placeholder="VENDOR_ADMIN_KEY"
-          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-[#0A5ED6]" />
+          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-[#3D6C90]" />
         {error && <p className="text-xs text-red-600 flex items-center gap-1.5 mb-3"><AlertCircle className="w-3.5 h-3.5" /> {error}</p>}
-        <button onClick={load} disabled={!hub || !key} className="bg-[#0A5ED6] text-white px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50">Connect</button>
+        <button onClick={load} disabled={!hub || !key} className="bg-[#3D6C90] text-white px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50">Connect</button>
         <p className="text-[11px] text-slate-400 mt-3">The key is kept only for this browser tab.</p>
       </div>
     );

@@ -230,7 +230,7 @@ export default function PortalPage() {
       </div>
 
       {/* Nav — identical style to main Header */}
-      <header className="sticky top-0 z-50 bg-[#F8FAFC]/90 backdrop-blur-md border-b border-[#E2E8F0] px-6 py-4 transition-all duration-300">
+      <header className="sticky top-0 z-50 bg-[#F6FAFD]/90 backdrop-blur-md border-b border-[#E1EBF2] px-6 py-4 transition-all duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
 
           {/* Logo — same as Header.tsx */}
@@ -244,10 +244,10 @@ export default function PortalPage() {
 
           {/* Right side — email + sign out */}
           <div className="flex items-center gap-5">
-            <span className="hidden sm:block text-sm font-medium text-[#45464D]">{org.admin_email}</span>
+            <span className="hidden sm:block text-sm font-medium text-[#4A6D8C]">{org.admin_email}</span>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm font-semibold text-[#45464D] hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 border border-transparent hover:border-red-100"
+              className="flex items-center gap-1.5 text-sm font-semibold text-[#4A6D8C] hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 border border-transparent hover:border-red-100"
             >
               <LogOut className="w-4 h-4" /> Sign Out
             </button>
@@ -281,7 +281,7 @@ export default function PortalPage() {
                   <AlertCircle className="w-10 h-10 text-amber-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-[#0A1931]">Your request is under review</h2>
-                <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
+                <p className="text-[#4A6D8C] max-w-md mx-auto text-base leading-relaxed">
                   Your registration has been successfully published. Our team is currently reviewing your enterprise application.
                   Once approved, your deployment command will unlock here automatically.
                 </p>
@@ -292,7 +292,7 @@ export default function PortalPage() {
                   <X className="w-10 h-10 text-red-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-[#0A1931]">Application Declined</h2>
-                <p className="text-[#45464D] max-w-md mx-auto text-base leading-relaxed">
+                <p className="text-[#4A6D8C] max-w-md mx-auto text-base leading-relaxed">
                   Unfortunately, we are unable to approve your organization at this time.
                 </p>
               </>

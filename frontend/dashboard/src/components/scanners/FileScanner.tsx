@@ -33,9 +33,9 @@ export function FileScanner() {
   };
 
   return (
-    <div className="p-6 h-full rounded-2xl bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] flex flex-col items-center text-center transition-all duration-300 hover:shadow-xl hover:shadow-[#4F84F8]/5 hover:border-[#4F84F8]/20 group">
-      <div className="w-12 h-12 rounded-xl bg-[#4F84F8]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-        <Upload className="w-6 h-6 text-[#4F84F8]" />
+    <div className="p-6 h-full rounded-2xl bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] flex flex-col items-center text-center transition-all duration-300 hover:shadow-xl hover:shadow-[#5C93BE]/5 hover:border-[#5C93BE]/20 group">
+      <div className="w-12 h-12 rounded-xl bg-[#5C93BE]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+        <Upload className="w-6 h-6 text-[#5C93BE]" />
       </div>
       <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">Scan Document</h3>
       <p className="text-xs text-surface-500 mb-6 max-w-sm flex-grow">Upload a suspicious PDF, Word document, or attachment for deep scanning.</p>
@@ -51,8 +51,8 @@ export function FileScanner() {
 
         <div
           onClick={() => fileInputRef.current?.click()}
-          className={`w-full border-2 border-dashed ${file ? 'border-[#4F84F8] bg-[#4F84F8]/5' : 'border-surface-200 dark:border-white/[0.1] bg-surface-50 dark:bg-[#0B0F19] hover:bg-surface-100 dark:hover:bg-white/[0.03]'} rounded-xl py-3 px-4 mb-4 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 h-[46px]`}>
-          <span className={`text-sm font-bold truncate w-full ${file ? 'text-[#4F84F8]' : 'text-surface-500'}`}>
+          className={`w-full border-2 border-dashed ${file ? 'border-[#5C93BE] bg-[#5C93BE]/5' : 'border-surface-200 dark:border-white/[0.1] bg-surface-50 dark:bg-[#071426] hover:bg-surface-100 dark:hover:bg-white/[0.03]'} rounded-xl py-3 px-4 mb-4 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 h-[46px]`}>
+          <span className={`text-sm font-bold truncate w-full ${file ? 'text-[#5C93BE]' : 'text-surface-500'}`}>
             {file ? file.name : 'Click or drag document here'}
           </span>
         </div>
@@ -60,7 +60,7 @@ export function FileScanner() {
         <button
           onClick={handleScan}
           disabled={loading || !file}
-          className="w-full py-3 bg-[#4F84F8] disabled:opacity-50 text-white rounded-xl font-bold text-sm hover:bg-[#3D6CE5] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#4F84F8]/20 disabled:shadow-none hover:shadow-[#4F84F8]/40">
+          className="w-full py-3 bg-[#5C93BE] disabled:opacity-50 text-white rounded-xl font-bold text-sm hover:bg-[#3D6C90] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#5C93BE]/20 disabled:shadow-none hover:shadow-[#5C93BE]/40">
           {loading ? <Activity className="w-4 h-4 animate-spin" /> : 'Scan Document'}
         </button>
       </div>

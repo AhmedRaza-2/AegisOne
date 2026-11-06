@@ -51,7 +51,7 @@ export default function DepartmentAnalyticsPage() {
   const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
   const tooltipBg = isDark ? "#1e293b" : "#ffffff";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  const tooltipColor = isDark ? "#ffffff" : "#0f172a";
+  const tooltipColor = isDark ? "#ffffff" : "#0A1931";
 
   const coverageCards = useMemo(() => {
     if (!realStats) {
@@ -59,7 +59,7 @@ export default function DepartmentAnalyticsPage() {
         { label: "URL Protection", value: "100%", icon: Globe, color: "text-blue-500" },
         { label: "Credential Protection", value: "100%", icon: Key, color: "text-emerald-500" },
         { label: "Download Protection", value: "100%", icon: Download, color: "text-amber-500" },
-        { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-purple-500" },
+        { label: "Image AI", value: "100%", icon: ImageIcon, color: "text-brand-500" },
       ];
     }
 
@@ -77,7 +77,7 @@ export default function DepartmentAnalyticsPage() {
       { label: "URL Protection", value: `${urlScore}%`, icon: Globe, color: "text-blue-500" },
       { label: "Credential Protection", value: `${credScore}%`, icon: Key, color: "text-emerald-500" },
       { label: "Download Protection", value: `${dlScore}%`, icon: Download, color: "text-amber-500" },
-      { label: "Image AI", value: `${imgScore}%`, icon: ImageIcon, color: "text-purple-500" },
+      { label: "Image AI", value: `${imgScore}%`, icon: ImageIcon, color: "text-brand-500" },
     ];
   }, [realStats]);
 
@@ -103,7 +103,7 @@ export default function DepartmentAnalyticsPage() {
     return Object.keys(types).map(k => ({
       name: k,
       value: types[k],
-      color: colorMap[k] || "#8b5cf6"
+      color: colorMap[k] || "#5C93BE"
     })).filter(d => d.value > 0);
   }, [realStats]);
 
@@ -134,7 +134,7 @@ export default function DepartmentAnalyticsPage() {
             <button
               key={t.id}
               onClick={() => setTimeRange(t.id as any)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${timeRange === t.id ? 'bg-white dark:bg-surface-800 text-[#5C93BE] shadow-sm' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}`}
             >
               {t.label}
             </button>

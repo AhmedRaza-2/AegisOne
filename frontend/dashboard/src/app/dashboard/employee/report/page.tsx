@@ -29,7 +29,7 @@ const SEVERITIES = [
 ];
 
 const field =
-  "w-full px-3.5 py-2.5 bg-white dark:bg-[#0F1423] border border-surface-200 dark:border-white/[0.1] rounded-lg text-sm " +
+  "w-full px-3.5 py-2.5 bg-white dark:bg-[#0A1931] border border-surface-200 dark:border-white/[0.1] rounded-lg text-sm " +
   "text-surface-900 dark:text-white placeholder:text-surface-400 dark:placeholder:text-surface-500 " +
   "focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all";
 

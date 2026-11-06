@@ -1,7 +1,7 @@
 export default function HeroBackground() {
   return (
     <div
-      className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0 bg-[#F8FAFC] md:bg-[#FAFAFA]"
+      className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0 bg-[#F6FAFD] md:bg-[#FAFAFA]"
       aria-hidden="true"
     >
       {/* ── 1. PREMIUM AURORA GRADIENT MESH ── */}
@@ -34,8 +34,8 @@ export default function HeroBackground() {
 
       {/* ── 3. MOUSE SPOTLIGHT (moved via transform so it never repaints) ── */}
       {/* ── 4. HORIZON FADE ── */}
-      <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#F8FAFC] md:from-[#FAFAFA] to-transparent pointer-events-none" />
-      <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/90 md:from-[#FAFAFA] md:via-[#FAFAFA]/80 to-transparent pointer-events-none" />
+      <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#F6FAFD] md:from-[#FAFAFA] to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-[#F6FAFD] via-[#F6FAFD]/90 md:from-[#FAFAFA] md:via-[#FAFAFA]/80 to-transparent pointer-events-none" />
     </div>
   );
 }

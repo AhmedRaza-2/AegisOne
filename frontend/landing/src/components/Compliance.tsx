@@ -27,7 +27,7 @@ const complianceCards = [
   },
 ];
   return (
-    <section id="compliance" className="min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#0F172A] text-white overflow-hidden relative border-b border-slate-800">
+    <section id="compliance" className="min-h-[100dvh] flex flex-col justify-center py-16 md:py-24 bg-[#0A1931] text-white overflow-hidden relative border-b border-slate-800">
       {/* Abstract technical glowing background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08)_0%,transparent_50%)] pointer-events-none" />
       
@@ -52,7 +52,7 @@ const complianceCards = [
           <button
             id="btn-download-whitepaper"
             onClick={onDownloadWhitepaper}
-            className="font-sans text-sm font-semibold bg-[#0A5ED6] text-white hover:bg-[#0B63E0] px-5 py-3 rounded-lg shadow-md transition-all duration-200 flex items-center gap-2 group cursor-pointer"
+            className="font-sans text-sm font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] px-5 py-3 rounded-lg shadow-md transition-all duration-200 flex items-center gap-2 group cursor-pointer"
           >
             <Download className="w-4 h-4 text-white" />
             Download Security PDF

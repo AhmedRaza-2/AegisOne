@@ -35,28 +35,28 @@ export default function DeploymentStack() {
       name: 'RBAC',
       description: 'Safe login protection.',
       icon: Users,
-      color: 'text-indigo-500',
-      bgColor: 'bg-indigo-50 border-indigo-100',
+      color: 'text-brand-500',
+      bgColor: 'bg-brand-50 border-brand-100',
     },
     {
       name: 'REST API',
       description: 'Simple code connections.',
       icon: Code,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-50 border-purple-100',
+      color: 'text-brand-500',
+      bgColor: 'bg-brand-50 border-brand-100',
     },
   ];
 
   return (
-    <section id="documentation" className="min-h-[100dvh] flex flex-col justify-center py-16 bg-[#F8FAFC] border-b border-[#E2E8F0]">
+    <section id="documentation" className="min-h-[100dvh] flex flex-col justify-center py-16 bg-[#F6FAFD] border-b border-[#E1EBF2]">
       <div className="max-w-7xl mx-auto px-6">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-[#0F172A]">
+          <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-[#0A1931]">
             Standard Safe Technology Stack
           </h2>
-          <p className="font-sans text-base text-[#45464D] leading-relaxed">
+          <p className="font-sans text-base text-[#4A6D8C] leading-relaxed">
             We use simple, reliable, and high-performance tools to keep the protection running fast without any server errors.
           </p>
         </div>
@@ -69,7 +69,7 @@ export default function DeploymentStack() {
               <div 
                 key={idx}
                 id={`stack-item-${idx}`}
-                className="bg-white border border-[#E2E8F0] rounded-2xl p-6 flex flex-col items-center text-center hover:shadow-md hover:border-slate-300 transition-all duration-300 hover:-translate-y-1"
+                className="bg-white border border-[#E1EBF2] rounded-2xl p-6 flex flex-col items-center text-center hover:shadow-md hover:border-slate-300 transition-all duration-300 hover:-translate-y-1"
               >
                 {/* Icon Container */}
                 <div className={`p-4 rounded-xl border mb-4 ${item.bgColor} ${item.color} flex items-center justify-center`}>
@@ -77,12 +77,12 @@ export default function DeploymentStack() {
                 </div>
                 
                 {/* Name */}
-                <h4 className="font-sans font-bold text-sm text-[#0F172A] mb-1">
+                <h4 className="font-sans font-bold text-sm text-[#0A1931] mb-1">
                   {item.name}
                 </h4>
                 
                 {/* Subtitle / Description */}
-                <span className="font-sans text-[11px] text-[#76777D] leading-snug">
+                <span className="font-sans text-[11px] text-[#6B87A0] leading-snug">
                   {item.description}
                 </span>
               </div>

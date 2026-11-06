@@ -31,7 +31,7 @@ export function EvidencePanel({ evidence, compact = false }: { evidence?: any; c
   const Icon = meta.icon;
 
   return (
-    <div className="rounded-xl border border-surface-200 dark:border-white/[0.06] bg-surface-50 dark:bg-[#141A29] p-4 space-y-3 text-xs">
+    <div className="rounded-xl border border-surface-200 dark:border-white/[0.06] bg-surface-50 dark:bg-[#0F2038] p-4 space-y-3 text-xs">
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white dark:bg-white/[0.06] border border-surface-200 dark:border-white/[0.08] font-semibold text-surface-700 dark:text-surface-200">
           <Icon className="w-3.5 h-3.5" /> {meta.label}

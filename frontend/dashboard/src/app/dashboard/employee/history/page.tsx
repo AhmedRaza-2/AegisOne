@@ -120,14 +120,14 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.04] p-4 rounded-xl">
+      <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.04] p-4 rounded-xl">
         <div className="flex flex-wrap gap-1.5 bg-surface-100 dark:bg-white/[0.02] p-1 rounded-lg border border-surface-200 dark:border-white/[0.05]">
           {["all", "threats", "url", "document", "image", "email", "text"].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all capitalize ${filter === f
-                  ? "bg-white dark:bg-surface-800 text-[#4F84F8] shadow-sm border border-surface-200/50 dark:border-white/[0.08]"
+                  ? "bg-white dark:bg-surface-800 text-[#5C93BE] shadow-sm border border-surface-200/50 dark:border-white/[0.08]"
                   : "text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white"
                 }`}
             >
@@ -143,28 +143,28 @@ export default function HistoryPage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-surface-50 dark:bg-[#0B0F19] border border-surface-200 dark:border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-surface-900 dark:text-white"
+              className="bg-surface-50 dark:bg-[#071426] border border-surface-200 dark:border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-surface-900 dark:text-white"
             />
             <span className="text-surface-500 text-sm">to</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-surface-50 dark:bg-[#0B0F19] border border-surface-200 dark:border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-surface-900 dark:text-white"
+              className="bg-surface-50 dark:bg-[#071426] border border-surface-200 dark:border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-surface-900 dark:text-white"
             />
             {isDateChanged && (
               <button onClick={() => { setStartDate(defaultDates.start); setEndDate(defaultDates.end); }} className="text-xs text-red-500 hover:underline ml-2">Clear</button>
             )}
           </div>
 
-          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#4F84F8] text-white hover:bg-[#3D6CE5] transition-colors whitespace-nowrap ml-auto sm:ml-0">
+          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#5C93BE] text-white hover:bg-[#3D6C90] transition-colors whitespace-nowrap ml-auto sm:ml-0">
             <Download className="w-4 h-4" />
             Export Logs (CSV)
           </button>
         </div>
       </div>
 
-      <div className="rounded-xl border border-surface-200 dark:border-white/[0.04] overflow-hidden bg-white dark:bg-[#141A29]">
+      <div className="rounded-xl border border-surface-200 dark:border-white/[0.04] overflow-hidden bg-white dark:bg-[#0F2038]">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -233,7 +233,7 @@ export default function HistoryPage() {
             <select
               value={itemsPerPage}
               onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="bg-white dark:bg-[#0B0F19] border border-surface-200 dark:border-white/[0.1] rounded px-2 py-1 text-xs text-surface-900 dark:text-white outline-none"
+              className="bg-white dark:bg-[#071426] border border-surface-200 dark:border-white/[0.1] rounded px-2 py-1 text-xs text-surface-900 dark:text-white outline-none"
             >
               <option value={10}>10</option>
               <option value={30}>30</option>
@@ -250,7 +250,7 @@ export default function HistoryPage() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-2.5 py-1 text-xs font-semibold rounded bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.1] text-surface-700 dark:text-surface-300 disabled:opacity-50 hover:bg-surface-50 dark:hover:bg-white/[0.05]"
+                className="px-2.5 py-1 text-xs font-semibold rounded bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.1] text-surface-700 dark:text-surface-300 disabled:opacity-50 hover:bg-surface-50 dark:hover:bg-white/[0.05]"
               >
                 Prev
               </button>
@@ -260,7 +260,7 @@ export default function HistoryPage() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="px-2.5 py-1 text-xs font-semibold rounded bg-white dark:bg-[#141A29] border border-surface-200 dark:border-white/[0.1] text-surface-700 dark:text-surface-300 disabled:opacity-50 hover:bg-surface-50 dark:hover:bg-white/[0.05]"
+                className="px-2.5 py-1 text-xs font-semibold rounded bg-white dark:bg-[#0F2038] border border-surface-200 dark:border-white/[0.1] text-surface-700 dark:text-surface-300 disabled:opacity-50 hover:bg-surface-50 dark:hover:bg-white/[0.05]"
               >
                 Next
               </button>

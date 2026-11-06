@@ -47,19 +47,19 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden" id="auth-screen-container">
+    <div className="min-h-screen bg-[#F6FAFD] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden" id="auth-screen-container">
       {/* Background radial accent */}
       <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-blue-50/50 to-transparent pointer-events-none" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 rounded-full text-[#0A5ED6] font-mono text-[10px] uppercase tracking-widest mb-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 rounded-full text-[#3D6C90] font-mono text-[10px] uppercase tracking-widest mb-4">
           <ShieldCheck className="w-3.5 h-3.5" />
           Sovereign Edge Authentication
         </div>
-        <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[#0F172A]">
+        <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[#0A1931]">
           AegisOne Local Portal
         </h2>
-        <p className="mt-2 font-sans text-sm text-[#45464D]">
+        <p className="mt-2 font-sans text-sm text-[#4A6D8C]">
           {isSignUp 
             ? 'Register your organization and deploy a secure admin node.' 
             : 'Access your office safe link administration dashboard.'}
@@ -89,7 +89,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Ahmad Raza"
-                    className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-none transition-all"
+                    className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#3D6C90] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0A1931] placeholder-slate-400 outline-none transition-all"
                   />
                 </div>
 
@@ -104,7 +104,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
                     placeholder="e.g. Al-Baraka Logistics"
-                    className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-none transition-all"
+                    className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#3D6C90] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0A1931] placeholder-slate-400 outline-none transition-all"
                   />
                 </div>
               </>
@@ -121,7 +121,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#0A5ED6] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0F172A] placeholder-slate-400 outline-none transition-all"
+                className="font-sans text-sm w-full bg-slate-50 border border-slate-200 focus:border-[#3D6C90] focus:bg-white rounded-lg px-3.5 py-2.5 text-[#0A1931] placeholder-slate-400 outline-none transition-all"
               />
             </div>
 
@@ -140,7 +140,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
             <button
               type="submit"
-              className="font-sans w-full text-center text-sm font-bold bg-[#0A5ED6] hover:bg-[#0B63E0] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
+              className="font-sans w-full text-center text-sm font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
             >
               {isSignUp ? 'Create Admin Node Account' : 'Authenticate & Open Portal'}
               <ArrowRight className="w-4 h-4" />
@@ -154,7 +154,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 setIsSignUp(!isSignUp);
                 setErrorMsg(null);
               }}
-              className="font-sans text-xs font-semibold text-[#0A5ED6] hover:underline cursor-pointer"
+              className="font-sans text-xs font-semibold text-[#3D6C90] hover:underline cursor-pointer"
             >
               {isSignUp 
                 ? 'Already have an office admin node? Log In' 
@@ -174,7 +174,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                   className="font-sans text-xs w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-2.5 px-3 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer"
                 >
                   <div>
-                    <span className="font-bold text-[#0F172A] block text-xs">Ahmad Raza (Super Admin)</span>
+                    <span className="font-bold text-[#0A1931] block text-xs">Ahmad Raza (Super Admin)</span>
                     <span className="text-[10px] text-slate-400 block">Al-Baraka Logistics • Active</span>
                   </div>
                   <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase shrink-0">
