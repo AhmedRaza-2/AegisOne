@@ -1,21 +1,22 @@
 {
   "arch": "message_m1",
-  "temperature": 1.7369934756621508,
+  "temperature": 1.8800614736243695,
   "thresholds": {
     "email": {
-      "suspicious": 0.0070827310877575505,
-      "warn": 0.12780315503787043,
-      "block": 0.976996679532778,
-      "legit_n": 4405
+      "suspicious": 0.009052167784651927,
+      "warn": 0.32901144502688784,
+      "block": 0.9819335042695321,
+      "legit_n": 4298
     },
     "sms": {
-      "suspicious": 0.006743146621160125,
-      "warn": 0.10938298145315012,
-      "block": 0.9722854484778697,
-      "legit_n": 1020
+      "suspicious": 0.01658179815292391,
+      "warn": 0.5497007216501375,
+      "block": 0.9706561200509509,
+      "legit_n": 1214
     }
   },
-  "base_model": "intfloat/multilingual-e5-small",
+  "base_model": "BAAI/bge-small-en-v1.5",
+  "prefix": "",
   "max_len": 320,
   "intents": [
     "urgency",
@@ -29,7 +30,7 @@
     "link_mismatch"
   ],
   "trained": "2026-11-06",
-  "fit_n": 92106,
+  "fit_n": 92832,
   "holdout_source": "",
   "data": "aegisone-message-data (see AIML/eval/export_message_data.py)"
 }

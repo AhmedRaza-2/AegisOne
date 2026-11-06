@@ -2,10 +2,10 @@
   "kind": "text",
   "meta": {
     "version": "text-2.0.0",
-    "backbone": "intfloat/multilingual-e5-small",
-    "trained": "2026-11-06",
-    "train_n": 12242,
-    "calibration_n": 1360,
+    "backbone": "BAAI/bge-small-en-v1.5",
+    "trained": "2026-11-07",
+    "train_n": 16868,
+    "calibration_n": 1874,
     "sources": [
       "hard_genuine",
       "hard_scam",
@@ -17,20 +17,20 @@
     ]
   },
   "thresholds": {
-    "suspicious": 0.5404458045959473,
-    "warn": 0.8584609031677246,
-    "block": 0.989057719707489,
+    "suspicious": 0.6791213750839233,
+    "warn": 0.9254565834999084,
+    "block": 0.988944947719574,
     "fpr_targets": {
       "suspicious": 0.05,
       "warn": 0.01,
       "block": 0.001
     },
-    "calibrated_on": 830
+    "calibrated_on": 1102
   },
   "platt": [
-    1.084643916094811,
-    0.10940125173852747
+    0.9885826592040797,
+    -0.006524927781204606
   ],
-  "reference_auc": 0.9957912178956089,
+  "reference_auc": 0.983744821872411,
   "reference_n": 1900
 }

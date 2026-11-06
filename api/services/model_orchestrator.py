@@ -337,15 +337,24 @@ M1_INTENT_TEXT = {
 
 
 def _message_engine() -> str:
-    """AEGIS_MESSAGE_ENGINE: ensemble (default: M1 and the v2 head averaged), m1 (M1 alone), v2 (frozen-embedding heads only)."""
-    return os.environ.get("AEGIS_MESSAGE_ENGINE", "ensemble").lower()
+    """AEGIS_MESSAGE_ENGINE: m1 (default: ONE text model for e-mail, SMS and chat), ensemble (M1 averaged with the v2 head),
+    v2 (frozen-embedding heads only). An organisation's own retrained head (8.11) is blended in automatically once active."""
+    return os.environ.get("AEGIS_MESSAGE_ENGINE", "m1").lower()
+
+
+def _m1_dir() -> str:
+    return os.environ.get("AEGIS_MESSAGE_MODEL_DIR") or os.path.join(os.path.dirname(__file__), "..", "..", "AIML", "message", "m1")
+
+
+def _m1_installed() -> bool:
+    return _message_engine() != "v2" and os.path.exists(os.path.join(_m1_dir(), "calibration.json"))
 
 
 def load_m1() -> None:
     """Load the unified message model if it is installed (AIML/message/m1) and AEGIS_MESSAGE_ENGINE allows it."""
     M1.clear()
-    d = os.environ.get("AEGIS_MESSAGE_MODEL_DIR") or os.path.join(os.path.dirname(__file__), "..", "..", "AIML", "message", "m1")
-    if _message_engine() == "v2" or not os.path.exists(os.path.join(d, "calibration.json")):
+    d = _m1_dir()
+    if not _m1_installed():
         return
     try:
         from AIML.message import net as mnet
@@ -374,8 +383,9 @@ def _m1_risk(channel: str, sender: str, subject: str, body: str, history=None, k
         th = {"suspicious": th["warn"], "warn": th["block"], "block": th["block"] + (1.0 - th["block"]) * 0.5}
     risk = float(np.interp(p, [0.0, th["suspicious"], th["warn"], max(th["block"], th["warn"] + 1e-6), 1.0], [0.0, 0.35, 0.51, 0.76, 1.0]))
     intents = {k: round(float(v), 3) for k, v in zip(mctx.INTENTS, torch.sigmoid(ig[0].float()).tolist())}
-    if _message_engine() == "ensemble" and kind in V2_HEADS:
-        # Blend with the v2 head (an organisation's own retrained head when one is active, so 8.11 keeps its effect).
+    if kind in V2_HEADS and (_message_engine() == "ensemble" or getattr(V2_HEADS[kind], "is_org", False)):
+        # Blend with the v2 head: always when AEGIS_MESSAGE_ENGINE=ensemble, and by default only for an organisation's own
+        # retrained head (so 8.11 keeps its effect while the shipped product scores with ONE text model).
         # Measured: M1 alone ranks as well as v2 but is over-confident outside its training corpora (12.5% false alarms on
         # hand-written mail at its own threshold); the average has v2's calibration and M1's recall.
         h = V2_HEADS[kind]
@@ -400,7 +410,9 @@ def load_v2_heads(override: dict | None = None) -> None:
         try:
             h = _load_head(path, _v2_featurizer(kind))
             if h is not None:
-                h.backbone  # load the embedding model now, not on the first request
+                h.is_org = bool((override or {}).get(kind))
+                if _message_engine() != "m1" or not _m1_installed():
+                    h.backbone  # load the embedding model now, not on the first request (skipped when M1 alone scores messages)
                 V2_HEADS[kind] = h
                 logger.info(f"  ✓ {kind} v2 detector loaded ({h.spec.get('meta', {}).get('version', 'base')})")
         except Exception as e:
@@ -416,6 +428,7 @@ def apply_v2_head(kind: str, head_path: str | None, version_tag: str) -> bool:
         h = _load_head(path, _v2_featurizer(kind))
         if h is None:
             return False
+        h.is_org = head_path is not None            # an organisation's own head is blended with M1 (8.11)
         old = V2_HEADS.get(kind)
         if old is not None and old.spec.get("backbone") == h.spec.get("backbone"):
             h._bb = old._bb

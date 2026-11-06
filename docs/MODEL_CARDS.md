@@ -54,7 +54,7 @@ Last updated 2026-11-02. Sections 3 and 4 are now the second half of the message
 | Result | UCI SMS AUC 0.993 (90.7% caught / 0.6% false alarms); Pakistani set AUC 0.977 (81.8% caught / 5.6% false alarms) |
 | Weaknesses | **Small Pakistani training set** (3 scam families unseen in training are missed; one WhatsApp OTP format is flagged); no conversation context; Roman Urdu spelling variation is handled only by the multilingual embedding |
 
-## 5. Message model M1 (`AIML/message/m1/`, shipped 2026-11-02, blended with sections 3 and 4)
+## 5. Message model M1 (`AIML/message/m1/`) - THE text model since 2026-11-07: English only, `BAAI/bge-small-en-v1.5` (33M), scores alone; sections 3 and 4 (v2 heads) now serve organisation retraining only. Results: docs/TEST_REPORT.md section 12; the older rows below describe the first multilingual version
 
 | | |
 |---|---|

@@ -51,35 +51,40 @@ data ends Dec 2025, so it needs a weekly refresh; 31 of the 303 fresh URLs were 
 
 ## 2. Text model (e-mail, SMS, WhatsApp/chat)
 
-**What runs today (2026-11-07):** model **M1** (one network for all message types) averaged with the **v2 head** (a light
-classifier over a frozen embedding), thresholds per channel. **What is being changed:** ONE English-only text model
-(smaller BGE backbone), no blend - round 3 training is in progress; see s7.
+**What runs (2026-11-07):** ONE English-only text model, **M1**, for e-mail, SMS and chat, with thresholds per channel.
+It scores alone. The **v2 head** (a light classifier over a frozen embedding) is kept only so that an organisation's own
+retraining (module 8.11) still has something to update: its head is blended in only once an organisation activates it.
 
 | Question | Answer | Where |
 |---|---|---|
 | Task | Is this message a scam/phishing, and *what does it ask for* (credentials, payment, a code, secrecy, a reward, a shared file, authority, a link that is not the sender's)? | `model_orchestrator.py::_predict_email_sync`, `_predict_text_sync`, `_m1_risk` |
-| Network | A sentence encoder, **fully fine-tuned** (multilingual-e5-small today, 118M; BGE-small-en 33M next), mean-pooled, joined with **54 structural features** (links, sender/domain mismatch, urgency, amounts...) -> MLP; plus 9 auxiliary **intent heads** | `AIML/message/net.py::MessageNet`, `AIML/message/context.py::build_text, dense_features` |
+| Network | A sentence encoder, **fully fine-tuned** (`BAAI/bge-small-en-v1.5`, 33M parameters, English), mean-pooled, joined with **54 structural features** (links, sender/domain mismatch, urgency, amounts...) -> MLP; plus 9 auxiliary **intent heads** | `AIML/message/net.py::MessageNet`, `AIML/message/context.py::build_text, dense_features` |
 | The input includes context | channel + sender kind + link/registered-domain context + subject + body. The same file builds the input in training and serving (no drift) | `context.py` |
-| Data (round 2: 102,567 messages) | Seven public e-mail corpora (TREC-05/06/07, CEAS-08, Enron, SpamAssassin, Ling), Nazario + three more phishing sources, LLM-written modern phishing **and legitimate** mail, UCI SMS, India SMS, Pakistani and transactional SMS seeds, **+4,018 machine-written hard genuine messages with paired scams**. Evaluation sets excluded | `AIML/eval/export_message_data.py` |
+| Data (round 3: 103,391 English messages) | Seven public e-mail corpora (TREC-05/06/07, CEAS-08, Enron, SpamAssassin, Ling), Nazario + three more phishing sources, LLM-written modern phishing **and legitimate** mail, UCI SMS, India SMS, Pakistani and transactional SMS seeds, **+9,870 cleaned machine-written hard messages (bank and card alerts, code notices, promotions, account security) with paired scams**. Non-English rows removed. Evaluation sets excluded | `AIML/eval/export_message_data.py` |
 | Training | Kaggle 2 x T4, 3 epochs, batch 64, lr 3e-5 encoder / 1e-3 heads, loss = cross-entropy + 0.3 x intent loss. Thresholds per channel at 1% / 0.1% false alarms | `AIML/message/kaggle/train_message_m1.py` |
 | Why not an LLM | A fine-tuned small encoder makes far fewer false alarms on genuine messages than a zero-shot LLM, runs on a CPU and cannot be prompt-injected (SecureNet 2406.06663; counter-scam study 2606.01475) | `docs/MODEL_RESEARCH_AND_PLAN.md` s6b-6c |
 | v2 head | Frozen `bge-small-en-v1.5` embedding + 30 structural features -> logistic regression, Platt-calibrated, one JSON file. **This is what organisation retraining (module 8.11) updates**, because refitting a head on a few dozen verified reports is safe and fast | `AIML/embed_head.py`, `api/services/embed_retrain.py::train_org_head` |
 
-**Numbers (independent sets, never trained on) before -> after the hard-message round:**
+**Numbers (independent sets, never trained on), English:**
 
 | Set | Scams caught | Genuine flagged |
 |---|---|---|
-| ScamGuardBench v0.2 (977 messages, deliberately look-alike genuine ones) | 99.3% -> 93.7% | **65.3% -> 19.4%** (AUC 0.913 -> 0.950) |
-| 1,000 real Pakistani SMS (Roman Urdu) | 93.6% -> 87.9% | 12.8% -> 0.0% |
-| 176 hand-written modern mails | 98.3% -> 98.3% | 3.6% -> 0.0% |
-| 1,000 LLM-written mails | 90.0% -> 89.8% | 1.0% -> 1.2% |
-| 1,100 real SMS (UCI) | 95.0% -> 85.7% | 0.6% -> 0.1% |
+| ScamGuardBench v0.2, English part (610 messages, deliberately look-alike genuine ones) | **96.5%** (adversarial "hard" scams 20/20) | **9.1%** (was 65.3% at the start of this work; AUC 0.977) |
+| 119 hand-written Pakistani messages, English part | 100% | 0% |
+| 176 hand-written modern mails | 93.3% | 0.0% |
+| 1,000 LLM-written mails (same generator family as part of the training data: optimistic) | 99.0% | 0.0% |
+| 500 real legitimate mails | - | 0.0% |
+| 1,100 real SMS (UCI) | 92.0% | 0.5% |
+| 600 India SMS | 100% | 0% |
 
-**Weak (say it first):** the 5% false-alarm target on the hard benchmark is **not met** (19.4%): bank transaction alerts
-(48% flagged), "never share this code" notices (31%), promotions (25%). Part of the gain may be generator style
-(the benchmark and our extra data are both LLM-written), which is why the real Pakistani SMS and UCI sets are reported
-next to it. UCI scam recall fell because genuine promotions are now labelled safe while UCI calls them spam: the fix is a
-third class (scam / promotion / genuine), planned, not built. Real "account hack warning" scams are still missed.
+**Speed:** median 79 ms, p95 129 ms per message on a CPU. **Size:** 33M parameters, 67 MB (was 118M / 236 MB).
+
+**Weak (say it first):** the 5% false-alarm target on the hard benchmark is **not met** (9.1%): bank transaction alerts are still
+flagged 41% of the time (everything else is under 12% except untagged 18%). **Roman Urdu and Urdu are no longer supported by the
+text model** (real Pakistani Roman Urdu SMS: scams caught 39%): the product decision was English only; links in such messages are
+still scored by the URL model. Part of the gain may be generator style (the benchmark and our extra data are both LLM-written),
+so the real-data sets are reported beside it. Promotions are labelled safe (the third "promotion" class from PhishFuzzer is
+still not built).
 
 ## 3. Which techniques do we use (the question you will get)
 
@@ -93,7 +98,7 @@ third class (scam / promotion / genuine), planned, not built. Real "account hack
 | Frozen embedding + linear head | Yes | the v2 text/e-mail heads |
 | Quantisation | Yes | int8 dynamic quantisation for CPU serving |
 | Calibration | Yes | temperature scaling (URL/M1), Platt scaling (heads) |
-| Ensembling | Yes | URL + page model mean; M1 + v2 head mean (being removed for text) |
+| Ensembling | Yes for URL (URL + page model mean); **no for text** (M1 alone; an organisation's retrained head is blended only once active) |
 
 ## 4. How we know the numbers are honest (methodology)
 
@@ -140,8 +145,8 @@ It is **not** neural fine-tuning of the whole network (that stays a vendor job o
 | KnowPhish (USENIX Security 2024), PhishAgent (AAAI 2025) | brand-knowledge / reference-based URL detection | basis of the brand engine; not a full copy |
 
 Most text-side papers are arXiv preprints or journals; we found no top-conference paper on exactly this text problem - say so.
-**Planned next:** one English-only text model (no blend), three classes, URL risk of each link as an input, uncertainty
-routing, an adversarial test as a release gate.
+**Done:** one English-only text model (no blend). **Planned next:** three classes (scam / promotion / genuine), URL risk of each
+link as an input, uncertainty routing, an adversarial rewriting test as a release gate, human-written bank-alert data.
 
 ## 8. Other models (do not let the examiner lead you here)
 
@@ -157,24 +162,24 @@ routing, an adversarial test as a release gate.
 4. **What did you test against?** Google Safe Browsing and VirusTotal on 303 fresh phishing URLs; 89.8% vs 27.7%; VirusTotal's 100% is circular. Lead time not measured.
 5. **Why not GPT?** False alarms on genuine traffic, latency (0.5-23 s per page in the literature), privacy, prompt injection.
 6. **What happens when the model is wrong?** The user reports it -> incident -> admin verifies -> head retrained behind a no-regression gate.
-7. **What is your biggest weakness?** Genuine messages that look like scams (19.4% flagged on the hard benchmark vs 5% target); compromised popular domains for URLs.
+7. **What is your biggest weakness?** Genuine bank transaction alerts that look like scams (41% flagged; 9.1% over the whole hard benchmark vs the 5% target); no Roman Urdu/Urdu support in the text model; compromised popular domains for URLs.
 8. **Does user data leave the company?** No: scoring is on the company's own server; the extension sends the URL, a ~600-character page summary and message text to *that* server; PII is redacted for managers/admins.
-9. **How fast?** URL 53 ms idle / 191 ms busy on CPU; message latency to be quoted from `docs/TEST_REPORT.md` after the final model.
+9. **How fast?** URL 53 ms idle / 191 ms busy on CPU; message 79 ms median / 129 ms p95 on CPU.
 10. **Is the data synthetic?** URL: real (PhreshPhish, c4). Text: real public corpora **plus** 4,018 LLM-written hard examples; we report real-data sets beside the LLM-written benchmark.
 11. **Why does recall drop when false alarms drop?** The trade-off is a threshold; we chose thresholds on held-out data at 1% / 0.1% false alarms and say what we lose (UCI promotions).
 12. **What is hard-coded?** s6.
 13. **LoRA? LSTM? distillation?** No / no / no (s3).
-14. **Why English only now?** The product scope is English; one English backbone is smaller (33M vs 118M), faster and avoids spreading a small training budget over scripts we cannot evaluate.
+14. **Why English only now?** The product scope is English; the English backbone is smaller (33M vs 118M), faster and more accurate on English; the price is that Roman Urdu/Urdu scams are no longer reliably caught by the text model (39% on real Pakistani SMS) - say so.
 
 ## 10. Run it end to end (for testing before the viva)
 
-**Quick test that does not touch any existing containers (verified 2026-11-07 on the pushed images):**
+**Quick test that does not touch any existing containers (verified 2026-11-07 on the final images):**
 ```
 docker network create aegistest
 docker run -d --name aegistest-db --network aegistest -e POSTGRES_USER=aegis -e POSTGRES_PASSWORD=testpass -e POSTGRES_DB=aegisone postgres:16
 docker run -d --name aegistest-backend --network aegistest -p 8100:8000 -e AEGIS_SLA_WATCH=0 -e AEGIS_PORT=8000 ^
   -e AEGIS_DATABASE_URL=postgresql+asyncpg://aegis:testpass@aegistest-db:5432/aegisone -e AEGIS_JWT_SECRET=any-long-random-text ^
-  -e AEGIS_LICENSE_ENFORCE=off ahmedraza2006/aegisone-backend:2026-11-07 uvicorn api.main:app --host 0.0.0.0 --port 8000
+  -e AEGIS_LICENSE_ENFORCE=off ahmedraza2006/aegisone-backend:2026-11-07b uvicorn api.main:app --host 0.0.0.0 --port 8000
 docker run -d --name aegistest-dash --network aegistest -p 3100:3000 ahmedraza2006/aegisone-dashboard:2026-11-07
 ```
 (`^` is the Windows line-continuation; on Linux/macOS use `\`.) The backend needs about a minute to load the models:
@@ -184,9 +189,11 @@ Scans work without signing in (form-encoded):
 ```
 curl -X POST http://127.0.0.1:8100/analyze/url  --data-urlencode "url=http://paypa1-secure-login.xyz/verify?acct=7"   -> BLOCK 96
 curl -X POST http://127.0.0.1:8100/analyze/url  --data-urlencode "url=https://www.google.com/search?q=weather"      -> SAFE 0.17
-curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=Your OTP is 482913. Do not share this code with anyone."   -> legitimate 7.7%
-curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=HBL: Rs 4,500 debited from A/c XX1234 ... call 111-111-425."  -> legitimate 1.1%
-curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=Your account has been compromised. Send the code you just received to our agent now ..."  -> phishing 55.9% (just above WARN 51: a borderline case, say so)
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=Your OTP is 482913. Do not share this code with anyone."            -> legitimate 1.9%
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=HBL: Rs 4,500 debited from A/c XX1234 ... call 111-111-425."          -> legitimate 0.3%
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=McDonald's: Get 20% off your next order! Use code LUNA20 ... Reply STOP."  -> legitimate 0.1%
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=Your account has been compromised. Send the code you just received to our agent now ..."  -> phishing 98.2%
+curl -X POST http://127.0.0.1:8100/analyze/text --data-urlencode "text=Congratulations! You won a 500 dollar Best Buy gift card. Claim it at http://go.fo/claim ..."  -> phishing 99.1%
 ```
 Clean up: `docker rm -f aegistest-db aegistest-backend aegistest-dash && docker network rm aegistest`.
 

@@ -225,3 +225,44 @@ Honest reading:
   benchmark and the Roman Urdu set are independent of it, and both improved.
 - Next: a human-written hard-genuine set for the weak classes (transaction alerts, OTP notices), a promotion class, and
   retraining with Romanian-like unseen-language data.
+
+## 12. One English text model (2026-11-07)
+
+Decision: the product supports English only, and there is ONE text model for e-mail, SMS and chat. M1 was retrained on
+`BAAI/bge-small-en-v1.5` (33M parameters, was 118M multilingual), on 103,391 English messages including 9,870 cleaned
+machine-written hard messages (bank and card alerts, "never share this code" notices, promotions, account-security
+notices and the scams that imitate them, written for varied banks, brands and regions; formatting artefacts removed).
+M1 alone scores messages by default; an organisation's own retrained v2 head (module 8.11) is blended in only once active
+(`AEGIS_MESSAGE_ENGINE=ensemble` restores the old blend). The weights are about 67 MB (was 236 MB).
+
+Independent benchmark (ScamGuardBench v0.2, never used for training or thresholds), English part only (610 messages):
+
+| | Scams caught | Genuine look-alikes flagged | AUC |
+|---|---|---|---|
+| Blend, start of this work (all 977 messages) | 99.3% | 65.3% | 0.913 |
+| Blend after round 2 (all 977) | 93.7% | 19.4% | 0.950 |
+| **Single English model, English messages** | **96.5%** | **9.1%** | **0.977** |
+
+Adversarial "hard" scams of the benchmark: 20 of 20 caught. Genuine messages flagged by class (English): bank OTPs 0%,
+courier 0%, government 0%, promotions 0%, refunds 0%, "never share" notices 5%, utility 6%, receipts 6%, family money
+requests 12%, **bank transaction alerts 41%**, untagged 18%. The 5% target is still **not met** (9.1%); bank transaction alerts
+are the one class left that is really weak.
+
+Regression sets (blend after round 2 -> single English model; WARN):
+
+| Set | Scams caught | Genuine flagged |
+|---|---|---|
+| 176 hand-written modern mails | 98.3% -> 93.3% | 0.0% -> 0.0% |
+| 1,000 LLM-written mails (same generator family as part of the training data: optimistic) | 89.8% -> 99.0% | 1.2% -> 0.0% |
+| 500 real legitimate mails | - | 0.4% -> 0.0% |
+| 600 India SMS | 100% -> 100% | 0% -> 0% |
+| 1,100 real SMS (UCI) | 85.7% -> 92.0% | 0.1% -> 0.5% |
+| 200 Pakistani hand-written messages, English part (119) | - | **100% caught / 0% flagged** |
+| 200 Pakistani hand-written messages, all (81 are Roman Urdu or Urdu) | 96.4% -> 72.7% | 0.0% -> 0.0% |
+
+**Cost of dropping other languages, stated plainly:** Roman Urdu and Urdu scams are no longer reliably caught by the text
+model (real Pakistani Roman Urdu SMS: scams caught 87.9% -> 39%, genuine flagged 0%; AUC 0.967). The URL model, the page
+model and the rules still protect against the links in such messages. Speed: median **79 ms**, p95 129 ms per message on a CPU.
+
+End-to-end checks on this build: 89 unit tests pass; extension in a real browser 17/17; live API: e-mail guard 12/12 caught
+and 0/12 false alarms, endpoint smoke OK, tenant isolation ALL PASS, incident recovery ALL PASS.

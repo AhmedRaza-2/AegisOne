@@ -68,6 +68,19 @@ def text_rows():
     return d[["channel", "sender", "subject", "body", "label", "src"]]
 
 
+def _clean_generated(t: str) -> str:
+    """Strip the generator's formatting artefacts (code fences, 'SMS Message 3', a bare sender line, 'From:' lines) so the
+    classifier cannot learn them as signals: every kind of message (genuine or scam) goes through the same cleaning."""
+    import re
+    t = re.sub(r"```\w*", chr(10), t.replace("**", ""))
+    lines = [ln.strip().strip("*").strip() for ln in t.split(chr(10)) if ln.strip().strip("*").strip()]
+    lines = [ln for ln in lines if not re.match(r"^(from|to|sender|channel)\s*:", ln, re.I)]
+    while len(lines) > 1 and (re.match(r"^(sms|text|message|e-?mail)[^.!?]{0,25}:?$", lines[0], re.I)
+                              or (len(lines[0]) <= 28 and not re.search(r"[0-9:.!?@/]", lines[0]) and not lines[0].lower().startswith("subject"))):
+        lines.pop(0)
+    return chr(10).join(lines).strip()
+
+
 def hard_rows():
     """Hard genuine messages + paired scams written by AIML/message/kaggle/gen_hard_messages.py (optional file)."""
     import json
@@ -81,7 +94,7 @@ def hard_rows():
         r = json.loads(line)
         if r["lang"] == "ur":      # the generator's Urdu-script output is too garbled to train on (checked by reading samples)
             continue
-        text, subject = r["text"].strip().replace("**", ""), ""
+        text, subject = _clean_generated(r["text"]), ""
         text = lead.sub("", text).strip(' "“”')
         if len(text) < 25:
             continue
