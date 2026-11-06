@@ -14,6 +14,7 @@ import numpy as np
 from AIML.url.brand_engine import check_brand_impersonation, _is_official_host
 from AIML.url.lexical_engine import extract_expanded_features
 from AIML.url.calibration import calibrate_probability
+from AIML.url.reputation import reputation
 
 # Load the trained meta-classifier if available
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,13 @@ _CLEAN_CAP = float(os.environ.get("AEGIS_URL_CLEAN_CAP", "0.6"))
 # (office.com, accounts.google.com/signin). A domain that really belongs to a known service is capped
 # low unless it carries a structural red flag (raw IP, @ trick, odd port...).
 _OFFICIAL_CAP = float(os.environ.get("AEGIS_URL_OFFICIAL_CAP", "0.2"))
+# Exact registered domain in the Tranco top 100k, no structural red flag (AIML/url/reputation.py).
+_USE_REPUTATION = os.environ.get("AEGIS_URL_REPUTATION", "1") != "0"
+_LISTED_CAP = float(os.environ.get("AEGIS_URL_LISTED_CAP", "0.25"))
+# Reputable user-content platforms (docs.google.com ...): kept in the "Low Risk" band, below WARN.
+_PLATFORM_CAP = float(os.environ.get("AEGIS_URL_PLATFORM_CAP", "0.34"))
+# network score above which a popular (listed) domain no longer caps the verdict; 1.0 = always cap (old behaviour)
+_LISTED_OVERRIDE = float(os.environ.get("AEGIS_URL_LISTED_OVERRIDE", "0.925"))
 
 META_CLASSIFIER = None
 if os.path.exists(META_CLASSIFIER_PATH):
@@ -169,9 +177,27 @@ def fuse_url_intelligence(
     except Exception:
         _host = ""
     _structural = [a for a in anomalies if not a.startswith("contains_")]
+    _rep = reputation(_host) if _USE_REPUTATION else {"listed": False, "user_content": False}
     if _is_official_host(_host) and not _structural:
         # genuine domain of a known service: login/signin wording in the path is normal there
         fused_prob = min(fused_prob, _OFFICIAL_CAP)
+        method += " | official domain"
+    elif (_rep["listed"] and not [a for a in _structural if a != "suspicious_top_level_domain"]
+          and p_malicious_model < _LISTED_OVERRIDE):
+        # (a confident network score - the block range, i.e. 0.1% false alarms on held-out legitimate traffic - is not
+        # capped: compromised and abused pages on popular domains exist, and the v10 network was trained on real deep
+        # links of popular sites, unlike the v7 network this cap was introduced for)
+        # (a popular .ru / .cn / .info site is still popular: its ending alone does not cancel its reputation;
+        # raw IPs, user-info '@' tricks, odd ports and '//' path tricks still do)
+        # exact registered domain in the Tranco top 100k: popularity is evidence of legitimacy, and the neural model
+        # is known to over-score long deep links of popular sites. It can lower a score here, never raise one.
+        fused_prob = min(fused_prob, _LISTED_CAP)
+        method += " | reputable domain (Tranco top 100k)"
+    elif _rep["user_content"] and not _structural:
+        # a reputable platform where anyone can publish (docs.google.com, sharepoint.com ...): trust the host, not the page.
+        # Held below the warning band; page evidence (forms, credential fields) still decides through the contextual engine.
+        fused_prob = min(fused_prob, _PLATFORM_CAP)
+        method += " | user-content platform"
     elif is_structurally_clean:
         # A URL with ZERO brand impersonation and ZERO lexical anomalies cannot assert high phishing risk purely on raw neural output.
         fused_prob = min(fused_prob, _CLEAN_CAP)

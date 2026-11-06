@@ -1,0 +1,37 @@
+{
+  "tag": "prod_baseline",
+  "n": 1676,
+  "sets": {
+    "handwritten": {
+      "n": 176,
+      "phish": 120,
+      "legit": 56,
+      "auc": 0.6890624999999999,
+      "recall_at_0.5": 0.09166666666666666,
+      "false_alarm_at_0.5": 0.0,
+      "tpr_at_pooled_fpr_0.01": 0.075,
+      "threshold_0.01": 0.76,
+      "tpr_at_pooled_fpr_0.001": 0.075,
+      "threshold_0.001": 0.84
+    },
+    "legacy_ham": {
+      "n": 500,
+      "phish": 0,
+      "legit": 500,
+      "false_alarm_at_0.5": 0.078
+    },
+    "llmgen_gpt": {
+      "n": 1000,
+      "phish": 500,
+      "legit": 500,
+      "auc": 0.622606,
+      "recall_at_0.5": 0.448,
+      "false_alarm_at_0.5": 0.252,
+      "tpr_at_pooled_fpr_0.01": 0.334,
+      "threshold_0.01": 0.76,
+      "tpr_at_pooled_fpr_0.001": 0.288,
+      "threshold_0.001": 0.84
+    }
+  },
+  "pooled_legit_n": 1056
+}

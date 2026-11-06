@@ -231,6 +231,11 @@ async def lifespan(app: FastAPI):
     from api.services import license as _license
     _asyncio.create_task(_license.refresh_loop())
 
+    # Escalate incidents nobody has responded to within their severity's response target (incident_ops.SLA_MINUTES).
+    if os.environ.get("AEGIS_SLA_WATCH", "1") != "0":
+        from api.services.incident_ops import sla_watch_loop
+        _asyncio.create_task(sla_watch_loop())
+
     app.state.startup_complete = True
     logger.info("AegisOne API ready — accepting requests")
     yield

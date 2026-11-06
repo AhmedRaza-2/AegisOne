@@ -37,6 +37,50 @@ def _evaluate_candidate_metrics(report: Dict[str, Any], model_type: str = "") ->
     return calibration.evaluate(report)
 
 
+async def _train_embedding_head(db, job, job_id: str, organization_id: str, model_type: str, verified, pending, mo) -> None:
+    """v2 e-mail / text detectors: re-fit the head on the verified messages, judged on frozen reference sets."""
+    import asyncio
+    from api.services import embed_retrain
+    job.training_method = "embedding_head"
+    report = await asyncio.to_thread(embed_retrain.train_org_head, model_type, verified, mo.V2_HEADS.get(model_type))
+    spec = report.pop("spec", None)
+    job.metrics_json = report
+    job.completed_at = datetime.utcnow()
+    if not report.get("accepted") or spec is None:
+        job.status = "rejected"
+        job.error_message = report.get("reason")
+        db.add(AuditLog(organization_id=organization_id, actor_email="system@aegisone.local", action="MODEL_TRAINING_REJECTED",
+                        module="local_learning", target=f"{model_type} head: {report.get('reason')}", result="warning", ip_address="127.0.0.1"))
+        await db.commit()
+        logger.warning("[JOB %s] %s head not activated - current head unchanged. %s", job_id, model_type, report.get("reason"))
+        return
+    version_tag = f"{organization_id}_{model_type}_head_{uuid.uuid4().hex[:6]}"
+    target_dir = os.path.join(ADAPTER_BASE_DIR, organization_id, model_type, version_tag)
+    from pathlib import Path
+    head_path = embed_retrain.save_head(spec, Path(target_dir), {"version": version_tag, "job_id": job_id, "samples": report["samples"],
+                                                                 "created": datetime.utcnow().isoformat()})
+    for prev in (await db.execute(select(ModelVersion).where(
+            ModelVersion.organization_id == organization_id, ModelVersion.model_type == model_type,
+            ModelVersion.is_production == True))).scalars().all():  # noqa: E712
+        prev.is_production = False
+        prev.is_active = False
+    db.add(ModelVersion(version_id=f"MOD-{uuid.uuid4().hex[:8].upper()}", organization_id=organization_id, model_type=model_type,
+                        version_tag=version_tag, base_global_version=f"{model_type}_v2", is_global_base=False,
+                        artifact_path=target_dir, metrics_json=report, is_active=True, is_production=True))
+    for c in pending:
+        c.status = "used"
+        c.used_in_job_id = job_id
+        c.used_at = datetime.utcnow()
+    job.status = "completed"
+    job.target_adapter_version = version_tag
+    mo.apply_v2_head(model_type, str(head_path), version_tag)
+    db.add(AuditLog(organization_id=organization_id, actor_email="system@aegisone.local", action="MODEL_TRAINED_AND_ACTIVATED",
+                    module="local_learning", target=f"{model_type} head {version_tag} activated: {report.get('reason')}",
+                    result="success", ip_address="127.0.0.1"))
+    await db.commit()
+    logger.info("[JOB %s] %s head ACTIVE: %s", job_id, model_type, version_tag)
+
+
 async def run_background_retraining(job_id: str, organization_id: str, model_type: str, force_cpu: bool = False):
     """Background worker entry point. Uses its own database session."""
     logger.info("[JOB %s] Learning job started: org=%s model=%s", job_id, organization_id, model_type)
@@ -61,6 +105,12 @@ async def run_background_retraining(job_id: str, organization_id: str, model_typ
         verified = res.scalars().all()
         pending = [c for c in verified if c.status == "pending"]
         job.candidate_count = len(verified)
+
+        from api.services import model_orchestrator as mo
+        if model_type in ("email", "text") and model_type in mo.V2_HEADS:
+            await _train_embedding_head(db, job, job_id, organization_id, model_type, verified, pending, mo)
+            return
+
         job.training_method = "calibration_adapter"
 
         report = calibration.train_and_validate(verified)

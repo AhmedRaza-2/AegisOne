@@ -204,6 +204,10 @@ def calibrate_result(model_type: str, result: Any) -> Any:
     ad = REGISTRY.get(model_type)
     if not ad or not isinstance(result, dict) or "error" in result:
         return result
+    # An adapter was fitted on the legacy network's scores; the v2 detectors are already calibrated and are
+    # retrained through their own head (api/services/embed_retrain.py), so the old correction must not apply.
+    if result.get("engine") == "v2":
+        return result
     prob = result.get("phishing_probability")
     if not isinstance(prob, (int, float)):
         return result
@@ -244,6 +248,12 @@ async def restore_active_calibrations() -> None:
         for mv in res.scalars().all():
             if mv.is_global_base or mv.model_type in seen:
                 continue
+            head = os.path.join(mv.artifact_path or "", "head.json")
+            if mv.model_type in ("email", "text") and os.path.exists(head):
+                from api.services.model_orchestrator import apply_v2_head
+                if apply_v2_head(mv.model_type, head, mv.version_tag):
+                    seen.add(mv.model_type)
+                    continue
             if load_from_artifact(mv.model_type, mv.artifact_path or "", mv.version_tag):
                 seen.add(mv.model_type)
             else:

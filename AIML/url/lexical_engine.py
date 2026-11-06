@@ -97,7 +97,9 @@ def extract_expanded_features(url: str) -> torch.Tensor:
     features.append(min(url_lower.count('?'), 5) / 5.0)                    # [14] Question mark count
     features.append(min(url_lower.count('='), 15) / 15.0)                  # [15] Equal sign count
     features.append(min(url_lower.count('&'), 15) / 15.0)                  # [16] Ampersand count
-    features.append(1.0 if '@' in url_lower else 0.0)                      # [17] Presence of '@' (auth spoofing)
+    # [17] '@' in the AUTHORITY part (http://paypal.com@evil.top/): the user-info trick. An '@' in a path or query
+    # (profile handles, e-mail parameters) is ordinary and used to make every such link "structurally" suspicious.
+    features.append(1.0 if parsed and '@' in parsed.netloc else 0.0)
     features.append(min(url_lower.count('%'), 20) / 20.0)                  # [18] Percentage sign (URL encoding)
     features.append(min(sum(c.isdigit() for c in domain), 20) / 20.0)      # [19] Digits in domain
     features.append(min(sum(c.isdigit() for c in url_str), 50) / 50.0)     # [20] Digits in URL

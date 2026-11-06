@@ -1,0 +1,73 @@
+{
+  "tag": "v2",
+  "n": 1000,
+  "auc": 0.9611059238510219,
+  "phishing_caught": 0.8765432098765432,
+  "legit_flagged": 0.11932773109243698,
+  "by_type": {
+    "Bank ATM Transaction Alert": {
+      "n": 55,
+      "flagged": 0.07272727272727272
+    },
+    "Bank Deposit Notification": {
+      "n": 56,
+      "flagged": 0.10714285714285714
+    },
+    "Bank OTP Message": {
+      "n": 143,
+      "flagged": 0.0
+    },
+    "Bank Tax Deduction Notification": {
+      "n": 64,
+      "flagged": 0.34375
+    },
+    "Mobile Wallet Transfer Confirmation": {
+      "n": 143,
+      "flagged": 0.0
+    },
+    "Phishing - ATM Card Suspend Link": {
+      "n": 4,
+      "flagged": 1.0
+    },
+    "Phishing - Account Block Threat": {
+      "n": 120,
+      "flagged": 1.0
+    },
+    "Phishing - Account Freeze (FBR) Threat": {
+      "n": 45,
+      "flagged": 0.7555555555555555
+    },
+    "Phishing - Account Hack Warning": {
+      "n": 31,
+      "flagged": 0.03225806451612903
+    },
+    "Phishing - Government Scheme Scam": {
+      "n": 76,
+      "flagged": 0.9342105263157895
+    },
+    "Phishing - Reward/Lottery Scam": {
+      "n": 118,
+      "flagged": 0.9661016949152542
+    },
+    "Phishing - Wrong Number Refund Scam": {
+      "n": 11,
+      "flagged": 1.0
+    },
+    "Salary Credit Notification": {
+      "n": 60,
+      "flagged": 0.25
+    },
+    "Traffic Challan Notification": {
+      "n": 23,
+      "flagged": 0.9130434782608695
+    },
+    "Utility Bill Cleared Notification": {
+      "n": 5,
+      "flagged": 0.4
+    },
+    "Utility Bill Payment Reminder": {
+      "n": 46,
+      "flagged": 0.021739130434782608
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "kind": "text",
+  "meta": {
+    "version": "text-2.0.0",
+    "backbone": "intfloat/multilingual-e5-small",
+    "trained": "2026-11-06",
+    "train_n": 12242,
+    "calibration_n": 1360,
+    "sources": [
+      "hard_genuine",
+      "hard_scam",
+      "india",
+      "llmgen_short",
+      "pk_seed",
+      "transactional_seed",
+      "uci"
+    ]
+  },
+  "thresholds": {
+    "suspicious": 0.5404458045959473,
+    "warn": 0.8584609031677246,
+    "block": 0.989057719707489,
+    "fpr_targets": {
+      "suspicious": 0.05,
+      "warn": 0.01,
+      "block": 0.001
+    },
+    "calibrated_on": 830
+  },
+  "platt": [
+    1.084643916094811,
+    0.10940125173852747
+  ],
+  "reference_auc": 0.9957912178956089,
+  "reference_n": 1900
+}

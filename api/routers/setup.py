@@ -529,13 +529,13 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
             if request.smtpPass:
                 target_org.smtp_pass = request.smtpPass.replace(" ", "")
 
-        # Reset user department references first to avoid ForeignKeyViolationError in Postgres
-        await db.execute(
-            update(User)
-            .where(User.organization_id == org_id_val)
-            .values(department_id=None)
-        )
-        await db.execute(delete(Department).where(Department.organization_id == org_id_val))
+        # Departments are merged, never rebuilt: adding one person (the admin "Add user" flow also calls this
+        # endpoint) must not delete the organization's departments or unlink everyone else from theirs.
+        existing_depts = (await db.execute(select(Department).where(Department.organization_id == org_id_val))).scalars().all()
+        by_key: dict[str, Department] = {}
+        for d in existing_depts:
+            by_key[(d.code or "").upper()] = d
+            by_key.setdefault((d.name or "").upper(), d)
         dept_rows: dict[str, Department] = {}
         dept_names: dict[str, str] = {}
         for emp in request.employees:
@@ -543,16 +543,19 @@ async def execute_setup(body: SetupExecuteRequest, http_request: Request, backgr
                 continue
             dept_code = (emp.departmentCode or "GENERAL").upper()
             if dept_code not in dept_rows:
-                dept_name = dept_code if dept_code != "IT" else "Information Technology"
-                if dept_code == "HR":
-                    dept_name = "Human Resources"
-                elif dept_code == "FIN":
-                    dept_name = "Finance"
-                dept = Department(organization_id=org_id_val, name=dept_name, code=dept_code, manager_id=None)
-                db.add(dept)
-                await db.flush()
+                dept = by_key.get(dept_code)
+                if dept is None:
+                    dept_name = dept_code if dept_code != "IT" else "Information Technology"
+                    if dept_code == "HR":
+                        dept_name = "Human Resources"
+                    elif dept_code == "FIN":
+                        dept_name = "Finance"
+                    dept = Department(organization_id=org_id_val, name=dept_name, code=dept_code, manager_id=None)
+                    db.add(dept)
+                    await db.flush()
+                    by_key[dept_code] = dept
                 dept_rows[dept_code] = dept
-                dept_names[dept_code] = dept_name
+                dept_names[dept_code] = dept.name
 
         for emp in request.employees:
             if emp.role.lower() == "admin":

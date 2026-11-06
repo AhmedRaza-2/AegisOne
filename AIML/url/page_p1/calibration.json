@@ -1,0 +1,16 @@
+{
+  "arch": "urlnet_v10",
+  "input": "page_summary",
+  "page_len": 256,
+  "temperature": 1.6239920501766367,
+  "thresholds": {
+    "suspicious": 0.05811926019133865,
+    "warn": 0.3317559012239086,
+    "block": 0.9571598307724566
+  },
+  "base_model": "thenlper/gte-small",
+  "trained": "2026-11-01",
+  "fit_n": 290900,
+  "validation_n": 15310,
+  "data": "phreshphish v1.0.1 (CC BY 4.0) train subset with HTML, newest 5% held out; test = later test split subset"
+}

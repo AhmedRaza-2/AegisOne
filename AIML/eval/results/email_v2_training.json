@@ -1,0 +1,43 @@
+{
+  "kind": "email",
+  "meta": {
+    "version": "email-2.0.0",
+    "backbone": "BAAI/bge-small-en-v1.5",
+    "trained": "2026-11-06",
+    "train_n": 28254,
+    "calibration_n": 3139,
+    "sources": [
+      "Assassin",
+      "CEAS-08",
+      "Enron",
+      "Ling",
+      "TREC-05",
+      "TREC-06",
+      "TREC-07",
+      "aegis_Nazario_5",
+      "aegis_Phishing_Email",
+      "aegis_email_text",
+      "aegis_phishing_data",
+      "hard_genuine",
+      "hard_scam",
+      "llmgen_train"
+    ]
+  },
+  "thresholds": {
+    "suspicious": 0.5941701531410217,
+    "warn": 0.9213240146636963,
+    "block": 0.9979881048202515,
+    "fpr_targets": {
+      "suspicious": 0.05,
+      "warn": 0.01,
+      "block": 0.001
+    },
+    "calibrated_on": 1462
+  },
+  "platt": [
+    1.0080763337206329,
+    -0.05245805040597601
+  ],
+  "reference_auc": 0.9863743279569893,
+  "reference_n": 1676
+}

@@ -1,0 +1,43 @@
+{
+  "tag": "text_prod_baseline",
+  "n": 1900,
+  "sets": {
+    "handwritten_sms": {
+      "n": 200,
+      "phish": 110,
+      "legit": 90,
+      "auc": 0.6909090909090909,
+      "recall_at_0.5": 0.4,
+      "false_alarm_at_0.5": 0.0,
+      "tpr_at_pooled_fpr_0.01": 0.38181818181818183,
+      "threshold_0.01": 0.752,
+      "tpr_at_pooled_fpr_0.001": 0.38181818181818183,
+      "threshold_0.001": 0.8946
+    },
+    "india_sms": {
+      "n": 600,
+      "phish": 300,
+      "legit": 300,
+      "auc": 0.7980055555555555,
+      "recall_at_0.5": 0.5733333333333334,
+      "false_alarm_at_0.5": 0.08333333333333333,
+      "tpr_at_pooled_fpr_0.01": 0.5,
+      "threshold_0.01": 0.752,
+      "tpr_at_pooled_fpr_0.001": 0.43333333333333335,
+      "threshold_0.001": 0.8946
+    },
+    "uci_sms": {
+      "n": 1100,
+      "phish": 300,
+      "legit": 800,
+      "auc": 0.5610083333333332,
+      "recall_at_0.5": 0.13333333333333333,
+      "false_alarm_at_0.5": 0.0,
+      "tpr_at_pooled_fpr_0.01": 0.12666666666666668,
+      "threshold_0.01": 0.752,
+      "tpr_at_pooled_fpr_0.001": 0.12666666666666668,
+      "threshold_0.001": 0.8946
+    }
+  },
+  "pooled_legit_n": 1190
+}

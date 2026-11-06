@@ -1,0 +1,82 @@
+{
+  "tag": "ensemble",
+  "n": 977,
+  "auc": 0.9134976168745563,
+  "scam_recall": 0.9929824561403509,
+  "legit_false_alarm": 0.653179190751445,
+  "by_subset": {
+    "standard": {
+      "n": 598,
+      "scam_recall": 0.9920634920634921,
+      "false_alarm": 0.653179190751445
+    },
+    "hard": {
+      "n": 33,
+      "scam_recall": 1.0,
+      "false_alarm": null
+    },
+    "legit_confusable": {
+      "n": 346,
+      "scam_recall": null,
+      "false_alarm": 0.653179190751445
+    }
+  },
+  "by_language": {
+    "ro": {
+      "n": 367,
+      "scam_recall": 0.991304347826087,
+      "false_alarm": 0.873015873015873
+    },
+    "en": {
+      "n": 610,
+      "scam_recall": 0.9941176470588236,
+      "false_alarm": 0.5272727272727272
+    }
+  },
+  "legit_by_class": {
+    "bank_otp": {
+      "n": 66,
+      "false_alarm": 0.696969696969697
+    },
+    "bank_txn_alert": {
+      "n": 58,
+      "false_alarm": 0.6896551724137931
+    },
+    "courier_notification": {
+      "n": 78,
+      "false_alarm": 0.8717948717948718
+    },
+    "family_money_request": {
+      "n": 56,
+      "false_alarm": 0.4642857142857143
+    },
+    "govt_notification": {
+      "n": 62,
+      "false_alarm": 0.6129032258064516
+    },
+    "marketing_promo": {
+      "n": 56,
+      "false_alarm": 0.9642857142857143
+    },
+    "otp_never_share": {
+      "n": 52,
+      "false_alarm": 0.5
+    },
+    "refund_confirmation": {
+      "n": 46,
+      "false_alarm": 0.8695652173913043
+    },
+    "subscription_receipt": {
+      "n": 66,
+      "false_alarm": 0.8484848484848485
+    },
+    "untagged": {
+      "n": 88,
+      "false_alarm": 0.20454545454545456
+    },
+    "utility_reminder": {
+      "n": 64,
+      "false_alarm": 0.625
+    }
+  }
+}

@@ -399,6 +399,8 @@ class IncidentResponse(BaseModel):
     escalated_at: Optional[datetime] = None
     manager_notes: Optional[str] = None
     evidence: Optional[Dict[str, Any]] = None
+    # response-time SLA (api/services/incident_ops.sla_status): target, due time, met / breached
+    sla: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

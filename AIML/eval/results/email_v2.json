@@ -1,0 +1,37 @@
+{
+  "tag": "v2",
+  "n": 1676,
+  "sets": {
+    "handwritten": {
+      "n": 176,
+      "phish": 120,
+      "legit": 56,
+      "auc": 0.9961309523809524,
+      "recall_at_0.5": 0.9833333333333333,
+      "false_alarm_at_0.5": 0.017857142857142856,
+      "tpr_at_pooled_fpr_0.01": 0.9833333333333333,
+      "threshold_0.01": 0.5057,
+      "tpr_at_pooled_fpr_0.001": 0.9083333333333333,
+      "threshold_0.001": 0.7203
+    },
+    "legacy_ham": {
+      "n": 500,
+      "phish": 0,
+      "legit": 500,
+      "false_alarm_at_0.5": 0.006
+    },
+    "llmgen_gpt": {
+      "n": 1000,
+      "phish": 500,
+      "legit": 500,
+      "auc": 0.980988,
+      "recall_at_0.5": 0.788,
+      "false_alarm_at_0.5": 0.016,
+      "tpr_at_pooled_fpr_0.01": 0.768,
+      "threshold_0.01": 0.5057,
+      "tpr_at_pooled_fpr_0.001": 0.498,
+      "threshold_0.001": 0.7203
+    }
+  },
+  "pooled_legit_n": 1056
+}

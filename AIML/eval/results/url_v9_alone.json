@@ -1,0 +1,185 @@
+{
+  "tag": "v9_alone",
+  "legit": {
+    "legit_popular": {
+      "n": 498,
+      "errors": 0,
+      "warn_rate": 0.03815261044176707,
+      "block_rate": 0.03815261044176707
+    },
+    "legit_web": {
+      "n": 2000,
+      "errors": 0,
+      "warn_rate": 0.054,
+      "block_rate": 0.048
+    }
+  },
+  "phish": {
+    "openphish_fresh": {
+      "n": 300,
+      "recall_warn": 0.9333333333333333,
+      "recall_block": 0.8866666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9581765412329865,
+        "tpr_at_fpr_1pct": 0.15333333333333332,
+        "tpr_at_fpr_0.1pct": 0.15333333333333332,
+        "ap_at_1pct_base_rate": 0.24880140578931895
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.8753436082199092,
+        "tpr_at_fpr_1pct": 0.6066666666666667,
+        "tpr_at_fpr_0.1pct": 0.07333333333333333,
+        "ap_at_1pct_base_rate": 0.3927991012425621
+      }
+    },
+    "mut_subdomain_injection": {
+      "n": 300,
+      "recall_warn": 1.0,
+      "recall_block": 1.0,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9919935948759008,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.22532823615095177
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.00800640512409928,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.0050334169839032555
+      }
+    },
+    "mut_path_padding": {
+      "n": 300,
+      "recall_warn": 0.7833333333333333,
+      "recall_block": 0.7366666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9222991726714704,
+        "tpr_at_fpr_1pct": 0.13333333333333333,
+        "tpr_at_fpr_0.1pct": 0.13333333333333333,
+        "ap_at_1pct_base_rate": 0.21121974571125432
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.8438450760608487,
+        "tpr_at_fpr_1pct": 0.45,
+        "tpr_at_fpr_0.1pct": 0.0033333333333333335,
+        "ap_at_1pct_base_rate": 0.23589791611982583
+      }
+    }
+  },
+  "worst_false_positives": {
+    "legit_popular": [
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=color_eq_15%2Cregistration_city_eq_lahore",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/7th-avenue_g5000901/other-jobs_c65",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/2021/11/11/nit-pakistan-gateway-index-a-performance-analysis-since-launch/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/100-quarters_g5000084/bikes-sports-heavy-bikes_c707034",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/tag/nit-etf/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/20-years-of-cfasp-celebrated-at-psx-with-a-gong-ceremony",
+        "score": 0.96
+      },
+      {
+        "url": "https://chasevalue.pk/collections/beauty-personal-care-beauty-tools/products/beauty-pouch-blue-chase-value-a138645-a-blue-257790",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/204-chak-road_g9511/catering-restaurant_c2047/q-catering",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-awareness-session-held-for-university-of-karachi",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-education-page/pakistan-stock-exchange-conducted-an-investor-awareness-session-for-the-studen",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=petrol_eq_petrol",
+        "score": 0.96
+      },
+      {
+        "url": "https://chasevalue.pk/collections/bags-and-wallets-1/products/womens-wallet-brown-chase-value-a156957-a-brown",
+        "score": 0.96
+      }
+    ],
+    "legit_web": [
+      {
+        "url": "https://businessfinder.oregonlive.com/duvall-a-l-dvm-valley-veterinary-clinic-rainier-or.html",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.uninstallerfix.com/uninstall-errors/how-to-uninstall-quilters-39-polygons-template-pack-guide.html",
+        "score": 0.96
+      },
+      {
+        "url": "http://100resilientcities.org/why-rebuild-by-design-succeeds/",
+        "score": 0.96
+      },
+      {
+        "url": "https://citizen.co.za/news/1366619/five-killed-in-toll-road-shootout/",
+        "score": 0.96
+      },
+      {
+        "url": "https://steamdiscovery.com/982370/steamgame/line-dance-virtual/",
+        "score": 0.96
+      },
+      {
+        "url": "https://docs.citrix.com/en-us/netscaler/12/clustering/cluster-overview/cluster-config-sync-concepts.html",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.growingupdisney.com/2015/10/spot-it-disney-frozen-game-review.html",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.livecareer.com/resume-search/r/-9777bcc4441844e380db329d5ee3653c",
+        "score": 0.96
+      },
+      {
+        "url": "https://citibusinessnews.com/2016/08/capital-bank-offers-highest-interests-on-deposits-bog/",
+        "score": 0.96
+      },
+      {
+        "url": "https://livejapan.com/en/article-a0000074/?sc_lid=lj_pc_article_html_frame_5",
+        "score": 0.96
+      },
+      {
+        "url": "http://googleylessons.com/blog/irce2012/",
+        "score": 0.96
+      },
+      {
+        "url": "https://disneyparksmomspanel.disney.go.com/question/hidoes-anyone-know-disney-app-blackberry-seen-app-phones-240167/",
+        "score": 0.96
+      }
+    ]
+  },
+  "seconds": 941
+}

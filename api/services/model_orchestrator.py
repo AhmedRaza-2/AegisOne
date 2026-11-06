@@ -253,10 +253,208 @@ def load_all_models():
     except Exception as e:
         logger.error(f"  ✗ Attachment Orchestrator failed: {e}")
 
+    # ── 5a. URL v8: gte-small fine-tuned on PhreshPhish (AIML/url/kaggle/train_url_v8.py). Replaces the v7 network's
+    # probability inside the same fusion when present; AEGIS_URL_ENGINE=v7 switches back.
+    # The newest installed transformer generation wins (v9 = v8 + long-tail web data); AEGIS_URL_MODEL_DIR overrides.
+    _url_root = os.path.join(os.path.dirname(__file__), "..", "..", "AIML", "url")
+    v8_dir = os.environ.get("AEGIS_URL_MODEL_DIR") or next(
+        (os.path.join(_url_root, g) for g in ("v10", "v9", "v8") if os.path.exists(os.path.join(_url_root, g, "calibration.json"))),
+        os.path.join(_url_root, "v8"))
+    if _url_engine() in ("transformer", "ensemble") and os.path.exists(os.path.join(v8_dir, "calibration.json")):
+        try:
+            import json as _json
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+            cal = _json.load(open(os.path.join(v8_dir, "calibration.json")))
+            if cal.get("arch") == "urlnet_v10":
+                # v10: structured registered-domain input + Punycode/confusable normalisation + character CNN
+                from AIML.url import urlnet_v10
+                m8, tok8, cal = urlnet_v10.load(v8_dir, "cpu")
+            else:
+                m8 = AutoModelForSequenceClassification.from_pretrained(v8_dir).eval()
+                tok8 = AutoTokenizer.from_pretrained(v8_dir)
+            if DEVICE.type == "cpu":
+                m8 = torch.quantization.quantize_dynamic(m8, {torch.nn.Linear}, dtype=torch.qint8)
+            MODELS["url_v8"] = {"model": m8.to(DEVICE), "tokenizer": tok8, "cal": cal,
+                                "generation": os.path.basename(os.path.normpath(v8_dir))}
+            logger.info(f"  ✓ URL transformer {MODELS['url_v8']['generation']} loaded ({cal.get('base_model')}, trained {cal.get('trained')})")
+        except Exception as e:
+            logger.error(f"  ✗ URL v8 failed, using v7: {e}")
+
+    # ── 5a'. Page model P1: URL + compact page summary, for pages that ask for credentials (AIML/url/kaggle/p1)
+    p1_dir = os.environ.get("AEGIS_PAGE_MODEL_DIR") or os.path.join(_url_root, "page_p1")
+    if os.environ.get("AEGIS_PAGE_MODEL", "1") != "0" and os.path.exists(os.path.join(p1_dir, "calibration.json")):
+        try:
+            from AIML.url import urlnet_v10
+            mp, tokp, calp = urlnet_v10.load(p1_dir, "cpu")
+            if DEVICE.type == "cpu":
+                mp = torch.quantization.quantize_dynamic(mp, {torch.nn.Linear}, dtype=torch.qint8)
+            MODELS["page_p1"] = {"model": mp.to(DEVICE), "tokenizer": tokp, "cal": calp}
+            logger.info(f"  ✓ Page model P1 loaded (trained {calp.get('trained')})")
+        except Exception as e:
+            logger.error(f"  ✗ Page model P1 failed, URL-only: {e}")
+
+    # ── 5b. SHIPPED URL HEADS: a refreshed feature_mlp + classifier for the unchanged URL backbone
+    # (AIML/eval/refresh_url_heads.py). AEGIS_URL_HEADS=<path> tries other heads; =base keeps the original ones.
+    if "url" in MODELS:
+        shipped = os.path.join(os.path.dirname(__file__), "..", "..", "AIML", "url", "heads_shipped.pt")
+        choice = os.environ.get("AEGIS_URL_HEADS", "")
+        path = None if choice == "base" else (choice or (shipped if os.path.exists(shipped) else None))
+        if path and apply_head_weights(path, f"url-heads:{os.path.basename(path)}"):
+            logger.info(f"  ✓ URL heads applied from {os.path.basename(path)}")
+
+    # ── 6. V2 E-MAIL / TEXT DETECTORS (frozen sentence embeddings + trained head, AIML/embed_head.py) ──
+    load_v2_heads()
+    load_m1()
+
     loaded = [k for k in MODELS if k != "attachment_orch"]
     logger.info("=" * 60)
-    logger.info(f"   {len(loaded)}/4 AI models loaded on {DEVICE}")
+    logger.info(f"   {len(loaded)}/4 AI models loaded on {DEVICE}" + (f" + v2 heads: {', '.join(V2_HEADS)}" if V2_HEADS else ""))
     logger.info("=" * 60)
+
+
+# v2 detectors: {"email": EmbedHead, "text": EmbedHead}. Used instead of the legacy networks when present;
+# AEGIS_EMAIL_ENGINE / AEGIS_TEXT_ENGINE = "legacy" switches back without a code change.
+V2_HEADS: dict = {}
+V2_DIR = {"email": os.path.join(os.path.dirname(__file__), "..", "..", "AIML", "email", "v2"),
+          "text": os.path.join(os.path.dirname(__file__), "..", "..", "AIML", "text_general", "v2")}
+
+
+def _v2_featurizer(kind: str):
+    if kind == "email":
+        from AIML.email.features_v2 import email_features
+        return email_features
+    from AIML.text_general.features_v2 import text_features
+    return text_features
+
+
+M1: dict = {}     # message model M1 (e-mail + SMS + chat, AIML/message): {"net", "tok", "cal"}
+M1_INTENT_TEXT = {
+    "urgency": "pressure to act immediately", "credential_request": "asks for a password, PIN or personal details",
+    "payment_request": "asks for money or a payment", "secrecy": "asks you to keep it secret",
+    "reward_lure": "promises a prize or refund", "share_lure": "pushes you to open a shared file",
+    "code_request": "asks you to send back a code", "authority_claim": "claims to be a bank or authority",
+    "link_mismatch": "links to a site that is not the sender's"}
+
+
+def _message_engine() -> str:
+    """AEGIS_MESSAGE_ENGINE: ensemble (default: M1 and the v2 head averaged), m1 (M1 alone), v2 (frozen-embedding heads only)."""
+    return os.environ.get("AEGIS_MESSAGE_ENGINE", "ensemble").lower()
+
+
+def load_m1() -> None:
+    """Load the unified message model if it is installed (AIML/message/m1) and AEGIS_MESSAGE_ENGINE allows it."""
+    M1.clear()
+    d = os.environ.get("AEGIS_MESSAGE_MODEL_DIR") or os.path.join(os.path.dirname(__file__), "..", "..", "AIML", "message", "m1")
+    if _message_engine() == "v2" or not os.path.exists(os.path.join(d, "calibration.json")):
+        return
+    try:
+        from AIML.message import net as mnet
+        net, tok, cal = mnet.load(d, "cpu")
+        if DEVICE.type == "cpu":
+            net = torch.quantization.quantize_dynamic(net, {torch.nn.Linear}, dtype=torch.qint8)
+        M1.update({"net": net.to(DEVICE), "tok": tok, "cal": cal})
+        logger.info(f"  ✓ message model M1 loaded (trained {cal.get('trained')})")
+    except Exception as e:
+        logger.error(f"  ✗ message model M1 failed, using the v2 detectors: {e}")
+        M1.clear()
+
+
+def _m1_risk(channel: str, sender: str, subject: str, body: str, history=None, kind: str = "email"):
+    """(risk on the product scale, {intent: probability}) from M1. 0.35 / 0.51 / 0.76 = suspicious / WARN / BLOCK, the
+    1%- and 0.1%-false-alarm points of THIS channel's legitimate traffic. An organisation's own retrained v2 head
+    (8.11) is blended in 50/50, so retraining keeps its effect."""
+    from AIML.message import net as mnet, context as mctx
+    with torch.inference_mode():
+        lg, ig = M1["net"](**mnet.encode(M1["tok"], [(channel, sender, subject, body, history)], DEVICE, prefix=M1["cal"].get("prefix", "query: ")))
+    cal = M1["cal"]
+    p = float(torch.sigmoid((lg[0, 1] - lg[0, 0]).float() / float(cal.get("temperature", 1.0))))
+    th = cal["thresholds"].get(channel) or next(iter(cal["thresholds"].values()))
+    if channel == "email" and os.environ.get("AEGIS_M1_EMAIL_STRICT", "1") == "1":
+        # a fine-tuned network is over-confident outside its training corpora: use its 0.1%-false-alarm point as WARN
+        th = {"suspicious": th["warn"], "warn": th["block"], "block": th["block"] + (1.0 - th["block"]) * 0.5}
+    risk = float(np.interp(p, [0.0, th["suspicious"], th["warn"], max(th["block"], th["warn"] + 1e-6), 1.0], [0.0, 0.35, 0.51, 0.76, 1.0]))
+    intents = {k: round(float(v), 3) for k, v in zip(mctx.INTENTS, torch.sigmoid(ig[0].float()).tolist())}
+    if _message_engine() == "ensemble" and kind in V2_HEADS:
+        # Blend with the v2 head (an organisation's own retrained head when one is active, so 8.11 keeps its effect).
+        # Measured: M1 alone ranks as well as v2 but is over-confident outside its training corpora (12.5% false alarms on
+        # hand-written mail at its own threshold); the average has v2's calibration and M1's recall.
+        h = V2_HEADS[kind]
+        text = (str(subject or "") + "\n" + str(body or ""))[:3000] if kind == "email" else str(body or "")
+        feats = _v2_featurizer(kind)(sender, subject, body) if kind == "email" else _v2_featurizer(kind)(body)
+        risk = 0.5 * risk + 0.5 * float(h.risk_from_design(h.design([text], feats[None, :]))[0])
+    return risk, intents
+
+
+def _m1_reasons(intents: dict) -> list:
+    return [M1_INTENT_TEXT[k] for k, v in sorted(intents.items(), key=lambda kv: -kv[1]) if v >= 0.5 and k in M1_INTENT_TEXT][:4]
+
+
+def load_v2_heads(override: dict | None = None) -> None:
+    """Load the shipped v2 heads (or the organisation's active ones: override = {kind: head.json path})."""
+    from AIML.embed_head import load as _load_head
+    for kind in ("email", "text"):
+        if os.environ.get(f"AEGIS_{kind.upper()}_ENGINE", "v2").lower() != "v2":
+            V2_HEADS.pop(kind, None)
+            continue
+        path = (override or {}).get(kind) or os.path.join(V2_DIR[kind], f"{kind}_head.json")
+        try:
+            h = _load_head(path, _v2_featurizer(kind))
+            if h is not None:
+                h.backbone  # load the embedding model now, not on the first request
+                V2_HEADS[kind] = h
+                logger.info(f"  ✓ {kind} v2 detector loaded ({h.spec.get('meta', {}).get('version', 'base')})")
+        except Exception as e:
+            logger.error(f"  ✗ {kind} v2 detector failed, using the legacy model: {e}")
+            V2_HEADS.pop(kind, None)
+
+
+def apply_v2_head(kind: str, head_path: str | None, version_tag: str) -> bool:
+    """Activate an organisation head (or the shipped one when head_path is None), swapping atomically."""
+    from AIML.embed_head import load as _load_head
+    try:
+        path = head_path or os.path.join(V2_DIR[kind], f"{kind}_head.json")
+        h = _load_head(path, _v2_featurizer(kind))
+        if h is None:
+            return False
+        old = V2_HEADS.get(kind)
+        if old is not None and old.spec.get("backbone") == h.spec.get("backbone"):
+            h._bb = old._bb
+        V2_HEADS[kind] = h
+        if kind in MODELS:
+            MODELS[kind]["active_version"] = version_tag
+        logger.info("%s v2 head switched to %s", kind, version_tag)
+        return True
+    except Exception as e:
+        logger.error("Could not apply %s head %s: %s", kind, version_tag, e)
+        return False
+
+
+_FEATURE_PHRASES = {
+    "url_host_not_sender": "a link that goes to a different site than the sender's",
+    "url_ip_host": "a link to a raw IP address", "url_shortener": "a shortened link that hides where it goes",
+    "url_bad_tld": "a link on a cheap, often-abused domain ending", "url_punycode": "a look-alike (punycode) web address",
+    "url_brand_in_host": "a brand name inside an unrelated web address", "sender_freemail": "a free-mail sender address",
+    "sender_display_brand_mismatch": "a sender name that claims a brand the address does not belong to",
+    "sender_domain_bad_tld": "a sender on an often-abused domain ending", "urgency": "pressure to act quickly",
+    "cred_ask": "a request for a password, PIN or code", "pay_ask": "a request for money, payment or bank details",
+    "secrecy": "a request to keep it secret or not to call", "reward": "a prize, refund or reward lure",
+    "share_lure": "a 'shared document' lure", "urgency_and_cred": "urgent request for login details",
+    "pay_and_secrecy": "secret, urgent payment request (CEO-fraud pattern)", "attachment_mention": "an attachment to open",
+    "has_url": "a link", "has_phone": "a phone number to call", "has_money": "an amount of money",
+    "ask_code": "a request to send a verification code", "ask_secret": "a request for a PIN, password or CNIC",
+    "ask_money": "a request to send money or a fee", "authority": "a claim to be a bank, PTA, FBR, NADRA or support team",
+    "wrong_send_story": "a 'sent to you by mistake' story", "url_and_urgency": "a link together with pressure to act",
+    "secret_and_urgency": "an urgent request for secret details", "reward_and_fee": "a prize that needs a fee first",
+}
+
+
+def _v2_explain(head, x) -> list[str]:
+    out = []
+    for c in head.contributions(x, top=4):
+        phrase = _FEATURE_PHRASES.get(c["feature"])
+        if phrase and phrase not in out:
+            out.append(phrase)
+    return out
 
 
 def get_model_status() -> dict:
@@ -576,19 +774,9 @@ def _get_bert_attention_xai(model, tokens, attention_mask) -> list[str]:
 # SYNCHRONOUS INFERENCE (internal — run inside thread pool)
 # ═══════════════════════════════════════════════════════════════
 
-def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool = False) -> dict:
-    if "email" not in MODELS:
-        return {"error": "Email model not loaded", "model": "email"}
-    m = MODELS["email"]
-    text = f"[SUBJECT]: {subject} [BODY]: {body}"
-    enc = TOKENIZER(text, add_special_tokens=True, max_length=512,
-                    padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
-    feats = m["extract_features"](sender, subject, body).unsqueeze(0).to(DEVICE)
-    with torch.inference_mode():
-        logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
-        prob = torch.sigmoid(logits).item()
-
-    # Rule-based boost for high-confidence advance fee / donation / inheritance scams
+def _email_scam_signals(subject: str, body: str) -> list:
+    """High-precision e-mail rules (advance-fee, credential threat, CEO fraud). Shared by both e-mail engines."""
+    # Advance fee / donation / inheritance scams
     # Scan both body AND subject for maximum recall
     combined_lower = (body + " " + subject).lower()
     scam_signals = []
@@ -666,6 +854,62 @@ def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool 
     ])
     if _pay_ask and _secrecy:
         scam_signals.append("payment request with secrecy or urgency (CEO-fraud pattern)")
+
+    return scam_signals
+
+
+def _predict_email_v2(sender: str, subject: str, body: str) -> dict:
+    """v2 e-mail detector: frozen sentence embedding + calibrated head, with the high-precision rules as a floor."""
+    h = V2_HEADS.get("email")
+    if M1:
+        prob, intents = _m1_risk("email", sender, subject, body, kind="email")
+        m1_reasons = _m1_reasons(intents)
+    else:
+        feats = _v2_featurizer("email")(sender, subject, body)
+        x = h.design([(str(subject or "") + "\n" + str(body or ""))[:3000]], feats[None, :])
+        prob = float(h.risk_from_design(x)[0])   # product scale: 0.51 = WARN (1% of legitimate mail), 0.76 = BLOCK (0.1%)
+        intents, m1_reasons = None, None
+    scam_signals = _email_scam_signals(subject or "", body or "")
+    # The keyword rules are explanations, not a score: measured on 1,056 legitimate e-mails (AIML/eval, 2026-11-01)
+    # single rules fired on 25% of LLM-written corporate mail ("percentage reward", "CEO-fraud pattern" more often on
+    # legitimate than on phishing mail). Three or more independent rules never fired on legitimate mail, so only then
+    # do they set a BLOCK-level floor.
+    if len(scam_signals) >= 3:
+        prob = max(prob, 0.76)
+    reasons = (m1_reasons if M1 else _v2_explain(h, x[0])) + [s for s in scam_signals]
+    is_phish = prob >= 0.5
+    return {
+        "prediction": "phishing" if is_phish else "legitimate",
+        "confidence": round(prob if is_phish else 1 - prob, 4),
+        "phishing_probability": round(prob, 4),
+        "model": "email",
+        "model_version": MODELS.get("email", {}).get("active_version") or ("m1" if M1 else h.spec.get("meta", {}).get("version", "email_v2")),
+        "engine": (_message_engine() if M1 else "v2"),
+        "intents": intents,
+        "xai_words": reasons,
+        "explanation": (f"AI flagged: {', '.join(reasons[:4])}" if is_phish and reasons
+                        else "AI found the wording and links consistent with ordinary mail" if not is_phish
+                        else "AI identified a phishing pattern in the message as a whole"),
+        "scam_signals": scam_signals,
+    }
+
+
+def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool = False) -> dict:
+    if M1 or "email" in V2_HEADS:
+        return _predict_email_v2(sender, subject, body)
+    if "email" not in MODELS:
+        return {"error": "Email model not loaded", "model": "email"}
+    m = MODELS["email"]
+    text = f"[SUBJECT]: {subject} [BODY]: {body}"
+    enc = TOKENIZER(text, add_special_tokens=True, max_length=512,
+                    padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
+    feats = m["extract_features"](sender, subject, body).unsqueeze(0).to(DEVICE)
+    with torch.inference_mode():
+        logits = m["model"](enc["input_ids"], enc["attention_mask"], feats)
+        prob = torch.sigmoid(logits).item()
+
+    combined_lower = (body + " " + subject).lower()
+    scam_signals = _email_scam_signals(subject, body)
 
     # Dynamic probability scaling based on neural inference + scam signals
     if len(scam_signals) > 0:
@@ -770,7 +1014,48 @@ def apply_head_weights(heads_path: str | None, version_tag: str) -> bool:
         return False
 
 
+# The keyword heuristic as a floor under the v2 text score (credential-solicitation wording is high precision);
+# set AEGIS_TEXT_RULE_FLOOR=0 to judge the v2 score alone. Measured in AIML/eval/results (eval_text.py).
+TEXT_RULE_FLOOR = float(os.environ.get("AEGIS_TEXT_RULE_FLOOR", "0.9"))
+
+
+def _predict_text_v2(text: str) -> dict:
+    """v2 text / SMS / chat detector (multilingual embedding + calibrated head). Empty text and browser UI
+    snippets are still answered by the cheap heuristic; short messages are NOT waved through any more, because
+    one-line code-theft and 'send it back' scams are short and carry no link."""
+    fast = _heuristic_text_result(text) if FAST_SCAN_MODE else None
+    if fast is not None and fast.get("explanation") in ("Empty text payload", "Standard UI / navigation element"):
+        return fast
+    h = V2_HEADS.get("text")
+    if M1:
+        prob, intents = _m1_risk("sms", "", "", text or "", kind="text")
+        reasons = _m1_reasons(intents)
+    else:
+        x = h.design([text or ""], _v2_featurizer("text")(text)[None, :])
+        prob = float(h.risk_from_design(x)[0])   # product scale, as for e-mail
+        intents, reasons = None, _v2_explain(h, x[0])
+    if fast is not None and fast.get("prediction") == "phishing" and TEXT_RULE_FLOOR > 0:
+        prob = max(prob, TEXT_RULE_FLOOR)
+        reasons += [w for w in (fast.get("xai_words") or []) if w not in reasons]
+    is_phish = prob >= 0.5
+    return {
+        "prediction": "phishing" if is_phish else "legitimate",
+        "confidence": round(prob if is_phish else 1 - prob, 4),
+        "phishing_probability": round(prob, 4),
+        "model": "text",
+        "model_version": MODELS.get("text", {}).get("active_version") or ("m1" if M1 else h.spec.get("meta", {}).get("version", "text_v2")),
+        "engine": (_message_engine() if M1 else "v2"),
+        "intents": intents,
+        "xai_words": reasons,
+        "explanation": (f"AI flagged: {', '.join(reasons[:4])}" if is_phish and reasons
+                        else "AI identified a scam pattern in the message as a whole" if is_phish
+                        else "AI found nothing that asks for codes, money, details or a risky click"),
+    }
+
+
 def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
+    if M1 or "text" in V2_HEADS:
+        return _predict_text_v2(text)
     if "text" not in MODELS:
         return {"error": "Text model not loaded", "model": "text"}
 
@@ -806,7 +1091,61 @@ def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
     }
 
 
-def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[str] = None) -> dict:
+def _url_engine() -> str:
+    """AEGIS_URL_ENGINE: transformer (default - newest installed v10/v9/v8 alone), ensemble (+ v7, geometric mean),
+    v7 (original network only). "v8" is kept as an alias of transformer."""
+    mode = os.environ.get("AEGIS_URL_ENGINE", "transformer").lower()
+    return "transformer" if mode == "v8" else mode
+
+
+def _url_v7_probs(url: str) -> list:
+    """[p_legit, p_phish] from the v7 URL network (character model + lexical features)."""
+    m = MODELS["url"]
+    clean_url = m.get("sanitize", lambda x: x)(url)
+    model_text = m["prep"](clean_url) if "prep" in m else clean_url
+    enc = m.get("tokenizer", TOKENIZER)(model_text, add_special_tokens=True, max_length=128,
+                                        padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
+    nn_feats = m["extract_features"](clean_url).unsqueeze(0).to(DEVICE)
+    with torch.inference_mode():
+        logits = m["model"](enc["input_ids"], enc["attention_mask"], nn_feats)
+        return torch.softmax(logits, dim=1)[0].cpu().tolist()
+
+
+def _page_model_score(url: str, page_signals: dict | None) -> float | None:
+    """Page model P1 (URL + page summary), on the fusion's scale (WARN threshold mapped to 0.35). Runs only when it is
+    installed and the page asks for credentials - the pages it was calibrated on (AIML/url/kaggle/p1)."""
+    pm = MODELS.get("page_p1")
+    if not pm or not page_signals:
+        return None
+    if not (page_signals.get("has_password") or page_signals.get("login_form_found") or page_signals.get("has_email")
+            or page_signals.get("has_otp")):
+        return None
+    from AIML.url import urlnet_v10
+    from AIML.url.page_summary import summary_from_signals
+    text = summary_from_signals(url, page_signals, urlnet_v10.model_text(url))
+    enc = pm["tokenizer"]([text], truncation=True, max_length=int(pm["cal"].get("page_len", 256)), padding=True, return_tensors="pt")
+    with torch.inference_mode():
+        lg = pm["model"](input_ids=enc["input_ids"].to(DEVICE), attention_mask=enc["attention_mask"].to(DEVICE),
+                         char_ids=urlnet_v10.char_ids([url]).to(DEVICE))[0].float()
+    p = float(torch.sigmoid((lg[1] - lg[0]) / float(pm["cal"].get("temperature", 1.0))))
+    t_w = float(pm["cal"]["thresholds"]["warn"])
+    return 0.35 * p / t_w if p < t_w else 0.35 + 0.65 * (p - t_w) / max(1e-6, 1 - t_w)
+
+
+def _combine_url_page(p_url: float, p_page: float) -> float:
+    """AEGIS_PAGE_FUSION: mean (default, best on PhreshPhish test pages), geo, max (either one), page (page model alone)."""
+    mode = os.environ.get("AEGIS_PAGE_FUSION", "mean")
+    if mode == "max":
+        return max(p_url, p_page)
+    if mode == "mean":
+        return 0.5 * (p_url + p_page)
+    if mode == "page":
+        return p_page
+    return float(np.sqrt(max(p_url, 0.0) * max(p_page, 0.0)))
+
+
+def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[str] = None,
+                      page_signals: dict | None = None) -> dict:
     if FAST_URL_MODE:
         fast = _heuristic_url_result(url)
         if fast is not None:
@@ -860,22 +1199,47 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
             "evidence": cascade_res["evidence"]
         }
 
-    # 3. Deep Semantic Analysis (DistilBERT/BERT-Mini)
-    m = MODELS["url"]
-    sanitize = m.get("sanitize", lambda x: x)
-    clean_url = sanitize(url)
-    model_text = m["prep"](clean_url) if "prep" in m else clean_url
+    url_mode = _url_engine()
+    if "url_v8" in MODELS and url_mode in ("transformer", "ensemble"):
+        v8 = MODELS["url_v8"]
+        with torch.inference_mode():
+            if v8["cal"].get("arch") == "urlnet_v10":
+                from AIML.url import urlnet_v10
+                lg = v8["model"](**urlnet_v10.encode(v8["tokenizer"], [url], DEVICE))[0].float()
+            else:
+                enc8 = v8["tokenizer"]([url], truncation=True, max_length=int(v8["cal"].get("max_len", 128)),
+                                       return_tensors="pt").to(DEVICE)
+                lg = v8["model"](**enc8).logits[0].float()
+        p8 = float(torch.sigmoid((lg[1] - lg[0]) / float(v8["cal"].get("temperature", 1.0))))
+        # v8's WARN threshold (1% FPR on held-out PhreshPhish benign) is mapped onto the fusion's 0.35 warn point
+        t_w = float(v8["cal"]["thresholds"]["warn"])
+        p_fused = 0.35 * p8 / t_w if p8 < t_w else 0.35 + 0.65 * (p8 - t_w) / max(1e-6, 1 - t_w)
+        if url_mode == "ensemble":
+            # v8 alone over-fires on older long-tail sites (query-heavy CMS pages); v7 alone misses padded paths.
+            # The geometric mean needs both networks to agree, which measured best at a fixed false-alarm budget.
+            p7 = _url_v7_probs(url)[1]
+            p_fused = float(np.sqrt(max(p7, 0.0) * max(p_fused, 0.0)))
+        p_url_only = p_fused
+        p_page = _page_model_score(url, page_signals)
+        if p_page is not None:
+            p_fused = _combine_url_page(p_fused, p_page)
+        fusion_result = fuse_url_intelligence(url, [1.0 - p_fused, p_fused], brand_result, lexical_tensor)
+        fusion_result["evidence"]["url_engine"] = f"{url_mode}:{v8.get('generation', 'v8')}"
+        if p_page is not None:
+            fusion_result["evidence"]["page_model"] = {"score": round(p_page, 4), "url_score": round(p_url_only, 4),
+                                                       "fusion": os.environ.get("AEGIS_PAGE_FUSION", "mean")}
+        return {
+            "prediction": fusion_result["prediction"], "confidence": fusion_result["confidence"],
+            "phishing_probability": round(fusion_result["risk_score"] / 100.0, 4), "category": fusion_result["category"],
+            "model": "url", "xai_words": [], "explanation": fusion_result["explanation"],
+            "brand_impersonation": brand_result.get("matched", False),
+            "credential_lure_detected": len(fusion_result.get("evidence", {}).get("lexical_anomalies", [])) > 0,
+            "suspicious_tld": "suspicious_top_level_domain" in fusion_result.get("evidence", {}).get("lexical_anomalies", []),
+            "evidence": fusion_result["evidence"],
+        }
 
-    url_tokenizer = m.get("tokenizer", TOKENIZER)
-    enc = url_tokenizer(model_text, add_special_tokens=True, max_length=128,
-                        padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
-                        
-    # Model forward pass expects original 10 features
-    nn_feats = m["extract_features"](clean_url).unsqueeze(0).to(DEVICE)
-
-    with torch.inference_mode():
-        logits = m["model"](enc["input_ids"], enc["attention_mask"], nn_feats)
-        probs = torch.softmax(logits, dim=1)[0].cpu().tolist()
+    # 3. Deep Semantic Analysis (v7 network)
+    probs = _url_v7_probs(url)
 
     # 4. Evidence Fusion & Calibration
     from AIML.url.fusion_engine import fuse_url_intelligence
@@ -902,6 +1266,11 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
     is_phish = (fusion_result["prediction"] == "malicious")
     xai_words = []
     if is_phish and _should_extract_xai(include_xai):
+        m = MODELS["url"]
+        url_tokenizer = m.get("tokenizer", TOKENIZER)
+        clean_url = m.get("sanitize", lambda x: x)(url)
+        enc = url_tokenizer(m["prep"](clean_url) if "prep" in m else clean_url, add_special_tokens=True,
+                            max_length=128, padding="max_length", truncation=True, return_tensors="pt").to(DEVICE)
         with torch.inference_mode():
             tokens = url_tokenizer.convert_ids_to_tokens(enc["input_ids"][0])
             xai_words = _get_bert_attention_xai(m["model"], tokens, enc["attention_mask"][0])
@@ -1024,11 +1393,11 @@ async def predict_text(text: str) -> dict:
         return calibrate_result("text", await asyncio.to_thread(_predict_text_sync, text))
 
 
-async def predict_url(url: str, form_actions: list[str] = None) -> dict:
-    """Async URL inference — runs in thread pool with semaphore guard."""
+async def predict_url(url: str, form_actions: list[str] = None, page_signals: dict | None = None) -> dict:
+    """Async URL inference — runs in thread pool with semaphore guard. page_signals = the extension's dom_signals."""
     async with _get_semaphore():
         from api.services.calibration import calibrate_result
-        return calibrate_result("url", await asyncio.to_thread(_predict_url_sync, url, False, form_actions))
+        return calibrate_result("url", await asyncio.to_thread(_predict_url_sync, url, False, form_actions, page_signals))
 
 
 async def predict_image(img_bytes: bytes) -> dict:

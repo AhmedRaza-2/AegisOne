@@ -24,6 +24,7 @@ from api.database.models import (
     TrainingCandidate, User, WebsiteScan,
 )
 from api.services.playbooks import classify_incident, get_playbook
+from api.services.incident_ops import response_of, sla_status, timings
 from api.services.redaction import redact_obj, redact_text
 from api.services.xai_engine import build_grounded_findings
 
@@ -171,12 +172,17 @@ async def build_backtrace(db, inc: Incident, *, include_domain_age: bool = True)
     )).scalars().all()
     audit_trail = [{"at": _iso(a.timestamp), "actor": a.actor_email, "action": a.action, "target": redact_text(a.target),
                     "result": a.result} for a in audits]
+    response = response_of(inc)
+    for a in response.get("actions") or []:
+        timeline.append({"at": a.get("at"), "event": f"Response: {str(a.get('action', '')).replace('_', ' ')}",
+                         "detail": a.get("detail") or f"{a.get('count', 0)} affected", "actor": {"name": a.get("by")}})
     timeline.sort(key=lambda e: e["at"] or "")
 
     candidates = (await db.execute(select(TrainingCandidate).where(TrainingCandidate.incident_id == inc.id))).scalars().all()
     first = reports[0] if reports else None
     inc_type = classify_incident(report_type=inc.report_type, target_type=first.target_type if first else None,
                                  evidence={**base_ev, "findings": findings, **({"image_evidence": (rich or {}).get("image_evidence")} if rich else {})})
+    shown_ev = {k: v for k, v in (base_ev or rich or {}).items() if k != "response"}
 
     return {
         "incident": {
@@ -195,7 +201,7 @@ async def build_backtrace(db, inc: Incident, *, include_domain_age: bool = True)
             "scan_duration_ms": primary.scan_duration_ms if primary else None,
             "modules_used": _json_list(primary.modules_used) if primary else [],
             "why": [redact_text(f) for f in findings],
-            "evidence": redact_obj(base_ev or rich or {}),
+            "evidence": redact_obj(shown_ev),
         },
         "domain_info": domain_info,
         "redirect_trace": base_ev.get("redirect_trace"),
@@ -213,7 +219,9 @@ async def build_backtrace(db, inc: Incident, *, include_domain_age: bool = True)
             "verified_by": _person(users.get(inc.verified_by_id), dept_names), "verified_at": _iso(inc.verified_at),
             "training_candidates": [{"id": c.candidate_id, "model": c.model_type, "label": c.label, "status": c.status} for c in candidates],
         },
-        "playbook": get_playbook(inc_type),
+        "playbook": get_playbook(inc_type, response.get("steps")),
+        "response": {"actions": response.get("actions") or [], "contained_at": response.get("contained_at"),
+                     "sla": sla_status(inc, response), **timings(inc, response)},
         "audit_trail": audit_trail,
         "generated_at": datetime.utcnow().isoformat() + "Z",
     }
@@ -317,7 +325,19 @@ def render_report_html(bt: Dict[str, Any], org_name: str, generated_by: str) -> 
     else:
         chain = "<p class='muted'>Redirect chain has not been traced for this incident.</p>"
     steps = "".join(
-        f"<h4>{_e(ph['phase'])}</h4><ul>" + "".join(f"<li>{_e(s['text'])}</li>" for s in ph["steps"]) + "</ul>" for ph in pb["phases"])
+        f"<h4>{_e(ph['phase'])}</h4><ul style='list-style:none;padding-left:4px'>" + "".join(
+            f"<li>{'&#9745;' if s.get('done') else '&#9744;'} {_e(s['text'])}"
+            + (f" <span class='muted'>&mdash; {_e(s.get('done_by'))}, {_e(s.get('done_at'))}{(': ' + _e(s['note'])) if s.get('note') else ''}</span>" if s.get('done') else "")
+            + "</li>" for s in ph["steps"]) + "</ul>" for ph in pb["phases"])
+    resp = bt.get("response") or {}
+    sla = resp.get("sla") or {}
+    fmt_min = lambda m: None if m is None else (f"{m:.0f} min" if m < 120 else f"{m / 60:.1f} h")  # noqa: E731
+    response_kv = _kv([("Steps completed", f"{pb.get('steps_done', 0)} of {pb.get('steps_total', 0)}"),
+                       ("Response target (SLA)", f"{sla.get('target_minutes')} min" if sla.get('target_minutes') else None),
+                       ("SLA", "Met" if sla.get('met') else "Breached" if sla.get('breached') else "Pending"),
+                       ("Time to first response", fmt_min(resp.get('time_to_acknowledge_min'))),
+                       ("Time to contain", fmt_min(resp.get('time_to_contain_min'))),
+                       ("Time to resolve", fmt_min(resp.get('time_to_resolve_min')))])
     audit = "".join(f"<tr><td class='nowrap'>{_e(a['at'])}</td><td>{_e(a['actor'])}</td><td>{_e(a['action'])}</td><td>{_e(a['target'])}</td></tr>"
                     for a in bt["audit_trail"]) or "<tr><td colspan='4' class='muted'>No audit entries.</td></tr>"
     cands = ", ".join(f"{c['id']} ({c['model']}, {c['label']}, {c['status']})" for c in bt["decision"]["training_candidates"]) or "None"
@@ -373,8 +393,8 @@ def render_report_html(bt: Dict[str, Any], org_name: str, generated_by: str) -> 
 {_kv([("Decision", (bt['decision']['admin_decision'] or '').replace('_', ' ').title() or None), ("Notes", bt['decision']['admin_notes']),
       ("Verified by", (bt['decision']['verified_by'] or {}).get('name')), ("Verified at", bt['decision']['verified_at']), ("Training samples created", cands)])}
 
-<h2>9. Recommended response &mdash; {_e(pb['title'])}</h2>
-<p>{_e(pb['summary'])}</p>{steps}
+<h2>9. Response &mdash; {_e(pb['title'])}</h2>
+<p>{_e(pb['summary'])}</p>{response_kv}{steps}
 
 <h2>10. Audit trail</h2>
 <table><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr>{audit}</table>

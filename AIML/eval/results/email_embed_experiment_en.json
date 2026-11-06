@@ -1,0 +1,159 @@
+{
+  "legacy/lr": {
+    "tag": "en_legacy_lr",
+    "n": 1676,
+    "sets": {
+      "handwritten": {
+        "n": 176,
+        "phish": 120,
+        "legit": 56,
+        "auc": 0.840029761904762,
+        "recall_at_0.5": 0.7666666666666667,
+        "false_alarm_at_0.5": 0.25,
+        "tpr_at_pooled_fpr_0.01": 0.225,
+        "threshold_0.01": 0.9983273567046606,
+        "tpr_at_pooled_fpr_0.001": 0.09166666666666666,
+        "threshold_0.001": 0.9999158910612416
+      },
+      "legacy_ham": {
+        "n": 500,
+        "phish": 0,
+        "legit": 500,
+        "false_alarm_at_0.5": 0.048
+      },
+      "llmgen_gpt": {
+        "n": 1000,
+        "phish": 500,
+        "legit": 500,
+        "auc": 0.6718719999999999,
+        "recall_at_0.5": 0.612,
+        "false_alarm_at_0.5": 0.294,
+        "tpr_at_pooled_fpr_0.01": 0.054,
+        "threshold_0.01": 0.9983273567046606,
+        "tpr_at_pooled_fpr_0.001": 0.004,
+        "threshold_0.001": 0.9999158910612416
+      }
+    },
+    "pooled_legit_n": 1056
+  },
+  "legacy/xgb": {
+    "tag": "en_legacy_xgb",
+    "n": 1676,
+    "sets": {
+      "handwritten": {
+        "n": 176,
+        "phish": 120,
+        "legit": 56,
+        "auc": 0.7081845238095238,
+        "recall_at_0.5": 0.575,
+        "false_alarm_at_0.5": 0.375,
+        "tpr_at_pooled_fpr_0.01": 0.075,
+        "threshold_0.01": 0.9924431443214417,
+        "tpr_at_pooled_fpr_0.001": 0.0,
+        "threshold_0.001": 0.9991870522499084
+      },
+      "legacy_ham": {
+        "n": 500,
+        "phish": 0,
+        "legit": 500,
+        "false_alarm_at_0.5": 0.032
+      },
+      "llmgen_gpt": {
+        "n": 1000,
+        "phish": 500,
+        "legit": 500,
+        "auc": 0.676856,
+        "recall_at_0.5": 0.62,
+        "false_alarm_at_0.5": 0.322,
+        "tpr_at_pooled_fpr_0.01": 0.048,
+        "threshold_0.01": 0.9924431443214417,
+        "tpr_at_pooled_fpr_0.001": 0.0,
+        "threshold_0.001": 0.9991870522499084
+      }
+    },
+    "pooled_legit_n": 1056
+  },
+  "legacy+modern/lr": {
+    "tag": "en_legacy+modern_lr",
+    "n": 1676,
+    "sets": {
+      "handwritten": {
+        "n": 176,
+        "phish": 120,
+        "legit": 56,
+        "auc": 0.9683035714285715,
+        "recall_at_0.5": 0.9416666666666667,
+        "false_alarm_at_0.5": 0.19642857142857142,
+        "tpr_at_pooled_fpr_0.01": 0.8416666666666667,
+        "threshold_0.01": 0.933599231345913,
+        "tpr_at_pooled_fpr_0.001": 0.575,
+        "threshold_0.001": 0.9894924783024227
+      },
+      "legacy_ham": {
+        "n": 500,
+        "phish": 0,
+        "legit": 500,
+        "false_alarm_at_0.5": 0.042
+      },
+      "llmgen_gpt": {
+        "n": 1000,
+        "phish": 500,
+        "legit": 500,
+        "auc": 0.9900279999999999,
+        "recall_at_0.5": 0.984,
+        "false_alarm_at_0.5": 0.102,
+        "tpr_at_pooled_fpr_0.01": 0.798,
+        "threshold_0.01": 0.933599231345913,
+        "tpr_at_pooled_fpr_0.001": 0.526,
+        "threshold_0.001": 0.9894924783024227
+      }
+    },
+    "pooled_legit_n": 1056
+  },
+  "legacy+modern/xgb": {
+    "tag": "en_legacy+modern_xgb",
+    "n": 1676,
+    "sets": {
+      "handwritten": {
+        "n": 176,
+        "phish": 120,
+        "legit": 56,
+        "auc": 0.8611607142857143,
+        "recall_at_0.5": 0.7833333333333333,
+        "false_alarm_at_0.5": 0.23214285714285715,
+        "tpr_at_pooled_fpr_0.01": 0.5666666666666667,
+        "threshold_0.01": 0.7950973510742188,
+        "tpr_at_pooled_fpr_0.001": 0.18333333333333332,
+        "threshold_0.001": 0.9548243284225464
+      },
+      "legacy_ham": {
+        "n": 500,
+        "phish": 0,
+        "legit": 500,
+        "false_alarm_at_0.5": 0.032
+      },
+      "llmgen_gpt": {
+        "n": 1000,
+        "phish": 500,
+        "legit": 500,
+        "auc": 0.9986999999999999,
+        "recall_at_0.5": 1.0,
+        "false_alarm_at_0.5": 0.038,
+        "tpr_at_pooled_fpr_0.01": 0.976,
+        "threshold_0.01": 0.7950973510742188,
+        "tpr_at_pooled_fpr_0.001": 0.782,
+        "threshold_0.001": 0.9548243284225464
+      }
+    },
+    "pooled_legit_n": 1056
+  },
+  "loso_lr_legacy": {
+    "Assassin": 0.9607219343696027,
+    "CEAS-08": 0.9280862222222223,
+    "Enron": 0.9858173333333333,
+    "Ling": 0.9862502283105022,
+    "TREC-05": 0.9756946666666666,
+    "TREC-06": 0.9758635555555555,
+    "TREC-07": 0.978464888888889
+  }
+}

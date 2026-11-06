@@ -1,0 +1,54 @@
+{
+  "accepted_by_gate": false,
+  "reasons": [
+    "v7_test: AUC fell 0.9964 -> 0.9938",
+    "v7_test: false-positive rate rose 1.2% -> 2.2%",
+    "hard_set: AUC fell 0.9800 -> 0.9754",
+    "hard_set: false-positive rate rose 2.0% -> 3.0%"
+  ],
+  "reference_base": {
+    "v7_test": {
+      "n": 800,
+      "auc": 0.99640625,
+      "f1": 0.9721,
+      "precision": 0.9871,
+      "recall": 0.9575,
+      "fpr": 0.0125,
+      "accuracy": 0.9725
+    },
+    "hard_set": {
+      "n": 800,
+      "auc": 0.97999375,
+      "f1": 0.8682,
+      "precision": 0.9751,
+      "recall": 0.7825,
+      "fpr": 0.02,
+      "accuracy": 0.8812
+    }
+  },
+  "reference_candidate": {
+    "v7_test": {
+      "n": 800,
+      "auc": 0.9938125,
+      "f1": 0.9659,
+      "precision": 0.977,
+      "recall": 0.955,
+      "fpr": 0.0225,
+      "accuracy": 0.9663
+    },
+    "hard_set": {
+      "n": 800,
+      "auc": 0.97535,
+      "f1": 0.8999,
+      "precision": 0.9656,
+      "recall": 0.8425,
+      "fpr": 0.03,
+      "accuracy": 0.9062
+    }
+  },
+  "train": {
+    "phishtank_2026": 3750,
+    "c4_shard1": 3750,
+    "replay": 600
+  }
+}

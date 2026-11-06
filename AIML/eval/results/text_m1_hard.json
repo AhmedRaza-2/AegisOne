@@ -1,0 +1,43 @@
+{
+  "tag": "text_m1_hard",
+  "n": 1900,
+  "sets": {
+    "handwritten_sms": {
+      "n": 200,
+      "phish": 110,
+      "legit": 90,
+      "auc": 1.0,
+      "recall_at_0.5": 0.9636363636363636,
+      "false_alarm_at_0.5": 0.0,
+      "tpr_at_pooled_fpr_0.01": 1.0,
+      "threshold_0.01": 0.3121,
+      "tpr_at_pooled_fpr_0.001": 0.9727272727272728,
+      "threshold_0.001": 0.4481
+    },
+    "india_sms": {
+      "n": 600,
+      "phish": 300,
+      "legit": 300,
+      "auc": 1.0,
+      "recall_at_0.5": 1.0,
+      "false_alarm_at_0.5": 0.0,
+      "tpr_at_pooled_fpr_0.01": 1.0,
+      "threshold_0.01": 0.3121,
+      "tpr_at_pooled_fpr_0.001": 1.0,
+      "threshold_0.001": 0.4481
+    },
+    "uci_sms": {
+      "n": 1100,
+      "phish": 300,
+      "legit": 800,
+      "auc": 0.9932854166666667,
+      "recall_at_0.5": 0.8566666666666667,
+      "false_alarm_at_0.5": 0.00125,
+      "tpr_at_pooled_fpr_0.01": 0.9333333333333333,
+      "threshold_0.01": 0.3121,
+      "tpr_at_pooled_fpr_0.001": 0.8733333333333333,
+      "threshold_0.001": 0.4481
+    }
+  },
+  "pooled_legit_n": 1190
+}

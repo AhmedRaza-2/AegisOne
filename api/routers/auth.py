@@ -27,6 +27,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
+from html import escape as html_escape
 
 logger = logging.getLogger("aegisone.auth")
 
@@ -332,16 +333,20 @@ async def send_admin_credentials_notify(
     # Same answer whether or not the account already existed.
     return {"status": "ok", "message": "If this is a new administrator, a welcome email has been sent."}
 
-def send_otp_email(email: str, otp: str, smtp_user: str = None, smtp_pass: str = None, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587):
-    subject = "AegisOne — Password Reset Verification Code"
-    
+def send_otp_email(email: str, otp: str, smtp_user: str = None, smtp_pass: str = None, smtp_host: str = "smtp.gmail.com", smtp_port: int = 587,
+                   reason: Optional[str] = None):
+    subject = "AegisOne — Password Reset Verification Code" if not reason else "AegisOne — Your security team asks you to reset your password"
+    intro = reason or "You requested a password reset for your AegisOne account."
+    closing = ("Choose 'Forgot password' on the sign-in page and enter this code to set a new password."
+               if reason else "If you did not request this, please ignore this email.")
+
     text = f"""Hello,
 
-You requested a password reset for your AegisOne account.
+{intro}
 
 Verification Code: {otp}
 
-If you did not request this, please ignore this email.
+{closing}
 
 Best regards,
 AegisOne Security Team
@@ -353,11 +358,11 @@ AegisOne Security Team
   <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px;">
     <div style="max-width: 500px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
       <h3 style="color: #0A5ED6; margin-top: 0;">AegisOne Security</h3>
-      <p>You requested a password reset. Please use the following 6-digit verification code to proceed:</p>
+      <p>{html_escape(intro)} Please use the following 6-digit verification code to proceed:</p>
       <div style="background:#f1f5f9; padding: 12px; border-radius: 8px; text-align: center; margin: 16px 0;">
         <span style="font-family: Consolas, Monaco, monospace; font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #0f172a; -webkit-user-select: all; user-select: all;">{otp}</span>
       </div>
-      <p style="font-size: 13px; color: #64748b;">If you did not request this verification code, please ignore this message.</p>
+      <p style="font-size: 13px; color: #64748b;">{html_escape(closing)}</p>
     </div>
   </body>
 </html>"""
@@ -400,11 +405,17 @@ async def forgot_password(request: Request, req: ForgotPasswordRequest, bg_tasks
     user = (await db.execute(select(User).where(func.lower(User.email) == email))).scalar_one_or_none()
     if not user or not user.is_active:
         return generic
+    await issue_password_reset(db, user, bg_tasks)
+    return generic
 
+
+async def issue_password_reset(db: AsyncSession, user: User, bg_tasks: BackgroundTasks, reason: Optional[str] = None) -> bool:
+    """Create a one-time reset code for `user` and e-mail it in the background. Used by "Forgot password" and by
+    the incident-response "reset passwords" action. Returns False when a code was sent less than a minute ago."""
     # Don't mail a new code more than once a minute for the same account.
     prior = (await db.execute(select(PasswordResetChallenge).where(PasswordResetChallenge.email == user.email))).scalar_one_or_none()
     if prior and prior.created_at and (datetime.utcnow() - prior.created_at).total_seconds() < OTP_RESEND_SECONDS:
-        return generic
+        return False
 
     code = f"{secrets.randbelow(10**6):06d}"
     salt = secrets.token_hex(8)
@@ -441,8 +452,8 @@ async def forgot_password(request: Request, req: ForgotPasswordRequest, bg_tasks
     # response used to return later for a real account (after the SMTP send) than for a
     # nonexistent one (the early `return generic` above), which let the response time alone
     # reveal whether an email was registered.
-    bg_tasks.add_task(send_otp_email, user.email, code, smtp_user, smtp_pass, smtp_host, smtp_port)
-    return generic
+    bg_tasks.add_task(send_otp_email, user.email, code, smtp_user, smtp_pass, smtp_host, smtp_port, reason)
+    return True
 
 
 class ResetWithNewPasswordRequest(BaseModel):

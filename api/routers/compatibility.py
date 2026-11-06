@@ -319,8 +319,11 @@ async def api_url(request: Request, url: str = Form(...), scan_type: str = Form(
         except Exception:
             pass
 
-    result = await predict_url(url, actions_list)
-    
+    page_signals = dict(dom_signals_dict) if isinstance(dom_signals_dict, dict) else {}
+    if actions_list and not page_signals.get("form_actions"):
+        page_signals["form_actions"] = actions_list
+    result = await predict_url(url, actions_list, page_signals or None)
+
     if "error" in result:
         # PROCESSING_ERROR trace rather than inventing a score
         evidence_envelope = {

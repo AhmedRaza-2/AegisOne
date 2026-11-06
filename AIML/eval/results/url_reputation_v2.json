@@ -1,0 +1,185 @@
+{
+  "tag": "reputation_v2",
+  "legit": {
+    "legit_popular": {
+      "n": 498,
+      "errors": 0,
+      "warn_rate": 0.03815261044176707,
+      "block_rate": 0.03815261044176707
+    },
+    "legit_web": {
+      "n": 2000,
+      "errors": 0,
+      "warn_rate": 0.084,
+      "block_rate": 0.07
+    }
+  },
+  "phish": {
+    "openphish_fresh": {
+      "n": 300,
+      "recall_warn": 0.8066666666666666,
+      "recall_block": 0.7666666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.926523885775287,
+        "tpr_at_fpr_1pct": 0.15,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.10865272616895744
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.8547351214304777,
+        "tpr_at_fpr_1pct": 0.4633333333333333,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.22919443795925667
+      }
+    },
+    "mut_subdomain_injection": {
+      "n": 300,
+      "recall_warn": 0.9966666666666667,
+      "recall_block": 0.9966666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9894755804643715,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.20569613228562264
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.06958033093141182,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.005035335104807622
+      }
+    },
+    "mut_path_padding": {
+      "n": 300,
+      "recall_warn": 0.37666666666666665,
+      "recall_block": 0.3566666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.765734587670136,
+        "tpr_at_fpr_1pct": 0.06666666666666667,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.04107935409447316
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.673701627969042,
+        "tpr_at_fpr_1pct": 0.06,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.024718704083978384
+      }
+    }
+  },
+  "worst_false_positives": {
+    "legit_popular": [
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=color_eq_15%2Cregistration_city_eq_lahore",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/7th-avenue_g5000901/other-jobs_c65",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/2021/11/11/nit-pakistan-gateway-index-a-performance-analysis-since-launch/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/100-quarters_g5000084/bikes-sports-heavy-bikes_c707034",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/tag/nit-etf/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/20-years-of-cfasp-celebrated-at-psx-with-a-gong-ceremony",
+        "score": 0.96
+      },
+      {
+        "url": "https://chasevalue.pk/collections/beauty-personal-care-beauty-tools/products/beauty-pouch-blue-chase-value-a138645-a-blue-257790",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/204-chak-road_g9511/catering-restaurant_c2047/q-catering",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-awareness-session-held-for-university-of-karachi",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-education-page/pakistan-stock-exchange-conducted-an-investor-awareness-session-for-the-studen",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=petrol_eq_petrol",
+        "score": 0.96
+      },
+      {
+        "url": "https://chasevalue.pk/collections/bags-and-wallets-1/products/womens-wallet-brown-chase-value-a156957-a-brown",
+        "score": 0.96
+      }
+    ],
+    "legit_web": [
+      {
+        "url": "http://cod4-server.info/?page=profile&identify=76465a847fdaa342598bdaa438f2b50c23e3176d98d723ff25b3c942fd32ed320d5bfbd1ec2a2ffa",
+        "score": 1.0
+      },
+      {
+        "url": "http://9ofik.mico-vl.ru/dissertation/355ba2cb6c170105864b80d24cc60f1a",
+        "score": 1.0
+      },
+      {
+        "url": "http://xugeuvi.cf/jyze/cryptocurrency-dataset-bybu.php",
+        "score": 1.0
+      },
+      {
+        "url": "http://downloadmatrixeo.cf/forex-mmcis-ru-tournaments-472219.html",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.sagunpaudel.com.np/2016/01/",
+        "score": 0.975
+      },
+      {
+        "url": "http://www.uninstallerfix.com/uninstall-errors/how-to-uninstall-quilters-39-polygons-template-pack-guide.html",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.live-production.tv/news/products/amv-upgrades-nyla-truck-riedel-artist-intercom.html",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.pmlive.com/tags/monoclonal_antibody_drugs",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.livecareer.com/resume-search/r/certified-nursing-assistant-8abbc85d853e4ccb9be73d4f4b14d31d",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.2-uninstall.com/uninstallguides/how-to-uninstall-prriiceeddowwniloader-prriiceeddowwniloader-developed-by-prriiceeddowwniloader-u",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.livelaughdecorate.com/2013/07/chairs-on-wheels-lets-slide-shall-we.html",
+        "score": 0.96
+      },
+      {
+        "url": "https://docs.citrix.com/en-us/netscaler/12/clustering/cluster-overview/cluster-config-sync-concepts.html",
+        "score": 0.96
+      }
+    ]
+  },
+  "seconds": 1470
+}

@@ -1,0 +1,20 @@
+{
+  "test_n": 61010,
+  "test_auc": 0.997325363053381,
+  "test_ap": 0.99735910943623,
+  "test_tpr_at_fpr_0.01": 0.9716804605973371,
+  "test_tpr_at_fpr_0.01_ci95": [
+    0.9690491183879094,
+    0.9745250089960418
+  ],
+  "test_tpr_at_fpr_0.001": 0.8594098596617489,
+  "test_tpr_at_fpr_0.001_ci95": [
+    0.8399586182079884,
+    0.8922364159769701
+  ],
+  "test_recall_at_warn": 0.9707808564231738,
+  "test_fpr_at_warn": 0.009452137266706804,
+  "test_legit_password_pages_n": 5352,
+  "test_legit_password_pages_fpr_at_warn": 0.011023916292974589,
+  "test_phish_password_pages_recall_at_warn": 0.901740020470829
+}

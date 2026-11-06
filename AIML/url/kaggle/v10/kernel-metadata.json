@@ -1,0 +1,13 @@
+{
+  "id": "ahmedraza2009/aegisone-url-v10",
+  "title": "AegisOne URL v10",
+  "code_file": "train_url_v10.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}

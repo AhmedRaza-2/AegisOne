@@ -1,0 +1,37 @@
+{
+  "tag": "v2_hard",
+  "n": 1676,
+  "sets": {
+    "handwritten": {
+      "n": 176,
+      "phish": 120,
+      "legit": 56,
+      "auc": 0.9986607142857142,
+      "recall_at_0.5": 0.9666666666666667,
+      "false_alarm_at_0.5": 0.0,
+      "tpr_at_pooled_fpr_0.01": 0.9666666666666667,
+      "threshold_0.01": 0.5167,
+      "tpr_at_pooled_fpr_0.001": 0.85,
+      "threshold_0.001": 0.737
+    },
+    "legacy_ham": {
+      "n": 500,
+      "phish": 0,
+      "legit": 500,
+      "false_alarm_at_0.5": 0.008
+    },
+    "llmgen_gpt": {
+      "n": 1000,
+      "phish": 500,
+      "legit": 500,
+      "auc": 0.9770179999999999,
+      "recall_at_0.5": 0.782,
+      "false_alarm_at_0.5": 0.016,
+      "tpr_at_pooled_fpr_0.01": 0.758,
+      "threshold_0.01": 0.5167,
+      "tpr_at_pooled_fpr_0.001": 0.472,
+      "threshold_0.001": 0.737
+    }
+  },
+  "pooled_legit_n": 1056
+}

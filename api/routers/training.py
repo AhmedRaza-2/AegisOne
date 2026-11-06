@@ -75,9 +75,18 @@ async def get_training_candidates_summary(
             rejected_count += 1
 
     readiness = {}
+    from api.services import model_orchestrator as mo
     for mt in ("url", "email", "text", "image"):
-        p_, y_, _skipped = calibration.extract_samples([c for c in candidates if c.model_type == mt and c.status in ("pending", "used")])
-        readiness[mt] = calibration.readiness(int((y_ == 1).sum()), int((y_ == 0).sum()))
+        usable = [c for c in candidates if c.model_type == mt and c.status in ("pending", "used")]
+        if mt in ("email", "text") and mt in mo.V2_HEADS:
+            # the v2 detectors re-fit their head on the verified MESSAGES (embed_retrain), not on old scores
+            from api.services import embed_retrain
+            _m, y_, _skipped = embed_retrain.samples_from_candidates(mt, usable)
+            readiness[mt] = calibration.readiness(int((y_ == 1).sum()), int((y_ == 0).sum()))
+            readiness[mt]["method"] = "embedding_head"
+        else:
+            p_, y_, _skipped = calibration.extract_samples(usable)
+            readiness[mt] = calibration.readiness(int((y_ == 1).sum()), int((y_ == 0).sum()))
         readiness[mt]["pending"] = sum(1 for c in candidates if c.model_type == mt and c.status == "pending")
 
     return TrainingCandidateSummary(

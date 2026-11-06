@@ -1,0 +1,185 @@
+{
+  "tag": "before",
+  "legit": {
+    "legit_popular": {
+      "n": 498,
+      "errors": 0,
+      "warn_rate": 0.3172690763052209,
+      "block_rate": 0.2931726907630522
+    },
+    "legit_web": {
+      "n": 2000,
+      "errors": 0,
+      "warn_rate": 0.0925,
+      "block_rate": 0.0755
+    }
+  },
+  "phish": {
+    "openphish_fresh": {
+      "n": 300,
+      "recall_warn": 0.8433333333333334,
+      "recall_block": 0.8033333333333333,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9006932212436616,
+        "tpr_at_fpr_1pct": 0.14,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.05315426013002379
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.8547351214304777,
+        "tpr_at_fpr_1pct": 0.4633333333333333,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.22919443795925667
+      }
+    },
+    "mut_subdomain_injection": {
+      "n": 300,
+      "recall_warn": 0.9966666666666667,
+      "recall_block": 0.9966666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.978699626367761,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.14245570488800005
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.06958033093141182,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.005035335104807622
+      }
+    },
+    "mut_path_padding": {
+      "n": 300,
+      "recall_warn": 0.37666666666666665,
+      "recall_block": 0.3566666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.754188017080331,
+        "tpr_at_fpr_1pct": 0.06666666666666667,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.025436416981114325
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.673701627969042,
+        "tpr_at_fpr_1pct": 0.06,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.024718704083978384
+      }
+    }
+  },
+  "worst_false_positives": {
+    "legit_popular": [
+      {
+        "url": "https://www.afternic.com/account/payments?app=www&plid=497036&prog_id=AfterNIC&realm=idp&path=%2Flease-to-own",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.snapchat.com/@%D8%A7%D8%A8%D9%88%D8%AA%D8%B1%D9%83%D9%8A?invite_id=-VqcwEFE&locale=ar_SA%40calendar%3Dgregorian&share_id=Wt-s9fx",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.go.com/?sv=IS&lk=&ak=ISHP&rl=LINK_T00004_HTML_Direct_&rd=http:%252F%252Fwww.microsoft.com%252Fie%252Fdownload%252F",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.afternic.com/account/payments?app=www&path=%2Fsecurity%2Fverification-methods%3Fas_code%3D1&plid=497036&prog_id=AfterNIC&realm=i",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.afternic.com/account/profile?realm=idp&app=afternic-v2&subdomain=www&path=%2Fdomains%2Fadd%2Fdone%3Fshow_drid%3Dtrue",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.t-online.de/auth/login-button/?logoutReturnToUrl=https%3A%2F%2Fmuenchen.t-online.de%2Fregion%2Fmuenchen%2Fid_100382158%2Fpublic-",
+        "score": 1.0
+      },
+      {
+        "url": "https://shopify.com/1186758756/account/orders/8126c9bda504df65ac55d97af1ad1eba?buyer_token_attempted=1&locale=en-US&shop_pay_order=true",
+        "score": 1.0
+      },
+      {
+        "url": "https://shopify.com/13641331/account/orders/4050b6db01b098bd6917c6a9a14e37b7?buyer_token_attempted=1&locale=en-US",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.samsungcloud.com/kk/login",
+        "score": 1.0
+      },
+      {
+        "url": "http://mybluehost.me/wp-login.php?action=lostpassword",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.hicloudcam.com/hihelp/service/pc/login.html",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.freelancer.pk/?q=%5Bbloginfo%20key=%22description%22%5D",
+        "score": 1.0
+      }
+    ],
+    "legit_web": [
+      {
+        "url": "http://cod4-server.info/?page=profile&identify=76465a847fdaa342598bdaa438f2b50c23e3176d98d723ff25b3c942fd32ed320d5bfbd1ec2a2ffa",
+        "score": 1.0
+      },
+      {
+        "url": "http://9ofik.mico-vl.ru/dissertation/355ba2cb6c170105864b80d24cc60f1a",
+        "score": 1.0
+      },
+      {
+        "url": "http://xugeuvi.cf/jyze/cryptocurrency-dataset-bybu.php",
+        "score": 1.0
+      },
+      {
+        "url": "http://downloadmatrixeo.cf/forex-mmcis-ru-tournaments-472219.html",
+        "score": 1.0
+      },
+      {
+        "url": "http://geeksquad.fixya.com/support/t8744567-account_change_ido",
+        "score": 1.0
+      },
+      {
+        "url": "https://sju.teamdynamix.com/TDClient/Requests/ServiceDet?ID=26767",
+        "score": 0.987
+      },
+      {
+        "url": "https://www.sagunpaudel.com.np/2016/01/",
+        "score": 0.975
+      },
+      {
+        "url": "http://www.uninstallerfix.com/uninstall-errors/how-to-uninstall-quilters-39-polygons-template-pack-guide.html",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.livepassionately.net/2008/10/ego-could-be-defined-as-whatever-covers.html",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.2-uninstall.com/uninstallguides/how-to-uninstall-prriiceeddowwniloader-prriiceeddowwniloader-developed-by-prriiceeddowwniloader-u",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.livelaughdecorate.com/2013/07/chairs-on-wheels-lets-slide-shall-we.html",
+        "score": 0.96
+      },
+      {
+        "url": "https://docs.citrix.com/en-us/netscaler/12/clustering/cluster-overview/cluster-config-sync-concepts.html",
+        "score": 0.96
+      }
+    ]
+  },
+  "seconds": 1209
+}

@@ -27,6 +27,7 @@ from api.auth.roles import Role, require_role
 from api.services.incident_view import redact_incident, redact_incident_report
 from api.services.alerts import raise_alert, fire_and_forget
 from api.services.org_policy import allowlist_domain_for_org
+from api.services.incident_ops import sla_status
 
 logger = logging.getLogger("aegisone.incidents")
 
@@ -105,6 +106,7 @@ async def list_incidents(
             "escalated_at": inc.escalated_at,
             "manager_notes": inc.manager_notes,
             "evidence": inc.evidence,
+            "sla": sla_status(inc),
         }
         response_items.append(redact_incident(IncidentResponse(**item_dict)))
 
@@ -330,6 +332,24 @@ async def verify_incident(
 
         fp = _fingerprint_ref(raw_ref)
 
+        # E-mail / message incidents keep the (redacted) message itself, so the organisation's email and text
+        # detectors can re-fit their heads on verified examples (api/services/embed_retrain.py). Personal data
+        # (addresses, tokens, account-like numbers) is removed before it is stored.
+        message = None
+        if model_type in ("email", "text"):
+            from api.services.redaction import redact_text
+            rep0 = (await db.execute(select(IncidentReport).where(IncidentReport.incident_id == inc.id)
+                                     .order_by(IncidentReport.created_at.asc()).limit(1))).scalar_one_or_none()
+            ev0 = rep0.evidence if rep0 is not None and isinstance(rep0.evidence, dict) else {}
+            pick = lambda *keys: next((ev0[k] for k in keys if isinstance(ev0.get(k), str) and ev0[k].strip()), "")  # noqa: E731
+            body = pick("body", "text", "content", "message")
+            subject = pick("subject")
+            if not body and rep0 is not None and model_type == "text" and len(rep0.target_ref or "") >= 15:
+                body = rep0.target_ref
+            if body or subject:
+                message = {"sender": redact_text(pick("sender", "from"))[:200] if pick("sender", "from") else "",
+                           "subject": (redact_text(subject) or "")[:300], "body": (redact_text(body) or "")[:4000]}
+
         # Check deduplication index for this org
         existing_tc_res = await db.execute(
             select(TrainingCandidate).where(
@@ -359,6 +379,7 @@ async def verify_incident(
                     # Why the original detection fired, so an admin reviewing training data
                     # can see the exact evidence behind each sample.
                     "evidence": inc.evidence,
+                    **({"message": message} if message else {}),
                 },
                 verified_by_id=current_user.id,
                 status="pending"

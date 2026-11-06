@@ -34,3 +34,14 @@ venv
 !**/.env.example
 frontend/shared-assistant/vendor
 frontend/shared-assistant/*.tgz
+
+# Evaluation corpora and caches (600MB+) and rejected experiments are not needed at runtime
+AIML/eval
+AIML/url/kaggle
+AIML/url/heads_refresh_candidate.pt
+AIML/message/kaggle
+
+# Superseded URL generations (the server loads the newest installed one) and the M1 training bundle
+AIML/url/v8
+AIML/url/v9
+AIML/message/kaggle

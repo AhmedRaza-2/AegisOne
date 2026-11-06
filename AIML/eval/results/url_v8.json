@@ -1,0 +1,185 @@
+{
+  "tag": "v8",
+  "legit": {
+    "legit_popular": {
+      "n": 498,
+      "errors": 0,
+      "warn_rate": 0.03815261044176707,
+      "block_rate": 0.03815261044176707
+    },
+    "legit_web": {
+      "n": 2000,
+      "errors": 0,
+      "warn_rate": 0.1525,
+      "block_rate": 0.1325
+    }
+  },
+  "phish": {
+    "openphish_fresh": {
+      "n": 300,
+      "recall_warn": 0.9366666666666666,
+      "recall_block": 0.9133333333333333,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.926043501467841,
+        "tpr_at_fpr_1pct": 0.16333333333333333,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.07881761836711532
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.8020349613023753,
+        "tpr_at_fpr_1pct": 0.05,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.04644243124690849
+      }
+    },
+    "mut_subdomain_injection": {
+      "n": 300,
+      "recall_warn": 1.0,
+      "recall_block": 1.0,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9871897518014411,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.18532539824270386
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.00800640512409928,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.0050334169839032555
+      }
+    },
+    "mut_path_padding": {
+      "n": 300,
+      "recall_warn": 1.0,
+      "recall_block": 1.0,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9409260741926875,
+        "tpr_at_fpr_1pct": 0.18666666666666668,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.08919736095229669
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.8666693354683748,
+        "tpr_at_fpr_1pct": 0.01,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.10162701564264574
+      }
+    }
+  },
+  "worst_false_positives": {
+    "legit_popular": [
+      {
+        "url": "https://www.opendns.com:443/?ref=besttechie.com",
+        "score": 0.996
+      },
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=color_eq_15%2Cregistration_city_eq_lahore",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/2021/11/11/nit-pakistan-gateway-index-a-performance-analysis-since-launch/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/7th-avenue_g5000901/other-jobs_c65",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/tag/nit-etf/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/20-years-of-cfasp-celebrated-at-psx-with-a-gong-ceremony",
+        "score": 0.96
+      },
+      {
+        "url": "https://chasevalue.pk/collections/beauty-personal-care-beauty-tools/products/beauty-pouch-blue-chase-value-a138645-a-blue-257790",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/100-quarters_g5000084/bikes-sports-heavy-bikes_c707034",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/204-chak-road_g9511/catering-restaurant_c2047/q-catering",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-awareness-session-held-for-university-of-karachi",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=petrol_eq_petrol",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-education-page/pakistan-stock-exchange-conducted-an-investor-awareness-session-for-the-studen",
+        "score": 0.96
+      }
+    ],
+    "legit_web": [
+      {
+        "url": "http://buildipedia.com/at-home/design-remodeling/the-home-office-a-balance-of-function-and-personal-style?print=1&amp;tmpl=component",
+        "score": 1.0
+      },
+      {
+        "url": "http://wu-taichi.info/?page_id=48726",
+        "score": 1.0
+      },
+      {
+        "url": "https://secure.tct.tv/EmailaFriend.asp?ProductCode=10COMREPandShawl",
+        "score": 1.0
+      },
+      {
+        "url": "http://thedysfunctionalangel.ml/936/gopinic-2724.php",
+        "score": 1.0
+      },
+      {
+        "url": "http://theloo.info/news.php?action=show&id=37887",
+        "score": 1.0
+      },
+      {
+        "url": "https://coauthoryourlifewithgod.com/2016/01/20/checklists-for-discerning-our-vocation/?shared=email&msg=fail",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.harringtonbooks.co.uk/advSearchResults.php?authorField=OTTO+NUCKEL&action=search",
+        "score": 1.0
+      },
+      {
+        "url": "http://cod4-server.info/?page=profile&identify=76465a847fdaa342598bdaa438f2b50c23e3176d98d723ff25b3c942fd32ed320d5bfbd1ec2a2ffa",
+        "score": 1.0
+      },
+      {
+        "url": "http://www.onlineshop.com.sg/index.php?main_page=product_info&products_id=750",
+        "score": 0.997
+      },
+      {
+        "url": "https://forums.atomicmpc.com.au/topic/56509-what-did-you-watch-lately/?page=106",
+        "score": 0.988
+      },
+      {
+        "url": "http://xugeuvi.cf/jyze/cryptocurrency-dataset-bybu.php",
+        "score": 0.967
+      },
+      {
+        "url": "https://thevinchaser.com/bdc-helper",
+        "score": 0.96
+      }
+    ]
+  },
+  "seconds": 70
+}

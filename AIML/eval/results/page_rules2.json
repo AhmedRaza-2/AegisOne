@@ -1,0 +1,107 @@
+{
+  "n": 5000,
+  "n_credential_pages": 1430,
+  "phishing_share": 0.4694,
+  "modes": {
+    "url_only": {
+      "credential_pages": {
+        "recall_warn": 0.8849557522123894,
+        "false_warn": 0.019653179190751446,
+        "n_phish": 565,
+        "n_legit": 865
+      },
+      "other_pages": {
+        "recall_warn": 0.9427609427609428,
+        "false_warn": 0.010626398210290829,
+        "n_phish": 1782,
+        "n_legit": 1788
+      },
+      "all": {
+        "recall_warn": 0.9288453344695355,
+        "false_warn": 0.013569543912551827,
+        "n_phish": 2347,
+        "n_legit": 2653
+      }
+    },
+    "geo": {
+      "credential_pages": {
+        "recall_warn": 0.9168141592920354,
+        "false_warn": 0.011560693641618497,
+        "n_phish": 565,
+        "n_legit": 865
+      },
+      "other_pages": {
+        "recall_warn": 0.9427609427609428,
+        "false_warn": 0.010626398210290829,
+        "n_phish": 1782,
+        "n_legit": 1788
+      },
+      "all": {
+        "recall_warn": 0.9365146996165318,
+        "false_warn": 0.010931021485111195,
+        "n_phish": 2347,
+        "n_legit": 2653
+      }
+    },
+    "mean": {
+      "credential_pages": {
+        "recall_warn": 0.9345132743362832,
+        "false_warn": 0.013872832369942197,
+        "n_phish": 565,
+        "n_legit": 865
+      },
+      "other_pages": {
+        "recall_warn": 0.9427609427609428,
+        "false_warn": 0.010626398210290829,
+        "n_phish": 1782,
+        "n_legit": 1788
+      },
+      "all": {
+        "recall_warn": 0.9407754580315296,
+        "false_warn": 0.011684885035808518,
+        "n_phish": 2347,
+        "n_legit": 2653
+      }
+    },
+    "max": {
+      "credential_pages": {
+        "recall_warn": 0.9557522123893806,
+        "false_warn": 0.023121387283236993,
+        "n_phish": 565,
+        "n_legit": 865
+      },
+      "other_pages": {
+        "recall_warn": 0.9427609427609428,
+        "false_warn": 0.010626398210290829,
+        "n_phish": 1782,
+        "n_legit": 1788
+      },
+      "all": {
+        "recall_warn": 0.945888368129527,
+        "false_warn": 0.014700339238597813,
+        "n_phish": 2347,
+        "n_legit": 2653
+      }
+    },
+    "page": {
+      "credential_pages": {
+        "recall_warn": 0.9345132743362832,
+        "false_warn": 0.012716763005780347,
+        "n_phish": 565,
+        "n_legit": 865
+      },
+      "other_pages": {
+        "recall_warn": 0.9427609427609428,
+        "false_warn": 0.010626398210290829,
+        "n_phish": 1782,
+        "n_legit": 1788
+      },
+      "all": {
+        "recall_warn": 0.9407754580315296,
+        "false_warn": 0.011307953260459858,
+        "n_phish": 2347,
+        "n_legit": 2653
+      }
+    }
+  }
+}

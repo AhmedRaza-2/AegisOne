@@ -1,0 +1,37 @@
+{
+  "tag": "m1_ens",
+  "n": 1676,
+  "sets": {
+    "handwritten": {
+      "n": 176,
+      "phish": 120,
+      "legit": 56,
+      "auc": 0.9976190476190476,
+      "recall_at_0.5": 0.9833333333333333,
+      "false_alarm_at_0.5": 0.05357142857142857,
+      "tpr_at_pooled_fpr_0.01": 0.9833333333333333,
+      "threshold_0.01": 0.5642,
+      "tpr_at_pooled_fpr_0.001": 0.975,
+      "threshold_0.001": 0.7248
+    },
+    "legacy_ham": {
+      "n": 500,
+      "phish": 0,
+      "legit": 500,
+      "false_alarm_at_0.5": 0.008
+    },
+    "llmgen_gpt": {
+      "n": 1000,
+      "phish": 500,
+      "legit": 500,
+      "auc": 0.99752,
+      "recall_at_0.5": 0.98,
+      "false_alarm_at_0.5": 0.036,
+      "tpr_at_pooled_fpr_0.01": 0.962,
+      "threshold_0.01": 0.5642,
+      "tpr_at_pooled_fpr_0.001": 0.712,
+      "threshold_0.001": 0.7248
+    }
+  },
+  "pooled_legit_n": 1056
+}

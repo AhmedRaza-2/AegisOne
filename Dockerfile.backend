@@ -17,6 +17,17 @@ RUN pip install --no-cache-dir torch torchvision --index-url https://download.py
 COPY requirements.txt .
 RUN pip install --no-cache-dir --extra-index-url https://pypi.org/simple -r requirements.txt
 
+# Bake every language backbone into the image. Without this the server downloaded them from the internet on
+# first start, which fails on an air-gapped company network. Models: the DistilBERT / BERT-mini backbones of
+# the e-mail, text and URL networks, the two sentence-embedding backbones of the v2 e-mail and text detectors,
+# and the small explanation model.
+ENV HF_HOME=/app/.hf
+# HF_HUB_DISABLE_XET: the hub's Xet token endpoint answers 404 for some older model repos and aborts the download.
+RUN HF_HUB_DISABLE_XET=1 python -c "from huggingface_hub import snapshot_download as s; \
+[s(r, allow_patterns=['*.json', '*.txt', '*.model', '*.safetensors', 'sentencepiece*', 'tokenizer*', 'vocab*', 'spiece*']) \
+ for r in ('distilbert-base-uncased', 'prajjwal1/bert-mini', 'BAAI/bge-small-en-v1.5', 'intfloat/multilingual-e5-small', 'google/flan-t5-small')]"
+ENV HF_HUB_OFFLINE=1
+
 # Copy the rest of the application code — AIML (1.5GB of model weights) and Extension
 # rarely change, so they're copied before api/ (which changes on nearly every rebuild)
 # to keep their layer cached across ordinary backend code edits.

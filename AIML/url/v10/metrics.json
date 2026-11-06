@@ -1,0 +1,35 @@
+{
+  "test_n": 168060,
+  "test_auc": 0.9940903297840649,
+  "test_ap": 0.9939609915083591,
+  "test_tpr_at_fpr_0.01": 0.9327213541666667,
+  "test_tpr_at_fpr_0.01_ci95": [
+    0.930310546875,
+    0.9354970703125001
+  ],
+  "test_tpr_at_fpr_0.001": 0.8055338541666667,
+  "test_tpr_at_fpr_0.001_ci95": [
+    0.7788362630208333,
+    0.8205944010416667
+  ],
+  "test_tpr_at_fpr_0.0001": 0.5253255208333333,
+  "test_tpr_at_fpr_0.0001_ci95": [
+    0.4538821614583333,
+    0.6423030598958334
+  ],
+  "test_recall_at_warn": 0.9440885416666667,
+  "test_fpr_at_warn": 0.014288845058075827,
+  "validation_c4_fpr_at_warn": 0.007363636363636364,
+  "validation_c4_fpr_at_block": 0.00027272727272727274,
+  "mut_padding_unseen_strings_recall_at_warn": 0.61,
+  "mut_subdomain_injection_unseen_brands_recall_at_warn": 0.9956666666666667,
+  "mut_tld_swap_HELD_OUT_family_recall_at_warn": 0.9262981574539364,
+  "mut_typosquat_recall_at_warn": 0.9995,
+  "mut_homoglyph_recall_at_warn": 1.0,
+  "brand_benign_fpr_at_warn": 0.0,
+  "benchmark_005_mean_ap": 0.6144015207230936,
+  "benchmark_010_mean_ap": 0.7049293772464376,
+  "benchmark_050_mean_ap": 0.8476183330368608,
+  "benchmark_100_mean_ap": 0.8874867690405017,
+  "benchmark_500_mean_ap": 0.9466021953409507
+}

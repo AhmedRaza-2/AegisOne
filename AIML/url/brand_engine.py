@@ -11,9 +11,9 @@ PROTECTED_BRANDS = {
     # Search & Productivity
     "google": ["gmail", "googlemail", "goggle"],
     "github": [],
-    "microsoft": ["office365", "msoffice", "outlook", "live", "onedrive"],
+    "microsoft": ["office365", "msoffice", "outlook", "onedrive", "microsoftonline"],
     "apple": ["icloud", "appleid", "itunes"],
-    "amazon": ["aws"],
+    "amazon": [],
     "openai": ["chatgpt"],
     "zoom": [],
     # Financial — Major Banks
@@ -21,11 +21,11 @@ PROTECTED_BRANDS = {
     "wellsfargo": ["wells-fargo", "welsfargo"],
     "bankofamerica": ["bank-of-america"],
     "chase": [],
-    "citibank": ["citi"],
+    "citibank": [],
     "capitalone": ["capital-one"],
     "hsbc": [],
     "barclays": [],
-    "americanexpress": ["american-express", "amex"],
+    "americanexpress": ["american-express"],
     "stripe": [],
     # Crypto & Web3
     "metamask": [],
@@ -37,10 +37,10 @@ PROTECTED_BRANDS = {
     "coinbase": [],
     "opensea": [],
     # Social & Communication
-    "facebook": ["fb"],
-    "instagram": ["insta"],
+    "facebook": [],
+    "instagram": [],
     "linkedin": [],
-    "twitter": ["x.com"],
+    "twitter": [],
     "discord": [],
     "slack": [],
     "telegram": [],
@@ -53,12 +53,26 @@ PROTECTED_BRANDS = {
     "netflix": [],
     "youtube": [],
     "hulu": [],
-    "disneyplus": ["disney-plus", "disney"],
-    "hbomax": ["hbo-max", "hbo"],
-    # Storage & SaaS
+    "disneyplus": ["disney-plus"],
+    "hbomax": ["hbo-max"],
+    # Storage & SaaS (file-share and e-signature lures)
     "dropbox": [],
     "trello": [],
     "asana": [],
+    "wetransfer": ["we-transfer"],
+    "docusign": ["docu-sign"],
+    "adobe": [],
+    "sharepoint": [],
+    # Pakistan: banks, wallets, government, shopping (names of 4+ letters only - shorter ones such as
+    # "hbl"/"ubl" would match inside ordinary words like "public")
+    "jazzcash": ["jazz-cash"],
+    "easypaisa": ["easy-paisa"],
+    "meezanbank": ["meezan"],
+    "bankalfalah": ["alfalah"],
+    "habibbank": ["habib-bank"],
+    "ubldigital": [],
+    "nadra": [],
+    "daraz": [],
     # Logistics & Delivery
     "dhl": [],
     "fedex": [],
@@ -72,6 +86,8 @@ PROTECTED_BRANDS = {
     "comcast": [],
     "xfinity": [],
     "yahoo": [],
+    # short names: matched only as a WHOLE word of the host (hbl-verify.top), never inside another word
+    "hbl": [], "ubl": [], "mcb": [], "nbp": [], "fbr": [],
 }
 
 # Registrable domains that genuinely BELONG to a protected brand (or to a very widely used,
@@ -92,6 +108,8 @@ OFFICIAL_DOMAINS = {
     "comcast.com", "xfinity.com", "yahoo.com", "wellsfargo.com", "bankofamerica.com", "chase.com", "citi.com", "citibank.com",
     "capitalone.com", "hsbc.com", "barclays.co.uk", "americanexpress.com", "coinbase.com", "binance.com", "kraken.com", "kucoin.com",
     "opensea.io", "metamask.io", "trustwallet.com", "blockchain.com",
+    "wetransfer.com", "we.tl", "docusign.com", "docusign.net", "adobe.com", "adobelogin.com", "ubldigital.com",
+    "habibbank.com",
     # Pakistan: banks, telecom, government, universities
     "ubl.com.pk", "hbl.com", "mcb.com.pk", "meezanbank.com", "bankalfalah.com", "allied.com.pk", "abl.com", "nbp.com.pk", "jazzcash.com.pk",
     "easypaisa.com.pk", "jazz.com.pk", "ufone.com", "zong.com.pk", "telenor.com.pk", "nadra.gov.pk", "fbr.gov.pk", "au.edu.pk",
@@ -114,6 +132,12 @@ def _is_official_host(host: str) -> bool:
     for u in USER_CONTENT_HOSTS:
         if host == u or host.endswith("." + u):
             return False
+    try:  # site builders / forms / buckets on a brand's own domain (forms.office.com) are not the brand's pages
+        from AIML.url.reputation import COLLAB_HOSTS, HOSTING_HOSTS
+        if any(host == u or host.endswith("." + u) for u in HOSTING_HOSTS + COLLAB_HOSTS):
+            return False
+    except ImportError:
+        pass
     return any(host == d or host.endswith("." + d) for d in OFFICIAL_DOMAINS)
 
 
@@ -204,119 +228,121 @@ def jaro_winkler_similarity(s1: str, s2: str) -> float:
 
     return jaro + prefix_len * 0.1 * (1.0 - jaro)
 
+_LURE_WORDS = ("login", "logon", "signin", "sign", "secure", "security", "verify", "verification", "account", "accounts",
+               "update", "support", "help", "billing", "payment", "pay", "wallet", "auth", "online", "service", "services",
+               "confirm", "unlock", "recovery", "refund", "reward", "gift", "claim", "bonus", "prize", "id", "web", "app",
+               "mail", "office", "portal", "center", "team", "official", "customer", "client", "alert", "notice", "check",
+               "safe", "access", "trial", "cancel", "case", "report", "ticket", "tickets", "promo", "free", "download")
+_TOKEN_SPLIT = re.compile(r"[.\-_]+")
+_BRAND_EXT = {}
+
+
+def _brand_ext(private=True):
+    """Offline Public Suffix List parser; private=True also splits platforms (x.vercel.app is x's own domain)."""
+    if private not in _BRAND_EXT:
+        import tldextract
+        _BRAND_EXT[private] = tldextract.TLDExtract(suffix_list_urls=(), include_psl_private_domains=private)
+    return _BRAND_EXT[private]
+
+
+def damerau_levenshtein(a: str, b: str) -> int:
+    """Edit distance counting a swap of two neighbouring letters as one edit (paypal -> payapl)."""
+    d = {(i, -1): i + 1 for i in range(-1, len(a) + 1)}
+    d.update({(-1, j): j + 1 for j in range(-1, len(b) + 1)})
+    for i in range(len(a)):
+        for j in range(len(b)):
+            cost = a[i] != b[j]
+            d[i, j] = min(d[i - 1, j] + 1, d[i, j - 1] + 1, d[i - 1, j - 1] + cost)
+            if i and j and a[i] == b[j - 1] and a[i - 1] == b[j]:
+                d[i, j] = min(d[i, j], d[i - 2, j - 2] + 1)
+    return d[len(a) - 1, len(b) - 1]
+
+
+def _typo_of(token: str, target: str) -> bool:
+    """A deliberate misspelling of the whole brand: one edit for names up to 6 letters, two for longer ones."""
+    if token == target or abs(len(token) - len(target)) > 2 or len(target) < 5 or len(token) < 5:
+        return False
+    if token == target + "s":                     # plural of an ordinary word (them-apples), not a typo
+        return False
+    return damerau_levenshtein(token, target) <= (1 if len(target) <= 7 else 2)
+
+
+def _affix_match(token: str, target: str) -> bool:
+    """Brand glued to lure words: applegiftreward, paypalsecure, securepaypal-login. The rest of the token has to be
+    made of lure words (or digits), so ordinary words that merely start with a brand do not count."""
+    if len(target) < 5 or target not in token or token == target:
+        return False
+    rest = token.replace(target, " ", 1)
+    rest = re.sub(r"[0-9]+", " ", rest)
+    for w in sorted(_LURE_WORDS, key=len, reverse=True):
+        rest = rest.replace(w, " ")
+    return rest.strip() == ""
+
+
 def check_brand_impersonation(url: str) -> dict:
     """
-    Scans a domain for homoglyphs or typo similarity against protected brands.
-    Returns details on matched brand, similarity score, and confidence.
+    Does the host claim a protected brand it does not own?
+      * parsed with the Public Suffix List (private section included), so `x.vercel.app` and `roblox.com.ss` are
+        judged by what the owner actually registered, and `manufacturers.com.tw` is not read as "com" ~ "comcast"
+      * the brand must be a whole token of the host (netflix-trial, facebook.webmau.vn), a deliberate misspelling of
+        a whole token (paypa1, micros0ft), or glued to lure words only (paypalsecure, applegiftreward) - never a
+        substring of an ordinary word (livecareer, olx.com, steamsaunabath, telegraph)
+      * popular listed domains (Tranco) never match: impersonation needs a domain the attacker controls
+    Returns {matched, matched_brand, score, confidence, reason}; score >= 0.92 is treated as a hard signal.
     """
+    none = {"matched": False, "matched_brand": None, "score": 0.0, "confidence": 1.0, "reason": "No brand impersonation detected."}
     try:
-        url_lower = str(url).lower().strip()
-        if not url_lower.startswith(('http://', 'https://')):
-            parsed = urlparse("http://" + url_lower)
-        else:
-            parsed = urlparse(url_lower)
-            
-        domain = parsed.netloc
-        if domain.startswith("www."):
-            domain = domain[4:]
-
-        # The brand's own site (or another widely used legitimate service) is not an impersonation.
-        _host_only = domain.split("@")[-1].split(":")[0]
-        if _is_official_host(_host_only):
+        u = str(url).strip()
+        p = urlparse(u if "://" in u[:12] else "http://" + u)
+        host = (p.hostname or "").lower().rstrip(".")
+        if not host:
+            return none
+        if _is_official_host(host):
             return {"matched": False, "matched_brand": None, "score": 0.0, "confidence": 0.0,
                     "reason": "Official domain of a known service"}
-
-        # Strip TLD and ports
-        domain_parts = domain.split(':')[0].split('.')
-        if len(domain_parts) > 1:
-            sld = domain_parts[-2] # e.g. 'paypal' in 'paypal.com' or 'g00gle' in 'g00gle.co.uk'
-            full_sld = ".".join(domain_parts[:-1])
-        else:
-            sld = domain_parts[0]
-            full_sld = sld
-
-        # Normalize homoglyphs
-        cleaned_sld = clean_homoglyphs(sld)
-        cleaned_full_sld = clean_homoglyphs(full_sld)
-
-        # Normalize hyphenated brand tokens: "wells-fargo" → "wellsfargo" for matching
-        dehyphenated_sld = cleaned_sld.replace("-", "")
-        dehyphenated_full_sld = cleaned_full_sld.replace("-", "")
-
-        best_brand = None
-        highest_similarity = 0.0
-        reason = "No impersonation detected"
-
-        # Check against protected brands
+        try:
+            from AIML.url.reputation import reputation
+            rep = reputation(host)
+            if rep.get("listed"):
+                return dict(none, reason="Popular listed domain - not attacker-registered")
+        except Exception:
+            pass
+        try:
+            from AIML.url.urlnet_v10 import decode_host
+            host = decode_host(host)            # xn--pypal-4ve.com -> pаypal.com, then the homoglyph map applies
+        except Exception:
+            pass
+        e = _brand_ext()(host)
+        labels = [x for x in (e.subdomain.split(".") if e.subdomain else []) + [e.domain] if x and x != "www"]
+        raw_tokens = [t for lab in labels for t in _TOKEN_SPLIT.split(lab) if t]
+        tokens = [clean_homoglyphs(t) for t in raw_tokens]
+        joined = [clean_homoglyphs(lab.replace("-", "")) for lab in labels]          # "wells-fargo" -> "wellsfargo"
+        homoglyph = any(clean_homoglyphs(t) != t for t in raw_tokens if not t.isdigit())
+        best = (0.0, None, "")
+        _o = _brand_ext(private=False)(host)           # the brand's own platform: google.com for sites.google.com
+        owner = _o.domain if f"{_o.domain}.{_o.suffix}" in OFFICIAL_DOMAINS else None
         for brand, aliases in PROTECTED_BRANDS.items():
-            targets = [brand] + aliases
-            
-            # If the exact SLD matches the brand, it is likely the official brand domain
-            # or a direct registration. It is NOT a typo or subdomain impersonation.
-            if sld in targets:
-                continue
-                
-            for target in targets:
-                # Dehyphenate target for matching against dehyphenated domain
-                dehyphenated_target = target.replace("-", "")
-
-                # 1. Exact match in subdomains or SLD (e.g. paypal.verification-update.com)
-                # Also check dehyphenated forms: "wells-fargo" matches "wellsfargo" brand token
-                sld_match = (target in cleaned_full_sld or
-                             (len(dehyphenated_target) >= 4 and dehyphenated_target in dehyphenated_full_sld))
-                if sld_match and domain != target and not domain.endswith("." + target):
-                    # Brand keyword found in domain, but domain is not the brand!
-                    # Verify it's not a false positive for sites like 'pc.ign.com' (checking 'ig')
-                    if len(target) >= 4 or len(dehyphenated_target) >= 4:
-                        highest_similarity = 1.0
-                        best_brand = brand
-                        reason = f"Protected brand '{brand}' keyword detected in untrusted domain structure."
-                        break
-
-                # 2. Similarity match (Typo-squatting / Homoglyphs)
-                sim_sld = jaro_winkler_similarity(cleaned_sld, target)
-                sim_full = jaro_winkler_similarity(cleaned_full_sld, target)
-                # Also compare dehyphenated forms
-                sim_dehyph = jaro_winkler_similarity(dehyphenated_sld, dehyphenated_target)
-                max_sim = max(sim_sld, sim_full, sim_dehyph)
-
-                # Flag high Jaro-Winkler similarity (typically > 0.82)
-                if max_sim > 0.85 and max_sim > highest_similarity:
-                    # Exclude exact legitimate domain match if it matched via subdomain checks
-                    highest_similarity = max_sim
-                    best_brand = brand
-                    reason = f"Domain SLD has high typographic similarity ({round(max_sim*100)}%) to protected brand '{brand}'."
-
-            if highest_similarity == 1.0:
-                break
-
-        # Additional homoglyph check: if sld changes after cleaning confusable characters
-        is_homoglyph_attack = (sld != clean_homoglyphs(sld))
-        if is_homoglyph_attack and highest_similarity > 0.70:
-            highest_similarity = max(highest_similarity, 0.90)
-            reason = f"Unicode confusable/homoglyph characters detected targeting brand '{best_brand}'."
-
-        if highest_similarity > 0.80:
-            return {
-                "matched": True,
-                "matched_brand": best_brand,
-                "score": round(highest_similarity, 4),
-                "confidence": round(highest_similarity * 0.95, 4),
-                "reason": reason
-            }
-            
-        return {
-            "matched": False,
-            "matched_brand": None,
-            "score": 0.0,
-            "confidence": 1.0,
-            "reason": "No brand impersonation detected."
-        }
+            if owner and owner in [brand] + aliases:
+                continue                         # sites.google.com is Google's own hosting, not an impersonation of it
+            for target in [brand] + aliases:
+                tgt = target.replace("-", "").replace(".", "")
+                if not tgt:
+                    continue
+                if tgt in tokens or tgt in joined:
+                    sc, why = 1.0, f"Protected brand '{brand}' used as a name in a domain it does not own."
+                elif any(_typo_of(t, tgt) for t in tokens + joined):
+                    sc, why = 0.93, f"Domain is a misspelling of protected brand '{brand}'."
+                elif any(_affix_match(t, tgt) for t in tokens + joined):
+                    sc, why = 0.9, f"Protected brand '{brand}' combined with lure words in an unrelated domain."
+                else:
+                    continue
+                if homoglyph:
+                    sc, why = max(sc, 0.95), f"Look-alike characters spelling protected brand '{brand}'."
+                if sc > best[0]:
+                    best = (sc, brand, why)
+        if best[1]:
+            return {"matched": True, "matched_brand": best[1], "score": best[0], "confidence": round(best[0] * 0.95, 4),
+                    "reason": best[2]}
+        return none
     except Exception as e:
-        return {
-            "matched": False,
-            "matched_brand": None,
-            "score": 0.0,
-            "confidence": 1.0,
-            "reason": f"Brand check error: {e}"
-        }
+        return dict(none, reason=f"Brand check error: {e}")

@@ -1,0 +1,16 @@
+{
+  "arch": "urlnet_v10",
+  "temperature": 1.6256168431605582,
+  "thresholds": {
+    "suspicious": 0.08512244124044469,
+    "warn": 0.40046145923224863,
+    "block": 0.9309372309246112
+  },
+  "base_model": "thenlper/gte-small",
+  "max_len": 128,
+  "trained": "2026-11-01",
+  "fit_n": 824318,
+  "validation_n": 35912,
+  "held_out_family": "tld_swap",
+  "data": "phreshphish v1.0.1 train (CC BY 4.0, newest 5% held out) + allenai/c4 train shards (ODC-BY, 5% held out, domain-disjoint from c4-validation-00000) + mutation families + brand-domain benign"
+}

@@ -1,6 +1,7 @@
 """Regression guard for email scoring on modern phishing wording (NOT an accuracy estimate: the phishing
 samples were written after seeing which ones were missed). Needs the API on :8765.
-Before the link/component work this caught 9 of 12; the benign set must stay at 0 false positives."""
+Before the link/component work this caught 9 of 12; the benign set must stay at 0 false positives.
+A "hit" / "false positive" is a WARN, i.e. score >= 51 - the same cut-off /analyze/email uses (compatibility.py)."""
 import sys, io, json, urllib.request, urllib.parse
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
@@ -41,12 +42,12 @@ def score(s, sub, b):
 hits = 0
 print("--- phishing")
 for s, sub, b in PHISH:
-    sc, c = score(s, sub, b); hits += sc >= 50
+    sc, c = score(s, sub, b); hits += sc >= 51
     print(f"{sc:3d}  text={c.get('text',{}).get('score')} links={c.get('links',{}).get('max_score')}  {sub[:50]}")
 fps = 0
 print("--- benign")
 for s, sub, b in BENIGN:
-    sc, c = score(s, sub, b); fps += sc >= 50
+    sc, c = score(s, sub, b); fps += sc >= 51
     print(f"{sc:3d}  text={c.get('text',{}).get('score')} links={c.get('links',{}).get('max_score')}  {sub[:50]}")
 print(f"recall {hits}/{len(PHISH)}  false positives {fps}/{len(BENIGN)}")
 

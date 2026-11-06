@@ -1,0 +1,185 @@
+{
+  "tag": "refresh_candidate",
+  "legit": {
+    "legit_popular": {
+      "n": 498,
+      "errors": 0,
+      "warn_rate": 0.03815261044176707,
+      "block_rate": 0.03815261044176707
+    },
+    "legit_web": {
+      "n": 2000,
+      "errors": 0,
+      "warn_rate": 0.07,
+      "block_rate": 0.0615
+    }
+  },
+  "phish": {
+    "openphish_fresh": {
+      "n": 300,
+      "recall_warn": 0.8266666666666667,
+      "recall_block": 0.7866666666666666,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.934363490792634,
+        "tpr_at_fpr_1pct": 0.15,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.11076864589192059
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.8819222044302109,
+        "tpr_at_fpr_1pct": 0.49666666666666665,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.2560012696037844
+      }
+    },
+    "mut_subdomain_injection": {
+      "n": 300,
+      "recall_warn": 0.9966666666666667,
+      "recall_block": 0.9966666666666667,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9895843341339738,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.20574626358872242
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.2043461435815319,
+        "tpr_at_fpr_1pct": 0.0,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.00503821608872351
+      }
+    },
+    "mut_path_padding": {
+      "n": 300,
+      "recall_warn": 0.7133333333333334,
+      "recall_block": 0.6633333333333333,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.9270789965305578,
+        "tpr_at_fpr_1pct": 0.1,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.08329400062845188
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 300,
+        "auc": 0.872263143848412,
+        "tpr_at_fpr_1pct": 0.25,
+        "tpr_at_fpr_0.1pct": 0.0,
+        "ap_at_1pct_base_rate": 0.12075483824188284
+      }
+    }
+  },
+  "worst_false_positives": {
+    "legit_popular": [
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=color_eq_15%2Cregistration_city_eq_lahore",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/7th-avenue_g5000901/other-jobs_c65",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/2021/11/11/nit-pakistan-gateway-index-a-performance-analysis-since-launch/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/100-quarters_g5000084/bikes-sports-heavy-bikes_c707034",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/blog/index.php/tag/nit-etf/",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/20-years-of-cfasp-celebrated-at-psx-with-a-gong-ceremony",
+        "score": 0.96
+      },
+      {
+        "url": "https://chasevalue.pk/collections/beauty-personal-care-beauty-tools/products/beauty-pouch-blue-chase-value-a138645-a-blue-257790",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/204-chak-road_g9511/catering-restaurant_c2047/q-catering",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-awareness-session-held-for-university-of-karachi",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.psx.com.pk/psx/events-psx/investor-education-page/pakistan-stock-exchange-conducted-an-investor-awareness-session-for-the-studen",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.olx.com.pk/90-chitti-road_g8828/cars_c84?filter=petrol_eq_petrol",
+        "score": 0.96
+      },
+      {
+        "url": "https://chasevalue.pk/collections/bags-and-wallets-1/products/womens-wallet-brown-chase-value-a156957-a-brown",
+        "score": 0.96
+      }
+    ],
+    "legit_web": [
+      {
+        "url": "http://xugeuvi.cf/jyze/cryptocurrency-dataset-bybu.php",
+        "score": 1.0
+      },
+      {
+        "url": "http://wu-taichi.info/?page_id=48726",
+        "score": 1.0
+      },
+      {
+        "url": "http://downloadmatrixeo.cf/forex-mmcis-ru-tournaments-472219.html",
+        "score": 1.0
+      },
+      {
+        "url": "http://cod4-server.info/?page=profile&identify=76465a847fdaa342598bdaa438f2b50c23e3176d98d723ff25b3c942fd32ed320d5bfbd1ec2a2ffa",
+        "score": 1.0
+      },
+      {
+        "url": "http://9ofik.mico-vl.ru/dissertation/355ba2cb6c170105864b80d24cc60f1a",
+        "score": 1.0
+      },
+      {
+        "url": "https://www.livelaughdecorate.com/2013/07/chairs-on-wheels-lets-slide-shall-we.html",
+        "score": 0.96
+      },
+      {
+        "url": "https://flowerdeliveryaustralia.net/online-florist/spring-gully",
+        "score": 0.96
+      },
+      {
+        "url": "http://100resilientcities.org/why-rebuild-by-design-succeeds/",
+        "score": 0.96
+      },
+      {
+        "url": "https://steamdiscovery.com/982370/steamgame/line-dance-virtual/",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.livepassionately.net/2008/10/ego-could-be-defined-as-whatever-covers.html",
+        "score": 0.96
+      },
+      {
+        "url": "https://www.live-production.tv/news/products/amv-upgrades-nyla-truck-riedel-artist-intercom.html",
+        "score": 0.96
+      },
+      {
+        "url": "http://www.uninstallerfix.com/uninstall-errors/how-to-uninstall-quilters-39-polygons-template-pack-guide.html",
+        "score": 0.96
+      }
+    ]
+  },
+  "seconds": 1142
+}
