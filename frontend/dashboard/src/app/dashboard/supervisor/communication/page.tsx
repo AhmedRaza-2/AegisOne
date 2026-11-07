@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatView, ContactItem, ChatContact, ChatMessage, roleLabel, ts } from "@/components/chat/ChatComponents";
 import { publishKeyIfNeeded, encryptFor, decryptThread } from "@/lib/e2e-chat";
+import { visibleInterval } from '@/lib/visible-interval';
 
 function Toast({ toast }: { toast: { message: string; type: "success" | "error" } | null }) {
   if (!toast) return null;
@@ -75,7 +76,7 @@ export default function ManagerCommunicationPage() {
     };
     
     fetchContacts();
-    const interval = setInterval(fetchContacts, 5000);
+    const interval = visibleInterval(fetchContacts, 5000);
     return () => clearInterval(interval);
   }, [user, getHeaders, activeContact]);
 
@@ -85,7 +86,7 @@ export default function ManagerCommunicationPage() {
       fetch(`${getApiBaseUrl()}/communication/announcements`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
     load();
-    const id = setInterval(load, 10000);
+    const id = visibleInterval(load, 10000);
     return () => clearInterval(id);
   }, [user, getHeaders]);
 
@@ -101,7 +102,7 @@ export default function ManagerCommunicationPage() {
           }
         }).catch(() => { });
     load();
-    pollRef.current = setInterval(load, 5000);
+    pollRef.current = visibleInterval(load, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [activeContact, getHeaders]);
 

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { BrainCircuit, Activity, ShieldAlert, Download, Share2, Globe, Monitor, Shield, Network, EyeOff, Lock, Clock, Zap, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.1 } } };
@@ -23,7 +24,7 @@ export default function XAIPage() {
       };
 
       fetchData();
-      const interval = setInterval(fetchData, 5000);
+      const interval = visibleInterval(fetchData, 5000);
       return () => clearInterval(interval);
     }
   }, [user]);

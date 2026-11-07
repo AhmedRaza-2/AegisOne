@@ -9,6 +9,7 @@ import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/components/ui/EvidencePanel";
 import { WeightsPanel } from "@/components/models/WeightsPanel";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
@@ -79,7 +80,7 @@ export default function ModelsPage() {
   const hasActiveJob = jobs.some(j => j.status === "queued" || j.status === "running");
   useEffect(() => {
     if (!hasActiveJob) return;
-    const t = setInterval(fetchData, 3000);
+    const t = visibleInterval(fetchData, 3000);
     return () => clearInterval(t);
   }, [hasActiveJob, fetchData]);
 

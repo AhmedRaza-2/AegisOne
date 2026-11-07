@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Activity, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } } };
 const stagger = { show: { transition: { staggerChildren: 0.1 } } };
@@ -47,7 +48,7 @@ export default function AnalyticsPage() {
       };
 
       fetchData();
-      const interval = setInterval(fetchData, 5000);
+      const interval = visibleInterval(fetchData, 5000);
       return () => clearInterval(interval);
     }
   }, [user]);

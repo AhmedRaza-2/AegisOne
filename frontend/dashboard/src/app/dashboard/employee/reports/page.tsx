@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ClipboardList, Activity, Clock, ExternalLink, ChevronDown, ShieldAlert } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api";
+import { visibleInterval } from '@/lib/visible-interval';
 
 function authHeaders() {
   const t = typeof window !== "undefined"
@@ -41,7 +42,7 @@ export default function MyReportsPage() {
         .catch(() => setLoading(false));
     };
     fetchReports();
-    const interval = setInterval(fetchReports, 10000);
+    const interval = visibleInterval(fetchReports, 10000);
     return () => clearInterval(interval);
   }, []);
 

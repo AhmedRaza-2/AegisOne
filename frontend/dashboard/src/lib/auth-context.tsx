@@ -41,7 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof document === 'undefined') return null;
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return decodeURIComponent(parts.pop()?.split(';').shift() || '');
+    if (parts.length === 2) {
+      // A malformed cookie (left by an older version or another app on localhost) must never crash the session restore.
+      try { return decodeURIComponent(parts.pop()?.split(';').shift() || ''); } catch { return null; }
+    }
     return null;
   };
 
@@ -81,6 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+   // Whatever is in the browser (bad cookie, blocked storage, old format), the page must leave the loading state:
+   // an exception here used to keep the shield spinner on screen forever.
+   try {
     // 1. Restore Auth State from Cookies / LocalStorage
     const token = localStorage.getItem("aegis_access_token");
     const storedUserStr = getCookie("aegis_user") || localStorage.getItem("user");
@@ -123,8 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         document.documentElement.classList.remove('dark');
       }
     }
-
+   } catch (e) {
+    console.error("[AuthProvider] Could not restore the session, continuing signed out:", e);
+   } finally {
     setIsLoading(false);
+   }
   }, []);
 
   // Listen for aegis-user-login event dispatched by the setup page's auto-login

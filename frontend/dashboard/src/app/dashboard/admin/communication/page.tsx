@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
 import { ChatView, ContactList, useChat, ts } from "@/components/chat/ChatComponents";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const Toast = ({ toast }: { toast: any }) => toast ? (
   <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
@@ -41,7 +42,7 @@ export default function AdminCommunicationPage() {
       fetch(`${getApiBaseUrl()}/communication/announcements`, { headers: getHeaders() })
         .then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d); }).catch(() => { });
     load();
-    const t = setInterval(load, 15000);
+    const t = visibleInterval(load, 15000);
     return () => clearInterval(t);
   }, []);
 

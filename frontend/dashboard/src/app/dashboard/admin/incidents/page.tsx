@@ -4,6 +4,7 @@ import { AlertTriangle, Clock, CheckCircle2, Ban, ShieldQuestion, X, Activity, A
 import { getApiBaseUrl } from "@/lib/api";
 import { EvidencePanel } from "@/components/ui/EvidencePanel";
 import { toast } from "@/components/ui/toast";
+import { visibleInterval } from '@/lib/visible-interval';
 
 function authHeaders() {
   const t = typeof window !== "undefined"
@@ -90,7 +91,7 @@ export default function AdminIncidentsPage() {
   useEffect(() => {
     fetchIncidents();
     fetchMetrics();
-    const interval = setInterval(() => { fetchIncidents(); fetchMetrics(); }, 10000);
+    const interval = visibleInterval(() => { fetchIncidents(); fetchMetrics(); }, 10000);
     return () => clearInterval(interval);
   }, [fetchIncidents, fetchMetrics]);
 

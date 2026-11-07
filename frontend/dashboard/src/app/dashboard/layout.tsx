@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getRoleBadge } from "@/lib/mock-data";
 import { toast } from "@/components/ui/toast";
 import { publishKeyIfNeeded, isEncrypted } from "@/lib/e2e-chat";
+import { visibleInterval } from '@/lib/visible-interval';
 
 interface NavItem {
   label: string;
@@ -288,7 +289,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     checkHealth();
 
     // Then poll every 10 seconds
-    const interval = setInterval(checkHealth, 10000);
+    const interval = visibleInterval(checkHealth, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -361,7 +362,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .catch(() => { });
     };
     fetchInbox();
-    const interval = setInterval(() => {
+    const interval = visibleInterval(() => {
       if (!stopped) fetchInbox();
     }, 30000);
     return () => clearInterval(interval);

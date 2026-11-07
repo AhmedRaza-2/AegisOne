@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { useMemo, useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -41,7 +42,7 @@ export default function DepartmentAnalyticsPage() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = visibleInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, [user, timeRange]);
 

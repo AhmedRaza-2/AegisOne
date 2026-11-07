@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, Clock, ArrowUpCircle, CheckCircle2, MessageSquare, X, Activity, ShieldQuestion } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api";
 import { EvidencePanel } from "@/components/ui/EvidencePanel";
+import { visibleInterval } from '@/lib/visible-interval';
 
 function authHeaders() {
   const t = typeof window !== "undefined"
@@ -48,7 +49,7 @@ export default function IncidentsPage() {
 
   useEffect(() => {
     fetchIncidents();
-    const interval = setInterval(fetchIncidents, 10000);
+    const interval = visibleInterval(fetchIncidents, 10000);
     return () => clearInterval(interval);
   }, [fetchIncidents]);
 

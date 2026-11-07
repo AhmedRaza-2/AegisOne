@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Server, Send, Download, Undo2, Loader2, CheckCircle2, XCircle, Clock, Cpu } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
+import { visibleInterval } from '@/lib/visible-interval';
 
 function authHeaders(): Record<string, string> {
   const t = localStorage.getItem("aegis_access_token") || localStorage.getItem("aegis_token");
@@ -37,7 +38,7 @@ export function WeightsPanel({ onChange }: { onChange?: () => void }) {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     if (!packages.some(p => p.status === "submitted")) return;
-    const t = setInterval(async () => {
+    const t = visibleInterval(async () => {
       for (const p of packages.filter(x => x.status === "submitted")) {
         await fetch(`${getApiBaseUrl()}/admin/model-updates/packages/${p.package_id}/vendor-status`, { headers: authHeaders() }).catch(() => null);
       }

@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "@/lib/api";
 import { MessageSquare, Megaphone, Users, Globe } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { ChatView, ContactList, ChatMessage, useChat, ts } from "@/components/chat/ChatComponents";
+import { visibleInterval } from '@/lib/visible-interval';
 
 export default function EmployeeCommunicationPage() {
   const { user } = useAuth();
@@ -20,7 +21,7 @@ export default function EmployeeCommunicationPage() {
   useEffect(() => {
     if (!user) return;
     loadAnnouncements();
-    const id = setInterval(loadAnnouncements, 15000);
+    const id = visibleInterval(loadAnnouncements, 15000);
     return () => clearInterval(id);
   }, [user, loadAnnouncements]);
 

@@ -1,4 +1,5 @@
 "use client";
+import { visibleInterval } from '@/lib/visible-interval';
 import { getApiBaseUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -56,7 +57,7 @@ export default function SupervisorSelfDashboard() {
       }
 
       fetchData();
-      const interval = setInterval(() => fetchData(false), 10000);
+      const interval = visibleInterval(() => fetchData(false), 10000);
       return () => clearInterval(interval);
     }
   }, [user]);

@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useMemo, useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -54,7 +55,7 @@ export default function SupervisorDashboard() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(() => fetchData(false), 10000);
+    const interval = visibleInterval(() => fetchData(false), 10000);
     return () => clearInterval(interval);
   }, [user, timeRange]);
 
@@ -69,7 +70,7 @@ export default function SupervisorDashboard() {
         .catch(() => { });
     };
     load();
-    const t = setInterval(load, 15000);
+    const t = visibleInterval(load, 15000);
     return () => clearInterval(t);
   }, [user]);
 

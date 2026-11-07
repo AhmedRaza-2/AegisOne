@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
 import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -78,7 +79,7 @@ export default function AuditPage() {
     if (!user) return;
     fetchLogs();
     if (!live) return;
-    const interval = setInterval(fetchLogs, 10000);
+    const interval = visibleInterval(fetchLogs, 10000);
     return () => clearInterval(interval);
   }, [user, live, fetchLogs]);
 

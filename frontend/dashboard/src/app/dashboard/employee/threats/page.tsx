@@ -6,6 +6,7 @@ import { ShieldAlert, Shield, Download, Zap, AlertTriangle, AlertCircle, Refresh
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { toast } from "@/components/ui/toast";
+import { visibleInterval } from '@/lib/visible-interval';
 
 function authHeaders() {
   const t = typeof window !== "undefined"
@@ -82,7 +83,7 @@ export default function ThreatCenterPage() {
       };
 
       fetchData();
-      const interval = setInterval(fetchData, 5000);
+      const interval = visibleInterval(fetchData, 5000);
       return () => clearInterval(interval);
     }
   }, [user]);

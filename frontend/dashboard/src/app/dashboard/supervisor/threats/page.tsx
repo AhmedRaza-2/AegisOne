@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
+import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -104,7 +105,7 @@ export default function ThreatCenterPage() {
     loadData();
 
     // Poll every 5 seconds for real-time threat center updates
-    const interval = setInterval(loadData, 5000);
+    const interval = visibleInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, [user]);
 
