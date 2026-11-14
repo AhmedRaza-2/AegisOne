@@ -14,7 +14,7 @@ from PIL import Image
 import io
 
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, File, UploadFile, Form, BackgroundTasks, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -331,10 +331,11 @@ class WhatsAppItemRequest(BaseModel):
     chat_title: Optional[str] = ""
     fingerprint: Optional[str] = None
     image_base64: Optional[str] = ""
+    urls: Optional[List[str]] = None
 
 
 class WhatsAppBatchRequest(BaseModel):
-    messages: List[WhatsAppItemRequest]
+    messages: List[WhatsAppItemRequest] = Field(..., max_length=20)
 
 
 @router.post("/whatsapp/batch")
@@ -352,7 +353,8 @@ async def scan_whatsapp_batch(
             sender=item.sender or "",
             chat_id=item.chat_id or "",
             chat_title=item.chat_title or "",
-            image_base64=item.image_base64 or ""
+            image_base64=item.image_base64 or "",
+            urls=(item.urls or [])[:10],
         )
         
         # Privacy policy: If verdict is safe, transient raw text is NOT stored in DB

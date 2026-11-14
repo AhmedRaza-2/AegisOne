@@ -2,9 +2,9 @@
 AegisOne WhatsApp Security Intelligence & Channel Router.
 Passes incoming WhatsApp Web modalities (Text, Embedded URLs, Images) directly
 into AegisOne's pre-trained core AI models:
-- predict_text()   (DistilBERT NLP Neural Model)
-- predict_url()    (XGBoost ML URL Classifier)
-- predict_image()  (Vision & OCR Phishing Model)
+- predict_text()   (text model M1)
+- predict_url()    (URL model v10 + page/brand/reputation fusion)
+- QR decoding + OCR for pictures (QR links go to the URL model)
 
 Decision Logic:
 Rely strictly on core models' canonical predictions.
@@ -93,85 +93,82 @@ async def analyze_whatsapp_message(
     sender: str = "",
     chat_id: str = "",
     chat_title: str = "",
-    image_base64: str = ""
+    image_base64: str = "",
+    urls: List[str] | None = None,
 ) -> Dict[str, Any]:
     """
-    Pure WhatsApp Modality Channel Router:
-    1. Text -> predict_text(text, include_xai=True) (Core DistilBERT Model)
-    2. URLs -> predict_url(url, include_xai=True) (Core ML URL Model)
-    3. Image -> predict_image(image) (Core Vision & OCR Model)
-    
-    Preserves 100% of core models' XAI outputs and evidence fields.
+    WhatsApp channel router. Everything runs on the organisation's own server:
+      1. text   -> text model (M1, "sms" channel thresholds)
+      2. links  -> URL model (links found in the text + the real destinations the browser extension resolved)
+      3. image  -> QR codes (decoded, link -> URL model, other kinds by their risk) and OCR text -> text/URL models.
+                   The website-screenshot model is NOT used on chat photos: it was trained on web pages, not photos.
     """
-    clean_text = (text or "").strip()
+    import base64
+    from api.services.content_router import route_image_input_detailed
+
+    clean_text = (text or "").strip()[:4000]
     results: List[Dict[str, Any]] = []
     modalities: List[Dict[str, Any]] = []
 
-    # 1. Text Modality -> Route to AegisOne DistilBERT Text Model
+    def add(kind: str, res: Dict[str, Any], **extra):
+        if isinstance(res, dict) and "error" not in res:
+            results.append(res)
+            modalities.append({"type": kind, "model": res.get("model", kind), "score": _get_score_from_result(res),
+                               "verdict": res.get("prediction", "legitimate"), "is_threat": _is_model_phishing(res),
+                               "model_result": res, **extra})
+
+    # 1. text
     if clean_text:
         try:
-            t_res = await asyncio.to_thread(predict_text, clean_text, include_xai=True)
-            if isinstance(t_res, dict):
-                results.append(t_res)
-                modalities.append({
-                    "type": "text",
-                    "model": t_res.get("model", "text"),
-                    "score": _get_score_from_result(t_res),
-                    "verdict": t_res.get("prediction", "legitimate"),
-                    "is_threat": _is_model_phishing(t_res),
-                    "model_result": t_res  # Full un-truncated model output dictionary
-                })
+            add("text", await predict_text(clean_text))
         except Exception as err:
-            logger.warning(f"WhatsApp predict_text execution warning: {err}")
+            logger.warning("WhatsApp text scan failed: %s", err)
 
-    # 2. Embedded URLs Modality -> Route to AegisOne ML URL Model
-    urls = extract_urls_from_text(clean_text)
-    for u in urls:
-        try:
-            u_res = predict_url(u, include_xai=True)
-            if isinstance(u_res, dict):
-                results.append(u_res)
-                modalities.append({
-                    "type": "url",
-                    "url": u,
-                    "model": u_res.get("model", "url"),
-                    "score": _get_score_from_result(u_res),
-                    "verdict": u_res.get("prediction", "legitimate"),
-                    "decision": u_res.get("decision", "allow"),
-                    "is_threat": _is_model_phishing(u_res),
-                    "model_result": u_res  # Full un-truncated model output dictionary
-                })
-        except Exception as err:
-            logger.warning(f"WhatsApp predict_url execution warning for {u}: {err}")
+    # 2. links (deduplicated, capped): typed in the message plus the resolved hrefs from the page
+    urls_all: List[str] = []
+    for u in extract_urls_from_text(clean_text) + [str(x).strip() for x in (urls or []) if str(x).strip()]:
+        if u.lower().startswith(("http://", "https://")) and u not in urls_all:
+            urls_all.append(u[:2000])
+    urls_all = urls_all[:6]
+    if urls_all:
+        scanned = await asyncio.gather(*[predict_url(u) for u in urls_all], return_exceptions=True)
+        for u, u_res in zip(urls_all, scanned):
+            if isinstance(u_res, Exception):
+                logger.warning("WhatsApp URL scan failed for %s: %s", u, u_res)
+                continue
+            add("url", u_res, url=u)
+    urls = urls_all
 
-    # 3. Image Modality (if media attachment is present) -> Route to AegisOne Vision Model
+    # 3. picture: QR codes and the words written in it
     if image_base64:
         try:
-            i_res = await asyncio.to_thread(predict_image, image_base64)
-            if isinstance(i_res, dict):
-                results.append(i_res)
-                modalities.append({
-                    "type": "image",
-                    "model": i_res.get("model", "vision"),
-                    "score": _get_score_from_result(i_res),
-                    "verdict": i_res.get("prediction", "legitimate"),
-                    "is_threat": _is_model_phishing(i_res),
-                    "model_result": i_res  # Full un-truncated model output dictionary
-                })
+            raw = base64.b64decode(image_base64.split(",", 1)[-1], validate=False)
+            if 0 < len(raw) <= 8 * 1024 * 1024:
+                detailed = await route_image_input_detailed(raw)
+                for r in detailed["results"]:
+                    if r.get("model") == "image":
+                        continue
+                    add("qr" if r.get("from_qr") else "image_text", r)
         except Exception as err:
-            logger.warning(f"WhatsApp predict_image execution warning: {err}")
+            logger.warning("WhatsApp image scan failed: %s", err)
 
     # Canonical Decision Logic: Consumes core models' predictions directly
     threats = [r for r in results if _is_model_phishing(r)]
     is_phishing = len(threats) > 0
+    if not results and (clean_text or urls_all or image_base64):
+        logger.warning("WhatsApp message could not be scored by any model")
 
     # Extract risk scores across modalities for analytics display
     scores = [_get_score_from_result(r) for r in results]
     max_score = max(scores, default=0)
 
-    verdict = "phishing" if is_phishing else ("suspicious" if max_score >= 50 else "safe")
-    decision = "block" if is_phishing else ("warn" if max_score >= 50 else "allow")
-    threat_category = "MALICIOUS_LINK" if any(r.get("model") == "url" and _is_model_phishing(r) for r in results) else ("PHISHING_TEXT" if is_phishing else "SAFE")
+    is_phishing = is_phishing or max_score >= 76
+    verdict = "phishing" if is_phishing else ("suspicious" if max_score >= 51 else "safe")
+    decision = "block" if is_phishing else ("warn" if max_score >= 51 else "allow")
+    qr_threat = any(m["type"] == "qr" and m["is_threat"] for m in modalities)
+    threat_category = ("MALICIOUS_QR" if qr_threat else
+                       "MALICIOUS_LINK" if any(m["type"] == "url" and m["is_threat"] for m in modalities) else
+                       "PHISHING_TEXT" if is_phishing else "SAFE")
 
     sender_hash = hmac_pseudonymize_sender(sender)
     fingerprint = compute_canonical_fingerprint(chat_id, sender, clean_text)
@@ -203,8 +200,8 @@ async def analyze_whatsapp_message(
             "urls": [m["model_result"] for m in modalities if m["type"] == "url"],
             "images": [m["model_result"] for m in modalities if m["type"] == "image"]
         },
-        "contains_url": len(urls) > 0,
-        "embedded_urls": urls,
+        "contains_url": len(urls_all) > 0,
+        "embedded_urls": urls_all,
         "sender_hash": sender_hash,
         "fingerprint": fingerprint,
         "chat_title": chat_title or "WhatsApp Chat",

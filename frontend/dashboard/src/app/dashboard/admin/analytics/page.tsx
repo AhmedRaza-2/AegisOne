@@ -6,6 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useMemo, useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/lib/api";
 import { visibleInterval } from '@/lib/visible-interval';
+import BehaviorAnomalies from '@/components/analytics/BehaviorAnomalies';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
@@ -308,6 +309,10 @@ export default function AdminAnalyticsPage() {
       </div>
 
       {/* Selected Department Employee Telemetry Table */}
+      <motion.div variants={fadeUp}>
+        <BehaviorAnomalies />
+      </motion.div>
+
       <motion.div variants={fadeUp} className="stat-card space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-surface-100 dark:border-white/[0.06] pb-4">
           <div>

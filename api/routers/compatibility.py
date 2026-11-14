@@ -519,6 +519,7 @@ async def api_email(
     scan_id: str = Form(None),
     link_signals: str = Form(None),
     attach_signals: str = Form(None),
+    reply_to: str = Form(""),
     current_user: User = Depends(get_scan_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -589,6 +590,15 @@ async def api_email(
     # it is moderately suspicious AND the message asks the reader to sign in / verify / pay / claim something.
     asks_for_action = bool(_ACTION_WORDS.search(subject + " " + raw_body_for_action)) or bool(email_lures) or bool(result.get("scam_signals"))
     score = max(text_score, link_max) if (link_max >= 75 or (link_max >= 55 and asks_for_action)) else text_score
+    # Business e-mail compromise: identity spoofing + a money request (often with no link at all). Only the matched
+    # signal descriptions are kept, never the text. The floor applies only when both identity AND request are present.
+    from api.services.bec import detect_bec
+    _org_dom = (current_user.email or "").split("@")[-1] if getattr(current_user, "email", None) else None
+    bec = detect_bec(sender, subject, raw_body_for_action, org_domain=_org_dom, reply_to=reply_to)
+    if bec["floor"]:
+        score = max(score, bec["floor"] * 100)
+        result["prediction"] = "business_email_compromise"
+        result["xai_words"] = (["business e-mail compromise pattern"] + list(result.get("xai_words") or []))[:20]
     decision = "block" if score >= 76 else "warn" if score >= 51 else "safe"
     verdict = "phishing" if score >= 75 else "suspicious" if score >= 35 else "safe"
     severity = "critical" if score >= 90 else "high" if score >= 75 else "medium" if score >= 50 else "low"
@@ -684,6 +694,7 @@ async def api_email(
         "components": components,
         "top_words": factor_codes,
         "lures": email_lures,
+        "bec": {k: bec[k] for k in ("level", "score", "signals")},
         "xai": {
             "summary": xai["summary"],
             "main_reasons": xai["main_reasons"],
@@ -732,12 +743,14 @@ async def api_image(request: Request, file: UploadFile = File(...), source_url: 
             "risk": round(float(ur.get("phishing_probability", 0) or 0) * 100),
             "signals": [str(s) for s in ((ur.get("evidence") or {}).get("signals") or [])][:3],
         })
-    qr_scored = [
-        {"payload": redact_text(p)[:200],
-         "risk": round(max((float(r.get("phishing_probability", 0) or 0) for r in results
-                            if r.get("from_qr") and r.get("qr_payload") == p[:300]), default=0.0) * 100)}
-        for p in qr_payloads
-    ]
+    qr_det = {d["payload"]: d for d in (detailed.get("qr_details") or [])}
+    qr_scored = []
+    for p in qr_payloads:
+        d = qr_det.get(p[:300], {})
+        risk = round(max((float(r.get("phishing_probability", 0) or 0) for r in results
+                          if r.get("from_qr") and r.get("qr_payload") == p[:300]), default=0.0) * 100)
+        qr_scored.append({"payload": redact_text(p)[:200], "risk": risk, "kind": d.get("kind", "text"),
+                          "leads_to": redact_text(d.get("leads_to", p))[:200], "reasons": [str(x)[:160] for x in d.get("reasons", [])][:3]})
     ocr_lures = find_lure_phrases(ocr_text)
     ocr_text_prob = max((float(r.get("phishing_probability", 0) or 0) for r in ocr_text_results), default=0.0)
     visual_prob = float(visual.get("phishing_probability", 0) or 0)

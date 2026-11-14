@@ -15,7 +15,7 @@
 import { setTokens, clearTokens, refreshNow, isAegisServerUrl, authFetch } from "../utils/auth.js";
 import { MSG, STORE_KEYS, VERDICT, THRESHOLD, EVENT_TYPES, DEBUG_MODE, getApiBaseUrl } from "../utils/constants.js";
 import { isInternalURL, getRootDomain } from "../utils/trusted-domains.js";
-import { scanURL, scanPageText, scanImage, scanURLBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics, submitReport } from "./scanner.js";
+import { scanURL, scanPageText, scanImage, scanURLBatch, scanWhatsAppBatch, scanEmail, checkHealth, setBackendOnline, invalidateAuthCache, restoreAnalytics, submitReport } from "./scanner.js";
 import { getCachedResult, getTabCache, setTabCache, clearTabCache, clearAllCache } from "./cache.js";
 import { initDownloadGuard, handleDownloadDecision } from "./download-guard.js";
 import { explainWithAI, generateLocalExplanation } from "./xai.js";
@@ -526,9 +526,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // tagged each bubble with. Reuses the same scanPageText/scanURL primitives every
         // other scan surface uses - no separate backend endpoint needed.
         case "SCAN_WHATSAPP_BATCH": {
-          const items = msg.payload?.messages || [];
+          const items = (msg.payload?.messages || []).slice(0, 15);
+          // 1) Preferred: the organisation's server (text model + URL model for every link + QR/OCR for pictures), which
+          //    also records the scan for the WhatsApp analytics. Nothing leaves the organisation's own infrastructure.
+          const server = await scanWhatsAppBatch(items.map(i => ({
+            text: i.text, urls: (i.urls || []).slice(0, 6), sender: i.sender || "", chat_title: i.chat_title,
+            fingerprint: i.fingerprint, image_base64: i.image_base64 || "",
+          })));
+          if (server) {
+            sendResponse({
+              ok: true,
+              results: server.map(r => ({
+                fingerprint: r.fingerprint, verdict: r.verdict, risk_score: r.risk_score,
+                threat_category: r.threat_category, reason: (r.risk_factors || [])[0] || "",
+              })),
+            });
+            break;
+          }
+          // 2) Fallback (server unreachable or not signed in): scan in the browser with the same models, never a fake "safe".
           const results = await Promise.all(items.map(async (item) => {
-            const urls = (item.urls || []).slice(0, 3);
+            const urls = (item.urls || []).slice(0, 6);
             const [urlResults, textResult] = await Promise.all([
               urls.length ? scanURLBatch(urls, 3) : Promise.resolve([]),
               (item.text && item.text.trim().length >= 10) ? scanPageText(item.text).catch(() => null) : Promise.resolve(null),
@@ -539,12 +556,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             const riskScore = Math.max(urlRisk, textRisk);
 
             if (riskScore === 0 && urlResults.length === 0 && !textResult) {
-              // Nothing could be scanned (backend offline, or text too short and no URLs) -
-              // report that honestly instead of a false "safe".
               return { fingerprint: item.fingerprint, verdict: "scan_incomplete", risk_score: -1 };
             }
 
-            const verdict = riskScore >= 76 ? "phishing" : riskScore >= 50 ? "suspicious" : "safe";
+            const verdict = riskScore >= 76 ? "phishing" : riskScore >= 51 ? "suspicious" : "safe";
             return {
               fingerprint: item.fingerprint,
               verdict,

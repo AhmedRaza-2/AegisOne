@@ -45,6 +45,7 @@ FAST_SCAN_MODE = os.environ.get("AEGIS_FAST_SCAN_MODE", "1") != "0"
 # on recent PhishTank URLs (AUC 0.19 vs 0.93, recall 1% vs 91%); set AEGIS_FAST_URL_MODE=1 only
 # for load testing.
 FAST_URL_MODE = os.environ.get("AEGIS_FAST_URL_MODE", "0") != "0"
+from AIML.message.normalize import normalize_message
 logger = logging.getLogger("aegisone.orchestrator")
 
 # GLOBALS
@@ -908,6 +909,7 @@ def _predict_email_v2(sender: str, subject: str, body: str) -> dict:
 
 
 def _predict_email_sync(sender: str, subject: str, body: str, include_xai: bool = False) -> dict:
+    subject, body = normalize_message(subject), normalize_message(body)
     if M1 or "email" in V2_HEADS:
         return _predict_email_v2(sender, subject, body)
     if "email" not in MODELS:
@@ -1067,6 +1069,7 @@ def _predict_text_v2(text: str) -> dict:
 
 
 def _predict_text_sync(text: str, include_xai: bool = False) -> dict:
+    text = normalize_message(text)      # undo invisible characters, look-alike letters, leetspeak and defanged links (model input only)
     if M1 or "text" in V2_HEADS:
         return _predict_text_v2(text)
     if "text" not in MODELS:

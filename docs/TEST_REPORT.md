@@ -266,3 +266,38 @@ model and the rules still protect against the links in such messages. Speed: med
 
 End-to-end checks on this build: 89 unit tests pass; extension in a real browser 17/17; live API: e-mail guard 12/12 caught
 and 0/12 false alarms, endpoint smoke OK, tenant isolation ALL PASS, incident recovery ALL PASS.
+
+## 13. Scope gaps closed (2026-11-14): QR payloads, WhatsApp Web, BEC, behavioural anomalies, adversarial rewrites
+
+**QR codes** (`api/services/qr_payload.py`, `content_router.route_qr_payload`). Nine generated codes through the real pipeline:
+
+| Code contains | Before | After |
+|---|---|---|
+| `http://paypa1-secure-login.xyz/verify?acct=7` | URL model, 96 | same |
+| `https://www.google.com/search?q=weather` | URL model, 0.2 | same |
+| `http://xk3-account-update.top?id=9` (no slash before `?`) | text model + URL model | URL model, 99.6 |
+| `https://bit.ly/...` | URL model on bit.ly only | link followed (SSRF-guarded), final destination scored too |
+| `javascript:alert(1)` | **legitimate, 35.5** | 97 (runs code) |
+| `upi://pay?...` | text model, by chance | 62 (payment request) |
+| `WIFI:...` | legitimate | 45 (55 for an open network), shown as "Joins Wi-Fi" |
+| `mailto:` | text model | text model + 40 floor |
+| plain scam text | text model, 98.5 | same |
+
+WhatsApp Web pictures are `blob:` URLs and were skipped by the QR guard; they are now read in the page and decoded.
+
+**WhatsApp Web.** The server analyser (`whatsapp_analyzer.py`) called the models with an argument they do not take and without awaiting them, so every message came back "safe" with no model output; the extension had been scanning in the browser instead and nothing reached the WhatsApp analytics. Rewritten and measured on six inputs: scam text + link -> phishing 99; Roman Urdu/English chat -> safe 3; genuine bank alert -> safe 1; link only in the resolved href -> phishing 96; QR picture with a phishing link -> phishing 96; QR picture with `javascript:` -> phishing 97. The extension now sends batches to `/scan/whatsapp/batch`, unwraps `l.wl.co` links, records the sender, and asks before opening a link in a message flagged dangerous. **Not tested in a real WhatsApp Web session** (the guard only runs on web.whatsapp.com).
+
+**Business e-mail compromise** (`api/services/bec.py`): 6 hand-made cases. CEO title on Gmail asking for gift cards -> high; look-alike domain (`lnara.com` vs `inara.com`) asking to change bank details -> high; display name `"ceo@inara.com"` from Outlook asking for a wire -> high; Reply-To to another domain asking for payroll change -> high; genuine vendor invoice reminder -> no floor; colleague lunch mail -> none. Hand-made only: no labelled BEC corpus was used.
+
+**Behavioural anomalies** (`api/services/behavior_anomaly.py`, `GET /admin/behavior/anomalies`, admin Analytics panel). Unit-tested on synthetic histories (burst of blocks flagged, quiet day low, sign-in on a flagged site always high). **Not validated on real incidents** - unsupervised, thresholds chosen by hand.
+
+**Adversarial rewrites** (`AIML/message/normalize.py`, gate `AIML/eval/adversarial_text.py`): 200 English scams (ScamGuardBench + hand-written), 196 caught in clean form, each evasion applied to every keyword:
+
+| Scams still caught (%) | zero-width | look-alike letters | leetspeak | spaced letters | defanged link | alternating case | all combined | genuine flagged |
+|---|---|---|---|---|---|---|---|---|
+| without normaliser | 98.5 | 99.0 | 99.0 | 99.5 | 97.4 | 100 | **92.9** | 13.1 |
+| with normaliser | 100 | 100 | 98.0 | 100 | 100 | 100 | **100** | 13.1 |
+
+Gate: PASS. The sub-word encoder was already fairly robust to single tricks; the normaliser matters most when they are combined (92.9 -> 100) and costs nothing on genuine messages. Leetspeak is one message worse (99.0 -> 98.0). These are character-level evasions only: LLM paraphrasing (Ahmed & Pourmoafi 2607.18429) is **not** covered. (The 13.1% genuine figure is on the combined ScamGuardBench + hand-written genuine set at a single 0.51 threshold, so it differs from section 12.)
+
+Backend unit tests: 100 passed (11 new in `api/tests/test_scope_gaps.py`). Dashboard type check passes.

@@ -362,6 +362,8 @@ if os.environ.get("AEGIS_VENDOR_MODE", "0") == "1":
 app.include_router(manager_incidents.router)
 app.include_router(training.router)
 app.include_router(global_learning.router)
+from api.routers import behavior as _behavior
+app.include_router(_behavior.router)
 
 
 @app.get("/")       

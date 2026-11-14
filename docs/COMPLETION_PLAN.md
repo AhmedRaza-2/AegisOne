@@ -1,16 +1,20 @@
 # AegisOne - Completion Status vs the Scope Document
 
-Last updated 2026-11-06. "Verified" means it ran against a live server in this repository (scripts in `api/tests/live/`) or in the unit-test suite (`api/tests`, 48 tests). Anything not verified is said so.
+Last updated 2026-11-14. "Verified" means it ran against a live server in this repository (scripts in `api/tests/live/`) or in the unit-test suite (`api/tests`, 48 tests). Anything not verified is said so.
 
 ## 1. Scope items
 
 | Scope item | Status | Notes |
 |---|---|---|
 | 7.1 URL scan, fake login, credential interception, brand impersonation | Done | URL neural pipeline on by default, measured in `URL_MODEL_EVALUATION.md` |
-| 7.1 QR code validation | Done | Server decode (OpenCV) for images, WhatsApp and email; extension QR guard shows the decoded destination under the code |
+| 7.1 QR code validation | Done (hardened 2026-11-14) | Server decode (OpenCV) for web, e-mail and WhatsApp pictures (WhatsApp `blob:` images now read in the page). The payload is classified (`api/services/qr_payload.py`): links go to the URL model, shortened links are followed (SSRF-guarded) and the real destination is scored too, and kinds no model can judge get a minimum risk (`javascript:`/`data:` 97, payment and app-install 62, open Wi-Fi 55, call/SMS/e-mail 40). The label under the code says what it does and where it leads |
 | 7.2 Email link / text / image components | Done | `/analyze/email` returns wording, link and image components and which one drove the verdict; links are scored by the URL pipeline |
 | 7.3 ML classification, risk 0-100, XAI | Done | Evidence-grounded XAI replaces SHAP/LIME (scope text amended) |
 | 7.3 Domain age | Done | Real RDAP lookup, cached, "unknown" when it can't be determined |
+| 7.3 Behavioural anomaly detection | Done (2026-11-14) | Per person, last 24 h vs own history (robust z-score) and vs the organisation (Isolation Forest) over recorded counts only: warnings, blocks, new sites, sign-ins on flagged sites, night activity, suspicious e-mails. `GET /admin/behavior/anomalies`, panel on the admin Analytics page. Unsupervised: no labelled data exists; thresholds are not validated on real incidents |
+| 7.2 Business e-mail compromise | Done (2026-11-14) | `api/services/bec.py`: identity (executive title on free-mail, display-name address spoof, look-alike of the organisation's domain, Reply-To elsewhere) + request (gift cards, bank/payroll change, transfer/invoice) + pressure. A floor (risk 80) only when identity AND request are both present; the result names the signals |
+| 2.5 Adversarial robustness | Done (2026-11-14) | Input normaliser for the text model (zero-width, look-alike letters, leetspeak, spaced letters, defanged links) and a release gate `AIML/eval/adversarial_text.py` (docs/TEST_REPORT.md s13) |
+| WhatsApp Web | Fixed (2026-11-14) | The server-side analyser was silently broken (wrong call signatures, not awaited): rewritten. The extension now sends messages to `/scan/whatsapp/batch` (text model + every link + QR/OCR), resolves `l.wl.co` redirect links, records the sender, and asks before opening a link in a message flagged dangerous; browser-only scanning is the fallback |
 | 7.4 Webhooks, SIEM, enterprise API, threat feed | Done | Signed webhooks, `/api/v1/*` with scoped keys, CEF output, org block/allow list feed |
 | 7.5 / 7.7 Reporting and export | Done | Incident CSV, printable report, full back-trace |
 | 7.7 Real-time alerts | Done | In-app bell, SMTP email, webhooks on escalation, new high-severity incidents, critical blocks |

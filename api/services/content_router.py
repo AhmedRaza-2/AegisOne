@@ -74,6 +74,42 @@ async def route_text_input(text: str) -> list[dict]:
     return results
 
 
+async def route_qr_payload(payload: str):
+    """Score one decoded QR payload. Returns (model results, detail) where detail = {payload, kind, leads_to, reasons}."""
+    from api.services.qr_payload import classify_qr_payload
+    info = classify_qr_payload(payload)
+    kind = info["kind"]
+    results: list[dict] = []
+    leads_to = info.get("url") or info["payload"]
+    reasons: list[str] = [info["reason"]] if info.get("reason") else []
+
+    if kind == "url":
+        results.append(await predict_url(info["url"]))
+        if info.get("shortener"):
+            from api.services.redirect_tracer import trace_redirects
+            trace = await trace_redirects(info["url"])
+            final = trace.get("final_url")
+            if final and final != info["url"]:
+                fr = await predict_url(final)
+                fr["qr_final_url"] = final
+                results.append(fr)
+                leads_to = final
+                reasons.append("it redirects to " + final[:120])
+    elif kind in ("text", "contact"):
+        results.extend(await route_text_input(info.get("text") or info["payload"]))
+    # script / payment / wifi / app: no model can judge these - the kind itself is the evidence
+
+    if info["floor"] > 0:
+        results.append({
+            "model": "qr_payload", "prediction": "phishing" if info["floor"] >= 0.51 else "legitimate",
+            "phishing_probability": info["floor"], "confidence": info["floor"],
+            "explanation": "This QR code " + info["reason"] + ".",
+        })
+    for r in results:
+        r["qr_kind"] = kind
+    return results, {"payload": info["payload"], "kind": kind, "leads_to": leads_to[:300], "reasons": reasons}
+
+
 async def route_image_input(image_bytes: bytes) -> list[dict]:
     """Backwards-compatible wrapper: just the per-model results."""
     return (await route_image_input_detailed(image_bytes))["results"]
@@ -106,18 +142,21 @@ async def route_image_input_detailed(image_bytes: bytes) -> dict:
     img_result, ocr_text, qr_payloads = await asyncio.gather(_run_image_model(), _run_ocr(), _run_qr())
     results.append(img_result)
 
-    # QR codes: the payload (usually a link) is scanned exactly like a link typed by the user -
-    # before anyone opens it. The result is tagged so explanations can say it came from a QR code.
+    # QR codes: the payload is classified (link / script / payment / Wi-Fi / contact ...) and a link goes to the URL
+    # model exactly like a link typed by the user - before anyone opens it. Shortened links are followed (SSRF-guarded)
+    # and the final destination is scored too. Results are tagged so explanations can say it came from a QR code.
+    qr_details = []
     for payload in qr_payloads:
         try:
-            qr_results = await route_text_input(payload)
+            qr_results, detail = await route_qr_payload(payload)
         except Exception as e:
             logger.error(f"QR payload scan error: {e}")
             continue
+        qr_details.append(detail)
         for r in qr_results:
             r["from_qr"] = True
             r["qr_payload"] = payload[:300]
-            r["explanation"] = "[From QR code] " + r.get("explanation", "")
+            r["explanation"] = "[From QR code] " + (r.get("explanation") or "")
             results.append(r)
 
     # Route extracted OCR text
@@ -127,4 +166,4 @@ async def route_image_input_detailed(image_bytes: bytes) -> dict:
             r["explanation"] = "[From OCR] " + r.get("explanation", "")
             results.append(r)
 
-    return {"results": results, "ocr_text": (ocr_text or "").strip(), "qr_payloads": qr_payloads}
+    return {"results": results, "ocr_text": (ocr_text or "").strip(), "qr_payloads": qr_payloads, "qr_details": qr_details}

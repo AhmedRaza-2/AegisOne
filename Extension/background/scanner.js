@@ -332,6 +332,16 @@ export async function scanPageText(text, signal = null, pageUrl = null) {
  * @param {AbortSignal} [signal]
  * @returns {Promise<object|null>}
  */
+/**
+ * WhatsApp Web messages, scanned on the organisation's server (text model + URL model + QR/OCR for pictures) so the
+ * result is also recorded in the WhatsApp analytics. Returns the server's results array, or null (offline / not signed in)
+ * so the caller can fall back to scanning in the browser.
+ */
+export async function scanWhatsAppBatch(messages) {
+  const data = await callAPI("/scan/whatsapp/batch", { messages: (messages || []).slice(0, 20) });
+  return data && Array.isArray(data.results) ? data.results : null;
+}
+
 export async function scanImage(imageUrl, signal = null) {
   if (!imageUrl) return null;
   try {

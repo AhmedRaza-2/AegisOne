@@ -48,10 +48,29 @@ export function initWhatsappGuard() {
     return headerEl ? headerEl.getAttribute("title") || headerEl.innerText || "WhatsApp Chat" : "WhatsApp Chat";
   }
 
+  // WhatsApp Web sometimes wraps outside links as https://l.wl.co/l?u=<real link>; the real destination is what must be scanned.
+  function unwrapRedirector(href) {
+    try {
+      const u = new URL(href);
+      if (u.hostname === "l.wl.co" || u.hostname === "l.facebook.com") {
+        const real = u.searchParams.get("u");
+        if (real && /^https?:\/\//i.test(real)) return real;
+      }
+    } catch (_) { /* keep as is */ }
+    return href;
+  }
+
+  function getSender(bubble) {
+    // WhatsApp stores "[10:45, 7/11/2026] Name: " on the message's text container.
+    const holder = bubble.querySelector("[data-pre-plain-text]") || bubble.closest("[data-pre-plain-text]");
+    const m = holder && /\]\s*(.*?):\s*$/.exec(holder.getAttribute("data-pre-plain-text") || "");
+    return m ? m[1].slice(0, 80) : "";
+  }
+
   function extractUrlsFromBubble(el, text) {
     const urls = new Set();
     el.querySelectorAll("a[href]").forEach(a => {
-      const href = a.getAttribute("href");
+      const href = unwrapRedirector(a.getAttribute("href") || "");
       if (href && (href.startsWith("http://") || href.startsWith("https://")) && !href.includes("web.whatsapp.com")) {
         urls.add(href);
       }
@@ -64,17 +83,20 @@ export function initWhatsappGuard() {
         urls.add(u);
       });
     }
-    return Array.from(urls);
+    return Array.from(urls).slice(0, 6);
   }
 
-  function injectBadge(bubbleEl, verdict, riskScore) {
+  function injectBadge(bubbleEl, verdict, riskScore, reason) {
     if (!bubbleEl || verdict === "offline" || verdict === "scan_incomplete" || riskScore === -1 || bubbleEl.querySelector(".aegis-wsp-badge")) return;
 
     const isPhish = verdict === "phishing" || riskScore >= 76;
-    const isWarn = verdict === "suspicious" || (riskScore >= 50 && riskScore < 76);
+    const isWarn = !isPhish && (verdict === "suspicious" || riskScore >= 51);
+    if (isPhish) bubbleEl.dataset.aegisDanger = "1";
 
     const badge = document.createElement("div");
     badge.className = "aegis-wsp-badge";
+    badge.setAttribute("role", "status");
+    if (reason) badge.title = String(reason).slice(0, 200);
     badge.style.cssText = `
       display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;
       padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
@@ -85,12 +107,27 @@ export function initWhatsappGuard() {
         : "background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10b981;"}
     `;
     const icon = isPhish ? "🚨" : isWarn ? "⚠️" : "🛡️";
-    const label = isPhish ? `AegisOne Threat (${riskScore}%)` : isWarn ? `AegisOne Warning (${riskScore}%)` : "Verified Safe";
-    badge.innerHTML = `<span>${icon}</span><span>${label}</span>`;
+    const label = isPhish ? `AegisOne Threat (${riskScore}%)` : isWarn ? `AegisOne Warning (${riskScore}%)` : "Checked: no threat found";
+    badge.textContent = `${icon} ${label}`;          // text only: never build markup from page or server strings
 
     const textContainer = bubbleEl.querySelector(".selectable-text, .copyable-text") || bubbleEl;
     textContainer.appendChild(badge);
   }
+
+  // A link inside a message that was judged dangerous is not opened without an explicit, informed choice.
+  document.addEventListener("click", (ev) => {
+    const a = ev.target instanceof Element ? ev.target.closest("a[href]") : null;
+    if (!a || !a.closest("[data-aegis-danger='1']")) return;
+    const href = unwrapRedirector(a.getAttribute("href") || "");
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    const go = window.confirm(`AegisOne blocked this link: it was flagged as dangerous.
+
+${href.slice(0, 160)}
+
+Open it anyway? (not recommended)`);
+    if (go) window.open(href, "_blank", "noopener,noreferrer");
+  }, true);
 
   function scanIncomingMessages() {
     const bubbles = document.querySelectorAll("div.message-in, div[data-id*='false'], div.copyable-text:not(.message-out)");
@@ -110,7 +147,7 @@ export function initWhatsappGuard() {
       processedFingerprints.add(fp);
       bubble.dataset.aegisProcessed = "true";
 
-      messageQueue.push({ text: rawText, urls, chat_title: chatTitle, fingerprint: fp, bubbleEl: bubble });
+      messageQueue.push({ text: rawText, urls, sender: getSender(bubble), chat_title: chatTitle, fingerprint: fp, bubbleEl: bubble });
     });
 
     if (messageQueue.length > 0 && !queueTimer) {
@@ -130,19 +167,20 @@ export function initWhatsappGuard() {
 
     const currentBatch = messageQueue.splice(0, 15);
     const payloadMessages = currentBatch.map(item => ({
-      text: item.text, urls: item.urls, chat_title: item.chat_title, fingerprint: item.fingerprint,
+      text: item.text, urls: item.urls, sender: item.sender, chat_title: item.chat_title, fingerprint: item.fingerprint,
     }));
 
     const res = await safeSendMessage({ type: "SCAN_WHATSAPP_BATCH", payload: { messages: payloadMessages } });
     if (res?.ok && res.results) {
       res.results.forEach(r => {
         const matched = currentBatch.find(b => b.fingerprint === r.fingerprint);
-        if (matched?.bubbleEl) injectBadge(matched.bubbleEl, r.verdict, r.risk_score);
+        if (matched?.bubbleEl) injectBadge(matched.bubbleEl, r.verdict, r.risk_score, r.reason);
       });
     }
   }
 
-  const observer = new MutationObserver(() => scanIncomingMessages());
+  let scanTimer = null;
+  const observer = new MutationObserver(() => { clearTimeout(scanTimer); scanTimer = setTimeout(scanIncomingMessages, 400); });
 
   function startObserver() {
     if (!document.body) { setTimeout(startObserver, 1000); return; }

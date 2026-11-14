@@ -42,9 +42,25 @@ function _eligible(el) {
   return (ratio > 0.85 && ratio < 1.18) || _qrHinted(el);
 }
 
-function _srcOf(el) {
+// WhatsApp Web (and many chat/web apps) show pictures as blob: URLs that only this page can read, so the picture is
+// read here and handed over as a data: URL. Size-capped; anything unreadable is skipped, never guessed.
+async function _blobToDataUrl(src) {
+  try {
+    const blob = await (await fetch(src)).blob();
+    if (!blob.type.startsWith("image/") || blob.size > 6 * 1024 * 1024) return "";
+    return await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result || ""));
+      fr.onerror = () => resolve("");
+      fr.readAsDataURL(blob);
+    });
+  } catch (_) { return ""; }
+}
+
+async function _srcOf(el) {
   if (el instanceof HTMLImageElement) {
     const src = el.currentSrc || el.src || "";
+    if (/^blob:/i.test(src)) return _blobToDataUrl(src);
     return /^(https?:|data:image\/)/i.test(src) ? src : "";
   }
   if (el instanceof HTMLCanvasElement) {
@@ -78,9 +94,16 @@ function _label(el, qr) {
   head.textContent = `${palette[2]} (${risk}% risk)`;
   head.style.cssText = `color:${palette[1]};font-weight:800;`;
   const dest = document.createElement("div");
-  dest.textContent = `Leads to: ${_short(qr.payload)}`;
+  const KIND = { url: "Opens", script: "Runs code", payment: "Payment request", wifi: "Joins Wi-Fi", contact: "Starts contact", app_install: "Installs an app", text: "Says" };
+  dest.textContent = `${KIND[qr.kind] || "Leads to"}: ${_short(qr.leads_to || qr.payload)}`;
   dest.style.cssText = "font-weight:500;opacity:.92;";
   box.append(head, dest);
+  for (const why of (Array.isArray(qr.reasons) ? qr.reasons : []).slice(0, 2)) {
+    const line = document.createElement("div");
+    line.textContent = `• ${why}`;
+    line.style.cssText = "font-weight:500;opacity:.85;";
+    box.append(line);
+  }
   if (level !== "safe") {
     const tip = document.createElement("div");
     tip.textContent = "Do not scan this code or open the address.";
@@ -93,7 +116,7 @@ function _label(el, qr) {
 }
 
 async function _process(el) {
-  const src = _srcOf(el);
+  const src = await _srcOf(el);
   if (!src) return;
   const id = _identity(src);
   if (_seen.has(id)) return;
