@@ -301,3 +301,39 @@ WhatsApp Web pictures are `blob:` URLs and were skipped by the QR guard; they ar
 Gate: PASS. The sub-word encoder was already fairly robust to single tricks; the normaliser matters most when they are combined (92.9 -> 100) and costs nothing on genuine messages. Leetspeak is one message worse (99.0 -> 98.0). These are character-level evasions only: LLM paraphrasing (Ahmed & Pourmoafi 2607.18429) is **not** covered. (The 13.1% genuine figure is on the combined ScamGuardBench + hand-written genuine set at a single 0.51 threshold, so it differs from section 12.)
 
 Backend unit tests: 100 passed (11 new in `api/tests/test_scope_gaps.py`). Dashboard type check passes.
+
+## 14. Open-source models on the same data, and the URL second opinion (2026-11-14)
+
+Harness: `AIML/eval/open_baselines.py` (stages `ours` / `open` / `report`). Every model sees the same 2,498 genuine URLs
+(popular-site deep links + long-tail web) and 599 fresh OpenPhish URLs (1 Nov and 14 Nov feeds, none in any training
+file). "Caught @x%" uses each model's own threshold set so that x% of the genuine URLs are flagged, so different score
+scales are compared fairly. Open models were downloaded from Hugging Face with their licences checked.
+
+| Model | Licence | AUC | Caught @1% | Caught @0.1% | AP @1% phishing |
+|---|---|---|---|---|---|
+| **AegisOne final** | ours | **0.992** | **91.7%** | 32.9% | 0.598 |
+| AegisOne neural network only | ours | 0.800 | 58.8% | 24.7% | 0.460 |
+| kmack/malicious-url-detection (DistilBERT) | Apache-2.0 | 0.957 | 52.3% | 22.7% | 0.432 |
+| ealvaradob/bert-finetuned-phishing (BERT-large) | Apache-2.0 | 0.924 | 46.9% | 3.0% | 0.270 |
+| imanoop7/bert-phishing-detector | MIT | 0.587 | 0.0% | 0.0% | 0.013 |
+| **AegisOne + kmack (logistic stacker, 5-fold out-of-fold)** | – | **0.994** | **92.3%** | **55.1%** | **0.805** |
+
+- AegisOne alone beats every open model by a wide margin (91.7% vs at best 52.3% caught at 1% false alarms).
+- Combining with kmack helped; combining with the other two did not (stacked: -1.2 and -4.3 points at 1%).
+- Bootstrap (1,000 resamples) for AegisOne + kmack vs AegisOne alone: AP gain +0.21 (95% CI +0.14 to +0.27, always
+  positive); caught @0.1% +22 points (positive in 91% of resamples); caught @1% no clear change.
+- Temporal check (fit on the 1 Nov feed + half of the genuine URLs, test on the 14 Nov feed + the other half, 20 splits):
+  with kmack allowed only to raise WARN to BLOCK, phishing blocked 90.3% -> 91.0% and genuine URLs wrongly blocked
+  0.84% -> 0.88%; warnings unchanged. Letting the combined score decide everything blocked more (92.4%) but varied
+  more (false blocks 0.56-1.52%), so it is not used.
+
+Shipped as the **URL second opinion** (`api/services/second_opinion.py`, config `AIML/url/second_opinion/config.json`
+written by `AIML/eval/fit_second_opinion.py`): kmack at a pinned revision, baked into the backend image, local files
+only. Admin modes: off / show only / can raise to block (default). It never lowers a verdict, never changes SAFE,
+and never runs on rule overrides. Extra time about 85-110 ms per URL on CPU after warm-up (first call ~1.2 s while the
+model loads). The admin AI Models page shows the table above, the mode switch and live agreement counters.
+
+Limits: 599 phishing URLs from one feed; at 0.1% false alarms only 2-3 genuine URLs decide the threshold, so that
+column is noisy. The stacker and threshold should be re-fitted on each new weekly feed before trusting the gain.
+
+Backend unit tests: 107 passed (7 new in `api/tests/test_second_opinion.py`). Dashboard type check passes.

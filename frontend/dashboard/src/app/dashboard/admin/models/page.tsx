@@ -9,6 +9,7 @@ import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/components/ui/EvidencePanel";
 import { WeightsPanel } from "@/components/models/WeightsPanel";
+import { SecondOpinionPanel } from "@/components/models/SecondOpinionPanel";
 import { visibleInterval } from '@/lib/visible-interval';
 
 const fadeUp = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
@@ -244,6 +245,8 @@ export default function ModelsPage() {
           );
         })}
       </div>
+
+      <motion.div variants={fadeUp}><SecondOpinionPanel /></motion.div>
 
       <motion.div variants={fadeUp}><WeightsPanel onChange={fetchData} /></motion.div>
 

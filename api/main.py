@@ -214,6 +214,18 @@ async def lifespan(app: FastAPI):
 
     load_all_models()
 
+    # Open-source URL second opinion: restore the admin's chosen mode, then load the model (local cache only).
+    try:
+        from api.services import second_opinion as _so
+        from api.database.models import AppSecret as _AppSecret
+        async with async_session() as _db:
+            _row = await _db.get(_AppSecret, _so.STATE_KEY)
+            if _row and _row.value in _so.MODES:
+                _so.set_mode(_row.value)
+        _so.warm()
+    except Exception as _e:
+        logger.warning("Second-opinion setup skipped: %s", _e)
+
     # Re-apply each organisation's active local-learning adapter (a small correction layer on top
     # of the unchanged base models) - previously these were lost on every restart.
     from api.services.calibration import restore_active_calibrations
@@ -364,6 +376,8 @@ app.include_router(training.router)
 app.include_router(global_learning.router)
 from api.routers import behavior as _behavior
 app.include_router(_behavior.router)
+from api.routers import second_opinion as _second_opinion
+app.include_router(_second_opinion.router)
 
 
 @app.get("/")       

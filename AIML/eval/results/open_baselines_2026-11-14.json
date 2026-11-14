@@ -1,0 +1,104 @@
+{
+  "tag": "2026-11-14",
+  "n_genuine": 2498,
+  "n_phishing": 599,
+  "models": {
+    "AegisOne final": {
+      "auc": 0.9922789650752322,
+      "tpr_1pct": 0.9165275459098498,
+      "tpr_0.1pct": 0.328881469115192,
+      "ap_1pct_base": 0.5979224744092063
+    },
+    "AegisOne neural only": {
+      "auc": 0.7999755396972001,
+      "tpr_1pct": 0.5876460767946577,
+      "tpr_0.1pct": 0.24707846410684475,
+      "ap_1pct_base": 0.45977490173732644
+    },
+    "ealvaradob/bert-finetuned-phishing": {
+      "auc": 0.9243103999059014,
+      "tpr_1pct": 0.4691151919866444,
+      "tpr_0.1pct": 0.03005008347245409,
+      "ap_1pct_base": 0.26972637955139395
+    },
+    "kmack/malicious-url-detection": {
+      "auc": 0.9574995555710011,
+      "tpr_1pct": 0.5225375626043406,
+      "tpr_0.1pct": 0.2270450751252087,
+      "ap_1pct_base": 0.4324428574875255
+    },
+    "imanoop7/bert-phishing-detector": {
+      "auc": 0.5869580472391269,
+      "tpr_1pct": 0.0,
+      "tpr_0.1pct": 0.0,
+      "ap_1pct_base": 0.013240708541724636
+    }
+  },
+  "fusion": {
+    "ealvaradob/bert-finetuned-phishing": {
+      "stacked (logistic, 5-fold out-of-fold)": {
+        "auc": 0.9935978833149992,
+        "tpr_1pct": 0.9048414023372288,
+        "tpr_0.1pct": 0.328881469115192,
+        "ap_1pct_base": 0.7015386832686393
+      },
+      "max of the two": {
+        "auc": 0.9756309220999504,
+        "tpr_1pct": 0.49248747913188645,
+        "tpr_0.1pct": 0.1302170283806344,
+        "ap_1pct_base": 0.38943454281692635
+      },
+      "mean of the two ranks": {
+        "auc": 0.9791439161345772,
+        "tpr_1pct": 0.7462437395659433,
+        "tpr_0.1pct": 0.44407345575959933,
+        "ap_1pct_base": 0.6576797124910633
+      }
+    },
+    "kmack/malicious-url-detection": {
+      "stacked (logistic, 5-fold out-of-fold)": {
+        "auc": 0.9943734620417535,
+        "tpr_1pct": 0.9232053422370617,
+        "tpr_0.1pct": 0.5509181969949917,
+        "ap_1pct_base": 0.8054921570827118
+      },
+      "max of the two": {
+        "auc": 0.964014951527165,
+        "tpr_1pct": 0.5325542570951586,
+        "tpr_0.1pct": 0.2704507512520868,
+        "ap_1pct_base": 0.4651255892084638
+      },
+      "mean of the two ranks": {
+        "auc": 0.9904026727224851,
+        "tpr_1pct": 0.8146911519198664,
+        "tpr_0.1pct": 0.4724540901502504,
+        "ap_1pct_base": 0.710698112651106
+      }
+    },
+    "imanoop7/bert-phishing-detector": {
+      "stacked (logistic, 5-fold out-of-fold)": {
+        "auc": 0.9920103027330044,
+        "tpr_1pct": 0.8731218697829716,
+        "tpr_0.1pct": 0.330550918196995,
+        "ap_1pct_base": 0.6743572405647643
+      },
+      "max of the two": {
+        "auc": 0.6122998565797546,
+        "tpr_1pct": 0.0,
+        "tpr_0.1pct": 0.0,
+        "ap_1pct_base": 0.015051975585821302
+      },
+      "mean of the two ranks": {
+        "auc": 0.855587642066909,
+        "tpr_1pct": 0.2387312186978297,
+        "tpr_0.1pct": 0.14357262103505844,
+        "ap_1pct_base": 0.19743510786624724
+      }
+    }
+  },
+  "licences": {
+    "ealvaradob/bert-finetuned-phishing": "apache-2.0",
+    "kmack/malicious-url-detection": "apache-2.0",
+    "imanoop7/bert-phishing-detector": "mit"
+  }
+}

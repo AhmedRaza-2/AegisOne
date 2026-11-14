@@ -1244,7 +1244,7 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
         if p_page is not None:
             fusion_result["evidence"]["page_model"] = {"score": round(p_page, 4), "url_score": round(p_url_only, 4),
                                                        "fusion": os.environ.get("AEGIS_PAGE_FUSION", "mean")}
-        return {
+        out = {
             "prediction": fusion_result["prediction"], "confidence": fusion_result["confidence"],
             "phishing_probability": round(fusion_result["risk_score"] / 100.0, 4), "category": fusion_result["category"],
             "model": "url", "xai_words": [], "explanation": fusion_result["explanation"],
@@ -1253,6 +1253,10 @@ def _predict_url_sync(url: str, include_xai: bool = False, form_actions: list[st
             "suspicious_tld": "suspicious_top_level_domain" in fusion_result.get("evidence", {}).get("lexical_anomalies", []),
             "evidence": fusion_result["evidence"],
         }
+        # Open-source second opinion (api/services/second_opinion.py): shown to admins; in "upgrade" mode it may
+        # raise a WARN to BLOCK when both models agree. Never lowers a verdict; rule overrides returned above.
+        from api.services import second_opinion
+        return second_opinion.apply(out, url)
 
     # 3. Deep Semantic Analysis (v7 network)
     probs = _url_v7_probs(url)

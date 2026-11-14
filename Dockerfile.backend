@@ -26,6 +26,11 @@ ENV HF_HOME=/app/.hf
 RUN HF_HUB_DISABLE_XET=1 python -c "from huggingface_hub import snapshot_download as s; \
 [s(r, allow_patterns=['*.json', '*.txt', '*.model', '*.safetensors', 'sentencepiece*', 'tokenizer*', 'vocab*', 'spiece*']) \
  for r in ('distilbert-base-uncased', 'prajjwal1/bert-mini', 'BAAI/bge-small-en-v1.5', 'intfloat/multilingual-e5-small', 'google/flan-t5-small')]"
+# Open-source URL second opinion (api/services/second_opinion.py), Apache-2.0, pinned to the revision that was evaluated
+# in AIML/eval/open_baselines.py so a changed upstream model can never slip into the image unnoticed.
+RUN HF_HUB_DISABLE_XET=1 python -c "from huggingface_hub import snapshot_download as s; \
+s('kmack/malicious-url-detection', revision='258499831602e1aea6c1f00e8483b820dd14b391', token=False, \
+  allow_patterns=['*.json', '*.txt', '*.safetensors'])"
 ENV HF_HUB_OFFLINE=1
 
 # Copy the rest of the application code — AIML (1.5GB of model weights) and Extension
