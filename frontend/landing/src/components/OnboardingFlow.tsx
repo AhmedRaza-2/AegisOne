@@ -189,7 +189,7 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
                 <button
                   id={`btn-console-phase-${activeTab}`}
                   onClick={() => onSelectPhase(activeTab)}
-                  className="font-sans w-full text-center text-sm font-semibold bg-[#3D6C90] hover:bg-[#3D6C90] text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer"
+                  className="font-sans w-full text-center text-sm font-semibold bg-[#6D4CFF] hover:bg-[#5935EB] text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer"
                 >
                   <Play className="w-4 h-4" />
                   {phases[activeTab - 1].demo.actionText}
@@ -210,7 +210,7 @@ export default function OnboardingFlow({ onStartOnboarding, onSelectPhase }: Onb
           <button
             id="btn-start-onboarding-today"
             onClick={onStartOnboarding}
-            className="font-sans text-base font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] px-8 py-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 inline-flex items-center gap-2 cursor-pointer"
+            className="font-sans text-base font-semibold bg-[#6D4CFF] text-white hover:bg-[#5935EB] px-8 py-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 inline-flex items-center gap-2 cursor-pointer"
           >
             Start Onboarding Today
             <ArrowRight className="w-5 h-5" />

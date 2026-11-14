@@ -201,7 +201,7 @@ export default function EmployeeSettingsPage() {
                   <button
                     type="submit"
                     disabled={updatingProfile}
-                    className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
+                    className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
                   >
                     {updatingProfile ? "Saving..." : "Save Changes"}
                   </button>

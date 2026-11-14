@@ -197,7 +197,7 @@ export default function UsersPage() {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+          className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Add User
         </button>
@@ -378,7 +378,7 @@ export default function UsersPage() {
                 </div>
                 <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
                   <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg transition-colors">Create User</button>
+                  <button type="submit" className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-lg transition-colors">Create User</button>
                 </div>
               </form>
             </motion.div>

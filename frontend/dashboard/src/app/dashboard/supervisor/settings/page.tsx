@@ -214,7 +214,7 @@ export default function SupervisorSettingsPage() {
                     <label className="block text-xs font-medium text-surface-500 mb-1">Email Address</label>
                     <input type="email" value={user.email} disabled className="w-full px-3.5 py-2 bg-surface-100 dark:bg-white/[0.04] border border-transparent rounded-xl text-sm text-surface-500 cursor-not-allowed" />
                   </div>
-                  <button type="submit" disabled={updatingProfile} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50">
+                  <button type="submit" disabled={updatingProfile} className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50">
                     {updatingProfile ? "Saving..." : "Save Changes"}
                   </button>
                 </form>

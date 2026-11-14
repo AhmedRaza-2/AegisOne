@@ -79,7 +79,7 @@ export default function AwarenessPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={load} className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-100 hover:bg-surface-200 dark:bg-white/[0.05] text-surface-700 dark:text-surface-200"><RefreshCw className="w-3.5 h-3.5" /> Refresh</button>
-          {canManage && <button onClick={() => setShowNew(v => !v)} className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white"><Plus className="w-4 h-4" /> New exercise</button>}
+          {canManage && <button onClick={() => setShowNew(v => !v)} className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white"><Plus className="w-4 h-4" /> New exercise</button>}
         </div>
       </motion.div>
 
@@ -140,7 +140,7 @@ export default function AwarenessPage() {
               await api("/admin/awareness/campaigns", "POST", { name: form.name.trim(), template_key: form.template_key, department_id: form.department_id ? Number(form.department_id) : null });
               toast("Exercise created. Launch it when you are ready."); setForm(f => ({ ...f, name: "" })); setShowNew(false);
             })}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50">
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white disabled:opacity-50">
             {busy === "create" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Create exercise
           </button>
         </motion.div>
@@ -184,7 +184,7 @@ export default function AwarenessPage() {
                     {canManage && c.status !== "closed" && (
                       <div className="flex flex-wrap gap-2">
                         <button onClick={() => run(c.campaign_id + "l", async () => { await api(`/admin/awareness/campaigns/${c.campaign_id}/launch?send_email=true`, "POST"); toast("Launched. AegisOne is emailing each person their own link."); })}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-600 text-white"><Send className="w-3.5 h-3.5" /> Launch &amp; email</button>
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent-600 hover:bg-accent-700 text-white"><Send className="w-3.5 h-3.5" /> Launch &amp; email</button>
                         <button onClick={() => run(c.campaign_id + "x", async () => { await api(`/admin/awareness/campaigns/${c.campaign_id}/launch`, "POST"); await downloadCsv(c.campaign_id); })}
                           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-surface-100 dark:bg-white/[0.06] text-surface-700 dark:text-surface-200"><Download className="w-3.5 h-3.5" /> Launch &amp; export links</button>
                         {c.status === "active" && <button onClick={() => run(c.campaign_id + "c", async () => { await api(`/admin/awareness/campaigns/${c.campaign_id}/close`, "POST"); })}

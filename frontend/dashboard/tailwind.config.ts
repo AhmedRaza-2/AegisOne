@@ -37,6 +37,19 @@ const config: Config = {
           900: "#0A1931",
           950: "#071426",
         },
+        // 60-30-10: surface = 60% canvas, brand navy = 30% structure, accent violet = 10% (only things you click)
+        accent: {
+          50: "#F4F1FF",
+          100: "#E9E3FF",
+          200: "#D3C8FF",
+          300: "#B4A2FF",
+          400: "#9179FF",
+          500: "#7C5FFF",
+          600: "#6D4CFF", // CTA (white text 5.1:1)
+          700: "#5935EB",
+          800: "#4627C2",
+          900: "#341D8F",
+        },
         danger: { 500: "#D65C5C", 600: "#B33E3E" },
         warning: { 500: "#D9A441", 600: "#B3822B" },
         success: { 500: "#2FA97E", 600: "#238260" },

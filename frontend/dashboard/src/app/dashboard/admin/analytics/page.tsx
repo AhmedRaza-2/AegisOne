@@ -157,7 +157,7 @@ export default function AdminAnalyticsPage() {
               key={range}
               onClick={() => updateTimeRange(range)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${timeRange === range
-                  ? "bg-brand-600 text-white shadow-sm"
+                  ? "bg-brand-950 text-white shadow-sm dark:bg-white dark:text-brand-950"
                   : "bg-surface-100 dark:bg-white/[0.04] text-surface-600 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-white/[0.08]"
                 }`}
             >

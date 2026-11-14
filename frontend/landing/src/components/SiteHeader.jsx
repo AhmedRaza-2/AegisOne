@@ -106,8 +106,8 @@ export default function SiteHeader() {
                             href="#contact"
                             className={`text-sm font-semibold px-4 py-2 rounded-full shadow-xs whitespace-nowrap shrink-0 transition-colors duration-500 flex items-center gap-1.5 ${
                                 isScrolled
-                                    ? "bg-white text-[#1A3D63] hover:bg-blue-50"
-                                    : "bg-[#3D6C90] hover:bg-[#2E5580] text-white rounded-lg"
+                                    ? "bg-[#6D4CFF] hover:bg-[#5935EB] text-white"
+                                    : "bg-[#6D4CFF] hover:bg-[#5935EB] text-white rounded-lg"
                             }`}
                         >
                             <span>Book Demo</span>
@@ -173,7 +173,7 @@ export default function SiteHeader() {
                             <a
                                 href="/register"
                                 onClick={() => setIsOpen(false)}
-                                className="w-full text-center text-sm font-semibold bg-[#3D6C90] hover:bg-[#2E5580] text-white py-2.5 rounded-lg shadow-xs transition-colors"
+                                className="w-full text-center text-sm font-semibold bg-[#6D4CFF] hover:bg-[#5935EB] text-white py-2.5 rounded-lg shadow-xs transition-colors"
                             >
                                 Get Started
                             </a>

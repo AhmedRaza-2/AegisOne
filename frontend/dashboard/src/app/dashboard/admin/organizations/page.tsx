@@ -71,7 +71,7 @@ export default function OrganizationsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={load} className="px-3 py-2 bg-surface-100 hover:bg-surface-200 dark:bg-white/[0.05] text-surface-700 dark:text-surface-200 text-sm font-medium rounded-lg flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Refresh</button>
-          <button onClick={() => setShowAdd(true)} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+          <button onClick={() => setShowAdd(true)} className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
             <Plus className="w-4 h-4" /> Add Tenant
           </button>
         </div>
@@ -172,7 +172,7 @@ export default function OrganizationsPage() {
                 </div>
                 <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
                   <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" disabled={busy === "add"} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg disabled:opacity-60">Create</button>
+                  <button type="submit" disabled={busy === "add"} className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-lg disabled:opacity-60">Create</button>
                 </div>
               </form>
             </motion.div>
@@ -193,7 +193,7 @@ export default function OrganizationsPage() {
                 <textarea required value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} rows={4} placeholder="Write the notice…" className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-white/[0.08] rounded-lg text-sm text-surface-900 dark:text-white focus:outline-none focus:border-brand-500/50 resize-none" />
                 <div className="flex gap-3 justify-end pt-2 border-t border-surface-200 dark:border-white/[0.06]">
                   <button type="button" onClick={() => setBroadcastTarget(null)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
-                  <button type="submit" disabled={busy === "bc"} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-lg flex items-center gap-2 disabled:opacity-60"><Send className="w-3.5 h-3.5" /> Send</button>
+                  <button type="submit" disabled={busy === "bc"} className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-lg flex items-center gap-2 disabled:opacity-60"><Send className="w-3.5 h-3.5" /> Send</button>
                 </div>
               </form>
             </motion.div>

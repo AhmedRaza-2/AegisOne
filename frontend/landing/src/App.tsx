@@ -189,7 +189,7 @@ export default function App() {
                 localStorage.setItem('cookieConsentAccepted', 'true');
                 setShowCookieConsent(false);
               }}
-              className="font-sans text-xs font-semibold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-4 py-2 rounded-lg cursor-pointer transition-colors"
+              className="font-sans text-xs font-semibold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-4 py-2 rounded-lg cursor-pointer transition-colors"
             >
               Accept
             </button>
@@ -351,7 +351,7 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={isDemoSubmitting}
-                    className="font-sans w-full text-center text-sm font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6 disabled:opacity-70"
+                    className="font-sans w-full text-center text-sm font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6 disabled:opacity-70"
                   >
                     {isDemoSubmitting ? 'Scheduling...' : 'Confirm Live Demo Booking'}
                     <Check className="w-4 h-4" />
@@ -417,7 +417,7 @@ export default function App() {
                   <div className="border-t border-slate-100 pt-3 flex justify-end">
                     <button
                       onClick={() => setShowDemoModal(false)}
-                      className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
+                      className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
                     >
                       Close Window
                     </button>
@@ -482,7 +482,7 @@ export default function App() {
             <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowPrivacyModal(false)}
-                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept &amp; Close
               </button>
@@ -544,7 +544,7 @@ export default function App() {
             <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowTermsModal(false)}
-                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept Terms
               </button>

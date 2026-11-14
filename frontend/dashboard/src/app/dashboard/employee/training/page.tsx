@@ -74,7 +74,7 @@ export default function TrainingPage() {
             </div>
           ))}
           {!result ? (
-            <button onClick={submit} disabled={busy || answers.some(a => a < 0)} className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50">
+            <button onClick={submit} disabled={busy || answers.some(a => a < 0)} className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white disabled:opacity-50">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Check my answers
             </button>
           ) : (

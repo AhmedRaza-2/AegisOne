@@ -63,7 +63,7 @@ export function ExtensionInstall() {
           <button
             onClick={download}
             disabled={busy}
-            className="mt-4 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors shadow-sm"
+            className="mt-4 inline-flex items-center gap-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : downloaded ? <Check className="w-4 h-4" /> : <Download className="w-4 h-4" />}
             {busy ? "Preparing…" : downloaded ? "Downloaded — download again" : "Download extension"}

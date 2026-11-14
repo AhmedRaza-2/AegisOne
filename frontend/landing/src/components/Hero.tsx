@@ -74,7 +74,7 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
             <button
               id="hero-btn-setup"
               onClick={onRequestSetup}
-              className="font-sans text-base font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] px-6 py-3.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer"
+              className="font-sans text-base font-semibold bg-[#6D4CFF] text-white hover:bg-[#5935EB] px-6 py-3.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer"
             >
               Request Organization Setup
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -260,7 +260,7 @@ export default function Hero({ onRequestSetup, onViewArchitecture }: HeroProps) 
                 className={`font-sans text-xs font-semibold px-4.5 py-2.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                   simulating 
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                    : 'bg-[#3D6C90] text-white hover:bg-[#3D6C90] shadow-sm'
+                    : 'bg-[#6D4CFF] text-white hover:bg-[#5935EB] shadow-sm'
                 }`}
               >
                 <Play className="w-3.5 h-3.5" />

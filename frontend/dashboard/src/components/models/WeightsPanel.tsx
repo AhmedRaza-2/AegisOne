@@ -78,7 +78,7 @@ export function WeightsPanel({ onChange }: { onChange?: () => void }) {
       <div className="flex flex-wrap gap-2">
         <button onClick={() => post("train", "/admin/model-updates/train", "Training started on the server. Progress shows under Retraining jobs.")}
           disabled={busy === "train" || !enough}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white disabled:opacity-50 disabled:cursor-not-allowed">
           {busy === "train" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />} Train improved weights
         </button>
         <button onClick={() => post("revert", "/admin/model-updates/revert", "URL model returned to its shipped weights.")} disabled={busy === "revert"}

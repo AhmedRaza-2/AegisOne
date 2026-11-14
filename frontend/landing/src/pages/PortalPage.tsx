@@ -164,7 +164,7 @@ export default function PortalPage() {
           </p>
           <div className="flex gap-3 justify-center pt-2">
             {problem !== 'no_org' && (
-              <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-xl bg-[#4A7FA7] text-white text-sm font-semibold hover:bg-[#3D6C90]">
+              <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-xl bg-[#6D4CFF] text-white text-sm font-semibold hover:bg-[#5935EB]">
                 Try again
               </button>
             )}
@@ -340,7 +340,7 @@ export default function PortalPage() {
                       href="https://docs.docker.com/get-docker/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#4A7FA7] hover:bg-[#3B6A8C] px-4 py-2 rounded-lg transition-colors shadow-sm"
+                      className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#6D4CFF] hover:bg-[#5935EB] px-4 py-2 rounded-lg transition-colors shadow-sm"
                     >
                       <Download className="w-3.5 h-3.5" /> Download Docker
                     </a>

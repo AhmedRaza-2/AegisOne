@@ -228,7 +228,7 @@ export default function ModelsPage() {
                 <button
                   onClick={() => handleRetrain(m.id)}
                   disabled={retraining === m.id || !rd.ready || pending === 0 || !!running}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {retraining === m.id || running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                   {running ? `Job ${running.status}…` : reason}

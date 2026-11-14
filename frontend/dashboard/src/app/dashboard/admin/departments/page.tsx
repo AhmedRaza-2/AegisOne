@@ -352,7 +352,7 @@ export default function DepartmentsPage() {
           </button>
           <button
             onClick={() => setShowAddUserModal(true)}
-            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+            className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
           >
             <UserPlus className="w-4 h-4" /> Add User / Manager
           </button>
@@ -656,7 +656,7 @@ export default function DepartmentsPage() {
 
                 <div className="flex justify-end gap-3 pt-2">
                   <button type="button" onClick={() => setShowAddDeptModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
-                  <button type="submit" className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl">Create Department</button>
+                  <button type="submit" className="px-5 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-xl">Create Department</button>
                 </div>
               </form>
             </motion.div>
@@ -738,7 +738,7 @@ export default function DepartmentsPage() {
                 </div>
                 <div className="flex justify-end gap-3 pt-3">
                   <button type="button" onClick={() => setShowAddUserModal(false)} className="px-4 py-2 text-xs font-medium text-surface-500">Cancel</button>
-                  <button type="submit" className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl">Create Account</button>
+                  <button type="submit" className="px-5 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-xl">Create Account</button>
                 </div>
               </form>
             </motion.div>

@@ -34,7 +34,7 @@ export default function ReadySection({ onRequestSetup, onScheduleDemo }: ReadySe
           <button
             id="ready-btn-setup"
             onClick={onRequestSetup}
-            className="font-sans text-base font-semibold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-8 py-3.5 rounded-lg shadow-md transition-all duration-200 cursor-pointer"
+            className="font-sans text-base font-semibold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-8 py-3.5 rounded-lg shadow-md transition-all duration-200 cursor-pointer"
           >
             Request Setup
           </button>

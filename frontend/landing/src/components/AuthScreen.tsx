@@ -140,7 +140,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
             <button
               type="submit"
-              className="font-sans w-full text-center text-sm font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
+              className="font-sans w-full text-center text-sm font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white py-3 rounded-lg flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors mt-6"
             >
               {isSignUp ? 'Create Admin Node Account' : 'Authenticate & Open Portal'}
               <ArrowRight className="w-4 h-4" />

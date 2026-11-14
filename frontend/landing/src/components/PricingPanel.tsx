@@ -58,7 +58,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                   type="button"
                   onClick={() => setBillingCycle('annual')}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${billingCycle === 'annual'
-                    ? 'bg-[#3D6C90] text-white shadow-xs'
+                    ? 'bg-[#0A1931] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
@@ -161,7 +161,7 @@ export default function PricingPanel({ isOpen, onClose, onSelectPlan }: PricingP
                       type="button"
                       onClick={() => onSelectPlan(plan.id, billingCycle)}
                       className={`w-full py-2.5 px-4 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 group cursor-pointer ${isPopular
-                        ? 'bg-[#3D6C90] hover:bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                        ? 'bg-[#6D4CFF] hover:bg-[#5935EB] text-white shadow-md shadow-[#6D4CFF]/25'
                         : 'bg-[#0A1931] hover:bg-slate-800 text-white'
                         }`}
                     >

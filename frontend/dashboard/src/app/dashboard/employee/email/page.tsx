@@ -119,7 +119,7 @@ export default function EmployeeEmailSecurityPage() {
               onClick={() => { setPeriod(p); setVisibleCount(50); }}
               className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 period === p
-                  ? "bg-brand-600 text-white shadow-md shadow-brand-600/30"
+                  ? "bg-brand-950 text-white shadow-sm dark:bg-white dark:text-brand-950"
                   : "text-surface-600 dark:text-slate-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-200 dark:hover:bg-slate-900"
               }`}
             >
@@ -354,7 +354,7 @@ export default function EmployeeEmailSecurityPage() {
           <div className="p-4 border-t border-surface-200 dark:border-slate-800 text-center bg-surface-50 dark:bg-slate-900/40">
             <button
               onClick={() => setVisibleCount(prev => prev + 50)}
-              className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all shadow-md shadow-brand-600/20 inline-flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-700 shadow-md shadow-accent-600/30 text-white text-xs font-bold transition-all inline-flex items-center gap-2"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Load More</span>
@@ -507,7 +507,7 @@ export default function EmployeeEmailSecurityPage() {
                     href={selectedScan.thread_url || selectedScan.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-brand-600/30 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2.5 bg-accent-600 hover:bg-accent-700 shadow-md shadow-accent-600/30 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5"
                   >
                     <span>Open Email in Webmail</span>
                     <ArrowUpRight className="w-4 h-4" />

@@ -173,7 +173,7 @@ export default function ReportsPage() {
           <button onClick={fetchData} title="Refresh" className="p-2 bg-surface-100 dark:bg-white/[0.04] text-surface-700 dark:text-surface-300 rounded-xl hover:bg-surface-200 dark:hover:bg-white/[0.08] transition-colors">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <button onClick={downloadCSV} className="px-3.5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors shadow-sm">
+          <button onClick={downloadCSV} className="px-3.5 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors">
             <Download className="w-4 h-4" /> Export CSV
           </button>
         </div>

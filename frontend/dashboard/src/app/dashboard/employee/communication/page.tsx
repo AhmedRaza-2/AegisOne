@@ -40,7 +40,7 @@ export default function EmployeeCommunicationPage() {
         <div className="ml-auto flex gap-1 p-1 bg-surface-100 dark:bg-surface-900 rounded-lg">
           <button onClick={() => setTab("chat")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${tab === "chat" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>
             <MessageSquare className="w-4 h-4" /> Chat
-            {unreadTotal > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-brand-500 text-white rounded-full">{unreadTotal}</span>}
+            {unreadTotal > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-accent-600 text-white rounded-full">{unreadTotal}</span>}
           </button>
           <button onClick={() => setTab("announce")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${tab === "announce" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>
             <Megaphone className="w-4 h-4" /> Announcements

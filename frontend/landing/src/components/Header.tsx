@@ -123,7 +123,7 @@ export default function Header({ onScrollTo }: HeaderProps) {
               </Link>
               <Link
                 to="/register"
-                className="font-sans text-sm font-semibold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-5 py-2.5 rounded-lg shadow-xs transition-all duration-200"
+                className="font-sans text-sm font-semibold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-5 py-2.5 rounded-lg shadow-xs transition-all duration-200"
               >
                 Register Org
               </Link>
@@ -177,7 +177,7 @@ export default function Header({ onScrollTo }: HeaderProps) {
           <Link
             to="/register"
             onClick={() => setMobileMenuOpen(false)}
-            className="font-sans w-full text-center text-sm font-semibold bg-[#4A7FA7] text-white hover:bg-[#3D6C90] py-2.5 rounded-lg block"
+            className="font-sans w-full text-center text-sm font-semibold bg-[#6D4CFF] text-white hover:bg-[#5935EB] py-2.5 rounded-lg block"
           >
             Register Org
           </Link>

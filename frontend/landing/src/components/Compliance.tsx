@@ -52,7 +52,7 @@ const complianceCards = [
           <button
             id="btn-download-whitepaper"
             onClick={onDownloadWhitepaper}
-            className="font-sans text-sm font-semibold bg-[#3D6C90] text-white hover:bg-[#3D6C90] px-5 py-3 rounded-lg shadow-md transition-all duration-200 flex items-center gap-2 group cursor-pointer"
+            className="font-sans text-sm font-semibold bg-[#6D4CFF] text-white hover:bg-[#5935EB] px-5 py-3 rounded-lg shadow-md transition-all duration-200 flex items-center gap-2 group cursor-pointer"
           >
             <Download className="w-4 h-4 text-white" />
             Download Security PDF

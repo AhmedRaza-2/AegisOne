@@ -729,7 +729,7 @@ export default function AdminSetupPage() {
                         <Download className="w-3.5 h-3.5" /> Template
                       </button>
 
-                      <label id="setup-csv-import" tabIndex={-1} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm">
+                      <label id="setup-csv-import" tabIndex={-1} className="px-3 py-1.5 bg-accent-600 hover:bg-accent-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm">
                         <Upload className="w-3.5 h-3.5" /> Upload CSV
                         <input
                           type="file"
@@ -851,7 +851,7 @@ export default function AdminSetupPage() {
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-extrabold text-blue-950 dark:text-blue-100 truncate">{manager.firstName} {manager.lastName}</span>
-                                        <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.2 rounded uppercase">Manager</span>
+                                        <span className="text-[9px] font-bold bg-brand-700 text-white px-1.5 py-0.2 rounded uppercase">Manager</span>
                                       </div>
                                       <p className="text-[10px] text-slate-500 truncate">{manager.email}</p>
                                     </div>
@@ -1116,7 +1116,7 @@ export default function AdminSetupPage() {
                                     <span className="px-1.5 py-0.2 bg-brand-600 text-white rounded text-[9px] font-bold uppercase">Admin</span>
                                   )}
                                   {emp.role.toLowerCase() === 'manager' && (
-                                    <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded text-[9px] font-bold uppercase">Manager</span>
+                                    <span className="px-1.5 py-0.2 bg-brand-700 text-white rounded text-[9px] font-bold uppercase">Manager</span>
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono">{emp.email}</td>
@@ -1342,7 +1342,7 @@ export default function AdminSetupPage() {
               />
               <div className="flex justify-end gap-2">
                 <button onClick={() => setIsAddDeptModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
-                <button onClick={() => addDepartment(newDeptNameInput)} className="px-4 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg">Add Department</button>
+                <button onClick={() => addDepartment(newDeptNameInput)} className="px-4 py-2 text-xs font-bold bg-accent-600 hover:bg-accent-700 text-white rounded-lg">Add Department</button>
               </div>
             </div>
           </div>

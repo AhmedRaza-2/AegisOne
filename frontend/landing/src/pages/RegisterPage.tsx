@@ -1097,7 +1097,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading || cooldownSeconds > 0}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#3D6C90] hover:bg-[#2E5580] disabled:bg-[#3D6C90]/50 disabled:cursor-not-allowed text-white font-semibold py-[11px] rounded-lg text-sm transition-all shadow-sm"
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#6D4CFF] hover:bg-[#5935EB] disabled:bg-[#6D4CFF]/50 disabled:cursor-not-allowed text-white font-semibold py-[11px] rounded-lg text-sm transition-all shadow-sm"
                 >
                   {loading ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Creating Organization...</>
@@ -1169,7 +1169,7 @@ export default function RegisterPage() {
             <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowPrivacyModal(false)}
-                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept &amp; Close
               </button>
@@ -1209,7 +1209,7 @@ export default function RegisterPage() {
             <div className="bg-[#F6FAFD] border-t border-slate-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => setShowTermsModal(false)}
-                className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#2E5580] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
+                className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
                 Accept Terms
               </button>

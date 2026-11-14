@@ -366,7 +366,7 @@ export default function ThreatCenterPage() {
                 </div>
                 <div className="flex gap-3 justify-end pt-2">
                   <button type="button" onClick={() => setAssigningTraining(null)} className="px-4 py-2 text-xs font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-white">Cancel</button>
-                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
+                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 disabled:opacity-60 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2">
                     <Send className="w-3.5 h-3.5" /> {submitting ? "Sending..." : "Assign"}
                   </button>
                 </div>

@@ -141,7 +141,7 @@ export default function ExplainerVideo({ onShowNotification }: ExplainerVideoPro
                 <div className="flex items-center gap-4">
                   <button
                     onClick={togglePlay}
-                    className="w-10 h-10 rounded-full bg-[#3D6C90] hover:bg-blue-600 text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-[#6D4CFF] hover:bg-[#5935EB] text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
                     title={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}

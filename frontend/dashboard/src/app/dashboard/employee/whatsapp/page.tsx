@@ -341,7 +341,7 @@ export default function EmployeeWhatsAppSecurityPage() {
               >
                 Report False Positive
               </button>
-              <button onClick={() => setSelectedThreat(null)} className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all">
+              <button onClick={() => setSelectedThreat(null)} className="px-4 py-2 rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-bold transition-all">
                 Close Diagnosis
               </button>
             </div>

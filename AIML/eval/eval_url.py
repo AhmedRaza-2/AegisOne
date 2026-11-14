@@ -77,6 +77,7 @@ def main():
     ap.add_argument("--tag", default="run")
     ap.add_argument("--phishtank", action="store_true")
     ap.add_argument("--mutations", action="store_true", help="also score evasive variants of the fresh phishing URLs")
+    ap.add_argument("--phish-file", default="phish_fresh.csv", help="phishing set inside AIML/eval/data (column 'url')")
     a = ap.parse_args()
 
     from api.services import model_orchestrator as mo
@@ -89,7 +90,7 @@ def main():
         if p.exists():
             d = pd.read_csv(p)
             legit[name] = d.sample(min(n, len(d)), random_state=3)["url"].tolist()
-    phish = {"openphish_fresh": pd.read_csv(DATA / "phish_fresh.csv")["url"].tolist()}
+    phish = {"openphish_fresh": pd.read_csv(DATA / a.phish_file)["url"].tolist()}
     if a.mutations:
         # Robustness (Frontiers in Computer Science 2026, "domain leakage / adversarial manipulation"): the same
         # phishing URLs after cheap evasive edits that do not change where they lead.

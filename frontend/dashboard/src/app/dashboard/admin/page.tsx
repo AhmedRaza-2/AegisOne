@@ -109,7 +109,7 @@ export default function AdminDashboard() {
                 onClick={() => setTimeRange(item.value as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   timeRange === item.value
-                    ? "bg-brand-600 text-white shadow-sm"
+                    ? "bg-brand-950 text-white shadow-sm dark:bg-white dark:text-brand-950"
                     : "text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white"
                 }`}
               >

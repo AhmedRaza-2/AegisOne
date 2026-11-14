@@ -181,7 +181,7 @@ export default function ManagerCommunicationPage() {
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setShowBroadcast(false)} className="px-4 py-2 text-sm text-surface-500">Cancel</button>
                   <button onClick={handleBroadcast} disabled={!bContent.trim() || bSending}
-                    className="px-5 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg flex items-center gap-2">
+                    className="px-5 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 disabled:opacity-50 text-white text-sm font-medium rounded-lg flex items-center gap-2">
                     <Send className="w-4 h-4" />{bSending ? "Sending…" : "Send Broadcast"}
                   </button>
                 </div>
@@ -200,13 +200,13 @@ export default function ManagerCommunicationPage() {
         </div>
         <div className="ml-auto flex items-center gap-3">
           <button onClick={() => setShowBroadcast(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-sm font-medium rounded-lg transition-colors">
             <Megaphone className="w-4 h-4" /> Broadcast
           </button>
           <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-900 rounded-lg">
             <button onClick={() => setTab("chat")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${tab === "chat" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>Chat</button>
             <button onClick={() => setTab("announce")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${tab === "announce" ? "bg-white dark:bg-[#14284A] text-surface-900 dark:text-white shadow-sm" : "text-surface-500"}`}>
-              Announcements {announcements.length > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-brand-500 text-white rounded-full">{announcements.length}</span>}
+              Announcements {announcements.length > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-accent-600 text-white rounded-full">{announcements.length}</span>}
             </button>
           </div>
         </div>
@@ -251,7 +251,7 @@ export default function ManagerCommunicationPage() {
               <h2 className="text-base font-semibold text-surface-900 dark:text-white flex items-center gap-2"><Megaphone className="w-5 h-5 text-brand-500" />Announcements</h2>
               <p className="text-xs text-surface-500 mt-0.5">Department broadcasts sent and received</p>
             </div>
-            <button onClick={() => setShowBroadcast(true)} className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg">
+            <button onClick={() => setShowBroadcast(true)} className="flex items-center gap-2 px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-sm font-medium rounded-lg">
               <Plus className="w-4 h-4" />New Broadcast
             </button>
           </div>

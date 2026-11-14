@@ -119,19 +119,21 @@ function SidebarContent({
         onClick={() => setMobileOpen(false)}
         prefetch={true}
         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all relative group ${inset ? "ml-4" : ""} ${active
-          ? "bg-surface-100 dark:bg-white/[0.04] text-brand-600 dark:text-brand-400 font-semibold shadow-sm"
-          : "text-surface-600 hover:text-surface-900 hover:bg-surface-50 dark:text-surface-400 dark:hover:text-white dark:hover:bg-white/[0.02]"
+          ? "bg-white/[0.08] text-white font-semibold"
+          : "text-surface-300/80 hover:text-white hover:bg-white/[0.04]"
           }`}
         title={collapsed ? item.label : undefined}
+        aria-current={active ? "page" : undefined}
       >
+        {active && <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-accent-400" />}
         <item.icon className={`shrink-0 transition-colors ${active ? 'w-[18px] h-[18px]' : 'w-[18px] h-[18px] group-hover:text-surface-800 dark:group-hover:text-surface-300'}`} />
         {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
 
         {item.label === "Communication" && unreadCount > 0 && (
           collapsed ? (
-            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-[#0F2038]"></div>
+            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-accent-600 ring-2 ring-white dark:ring-[#0F2038]"></div>
           ) : (
-            <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-sm">
+            <span className="w-5 h-5 rounded-full bg-accent-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-sm">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )
@@ -147,7 +149,7 @@ function SidebarContent({
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="AegisOne Logo" className="w-9 h-9 object-contain shrink-0" />
             <div className="flex flex-col">
-              <span className="text-[17px] font-bold tracking-tight text-brand-600 dark:text-[#5C93BE] leading-tight">AegisOne</span>
+              <span className="text-[17px] font-bold tracking-tight text-white leading-tight">AegisOne</span>
               <span className="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-widest font-semibold">{roleBadge?.label || "Enterprise"} Portal</span>
             </div>
           </div>
@@ -185,7 +187,7 @@ function SidebarContent({
       <div className="p-4 shrink-0 mt-auto border-t border-surface-200 dark:border-white/[0.04] relative">
         {!collapsed && (
           <div className="flex items-center gap-3 p-2 -m-2 rounded-lg transition-colors">
-            <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-9 h-9 rounded-full bg-white/10 ring-1 ring-white/15 flex items-center justify-center overflow-hidden shrink-0">
               <span className="text-sm font-bold text-white">{initials}</span>
             </div>
             <div className="flex flex-col min-w-0 flex-1">
@@ -500,7 +502,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-[#0A1931] flex transition-colors duration-300 font-sans">
       <aside
-        className={`hidden md:flex flex-col border-r border-surface-200 dark:border-white/[0.04] bg-white dark:bg-[#0F2038] shrink-0 h-screen sticky top-0 z-50 ${isDragging ? '' : 'transition-all duration-300'}`}
+        // 30% navy structure in both themes: the `dark` class makes the sidebar use its dark-mode styles everywhere
+        className={`dark hidden md:flex flex-col border-r border-white/[0.06] bg-[#0B1A33] text-white shrink-0 h-screen sticky top-0 z-50 ${isDragging ? '' : 'transition-all duration-300'}`}
         style={{ width: collapsed ? 80 : sidebarWidth }}
       >
         <SidebarContent
@@ -560,7 +563,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 <Bell className="w-4 h-4" />
                 {bellCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-accent-600 text-white text-[9px] font-bold flex items-center justify-center">
                     {bellCount > 9 ? '9+' : bellCount}
                   </span>
                 )}
@@ -626,7 +629,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </p>
                           </div>
                           {(!msg.is_read && !seenIds.has(msg.id)) && (
-                            <span className="w-2 h-2 rounded-full bg-brand-500 mt-1 shrink-0"></span>
+                            <span className="w-2 h-2 rounded-full bg-accent-600 mt-1 shrink-0"></span>
                           )}
                         </button>
                       ))
@@ -779,7 +782,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <button
                         type="submit"
                         disabled={resetting || otp.length < 6}
-                        className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                        className="w-full py-2.5 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                       >
                         {resetting ? "Verifying..." : "Verify & Reset Password"}
                       </button>
@@ -788,7 +791,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-lg transition-colors"
+                      className="w-full py-2.5 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white font-medium rounded-lg transition-colors"
                     >
                       Log Out & Use New Password
                     </button>
@@ -844,7 +847,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
                   <button
                     onClick={handleGoToExtensionPage}
-                    className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    className="flex-1 py-2.5 px-4 bg-accent-600 hover:bg-accent-700 text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
                   >
                     <Puzzle className="w-4 h-4" /> Install Extension Now
                   </button>

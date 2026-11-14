@@ -94,7 +94,7 @@ export default function IntegrationsPage() {
               const r = await api("/admin/integrations/keys", "POST", { name: newKeyName.trim(), scopes: newKeyScopes });
               setCreated({ title: `API key “${r.name}” created`, value: r.api_key, note: r.note }); setNewKeyName("");
             })}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50">
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white disabled:opacity-50">
             {busy === "newkey" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Create key
           </button>
         </div>
@@ -132,7 +132,7 @@ export default function IntegrationsPage() {
               const r = await api("/admin/integrations/webhooks", "POST", { url: hookUrl.trim(), events: hookEvents });
               setCreated({ title: "Webhook created — signing secret", value: r.secret, note: r.note }); setHookUrl("");
             })}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50">
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white disabled:opacity-50">
             {busy === "newhook" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add webhook
           </button>
         </div>

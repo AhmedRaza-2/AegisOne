@@ -1,0 +1,143 @@
+{
+  "tag": "v10_2026-11-14",
+  "legit": {
+    "legit_popular": {
+      "n": 498,
+      "errors": 0,
+      "warn_rate": 0.024096385542168676,
+      "block_rate": 0.024096385542168676
+    },
+    "legit_web": {
+      "n": 2000,
+      "errors": 0,
+      "warn_rate": 0.008,
+      "block_rate": 0.0045
+    }
+  },
+  "phish": {
+    "openphish_fresh": {
+      "n": 299,
+      "recall_warn": 0.9364548494983278,
+      "recall_block": 0.903010033444816,
+      "final": {
+        "n_legit": 2498,
+        "n_phish": 299,
+        "auc": 0.993193886212649,
+        "tpr_at_fpr_1pct": 0.919732441471572,
+        "tpr_at_fpr_0.1pct": 0.3411371237458194,
+        "ap_at_1pct_base_rate": 0.6077100411174851
+      },
+      "neural": {
+        "n_legit": 2498,
+        "n_phish": 299,
+        "auc": 0.7604371122315914,
+        "tpr_at_fpr_1pct": 0.5551839464882943,
+        "tpr_at_fpr_0.1pct": 0.20735785953177258,
+        "ap_at_1pct_base_rate": 0.4079048105836799
+      }
+    }
+  },
+  "worst_false_positives": {
+    "legit_popular": [
+      {
+        "url": "https://bit.ly/0176044968?fbclid=IwZXh0bgNhZW0CMTAAAR3XT5YfiZ_YrVkuPmChl0sQLDKKvdkWCHEDZAw2JAgfkBff8IF853CiOAw_aem_ZmFrZWR1bW15MTZieXRlcw",
+        "score": 0.6
+      },
+      {
+        "url": "https://bunkr.pk/a/0kSbybQK",
+        "score": 0.6
+      },
+      {
+        "url": "https://dns.google/?af=RQ4SG2",
+        "score": 0.6
+      },
+      {
+        "url": "https://expireddomains.com/?saved=moz_gd",
+        "score": 0.6
+      },
+      {
+        "url": "https://bit.ly/0176044968?fbclid=IwAR1i4yRTeTSFvo1emwqx9XvzMcPSjKgDFsxraGsefOB1rsfdFUnVyOQ4plU",
+        "score": 0.6
+      },
+      {
+        "url": "https://bit.ly/0176044968?fbclid=IwZXh0bgNhZW0CMTAAAR3cpUk_X4PX_8Hv2XblXmToWTAqWksOnAuPYpjEHb-g8ly7NmlYLib2cW4_aem_AZNNX-5sOL7T6gdZqY5q-b3yT",
+        "score": 0.6
+      },
+      {
+        "url": "https://dns.google/?7ee519f739c5414e8c1f-bd40d205906a9c02051d-8b8c42699fc4595ff0f5cfc06e069d80-57fe469ca9c6c73a4664e482-fc709a099ad14ce7-8fd",
+        "score": 0.6
+      },
+      {
+        "url": "https://bunkr.pk/a/08YYMIBZ",
+        "score": 0.6
+      },
+      {
+        "url": "https://bit.ly/0176044968?fbclid=IwZXh0bgNhZW0CMTAAAR35k5paqfGbrB78gFNwvIEj2SiOn6RTBG3b4-NRbD6rmWerb3yc97eCvP4_aem_ZmFrZWR1bW15MTZieXRlcw",
+        "score": 0.6
+      },
+      {
+        "url": "https://www.namecheap.com/?clickID=zVF38Bxx3xyPRh5Vylw%3A0xWXUkFUDSQ8q2kqUM0&irgwc=1&&im_rewards=1&affnetwork=ir&ref=ir",
+        "score": 0.6
+      },
+      {
+        "url": "https://www.godaddy.com/?isc=gtnila43%2FNewsCenter%2Factions%2FGetCaptcha.aspx%3Fid=mo&targetdivid=mo-captcha&callback=jQuery183099441872427",
+        "score": 0.6
+      },
+      {
+        "url": "https://www.f5.com/attack?user_id=657bffcb5f93fb20be606398&sn_type=TWITTER&cpost_id=668ddcb6404d1014a7518868&post_id=100005521483060&asset_i",
+        "score": 0.6
+      }
+    ],
+    "legit_web": [
+      {
+        "url": "http://cod4-server.info/?page=profile&identify=76465a847fdaa342598bdaa438f2b50c23e3176d98d723ff25b3c942fd32ed320d5bfbd1ec2a2ffa",
+        "score": 0.819
+      },
+      {
+        "url": "http://russiandreams.info/human-services-resume-objective.html/human-services-resume-objective-sample-objectives-for-entry-level-resumes-res",
+        "score": 0.75
+      },
+      {
+        "url": "https://nick-zhang.weebly.com/octavia.html",
+        "score": 0.6
+      },
+      {
+        "url": "https://clunygreyjewelry.com/index.html",
+        "score": 0.6
+      },
+      {
+        "url": "http://telgenhoffandoetgen.com/",
+        "score": 0.6
+      },
+      {
+        "url": "http://mailsdaddy.com/",
+        "score": 0.6
+      },
+      {
+        "url": "http://devconpacific.com/",
+        "score": 0.6
+      },
+      {
+        "url": "http://cbe-software.com/",
+        "score": 0.6
+      },
+      {
+        "url": "https://lapazecovillage1.weebly.com/photo-gallery.html",
+        "score": 0.6
+      },
+      {
+        "url": "http://kopkolaw.com/",
+        "score": 0.596
+      },
+      {
+        "url": "http://beautyboutiquesparks.com/",
+        "score": 0.552
+      },
+      {
+        "url": "http://wenceslaugraus.com/",
+        "score": 0.517
+      }
+    ]
+  },
+  "seconds": 547
+}

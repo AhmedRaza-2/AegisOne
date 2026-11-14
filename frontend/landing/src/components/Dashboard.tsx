@@ -592,7 +592,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('wizard')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer relative ${
                   activeTab === 'wizard' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -608,7 +608,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('dashboard')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'dashboard' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -619,7 +619,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('threats')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'threats' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -630,7 +630,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('users')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'users' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -641,7 +641,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('departments')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'departments' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -652,7 +652,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('analytics')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'analytics' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -663,7 +663,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('reports')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'reports' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -674,7 +674,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('extensions')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'extensions' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -685,7 +685,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('settings')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'settings' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -696,7 +696,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 onClick={() => setActiveTab('help')}
                 className={`font-sans text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'help' 
-                    ? 'bg-[#3D6C90] text-white shadow-sm' 
+                    ? 'bg-[#0A1931] text-white shadow-sm' 
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -795,7 +795,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                       </div>
                       <button 
                         type="submit" 
-                        className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-4 py-2.5 rounded-lg cursor-pointer transition-colors"
+                        className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-4 py-2.5 rounded-lg cursor-pointer transition-colors"
                       >
                         Verify Identity Profile
                       </button>
@@ -837,7 +837,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
 
                   <button 
                     onClick={handleEmployeeDownloadExt}
-                    className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors flex items-center gap-1.5"
+                    className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors flex items-center gap-1.5"
                   >
                     <Download className="w-4 h-4" /> Download Client Extension Bundle
                   </button>
@@ -863,7 +863,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                   {!empExtInstalled && (
                     <button 
                       onClick={handleEmployeeVerifyInstall}
-                      className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors"
+                      className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-4 py-2.5 rounded-lg cursor-pointer mt-4 transition-colors"
                     >
                       Verify Extension local Listener
                     </button>
@@ -966,7 +966,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
               {/* Skip to Dashboard */}
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className="font-sans text-xs font-bold text-white bg-[#3D6C90] hover:bg-[#3D6C90] px-5 py-3 rounded-xl flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer shadow-sm"
+                className="font-sans text-xs font-bold text-white bg-[#6D4CFF] hover:bg-[#5935EB] px-5 py-3 rounded-xl flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer shadow-sm"
               >
                 Go to Dashboard Console <ArrowRight className="w-4 h-4" />
               </button>
@@ -1731,7 +1731,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
 
                   <button 
                     type="submit" 
-                    className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white w-full py-3 rounded-lg transition-colors cursor-pointer"
+                    className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white w-full py-3 rounded-lg transition-colors cursor-pointer"
                   >
                     Add User to Directory
                   </button>
@@ -1829,7 +1829,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                   </div>
                   <button 
                     type="submit" 
-                    className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white w-full py-3 rounded-lg cursor-pointer transition-colors"
+                    className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white w-full py-3 rounded-lg cursor-pointer transition-colors"
                   >
                     Establish Department
                   </button>
@@ -1964,7 +1964,7 @@ export default function Dashboard({ session, onLogOut }: DashboardProps) {
                 </div>
                 <button 
                   onClick={() => alert("Report printed successfully! Simulated PDF package was generated in cache.")}
-                  className="font-sans text-xs font-bold bg-[#3D6C90] hover:bg-[#3D6C90] text-white px-5 py-2.5 rounded-xl cursor-pointer transition-all flex items-center gap-2"
+                  className="font-sans text-xs font-bold bg-[#6D4CFF] hover:bg-[#5935EB] text-white px-5 py-2.5 rounded-xl cursor-pointer transition-all flex items-center gap-2"
                 >
                   <FileCheck className="w-4 h-4" /> Export Audit Report Card
                 </button>

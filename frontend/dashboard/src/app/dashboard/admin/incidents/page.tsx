@@ -527,7 +527,7 @@ export default function AdminIncidentsPage() {
                               </button>
                               {st.action && (
                                 <button disabled={busyAction === st.action} onClick={() => runAction(st.action)}
-                                  className="shrink-0 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold disabled:opacity-50">
+                                  className="shrink-0 px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white font-semibold disabled:opacity-50">
                                   {busyAction === st.action ? "Working…" : ACTION_LABELS[st.action] || st.action}
                                 </button>
                               )}

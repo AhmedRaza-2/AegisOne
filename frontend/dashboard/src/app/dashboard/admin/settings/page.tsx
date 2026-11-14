@@ -201,7 +201,7 @@ export default function AdminSettingsPage() {
     <button
       type="button"
       onClick={toggle}
-      className={`w-10 h-6 rounded-full transition-colors relative ${on ? "bg-brand-600" : "bg-surface-200 dark:bg-surface-700"}`}
+      className={`w-10 h-6 rounded-full transition-colors relative ${on ? "bg-accent-600" : "bg-surface-200 dark:bg-surface-700"}`}
     >
       <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${on ? "left-5" : "left-1"}`} />
     </button>
@@ -289,7 +289,7 @@ export default function AdminSettingsPage() {
                     <label className="block text-xs font-medium text-surface-500 mb-1">Email Address</label>
                     <input type="email" value={user.email} disabled className="w-full px-3.5 py-2 bg-surface-100 dark:bg-white/[0.04] border border-transparent rounded-xl text-sm text-surface-500 cursor-not-allowed" />
                   </div>
-                  <button type="submit" disabled={updatingProfile} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50">
+                  <button type="submit" disabled={updatingProfile} className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50">
                     {updatingProfile ? "Saving..." : "Save Profile"}
                   </button>
                 </form>
@@ -393,7 +393,7 @@ export default function AdminSettingsPage() {
                 <button
                   type="submit"
                   disabled={savingSmtp}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
                 >
                   {savingSmtp ? "Saving..." : "Save SMTP Settings"}
                 </button>
@@ -474,7 +474,7 @@ export default function AdminSettingsPage() {
                     max={99}
                     value={threshold}
                     onChange={(e) => setThreshold(Number(e.target.value))}
-                    className="w-full h-1.5 rounded-full appearance-none bg-surface-200 dark:bg-surface-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-brand-500 [&::-webkit-slider-thumb]:cursor-pointer"
+                    className="w-full h-1.5 rounded-full appearance-none bg-surface-200 dark:bg-surface-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-600 [&::-webkit-slider-thumb]:cursor-pointer"
                   />
                   <p className="text-[11px] text-surface-500 mt-1">Scans scoring above {threshold}% risk level will trigger system alerts.</p>
                 </div>
@@ -517,7 +517,7 @@ export default function AdminSettingsPage() {
                       }
                     }}
                     disabled={savingPolicy}
-                    className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
+                    className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
                   >
                     {savingPolicy ? "Saving..." : "Save Detection Policy"}
                   </button>

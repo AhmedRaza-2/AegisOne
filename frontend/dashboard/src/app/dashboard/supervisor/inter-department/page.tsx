@@ -31,7 +31,7 @@ export default function InterDepartmentPage() {
             Collaborate with other departments and escalate critical incidents.
           </p>
         </div>
-        <button className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+        <button className="px-4 py-2 bg-accent-600 hover:bg-accent-700 shadow-sm shadow-accent-600/25 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
           <Plus className="w-4 h-4" /> New Request
         </button>
       </motion.div>
